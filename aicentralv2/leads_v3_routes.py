@@ -17,6 +17,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, ses
 
 from . import db
 from . import leads_v3_cadencias as cadencias
+from . import leads_v3_clientes as clientes
 from . import leads_v3_mensagens as mensagens
 from . import leads_v3_prospeccao as prospeccao
 from .auth import centralcomm_required, centralcomm_required_api
@@ -1147,6 +1148,58 @@ def api_trocar_fluxo_do_lead(lead_id):
         return _ok({"trocadas": n})
 
     return _transacao(run, "trocar fluxo da conta")
+
+
+# ─────────────────────────────────────────────────────
+# Cliente ↔ lead (CRM v3 e mesa de leads)
+# ─────────────────────────────────────────────────────
+def _auditar(acao, descricao, registro_id, registro_tipo):
+    try:
+        from .routes import registrar_auditoria
+
+        registrar_auditoria(acao=acao, modulo="leads", descricao=descricao, registro_id=registro_id, registro_tipo=registro_tipo)
+    except Exception as exc:  # auditoria não derruba a operação já gravada
+        current_app.logger.warning("leads-v3: auditoria falhou: %s", exc)
+
+
+@bp.route("/api/clientes/<int:cliente_id>/para-lead", methods=["GET", "POST"])
+@centralcomm_required_api
+def api_cliente_para_lead(cliente_id):
+    """GET: prévia (PIs que bloqueiam, cotações que vão expirar, contatos). POST: envia o cliente para leads."""
+    motivo = str((request.get_json(silent=True) or {}).get("motivo") or "")
+
+    def run(cursor):
+        if request.method == "GET":
+            return _ok(_linhas_dict(clientes.previa_volta(cursor, cliente_id)))
+        r = clientes.cliente_para_lead(cursor, cliente_id, usuario_id=session.get("user_id"),
+                                       usuario_nome=session.get("user_name"), motivo=motivo)
+        return _ok(r)
+
+    resposta = _transacao(run, "cliente para lead")
+    if request.method == "POST" and resposta[1] == 200:
+        _auditar("voltar_lead", f"Cliente {cliente_id} voltou para leads", cliente_id, "tbl_cliente")
+    return resposta
+
+
+@bp.route("/api/leads/<int:lead_id>/reativar-cliente", methods=["POST"])
+@centralcomm_required_api
+def api_reativar_cliente(lead_id):
+    """Lead que veio de um cliente volta a ser cliente no mesmo cadastro."""
+    def run(cursor):
+        return _ok(clientes.reativar_cliente(cursor, lead_id, usuario_id=session.get("user_id"), usuario_nome=session.get("user_name")))
+
+    resposta = _transacao(run, "reativar cliente")
+    if resposta[1] == 200:
+        _auditar("converter", f"Lead {lead_id} voltou a ser cliente (cadastro reativado)", lead_id, "cadu_lead")
+    return resposta
+
+
+def _linhas_dict(valor):
+    if isinstance(valor, dict):
+        return {k: _linhas_dict(v) for k, v in valor.items()}
+    if isinstance(valor, list):
+        return [_linhas_dict(v) for v in valor]
+    return _json_safe(valor)
 
 
 @bp.route("/api/leads/<int:lead_id>/golden")

@@ -346,6 +346,26 @@ class CrmV3Repository:
     def reset(self) -> None:  # pragma: no cover — não faz sentido em produção
         raise NotImplementedError("reset() só existe no store em memória")
 
+    def _sem_clientes_que_voltaram_para_lead(self, rows):
+        """Cliente inativo que voltou para leads (Leads v3) sai da lista; volta quando o lead reconverte."""
+        inativos = [r.get("id_cliente") for r in rows if r.get("status") is False and r.get("id_cliente") is not None]
+        if not inativos:
+            return rows
+        try:
+            conn = _db().get_db()
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT DISTINCT cliente_origem_id FROM cadu_leads WHERE cliente_origem_id = ANY(%s) AND convertido_cliente_id IS NULL",
+                    (inativos,),
+                )
+                voltaram = {r["cliente_origem_id"] for r in cur.fetchall()}
+        except Exception as e:  # noqa: BLE001 — sem a migração do Leads v3, a lista segue completa
+            import logging
+            logging.getLogger("aicentral.crm_v3").info("filtro de clientes que voltaram para lead indisponível: %s", e)
+            _rollback_if_failed("clientes que voltaram para lead")
+            return rows
+        return [r for r in rows if r.get("id_cliente") not in voltaram]
+
     def list_clientes(self) -> List[Dict[str, Any]]:
         # per_page alto: a UI já pagina em memória (8 por página) e faz o
         # filtro cliente-side por executivo/tipo/perfil/pill/busca. 1000 é
@@ -355,6 +375,7 @@ class CrmV3Repository:
         t0 = time.perf_counter()
         page = _db().obter_clientes_paginado(page=1, per_page=1000) or {}
         rows = page.get("clientes", []) or []
+        rows = self._sem_clientes_que_voltaram_para_lead(rows)
         ids_lote = [r.get("id_cliente") for r in rows if r.get("id_cliente") is not None]
         vinculos_lote = {}
         try:

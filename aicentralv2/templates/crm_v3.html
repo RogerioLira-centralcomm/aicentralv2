@@ -5,7 +5,7 @@
 {% block page_subtitle %}Protótipo comercial com layout ERP{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=91">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/crm_v3.css') }}?v=92">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 {% endblock %}
 
@@ -171,6 +171,11 @@
                   <button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm crm-v3-header-action-edit">
                     <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
                     Editar cliente
+                  </button>
+                  <button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm" id="crm-v3-enviar-lead" hidden
+                          title="Voltar este cliente para a mesa de leads (cotações em aberto expiram; planejamentos ficam)">
+                    <i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i>
+                    Enviar para leads
                   </button>
                   <button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm crm-v3-context-open"
                           id="crm-v3-context-open" aria-controls="crm-v3-sidebar" aria-expanded="false">
@@ -762,7 +767,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=70"></script>
+<script src="{{ url_for('static', filename='js/crm_v3.js') }}?v=71"></script>
 <script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_drawers.js') }}?v=42"></script>
 <script src="{{ url_for('static', filename='js/crm_v3_shortcuts.js') }}?v=2"></script>

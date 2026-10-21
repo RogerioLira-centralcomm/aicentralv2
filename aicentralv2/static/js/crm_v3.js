@@ -1496,6 +1496,9 @@
         var classifChip = $('#crm-v3-meta-classif');
         var classif = cliente.classificacao_cliente || cliente.classificacao || '';
         if (classifWrap) classifWrap.hidden = !classif;
+        // Agência não vira lead; cliente final pode voltar para a mesa de leads.
+        var enviarLead = $('#crm-v3-enviar-lead');
+        if (enviarLead) enviarLead.hidden = !!cliente.is_agencia;
         if (classifChip) {
             classifChip.textContent = classif || '—';
             classifChip.setAttribute('data-classif', classif);
@@ -5707,6 +5710,107 @@
             }).catch(function () {});
         }
         if (type === 'cotacao' && state.clienteId) loadCotacoes(state.clienteId);
+    });
+
+    // Cliente → lead (Leads v3). Prévia antes: PI em andamento bloqueia; cotações em aberto expiram;
+    // planejamentos ficam; o cliente sai desta lista e reaparece se o lead virar cliente de novo.
+    function leadsApi(path, method, body) {
+        return fetch('/leads-v3/api' + path, {
+            method: method || 'GET',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: body ? JSON.stringify(body) : undefined
+        }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok || data.success === false) throw new Error(data.error || 'Não foi possível concluir.');
+                return data.data;
+            });
+        });
+    }
+
+    function fecharEnvioParaLeads() {
+        var el = document.getElementById('crm-v3-para-lead');
+        if (el) el.remove();
+    }
+
+    function abrirEnvioParaLeads() {
+        var cliente = state.cliente;
+        if (!cliente || !cliente.id) return;
+        fecharEnvioParaLeads();
+        var wrap = document.createElement('div');
+        wrap.id = 'crm-v3-para-lead';
+        wrap.className = 'crm-v3-para-lead';
+        wrap.innerHTML = '<div class="crm-v3-para-lead__card" role="dialog" aria-modal="true" aria-labelledby="crm-v3-para-lead-titulo">' +
+            '<h2 id="crm-v3-para-lead-titulo">Enviar ' + escapeHtml(cliente.nome || 'cliente') + ' para leads</h2>' +
+            '<div class="crm-v3-para-lead__body"><p>Conferindo PIs e cotações…</p></div></div>';
+        wrap.addEventListener('mousedown', function (ev) { if (ev.target === wrap) fecharEnvioParaLeads(); });
+        document.body.appendChild(wrap);
+        var body = wrap.querySelector('.crm-v3-para-lead__body');
+        leadsApi('/clientes/' + encodeURIComponent(cliente.id) + '/para-lead').then(function (p) {
+            var pis = p.pis_em_andamento || [];
+            var cots = p.cotacoes_em_aberto || [];
+            var html = '';
+            if (pis.length) {
+                html += '<p class="crm-v3-para-lead__alerta"><i class="fa-solid fa-ban" aria-hidden="true"></i> ' +
+                    'Este cliente tem ' + pis.length + ' PI em andamento. Finalize ou cancele antes de enviar para leads.</p><ul>' +
+                    pis.map(function (pi) {
+                        return '<li>' + escapeHtml(pi.codigo_pi_cc || ('PI ' + pi.id_pi)) + (pi.titulo_pi ? ' · ' + escapeHtml(pi.titulo_pi) : '') +
+                            (pi.situacao ? ' <small>(' + escapeHtml(pi.situacao) + ')</small>' : '') + '</li>';
+                    }).join('') + '</ul>' +
+                    '<div class="crm-v3-para-lead__acoes"><button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm" data-para-lead="fechar">Fechar</button></div>';
+                body.innerHTML = html;
+                return;
+            }
+            html += '<ul class="crm-v3-para-lead__lista">' +
+                '<li><strong>Lead:</strong> ' + (p.lead_existente ? 'o lead de onde este cliente veio é reaberto em Nutrição.' : 'um lead novo é criado em Nutrição, com o mesmo responsável.') + '</li>' +
+                '<li><strong>Contatos:</strong> ' + (p.contatos ? p.contatos + ' contato(s) vão junto.' : 'nenhum contato para levar.') + '</li>' +
+                '<li><strong>Cotações:</strong> ' + (cots.length ? cots.length + ' em aberto viram Expirada, com nota do motivo:' : 'nenhuma em aberto. Aprovadas e encerradas não mudam.') + '</li>' +
+                (cots.length ? '<li class="crm-v3-para-lead__sub">' + cots.slice(0, 8).map(function (c) {
+                    return escapeHtml(c.nome || ('Cotação ' + c.id)) + ' <small>(' + escapeHtml(c.status || '') + ')</small>';
+                }).join('<br>') + '</li>' : '') +
+                '<li><strong>Planejamentos:</strong> continuam ligados ao cliente.</li>' +
+                '<li><strong>Cadastro:</strong> fica inativo e sai desta lista; volta se o lead virar cliente de novo.</li></ul>' +
+                '<label class="crm-v3-para-lead__motivo">Motivo (opcional)<textarea rows="2" maxlength="300" placeholder="Ex.: sem verba em 2026, retomar no próximo ano"></textarea></label>' +
+                '<div class="crm-v3-para-lead__acoes">' +
+                '<button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm" data-para-lead="fechar">Cancelar</button>' +
+                '<button type="button" class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" data-para-lead="enviar">Enviar para leads</button></div>';
+            body.innerHTML = html;
+            var area = body.querySelector('textarea');
+            if (area) area.focus();
+        }).catch(function (err) {
+            body.innerHTML = '<p class="crm-v3-para-lead__alerta">' + escapeHtml(err.message) + '</p>' +
+                '<div class="crm-v3-para-lead__acoes"><button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm" data-para-lead="fechar">Fechar</button></div>';
+        });
+
+        wrap.addEventListener('click', function (ev) {
+            var acao = ev.target.closest && ev.target.closest('[data-para-lead]');
+            if (!acao) return;
+            if (acao.getAttribute('data-para-lead') === 'fechar') return fecharEnvioParaLeads();
+            acao.disabled = true;
+            acao.textContent = 'Enviando…';
+            var motivo = (wrap.querySelector('textarea') || {}).value || '';
+            leadsApi('/clientes/' + encodeURIComponent(cliente.id) + '/para-lead', 'POST', { motivo: motivo }).then(function (r) {
+                fecharEnvioParaLeads();
+                showToast(cliente.nome + ' voltou para leads' + (r.cotacoes_expiradas ? ' (' + r.cotacoes_expiradas + ' cotação(ões) expirada(s))' : '') + '.');
+                state.clienteId = null;
+                loadClientes();
+                window.open('/leads-v3/?lead=' + encodeURIComponent(r.lead_id), '_blank', 'noopener');
+            }).catch(function (err) {
+                acao.disabled = false;
+                acao.textContent = 'Enviar para leads';
+                showToast(err.message, true);
+            });
+        });
+    }
+
+    document.addEventListener('click', function (ev) {
+        if (ev.target.closest && ev.target.closest('#crm-v3-enviar-lead')) {
+            ev.preventDefault();
+            abrirEnvioParaLeads();
+        }
+    });
+    document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape') fecharEnvioParaLeads();
     });
 
     document.addEventListener('visibilitychange', function () {

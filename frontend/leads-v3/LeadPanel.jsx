@@ -127,6 +127,14 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
     catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
   };
   const nome = decode(lead.empresa || lead.nome);
+  // Lead que veio de um cliente reativa o mesmo cadastro; os demais abrem o formulário de conversão.
+  const virarCliente = async () => {
+    if (!lead.cliente_origem_id) return onConvert();
+    if (!window.confirm(`Reativar o cadastro de cliente de ${nome} no CRM? Contatos novos do lead vão junto.`)) return;
+    setBusy(true);
+    try { await api.reactivateClient(lead.id); notify('Cliente reativado no CRM.'); onChanged(); }
+    catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
+  };
   const servicos = asList(lead.servicos);
   const clientes = asList(lead.clientes_mencionados);
   // Boolean(): com `0 && <jsx>` o React renderiza o "0" na tela.
@@ -159,10 +167,16 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
               {next.label}
             </Button>
           )}
+          {!converted && lead.status !== 'nao_qualificado' && (
+            <Button size="sm" icon="user-check" disabled={busy} onClick={virarCliente}
+              title={lead.cliente_origem_id ? 'Reativar o cadastro de cliente de onde este lead veio' : 'Converter em cliente no CRM'}>
+              {lead.cliente_origem_id ? 'Reativar cliente' : 'Virar cliente'}
+            </Button>
+          )}
           <Button size="sm" icon="pen" onClick={onEdit} disabled={busy} title="Editar dados do lead" aria-label="Editar"/>
           <MoreMenu disabled={busy} items={[
             !golden && !converted && {icon: 'bullseye', label: 'Marcar como Golden Circle', onClick: onMarkGolden},
-            !converted && {icon: 'user-check', label: 'Converter em cliente', onClick: onConvert},
+
             {icon: 'building', label: 'Dados da empresa', onClick: onEditCompany},
             {icon: 'wand-magic-sparkles', label: 'Ler site com IA', onClick: onExtract},
             {icon: 'code-merge', label: 'Mesclar duplicado', onClick: onMerge},
@@ -173,6 +187,9 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
 
         {converted && (
           <div className="lv3-banner lv3-banner--success"><Icon name="circle-check"/>Convertido em cliente{lead.data_conversao ? ` em ${formatDate(lead.data_conversao)}` : ''}.</div>
+        )}
+        {!converted && lead.cliente_origem_id && (
+          <div className="lv3-banner"><Icon name="arrow-rotate-left"/>Voltou de cliente para lead{lead.voltou_de_cliente_em ? ` em ${formatDate(lead.voltou_de_cliente_em).slice(0, 10)}` : ''}. Planejamentos seguem no cadastro do cliente; ao virar cliente de novo, o mesmo cadastro é reativado.</div>
         )}
         {lead.status === 'nao_qualificado' && (
           <div className="lv3-banner lv3-banner--danger"><Icon name="ban"/>Desqualificado{lead.motivo_desqualificacao ? `: ${lead.motivo_desqualificacao}` : ''}.</div>

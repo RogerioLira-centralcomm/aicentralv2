@@ -237,3 +237,5 @@ migrations/run_sql_migration.py remove_nf_status_aguardando_pagamento.sql
 migrations/run_sql_migration.py create_cotacao_comunicacao.sql
 # Leads v3: fluxos de cadência editáveis e comuns a todos, com estágio de entrada e etapa do funil por passo; semeia "Já conversou", "Reativar conta parada" e "Veio do site" (aditivo, idempotente; depende de add_cadu_leads_v3_cadencias_alvo.sql).
 migrations/run_sql_migration.py add_cadu_leads_v3_fluxos.sql
+# Leads v3: cliente que volta para lead pelo CRM v3 (cliente_origem_id) e reconversão no mesmo cadastro (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_cliente_retorno.sql

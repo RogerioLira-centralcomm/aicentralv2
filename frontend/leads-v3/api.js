@@ -58,6 +58,7 @@ export function createApi(boot) {
     toggleActivity: (activityId, concluida) => request(`${legacy}/atividades/${activityId}/concluir`, {method: 'PATCH', body: {concluida}}),
 
     convert: (id, body) => request(`${legacy}/${id}/converter-cliente`, {method: 'POST', body}),
+    reactivateClient: id => request(`${root}/leads/${id}/reativar-cliente`, {method: 'POST', body: {}}).then(p => p.data),
     lookupCnpj: cnpj => request(`/api/buscar_cnpj/${cnpj}`).then(p => p.data || p),
     updateCompany: (id, body) => request(`${root}/leads/${id}/empresa`, {method: 'PATCH', body}),
 

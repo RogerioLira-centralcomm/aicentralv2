@@ -17,7 +17,9 @@ const VIEW_KEY = 'leads-v3:vista';
 const VIEWS = ['mesa', 'operacao', 'fluxos', 'analise'];
 const readView = () => {
   // ?vista=analise vem do redirecionamento de /leads/analise; tem precedência sobre a última visão usada.
-  const pedida = new URLSearchParams(window.location.search).get('vista');
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('lead')) return 'mesa'; // link do CRM v3 (cliente que voltou para lead) abre o lead na mesa
+  const pedida = params.get('vista');
   if (VIEWS.includes(pedida)) return pedida;
   try { const salva = localStorage.getItem(VIEW_KEY); return VIEWS.includes(salva) ? salva : 'mesa'; } catch { return 'mesa'; }
 };
@@ -53,7 +55,10 @@ export function LeadsApp({boot}) {
   const listSeq = useRef(0);
   const detailSeq = useRef(0);
 
-  const [activeId, setActiveId] = useState(null);
+  const [activeId, setActiveId] = useState(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('lead'));
+    return id > 0 ? id : null;
+  });
   const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], communications: [], candidates: [], golden: null, cadences: [], loading: false});
   const [mode, setModeState] = useState(readMode);
   const [view, setViewState] = useState(readView);

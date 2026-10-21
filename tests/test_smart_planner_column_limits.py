@@ -26,12 +26,28 @@ class _Cursor:
         return {"id": 1}
 
 
+class _Savepoint:
+    def __init__(self, db):
+        self.db = db
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, *exc):
+        if exc_type:
+            self.db.savepoint_rollbacks += 1
+        return False
+
+
 class _Db:
     def __init__(self, fail_schema=False):
-        self.calls, self.fail_schema, self.rollbacks = [], fail_schema, 0
+        self.calls, self.fail_schema, self.rollbacks, self.savepoint_rollbacks = [], fail_schema, 0, 0
 
     def cursor(self):
         return _Cursor(self)
+
+    def transaction(self):
+        return _Savepoint(self)
 
     def commit(self):
         pass
@@ -65,5 +81,7 @@ def test_email_is_never_cut_and_a_failed_schema_read_cuts_nothing(monkeypatch):
     failing = _Db(fail_schema=True)
     _setup(monkeypatch, failing)
     assert repository.fit_column("nome_campanha", "x" * 300) == "x" * 300
-    assert failing.rollbacks == 1  # a transação abortada não fica para o UPDATE seguinte
+    # Só o savepoint volta: o que a requisição já escreveu não se perde.
+    assert failing.savepoint_rollbacks == 1 and failing.rollbacks == 0
+    assert "current_schema()" in failing.calls[-1][0]
     assert repository._LIMITS["cols"] is None  # tenta de novo na próxima

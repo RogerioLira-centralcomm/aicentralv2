@@ -45,15 +45,16 @@ def _column_limits() -> dict[str, int]:
         return _LIMITS["cols"]
     conn = get_db()
     try:
-        with conn.cursor() as cur:
+        # Savepoint: se a leitura falhar, desfaz só ela, sem perder o que a requisição já escreveu.
+        with conn.transaction(), conn.cursor() as cur:
             cur.execute(
                 """SELECT column_name, character_maximum_length FROM information_schema.columns
-                    WHERE table_name = 'cadu_smart_planner_sessions' AND character_maximum_length IS NOT NULL"""
+                    WHERE table_schema = current_schema() AND table_name = 'cadu_smart_planner_sessions'
+                      AND character_maximum_length IS NOT NULL"""
             )
             rows = cur.fetchall() or []
     except Exception:
         logger.warning("Não foi possível ler o tamanho das colunas do Smart Planner.", exc_info=True)
-        conn.rollback()  # a transação abortada derrubaria o INSERT/UPDATE que vem em seguida
         return {}
     _LIMITS["cols"] = {
         (row["column_name"] if isinstance(row, dict) else row[0]): int(row["character_maximum_length"] if isinstance(row, dict) else row[1])

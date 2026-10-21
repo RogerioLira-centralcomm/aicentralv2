@@ -5790,11 +5790,14 @@
             acao.textContent = 'Enviando…';
             var motivo = (wrap.querySelector('textarea') || {}).value || '';
             leadsApi('/clientes/' + encodeURIComponent(cliente.id) + '/para-lead', 'POST', { motivo: motivo }).then(function (r) {
-                fecharEnvioParaLeads();
-                showToast(cliente.nome + ' voltou para leads' + (r.cotacoes_expiradas ? ' (' + r.cotacoes_expiradas + ' cotação(ões) expirada(s))' : '') + '.');
+                // Link em vez de abrir sozinho: fora do clique, o navegador bloqueia a aba nova.
+                body.innerHTML = '<p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> ' + escapeHtml(cliente.nome) +
+                    ' voltou para leads' + (r.cotacoes_expiradas ? ' e ' + r.cotacoes_expiradas + ' cotação(ões) em aberto viraram Expirada' : '') + '.</p>' +
+                    '<div class="crm-v3-para-lead__acoes">' +
+                    '<button type="button" class="crm-v3-btn crm-v3-btn-secondary crm-v3-btn-sm" data-para-lead="fechar">Fechar</button>' +
+                    '<a class="crm-v3-btn crm-v3-btn-primary crm-v3-btn-sm" href="/leads-v3/?lead=' + encodeURIComponent(r.lead_id) + '">Abrir o lead</a></div>';
                 state.clienteId = null;
                 loadClientes();
-                window.open('/leads-v3/?lead=' + encodeURIComponent(r.lead_id), '_blank', 'noopener');
             }).catch(function (err) {
                 acao.disabled = false;
                 acao.textContent = 'Enviar para leads';

@@ -8,12 +8,13 @@ import {CompanyDialog, ConvertDialog, DisqualifyDialog, EditDialog, ExtractDialo
 import {Analise} from './Analise.jsx';
 import {GoldenCircle} from './GoldenCircle.jsx';
 import {Operacao} from './Operacao.jsx';
+import {Fluxos} from './Fluxos.jsx';
 import {Button, Empty, Icon, Toasts} from './ui.jsx';
 
 const FILTERS_KEY = 'leads-v3:filtros';
 const MODE_KEY = 'leads-v3:modo';
 const VIEW_KEY = 'leads-v3:vista';
-const VIEWS = ['mesa', 'operacao', 'analise'];
+const VIEWS = ['mesa', 'operacao', 'fluxos', 'analise'];
 const readView = () => {
   // ?vista=analise vem do redirecionamento de /leads/analise; tem precedência sobre a última visão usada.
   const pedida = new URLSearchParams(window.location.search).get('vista');
@@ -237,6 +238,7 @@ export function LeadsApp({boot}) {
           <div className="lv3-viewswitch" role="tablist" aria-label="Visão">
             <button type="button" role="tab" aria-selected={view === 'mesa'} className={view === 'mesa' ? 'is-on' : ''} onClick={() => setView('mesa')}><Icon name="table-columns"/>Mesa</button>
             <button type="button" role="tab" aria-selected={view === 'operacao'} className={view === 'operacao' ? 'is-on' : ''} onClick={() => setView('operacao')}><Icon name="bolt"/>Operação</button>
+            <button type="button" role="tab" aria-selected={view === 'fluxos'} className={view === 'fluxos' ? 'is-on' : ''} onClick={() => setView('fluxos')}><Icon name="route"/>Fluxos</button>
             <button type="button" role="tab" aria-selected={view === 'analise'} className={view === 'analise' ? 'is-on' : ''} onClick={() => setView('analise')}><Icon name="chart-simple"/>Análise</button>
           </div>
         </div>
@@ -246,7 +248,9 @@ export function LeadsApp({boot}) {
         </div>
       </header>
 
-      {view === 'analise' ? (
+      {view === 'fluxos' ? (
+        <Fluxos boot={boot} api={api} notify={notify}/>
+      ) : view === 'analise' ? (
         <Analise boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
           setExecutivo={value => setFilters(f => ({...f, executivo: value}))}/>
       ) : view === 'operacao' ? (

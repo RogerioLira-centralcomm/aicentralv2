@@ -729,3 +729,51 @@ html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):no
 .lv3-suggest__row > span { min-width: 0; overflow-wrap: anywhere; }
 .lv3-suggest__row .lv3-input { flex: 1; max-width: 260px; }
 .lv3-suggest__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Fluxos de cadência (visão Fluxos, editor e escolha ao iniciar) */
+.lv3-segmented--3 { grid-template-columns: repeat(3, 1fr); }
+.lv3-funnel--fundo { background: #dcfce7; color: #166534; }
+.lv3-flows { overflow-y: auto; padding: 20px 24px 40px; }
+.lv3-flows__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.lv3-flows__head h2 { margin: 0 0 4px; font-size: 18px; }
+.lv3-flows__head p { max-width: 72ch; margin: 0; font-size: 13px; }
+.lv3-flows__group { margin-top: 18px; }
+.lv3-flows__group h3 { margin: 0 0 10px; font-size: 14px; }
+.lv3-flows__group h3 small { margin-left: 6px; color: var(--lv3-muted); font-weight: 500; }
+.lv3-flows__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; }
+.lv3-flow { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); background: var(--lv3-surface); }
+.lv3-flow > header { display: flex; justify-content: space-between; gap: 10px; }
+.lv3-flow > header strong { font-size: 14.5px; }
+.lv3-flow > header p { margin: 4px 0 0; font-size: 12.5px; color: var(--lv3-muted); }
+.lv3-flow > footer { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--lv3-ink-2); }
+.lv3-flow > footer .lv3-icon { margin-right: 4px; color: var(--lv3-brand); }
+.lv3-flow__steps { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.lv3-flow__steps li { display: grid; grid-template-columns: 38px 18px 1fr auto; align-items: center; gap: 8px; padding: 5px 8px; border-left: 3px solid #bae6fd; border-radius: 6px; background: var(--lv3-sunken); font-size: 12.5px; }
+.lv3-flow__steps li.is-meio { border-left-color: #c4b5fd; }
+.lv3-flow__steps li.is-fundo { border-left-color: #86efac; }
+.lv3-flow__day { color: var(--lv3-muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+.lv3-flow__title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lv3-flow__note { display: flex; gap: 8px; margin: 12px 0 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-warning-bg); color: var(--lv3-warning); font-size: 12.5px; }
+.lv3-flow__error { margin-right: auto; color: var(--lv3-danger, #b42318); font-size: 12.5px; }
+.lv3-flow-form { display: grid; gap: 14px; }
+.lv3-flow-form__roles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; border: 0; }
+.lv3-flow-form__roles legend { margin-bottom: 6px; font-size: 12.5px; font-weight: 600; color: var(--lv3-ink-2); }
+.lv3-flow-form__roles legend small { font-weight: 400; color: var(--lv3-muted); }
+.lv3-chip-toggle { display: inline-flex; align-items: center; padding: 4px 10px; border: 1px solid var(--lv3-line); border-radius: 999px; font-size: 12.5px; cursor: pointer; }
+.lv3-chip-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.lv3-chip-toggle.is-on { border-color: var(--lv3-ink); background: var(--lv3-ink); color: #fff; }
+.lv3-chip-toggle:focus-within { outline: 2px solid var(--lv3-brand); outline-offset: 2px; }
+.lv3-flow-form__head { display: flex; align-items: baseline; gap: 12px; }
+.lv3-flow-form__steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.lv3-flow-form__steps li { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--lv3-line); border-left: 4px solid #7dd3fc; border-radius: var(--lv3-radius-sm); }
+.lv3-flow-form__steps li.is-meio { border-left-color: #a78bfa; }
+.lv3-flow-form__steps li.is-fundo { border-left-color: #4ade80; }
+.lv3-flow-form__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lv3-flow-form__n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--lv3-sunken); font-size: 12px; font-weight: 700; }
+.lv3-flow-form__day { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--lv3-muted); }
+.lv3-flow-form__day input { width: 64px; }
+.lv3-flow-form__check { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; }
+.lv3-flow-form__tools { display: inline-flex; gap: 2px; margin-left: auto; }
+.lv3-cadence--pick { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.lv3-person__meta .lv3-cadence--pick { flex: 1 1 100%; padding: 0; background: none; }
+@media (max-width: 760px) { .lv3-flows { padding: 16px; } .lv3-flows__head { flex-direction: column; } .lv3-flows__grid { grid-template-columns: 1fr; } }

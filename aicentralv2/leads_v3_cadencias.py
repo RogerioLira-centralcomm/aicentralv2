@@ -17,24 +17,188 @@ from .leads_v3_prospeccao import ProspeccaoError, trimestre_atual
 TIPO_ATIVIDADE = {"email": "email_enviado", "whatsapp": "whatsapp", "telefone": "ligacao", "linkedin": "follow_up"}
 ACOES = ("feito", "pular", "respondeu", "pausar", "retomar", "cancelar")
 
+# Fluxos editáveis por todos os executivos. O estágio diz para quem o fluxo serve; a etapa de cada
+# passo (topo, meio, fundo) orienta a IA a escrever conteúdo daquela etapa para a pessoa.
+ESTAGIOS = {
+    "novo": "Pessoa nova, ainda sem conversa",
+    "em_conversa": "Já conversou com a gente",
+    "reativacao": "Conta parada, para reativar",
+    "inbound": "Veio do site ou pediu contato",
+}
+ETAPAS_PASSO = ("topo", "meio", "fundo")
+CANAIS_PASSO = {"email": "enviar", "whatsapp": "enviar", "linkedin": "enviar", "telefone": "ligar"}
+PAPEIS_FLUXO = ("marketing", "midia", "criacao", "diretoria", "compras", "comercial", "outro")
+MAX_PASSOS = 12
+
+
+def etapa_do_passo(passo, indice, total):
+    """Etapa declarada no passo; fluxo antigo sem etapa usa a regra de antes (primeira metade topo)."""
+    etapa = str((passo or {}).get("etapa") or "").strip().lower()
+    if etapa in ETAPAS_PASSO:
+        return etapa
+    return "topo" if indice < -(-max(total, 1) // 2) else "meio"
+
+
+def _texto(valor, limite):
+    return " ".join(str(valor or "").split())[:limite]
+
+
+def normalizar_fluxo(dados):
+    """Valida o fluxo vindo da tela. Devolve os campos prontos para gravar ou levanta ProspeccaoError."""
+    dados = dados or {}
+    nome = _texto(dados.get("nome"), 80)
+    if not nome:
+        raise ProspeccaoError("Dê um nome ao fluxo.")
+    estagio = str(dados.get("estagio") or "novo")
+    if estagio not in ESTAGIOS:
+        raise ProspeccaoError("Estágio inválido.")
+    papeis = [p for p in dict.fromkeys(dados.get("papeis") or []) if p in PAPEIS_FLUXO]
+    brutos = dados.get("passos") or []
+    if not isinstance(brutos, list) or not brutos:
+        raise ProspeccaoError("O fluxo precisa de pelo menos um passo.")
+    if len(brutos) > MAX_PASSOS:
+        raise ProspeccaoError(f"No máximo {MAX_PASSOS} passos por fluxo.")
+    passos, dia_anterior = [], 0
+    for numero, bruto in enumerate(brutos, 1):
+        bruto = bruto if isinstance(bruto, dict) else {}
+        canal = str(bruto.get("canal") or "")
+        if canal not in CANAIS_PASSO:
+            raise ProspeccaoError(f"Passo {numero}: escolha o canal.")
+        etapa = str(bruto.get("etapa") or "")
+        if etapa not in ETAPAS_PASSO:
+            raise ProspeccaoError(f"Passo {numero}: escolha a etapa do funil.")
+        try:
+            dia = int(bruto.get("dia") or 0)
+        except (TypeError, ValueError):
+            raise ProspeccaoError(f"Passo {numero}: o dia precisa ser um número.") from None
+        if dia < dia_anterior or dia > 120:
+            raise ProspeccaoError(f"Passo {numero}: o dia vem depois do passo anterior e vai até 120.")
+        titulo = _texto(bruto.get("titulo"), 80)
+        if not titulo:
+            raise ProspeccaoError(f"Passo {numero}: dê um título.")
+        acao = "conectar" if canal == "linkedin" and bruto.get("acao") == "conectar" else CANAIS_PASSO[canal]
+        passos.append({"dia": dia, "canal": canal, "acao": acao, "etapa": etapa, "titulo": titulo,
+                       "objetivo": _texto(bruto.get("objetivo"), 300)})
+        dia_anterior = dia
+    return {"nome": nome, "descricao": _texto(dados.get("descricao"), 300) or None, "estagio": estagio,
+            "papeis": papeis, "passos": passos}
+
 
 def listar_modelos(cursor):
     cursor.execute(
         """
-        SELECT id, chave, nome, descricao, papeis, passos, jsonb_array_length(passos) AS total
-          FROM cadu_lead_cadencias WHERE ativo ORDER BY chave IS NULL, nome
+        SELECT cad.id, cad.chave, cad.nome, cad.descricao, cad.papeis, cad.estagio, cad.passos,
+               jsonb_array_length(cad.passos) AS total, cad.criado_por, cad.updated_at,
+               (SELECT COUNT(*) FROM cadu_lead_cadencia_inscricoes i
+                 WHERE i.id_cadencia = cad.id AND i.status IN ('ativa', 'pausada')) AS em_andamento
+          FROM cadu_lead_cadencias cad WHERE cad.ativo ORDER BY cad.estagio = 'novo' DESC, cad.chave IS NULL, cad.nome
         """
     )
-    return cursor.fetchall()
+    modelos = cursor.fetchall()
+    for modelo in modelos:
+        passos = modelo["passos"] or []
+        modelo["passos"] = [{**p, "etapa": etapa_do_passo(p, i, len(passos))} for i, p in enumerate(passos)]
+    return modelos
+
+
+def criar_fluxo(cursor, dados, *, usuario_id):
+    f = normalizar_fluxo(dados)
+    cursor.execute(
+        """
+        INSERT INTO cadu_lead_cadencias (nome, descricao, estagio, papeis, passos, criado_por)
+        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+        """,
+        [f["nome"], f["descricao"], f["estagio"], f["papeis"], _json(f["passos"]), usuario_id],
+    )
+    return cursor.fetchone()["id"]
+
+
+def atualizar_fluxo(cursor, fluxo_id, dados, *, usuario_id):
+    """Grava a edição. Se os passos mudaram e há gente no meio do fluxo, cria uma versão nova:
+    quem já estava termina na versão antiga (que sai da lista) e as próximas inscrições usam a nova."""
+    f = normalizar_fluxo(dados)
+    cursor.execute(
+        """
+        SELECT id, chave, passos,
+               EXISTS (SELECT 1 FROM cadu_lead_cadencia_inscricoes i
+                        WHERE i.id_cadencia = cad.id AND i.status IN ('ativa', 'pausada')) AS em_uso
+          FROM cadu_lead_cadencias cad WHERE id = %s AND ativo FOR UPDATE
+        """,
+        [fluxo_id],
+    )
+    atual = cursor.fetchone()
+    if not atual:
+        raise ProspeccaoError("Fluxo não encontrado.")
+    if atual["em_uso"] and (atual["passos"] or []) != f["passos"]:
+        # A chave do sistema (usada para escolher por papel) passa para a versão nova.
+        cursor.execute("UPDATE cadu_lead_cadencias SET ativo = FALSE, chave = NULL WHERE id = %s", [fluxo_id])
+        cursor.execute(
+            """
+            INSERT INTO cadu_lead_cadencias (chave, nome, descricao, estagio, papeis, passos, criado_por, id_versao_anterior)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """,
+            [atual["chave"], f["nome"], f["descricao"], f["estagio"], f["papeis"], _json(f["passos"]), usuario_id, fluxo_id],
+        )
+        return {"id": cursor.fetchone()["id"], "nova_versao": True}
+    cursor.execute(
+        """
+        UPDATE cadu_lead_cadencias
+           SET nome = %s, descricao = %s, estagio = %s, papeis = %s, passos = %s, updated_at = NOW()
+         WHERE id = %s
+        """,
+        [f["nome"], f["descricao"], f["estagio"], f["papeis"], _json(f["passos"]), fluxo_id],
+    )
+    return {"id": fluxo_id, "nova_versao": False}
+
+
+def arquivar_fluxo(cursor, fluxo_id):
+    """Tira o fluxo da lista. Quem está nele segue até o fim; o histórico fica."""
+    cursor.execute("SELECT COUNT(*) AS n FROM cadu_lead_cadencias WHERE ativo", [])
+    if (cursor.fetchone() or {}).get("n", 0) <= 1:
+        raise ProspeccaoError("Mantenha pelo menos um fluxo ativo.")
+    cursor.execute("UPDATE cadu_lead_cadencias SET ativo = FALSE, chave = NULL, updated_at = NOW() WHERE id = %s AND ativo RETURNING id", [fluxo_id])
+    if not cursor.fetchone():
+        raise ProspeccaoError("Fluxo não encontrado.")
+
+
+def contexto_do_passo(cursor, inscricao_id):
+    """Fluxo, posição e etapa do passo atual de uma inscrição, para a IA escrever no tom da etapa."""
+    cursor.execute(
+        """
+        SELECT i.passo_atual, i.id_contato, cad.nome, cad.estagio, cad.descricao, cad.passos
+          FROM cadu_lead_cadencia_inscricoes i JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
+         WHERE i.id = %s
+        """,
+        [inscricao_id],
+    )
+    row = cursor.fetchone()
+    if not row:
+        return None
+    passos = row["passos"] or []
+    indice = row["passo_atual"]
+    passo = passos[indice] if 0 <= indice < len(passos) else {}
+    return {
+        "id_contato": row["id_contato"],
+        "fluxo": row["nome"],
+        "estagio": ESTAGIOS.get(row["estagio"], ""),
+        "descricao": row["descricao"] or "",
+        "posicao": f"passo {indice + 1} de {len(passos)}",
+        "etapa": etapa_do_passo(passo, indice, len(passos)),
+        "objetivo": passo.get("objetivo") or "",
+        "canal": passo.get("canal") or "",
+        "anteriores": [p.get("titulo") for p in passos[:indice] if p.get("titulo")],
+        "seguintes": [p.get("titulo") for p in passos[indice + 1:indice + 3] if p.get("titulo")],
+    }
 
 
 def escolher_modelo(cursor, papel):
-    """Modelo cujo campo `papeis` contém o papel; sem papel (ou sem modelo), o de marketing e mídia."""
+    """Sugestão quando o executivo não escolhe: fluxo de pessoa nova cujo `papeis` contém o papel; senão o de
+    marketing e mídia; senão qualquer fluxo de pessoa nova (fluxos de outros estágios só por escolha)."""
     cursor.execute(
         """
         SELECT id FROM cadu_lead_cadencias
-         WHERE ativo AND (%(papel)s = ANY(papeis) OR chave = 'marketing_midia')
-         ORDER BY (%(papel)s = ANY(papeis)) DESC, chave IS NULL, id
+         WHERE ativo
+         ORDER BY (estagio = 'novo') DESC, (%(papel)s = ANY(papeis)) DESC, (chave = 'marketing_midia') DESC, chave IS NULL, id
          LIMIT 1
         """,
         {"papel": papel or "outro"},

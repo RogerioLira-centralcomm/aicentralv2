@@ -235,3 +235,5 @@ migrations/run_sql_migration.py add_cadu_leads_v3_site_contato.sql
 migrations/run_sql_migration.py remove_nf_status_aguardando_pagamento.sql
 # Cotação: destinatários operacionais e log de e-mails enviados (idempotente).
 migrations/run_sql_migration.py create_cotacao_comunicacao.sql
+# Leads v3: fluxos de cadência editáveis e comuns a todos, com estágio de entrada e etapa do funil por passo; semeia "Já conversou", "Reativar conta parada" e "Veio do site" (aditivo, idempotente; depende de add_cadu_leads_v3_cadencias_alvo.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_fluxos.sql

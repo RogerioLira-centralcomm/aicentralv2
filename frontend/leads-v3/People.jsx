@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
+import {FlowSelect, sugerirFluxo} from './Fluxos.jsx';
 
 // Papéis que o Golden Circle precisa cobrir em cada conta.
 const COVERAGE = [
@@ -32,18 +33,32 @@ function Coverage({contacts}) {
 const CANAL_LABEL = {email: 'e-mail', whatsapp: 'WhatsApp', linkedin: 'LinkedIn', telefone: 'ligação'};
 
 /** Linha da cadência da pessoa: passo, próximo toque e ações (o envio acontece na Operação). */
-function CadenceLine({api, contact, inscricao, notify, onChanged}) {
+function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) {
   const [busy, setBusy] = useState(false);
+  const [escolha, setEscolha] = useState(null); // null = fechado; id do fluxo enquanto escolhe
+  const sugerido = sugerirFluxo(fluxos, contact.papel);
   const run = (fn, done) => async () => {
     setBusy(true);
     try { await fn(); notify(done); onChanged(); } catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }
   };
-  const iniciar = run(() => api.enrollContact(contact.id), 'Cadência iniciada. O primeiro passo já está na Operação.');
+  const abrir = () => setEscolha(String(sugerido?.id || ''));
+  const iniciar = async () => {
+    await run(() => api.enrollContact(contact.id, Number(escolha) || null), 'Cadência iniciada. O primeiro passo já está na Operação.')();
+    setEscolha(null);
+  };
+  // Escolher o fluxo pelo momento da pessoa: nova, já em conversa, conta parada ou veio do site.
+  const picker = escolha !== null && (
+    <div className="lv3-cadence lv3-cadence--pick">
+      <FlowSelect fluxos={fluxos} value={escolha} onChange={setEscolha} sugerido={sugerido} disabled={busy}/>
+      <Button size="xs" variant="primary" icon="play" onClick={iniciar} disabled={busy || !escolha}>Iniciar</Button>
+      <button type="button" className="lv3-link lv3-link--muted" onClick={() => setEscolha(null)}>Cancelar</button>
+    </div>
+  );
   if (!inscricao) {
-    return (
+    return picker || (
       <div className="lv3-cadence lv3-cadence--none">
-        <Button size="xs" icon="play" onClick={iniciar} disabled={busy} title="Iniciar cadência (modelo escolhido pela área da pessoa)">Cadência</Button>
-        <span className="lv3-muted">modelo escolhido pela área da pessoa</span>
+        <Button size="xs" icon="play" onClick={abrir} disabled={busy || !fluxos.length} title="Escolher o fluxo e iniciar a cadência">Cadência</Button>
+        <span className="lv3-muted">{sugerido ? `sugerido: ${sugerido.nome}` : 'escolha o fluxo pelo momento da pessoa'}</span>
       </div>
     );
   }
@@ -73,7 +88,8 @@ function CadenceLine({api, contact, inscricao, notify, onChanged}) {
     <div className={`lv3-cadence ${inscricao.status === 'respondeu' ? 'is-replied' : ''}`}>
       <Icon name={inscricao.status === 'respondeu' ? 'reply' : 'circle-check'}/>
       <span><strong>{inscricao.cadencia}</strong> {fim}{inscricao.motivo_parada && inscricao.status === 'respondeu' ? `: ${inscricao.motivo_parada}` : ''}</span>
-      <button type="button" className="lv3-link" disabled={busy} onClick={iniciar}>Nova cadência</button>
+      <button type="button" className="lv3-link" disabled={busy} onClick={abrir}>Nova cadência</button>
+      {picker}
     </div>
   );
 }
@@ -84,7 +100,7 @@ function emailFoundMessage(r) {
   return `E-mail sugerido: ${r.email} (${fonte}). Confira antes de enviar.`;
 }
 
-function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onChanged}) {
+function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, notify, onChanged}) {
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
   const [edit, setEdit] = useState(null);
@@ -197,7 +213,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, notify, onCh
       )}
 
       <div className="lv3-person__meta">
-        <CadenceLine api={api} contact={c} inscricao={inscricao} notify={notify} onChanged={onChanged}/>
+        <CadenceLine api={api} contact={c} inscricao={inscricao} fluxos={fluxos} notify={notify} onChanged={onChanged}/>
         <div className="lv3-person__profile">
           {[['papel', 'Área', boot.papeis], ['senioridade', 'Nível', boot.senioridades], ['influencia', 'Influência', boot.influencias]].map(([campo, label, opcoes]) => (
             <label key={campo} className={`lv3-pill-select ${c[campo] ? 'is-set' : ''}`}>
@@ -348,6 +364,9 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [bulk, setBulk] = useState('');
+  const [fluxos, setFluxos] = useState([]);
+  const [fluxoTodos, setFluxoTodos] = useState(null); // null = fechado; '' = cada pessoa pela sua área
+  useEffect(() => { api.cadenceModels().then(setFluxos).catch(() => setFluxos([])); }, [api]);
   const set = key => event => setDraft(d => ({...d, [key]: event.target.value}));
   const empresa = decode(lead.empresa || lead.nome);
   const semEmail = contacts.filter(c => !c.email);
@@ -359,7 +378,8 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   const inscreverTodos = async () => {
     setBulk('cad');
     try {
-      const r = await api.enrollLead(lead.id);
+      const r = await api.enrollLead(lead.id, Number(fluxoTodos) || null);
+      setFluxoTodos(null);
       notify(r.inscritas ? `${r.inscritas} ${r.inscritas === 1 ? 'pessoa entrou' : 'pessoas entraram'} em cadência. Os passos aparecem na Operação.` : 'Todos já estão em cadência.');
       onChanged();
     } catch (error) { notify(error.message, 'error'); } finally { setBulk(''); }
@@ -429,9 +449,20 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
               </Button>
             )}
             {semCadencia.length > 0 && contacts.length > 0 && (
-              <Button size="sm" variant="ghost" icon="route" onClick={inscreverTodos} disabled={!!bulk}>
-                {bulk === 'cad' ? 'Inscrevendo…' : `Cadência para todos (${semCadencia.length})`}
-              </Button>
+              fluxoTodos === null ? (
+                <Button size="sm" variant="ghost" icon="route" onClick={() => setFluxoTodos('')} disabled={!!bulk || !fluxos.length}>
+                  {`Cadência para todos (${semCadencia.length})`}
+                </Button>
+              ) : (
+                <span className="lv3-cadence lv3-cadence--pick">
+                  <select className="lv3-select lv3-select--sm" value={fluxoTodos} onChange={e => setFluxoTodos(e.target.value)} disabled={!!bulk} aria-label="Fluxo para todos">
+                    <option value="">Cada pessoa no fluxo sugerido pela área</option>
+                    {fluxos.map(f => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                  </select>
+                  <Button size="sm" variant="primary" icon="play" onClick={inscreverTodos} disabled={!!bulk}>{bulk === 'cad' ? 'Inscrevendo…' : 'Iniciar'}</Button>
+                  <button type="button" className="lv3-link lv3-link--muted" onClick={() => setFluxoTodos(null)}>Cancelar</button>
+                </span>
+              )
             )}
             {semEmail.length > 0 && (
               <Button size="sm" variant="ghost" icon="wand-magic-sparkles" onClick={findAll} disabled={!!bulk}>
@@ -463,7 +494,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
           <Empty icon="users" title="Nenhuma pessoa cadastrada">Use "Encontrar pessoas" abaixo ou adicione manualmente.</Empty>
         ) : (
           <ul className="lv3-people">
-            {contacts.map(c => <Person key={c.id} boot={boot} api={api} leadId={lead.id} contact={c} empresa={empresa} inscricao={inscricaoDe(c.id)} notify={notify} onChanged={onChanged}/>)}
+            {contacts.map(c => <Person key={c.id} boot={boot} api={api} leadId={lead.id} contact={c} empresa={empresa} inscricao={inscricaoDe(c.id)} fluxos={fluxos} notify={notify} onChanged={onChanged}/>)}
           </ul>
         )}
       </section>

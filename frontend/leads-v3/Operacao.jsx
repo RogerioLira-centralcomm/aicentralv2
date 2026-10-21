@@ -76,7 +76,8 @@ const RODAPE_RE = /\n+Enviado do meu (iPhone|Galaxy)\s*$/;
 function StepComposer({api, item, notify, onDone, pautaVersao}) {
   const passo = item.passo || {};
   const canal = canalDaMensagem(passo);
-  const [etapa, setEtapa] = useState(item.passo_atual < Math.ceil((item.total || 2) / 2) ? 'topo' : 'meio');
+  // A etapa vem do passo do fluxo; fluxo antigo sem etapa segue a regra de antes (primeira metade topo).
+  const [etapa, setEtapa] = useState(passo.etapa || (item.passo_atual < Math.ceil((item.total || 2) / 2) ? 'topo' : 'meio'));
   const [objetivo, setObjetivo] = useState(passo.objetivo || passo.titulo || '');
   const [assunto, setAssunto] = useState('');
   const [texto, setTexto] = useState('');
@@ -98,7 +99,7 @@ function StepComposer({api, item, notify, onDone, pautaVersao}) {
   const escrever = async () => {
     setBusy('ia');
     try {
-      const r = await api.writeMessage({id_contato: item.id_contato, canal, etapa, objetivo, id_gancho: idGancho || null});
+      const r = await api.writeMessage({id_contato: item.id_contato, id_inscricao: item.id, canal, etapa, objetivo, id_gancho: idGancho || null});
       setTexto(r.texto || '');
       setAssunto(r.assunto || '');
       setUsado(r.gancho || null);
@@ -184,9 +185,9 @@ function StepComposer({api, item, notify, onDone, pautaVersao}) {
         <div className="lv3-card lv3-form">
           <div className="lv3-form__grid">
             <Field label="Etapa do funil">
-              <div className="lv3-segmented" role="radiogroup" aria-label="Etapa do funil">
-                {[['topo', 'Topo · interesse'], ['meio', 'Meio · aprofundar']].map(([v, l]) => (
-                  <button key={v} type="button" role="radio" aria-checked={etapa === v} className={etapa === v ? 'is-on' : ''} onClick={() => setEtapa(v)}>{l}</button>
+              <div className="lv3-segmented lv3-segmented--3" role="radiogroup" aria-label="Etapa do funil">
+                {[['topo', 'Topo', 'Puxar interesse com um fato'], ['meio', 'Meio', 'Aprofundar o desafio da pessoa'], ['fundo', 'Fundo', 'Propor o próximo passo']].map(([v, l, d]) => (
+                  <button key={v} type="button" role="radio" aria-checked={etapa === v} className={etapa === v ? 'is-on' : ''} title={d} onClick={() => setEtapa(v)}>{l}</button>
                 ))}
               </div>
             </Field>

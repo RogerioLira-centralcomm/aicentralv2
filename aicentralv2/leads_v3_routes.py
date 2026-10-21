@@ -984,6 +984,40 @@ def api_cadencias():
     return _transacao(lambda cursor: _ok({"modelos": _linhas(cadencias.listar_modelos(cursor))}), "modelos de cadência")
 
 
+@bp.route("/api/cadencias", methods=["POST"])
+@centralcomm_required_api
+def api_criar_fluxo():
+    dados = request.get_json(silent=True) or {}
+    try:
+        cadencias.normalizar_fluxo(dados)  # erro de preenchimento responde antes de abrir o banco
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc))
+
+    def run(cursor):
+        return _ok({"id": cadencias.criar_fluxo(cursor, dados, usuario_id=session.get("user_id"))}, 201)
+
+    return _transacao(run, "criar fluxo")
+
+
+@bp.route("/api/cadencias/<int:fluxo_id>", methods=["PATCH", "DELETE"])
+@centralcomm_required_api
+def api_editar_fluxo(fluxo_id):
+    dados = request.get_json(silent=True) or {}
+    if request.method == "PATCH":
+        try:
+            cadencias.normalizar_fluxo(dados)
+        except prospeccao.ProspeccaoError as exc:
+            return _erro(str(exc))
+
+    def run(cursor):
+        if request.method == "DELETE":
+            cadencias.arquivar_fluxo(cursor, fluxo_id)
+            return _ok({"id": fluxo_id})
+        return _ok(cadencias.atualizar_fluxo(cursor, fluxo_id, dados, usuario_id=session.get("user_id")))
+
+    return _transacao(run, "editar fluxo")
+
+
 @bp.route("/api/hoje")
 @centralcomm_required_api
 def api_hoje():
@@ -1016,7 +1050,9 @@ def api_inscrever_contato(contato_id):
 @bp.route("/api/leads/<int:lead_id>/cadencia", methods=["POST"])
 @centralcomm_required_api
 def api_inscrever_lead(lead_id):
-    """Inscreve todas as pessoas do lead que ainda não têm cadência ativa ou pausada (modelo pelo papel)."""
+    """Inscreve todas as pessoas do lead que ainda não têm cadência ativa ou pausada (no fluxo escolhido ou pelo papel)."""
+    id_cadencia = _int((request.get_json(silent=True) or {}).get("id_cadencia"))
+
     def run(cursor):
         cursor.execute(
             """
@@ -1030,7 +1066,7 @@ def api_inscrever_lead(lead_id):
         )
         ids = [r["id"] for r in cursor.fetchall()]
         criadas = [i for i in (cadencias.inscrever(cursor, cid, usuario_id=session.get("user_id"),
-                                                   usuario_nome=session.get("user_name")) for cid in ids) if i]
+                                                   usuario_nome=session.get("user_name"), id_cadencia=id_cadencia) for cid in ids) if i]
         return _ok({"inscritas": len(criadas)}, 201 if criadas else 200)
 
     return _transacao(run, "inscrever lead")
@@ -1184,6 +1220,7 @@ def api_gerar_mensagem():
     if not contato_id:
         return _erro("Escolha a pessoa.")
     etapa = payload.get("etapa") or "topo"
+    id_inscricao = _int(payload.get("id_inscricao"))
 
     def ler(cursor):
         cursor.execute(
@@ -1214,12 +1251,15 @@ def api_gerar_mensagem():
             ja_usados = [r["fato"] for r in cursor.fetchall()]
         cursor.execute("SELECT assinatura, dispositivo FROM cadu_lead_preferencias WHERE id_usuario = %s", [session.get("user_id")])
         prefs = cursor.fetchone() or {}
-        return row, historico, gancho, ja_usados, prefs
+        fluxo = cadencias.contexto_do_passo(cursor, id_inscricao) if id_inscricao else None
+        if fluxo and fluxo["id_contato"] != contato_id:
+            fluxo = None
+        return row, historico, gancho, ja_usados, prefs, fluxo
 
     lido, erro = _ler(ler, "gerar mensagem")
     if erro:
         return erro
-    row, historico, gancho, ja_usados, prefs = lido
+    row, historico, gancho, ja_usados, prefs, fluxo = lido
     contexto = (row["contexto_mercado"] or {}).get("texto") if isinstance(row["contexto_mercado"], dict) else None
     try:
         resultado = mensagens.gerar_mensagem(
@@ -1232,6 +1272,7 @@ def api_gerar_mensagem():
             foco=mensagens._resumo_foco(row["foco_conteudo"]), contexto=contexto, historico=historico,
             remetente=session.get("user_name"), gancho=dict(gancho) if gancho else None, ja_usados=ja_usados,
             assinatura=prefs.get("assinatura"), dispositivo=prefs.get("dispositivo") or "nenhum",
+            fluxo=fluxo,
         )
     except prospeccao.ProspeccaoError as exc:
         return _erro(str(exc), 400)
@@ -1335,7 +1376,7 @@ def _campos_gancho(payload, parcial):
             raise prospeccao.ProspeccaoError("Status inválido.")
         sets.append("status = %s"); params.append(payload["status"])
     if "etapa" in payload:
-        if payload["etapa"] not in mensagens.ETAPAS:
+        if payload["etapa"] not in mensagens.ETAPAS_GANCHO:
             raise prospeccao.ProspeccaoError("Etapa inválida.")
         sets.append("etapa = %s"); params.append(payload["etapa"])
     if "tipo" in payload:

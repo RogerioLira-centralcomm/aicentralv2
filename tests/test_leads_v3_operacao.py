@@ -38,7 +38,7 @@ class MensagemTest(TestCase):
         with self.assertRaises(ProspeccaoError):
             m.montar_prompt_mensagem(canal="fax", etapa="topo", **self.base)
         with self.assertRaises(ProspeccaoError):
-            m.montar_prompt_mensagem(canal="email", etapa="fundo", **self.base)
+            m.montar_prompt_mensagem(canal="email", etapa="lateral", **self.base)
 
     def test_email_separa_assunto_e_assina_como_executivo(self):
         r = m.gerar_mensagem("k", chat_fn=_chat("Assunto: dado de ctv no varejo\n\nAna, o Kantar mostrou X.\n\nFaz sentido?\n\nUm abraço,\nApolo Lira"),
@@ -210,3 +210,50 @@ class AnaliseSemanalTest(TestCase):
     def test_semanas_comecam_na_segunda(self):
         from datetime import date
         self.assertEqual(routes._semanas(date(2026, 10, 8), date(2026, 10, 20)), ["2026-10-05", "2026-10-12", "2026-10-19"])
+
+
+class FluxosTest(TestCase):
+    passo = {"dia": 0, "canal": "email", "etapa": "meio", "titulo": "Retomar", "objetivo": "x"}
+
+    def test_normaliza_fluxo_e_recusa_o_que_nao_cabe(self):
+        from aicentralv2 import leads_v3_cadencias as cad
+
+        f = cad.normalizar_fluxo({"nome": "  Já   conversou ", "estagio": "em_conversa", "papeis": ["midia", "rh", "midia"],
+                                  "passos": [self.passo, {**self.passo, "dia": 3, "canal": "linkedin", "acao": "conectar", "etapa": "fundo"}]})
+        self.assertEqual(f["nome"], "Já conversou")
+        self.assertEqual(f["papeis"], ["midia"])
+        self.assertEqual([(p["acao"], p["etapa"]) for p in f["passos"]], [("enviar", "meio"), ("conectar", "fundo")])
+        for ruim in ({"nome": ""}, {"nome": "x", "estagio": "quente", "passos": [self.passo]}, {"nome": "x", "passos": []},
+                     {"nome": "x", "passos": [{**self.passo, "etapa": "lateral"}]},
+                     {"nome": "x", "passos": [{**self.passo, "dia": 5}, {**self.passo, "dia": 2}]},
+                     {"nome": "x", "passos": [self.passo] * 13}):
+            with self.assertRaises(ProspeccaoError):
+                cad.normalizar_fluxo(ruim)
+
+    def test_etapa_do_passo_antigo_segue_a_regra_de_antes(self):
+        from aicentralv2.leads_v3_cadencias import etapa_do_passo
+
+        self.assertEqual([etapa_do_passo({}, i, 5) for i in range(5)], ["topo", "topo", "topo", "meio", "meio"])
+        self.assertEqual(etapa_do_passo({"etapa": "fundo"}, 0, 5), "fundo")
+
+    def test_prompt_leva_o_ponto_do_fluxo_e_a_etapa_de_fundo(self):
+        fluxo = {"fluxo": "Já conversou", "estagio": "Já conversou com a gente", "posicao": "passo 3 de 4",
+                 "anteriores": ["Retomar a conversa", "Material sob medida"], "seguintes": ["Próximo passo"]}
+        system, user = m.montar_prompt_mensagem(canal="email", etapa="fundo", fluxo=fluxo, **MensagemTest.base)
+        self.assertIn("FUNDO de funil", system)
+        for trecho in ("Fluxo: Já conversou", "passo 3 de 4", "Material sob medida", "não antecipe"):
+            self.assertIn(trecho, user)
+
+    def test_editar_fluxo_em_uso_cria_versao_nova(self):
+        from aicentralv2 import leads_v3_cadencias as cad
+
+        cursor = MagicMock()
+        cursor.fetchone.side_effect = [{"id": 4, "chave": "inbound", "passos": [], "em_uso": True}, {"id": 9}]
+        r = cad.atualizar_fluxo(cursor, 4, {"nome": "Veio do site", "estagio": "inbound", "passos": [self.passo]}, usuario_id=1)
+        self.assertEqual(r, {"id": 9, "nova_versao": True})
+        sqls = [c.args[0] for c in cursor.execute.call_args_list]
+        self.assertIn("SET ativo = FALSE, chave = NULL", sqls[1])
+        self.assertEqual(cursor.execute.call_args_list[2].args[1][0], "inbound")  # chave vai para a versão nova
+
+    def test_rotas_de_fluxo_validam_antes_do_banco(self):
+        self.assertEqual(_client().post("/leads-v3/api/cadencias", json={"nome": ""}).status_code, 400)

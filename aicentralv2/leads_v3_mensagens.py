@@ -36,7 +36,12 @@ ETAPAS = {
     "meio": "MEIO de funil: aprofundar. Ligue o gancho a um desafio provável da marca, ofereça algo concreto (um diagnóstico "
             "rápido, um material, um case só se estiver no contexto) e proponha 15 minutos sobre esse ponto específico. "
             "Ainda sem proposta comercial.",
+    "fundo": "FUNDO de funil: a pessoa já demonstrou interesse ou este é o último toque do fluxo. Retome em uma frase o "
+             "que já foi trocado e proponha um próximo passo concreto (conversa com o time, briefing, data). Sem preço "
+             "nem proposta na mensagem; se ela não quiser agora, deixe a porta aberta.",
 }
+# Ganchos (fatos para puxar conversa) são de topo ou de meio; o fundo retoma a conversa e não pede fato novo.
+ETAPAS_GANCHO = ("topo", "meio")
 TIPOS_GANCHO = ("empresa", "campanha", "concorrente", "setor", "lideranca", "tendencia")
 DISPOSITIVOS = {"nenhum": "", "iphone": "Enviado do meu iPhone", "galaxy": "Enviado do meu Galaxy"}
 
@@ -133,7 +138,7 @@ def normalizar_gancho(bruto, fontes=()):
         "fonte_nome": _texto(bruto.get("fonte_nome"), 120),
         "data_fato": _texto(bruto.get("data"), 20),
         "tipo": tipo if tipo in TIPOS_GANCHO else "setor",
-        "etapa": etapa if etapa in ETAPAS else "topo",
+        "etapa": etapa if etapa in ETAPAS_GANCHO else "topo",
     }
 
 
@@ -229,8 +234,20 @@ def _descrever_gancho(gancho):
     return "\n".join(partes)
 
 
+def _descrever_fluxo(fluxo):
+    linhas = [f"Fluxo: {fluxo.get('fluxo')}" + (f" — {fluxo['estagio']}" if fluxo.get("estagio") else "")
+              + (f", {fluxo['posicao']}" if fluxo.get("posicao") else "")]
+    if fluxo.get("descricao"):
+        linhas.append(f"Para que serve: {fluxo['descricao']}")
+    if fluxo.get("anteriores"):
+        linhas.append("Toques que já aconteceram: " + "; ".join(fluxo["anteriores"][-4:]))
+    if fluxo.get("seguintes"):
+        linhas.append("Próximos toques (não antecipe): " + "; ".join(fluxo["seguintes"]))
+    return "\n".join(linhas)
+
+
 def montar_prompt_mensagem(*, canal, etapa, objetivo, pessoa, empresa, foco=None, contexto=None, historico=None,
-                           remetente=None, gancho=None, ja_usados=None):
+                           remetente=None, gancho=None, ja_usados=None, fluxo=None):
     """Prompt da mensagem. Separado da chamada para dar para testar sem rede."""
     if canal not in CANAIS:
         raise ProspeccaoError("Canal inválido.")
@@ -261,6 +278,9 @@ def montar_prompt_mensagem(*, canal, etapa, objetivo, pessoa, empresa, foco=None
         + (f" (área {pessoa['papel']})" if pessoa.get("papel") else ""),
         f"Empresa: {empresa.get('nome')}" + (f", setor {empresa['segmento']}" if empresa.get("segmento") else ""),
     ]
+    if fluxo:
+        # O fluxo diz em que ponto da relação a pessoa está: a mensagem continua a conversa, não recomeça.
+        linhas.append("Onde esta pessoa está na cadência:\n" + _descrever_fluxo(fluxo))
     if gancho:
         linhas.append("Gancho desta mensagem (use este fato):\n" + _descrever_gancho(gancho))
     if empresa.get("descricao"):

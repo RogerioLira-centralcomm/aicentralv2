@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import secrets
+import time
 from typing import Any, Optional
 
 from psycopg.errors import StringDataRightTruncation
@@ -33,7 +34,7 @@ class SmartPlannerError(RuntimeError):
     pass
 
 
-_LIMITS: dict = {"cols": None}
+_LIMITS: dict = {"cols": None, "retry_at": 0.0}
 # Identidade do plano: cortada, deixaria de achar o dono; melhor falhar alto.
 KEEP_WHOLE_COLS = {"session_token", "user_email"}
 
@@ -45,6 +46,8 @@ def _column_limits() -> dict[str, int]:
     """
     if _LIMITS["cols"] is not None:
         return _LIMITS["cols"]
+    if time.monotonic() < _LIMITS["retry_at"]:
+        return {}  # leitura recente falhou: não repete a consulta a cada coluna do mesmo UPDATE
     conn = get_db()
     try:
         # Savepoint: se a leitura falhar, desfaz só ela, sem perder o que a requisição já escreveu.
@@ -60,10 +63,12 @@ def _column_limits() -> dict[str, int]:
             rows = cur.fetchall() or []
     except Exception:
         logger.warning("Não foi possível ler o tamanho das colunas do Smart Planner.", exc_info=True)
+        _LIMITS["retry_at"] = time.monotonic() + 60
         return {}
     if not rows:
         # Vazio não vira cache: deixaria de cortar para sempre neste processo.
         logger.warning("Tamanho das colunas do Smart Planner não encontrado; o UPDATE corta pelo erro do banco.")
+        _LIMITS["retry_at"] = time.monotonic() + 60
         return {}
     _LIMITS["cols"] = {
         (row["column_name"] if isinstance(row, dict) else row[0]): int(row["character_maximum_length"] if isinstance(row, dict) else row[1])

@@ -65,7 +65,7 @@ class _Db:
 
 
 def _setup(monkeypatch, db):
-    repository._LIMITS["cols"] = None
+    repository._LIMITS.update(cols=None, retry_at=0.0)
     monkeypatch.setattr(repository, "get_db", lambda: db)
     monkeypatch.setattr(repository, "get_by_token", lambda token: {"id": 7})
 
@@ -101,6 +101,10 @@ def test_empty_schema_read_is_not_cached(monkeypatch):
     _setup(monkeypatch, db)
     assert repository.fit_column("nome_campanha", "x" * 300) == "x" * 300
     assert repository._LIMITS["cols"] is None
+    reads = sum("pg_attribute" in sql for sql, _ in db.calls)
+    repository.fit_column("prazo", "y" * 300)
+    assert sum("pg_attribute" in sql for sql, _ in db.calls) == reads  # sem repetir a consulta por coluna
+    repository._LIMITS["retry_at"] = 0.0
 
 
 def test_update_cuts_by_the_database_error_when_limits_are_unknown(monkeypatch):

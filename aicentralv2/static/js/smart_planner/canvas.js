@@ -706,7 +706,8 @@
         stopArtProgress();
       }
     } catch (error) {
-      if (error.message) setImageStatus(error.message, "error");
+      // Falha ao só consultar o estado na abertura da página não é erro do usuário.
+      if (error.message && !/^ \(HTTP/.test(error.message)) setImageStatus(error.message, "error");
     }
   }
 

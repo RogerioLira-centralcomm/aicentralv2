@@ -70,3 +70,14 @@ def test_running_job_is_not_started_twice_and_stale_one_is_released(monkeypatch)
     assert art_jobs.job_view(store)["status"] == "error"
     _start()
     assert calls == [1]
+
+
+def test_job_of_a_dead_worker_is_released_at_once(monkeypatch):
+    # Worker reciclado pelo max_requests mata a thread; a tela não pode esperar os 15 minutos.
+    import socket
+    now = datetime.now(timezone.utc).isoformat()
+    row = {"dados_detectados": {art_jobs.KEY: {"status": "running", "updatedAt": now, "host": socket.gethostname(), "pid": 2**22 + 12345}}}
+    monkeypatch.setattr(art_jobs.os, "kill", lambda pid, sig: (_ for _ in ()).throw(ProcessLookupError()))
+    assert art_jobs.job_view(row)["status"] == "error"
+    row["dados_detectados"][art_jobs.KEY]["host"] = "outra-maquina"
+    assert art_jobs.job_view(row)["status"] == "running"

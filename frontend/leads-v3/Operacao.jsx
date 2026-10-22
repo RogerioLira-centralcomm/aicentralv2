@@ -409,6 +409,8 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
         if (sel?.tipo === 'foco') {
           const tipo = d.passos.some(i => i.id === sel.id) ? 'passo' : d.proximos.some(i => i.id === sel.id) ? 'proximo' : null;
           if (tipo) { setAba(tipo === 'passo' ? 'hoje' : 'proximos'); return {tipo, id: sel.id}; }
+          // Sem aviso, o executivo agiria na pessoa errada achando que é a que pediu.
+          notify('Este passo não está na Operação agora (filtro de executivo ou agendado para depois de 14 dias).', 'error');
         }
         const existe = sel && (LISTA[sel.tipo] ? (d[LISTA[sel.tipo]] || []).some(i => i.id === sel.id) : false);
         if (existe) return sel;

@@ -245,7 +245,7 @@ export function LeadsApp({boot}) {
           <h1>Leads</h1>
           <div className="lv3-viewswitch" role="tablist" aria-label="Visão">
             <button type="button" role="tab" aria-selected={view === 'mesa'} className={view === 'mesa' ? 'is-on' : ''} onClick={() => setView('mesa')}><Icon name="table-columns"/>Mesa</button>
-            <button type="button" role="tab" aria-selected={view === 'operacao'} className={view === 'operacao' ? 'is-on' : ''} onClick={() => setView('operacao')}><Icon name="bolt"/>Operação</button>
+            <button type="button" role="tab" aria-selected={view === 'operacao'} className={view === 'operacao' ? 'is-on' : ''} onClick={() => { setFoco(null); setView('operacao'); }}><Icon name="bolt"/>Operação</button>
             <button type="button" role="tab" aria-selected={view === 'fluxos'} className={view === 'fluxos' ? 'is-on' : ''} onClick={() => setView('fluxos')}><Icon name="route"/>Fluxos</button>
             <button type="button" role="tab" aria-selected={view === 'analise'} className={view === 'analise' ? 'is-on' : ''} onClick={() => setView('analise')}><Icon name="chart-simple"/>Análise</button>
           </div>

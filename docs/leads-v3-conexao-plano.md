@@ -72,6 +72,18 @@ pesquisar antes de gerar.
 - Análise: por cadência e por passo — enviados, entregues, abertos (reais), cliques, respostas; por gancho
   usado (qual tipo de pauta abre mais).
 
+### Estado da Fase 5 (2026-10-22)
+
+- Feito: botão "Enviar" no passo de e-mail (`/api/inscricoes/<id>/enviar-email`, `leads_v3_email.py`), com remetente
+  e reply-to = login do executivo (@centralcomm.media). Bloqueia sem assunto, com opt-out, e-mail inválido, passo já
+  andado e acima de `LEADS_V3_EMAIL_DAILY_LIMIT` (60/dia). Assinatura em modelo ("Simples": nome, cargo, telefone,
+  LinkedIn, site; sem imagem). O fecho continua no texto da IA. Webhook grava entregue/aberto/clicado/bounce/optout no
+  lead; abertura por proxy fica à parte; descadastro/spam encerra as cadências e hard bounce marca o e-mail inválido
+  e pausa. Selo na Operação ("abriu 2x · há 10 min"); quem abriu nos últimos 3 dias sobe na fila do dia.
+- Webhook da conta (conferido em 2026-10-22) assina `uniqueOpened`/`uniqueProxyOpen`, não `opened`: o selo mostra
+  só a primeira abertura até a conta assinar `opened`/`proxyOpen` (o código já evita contar em dobro).
+- Falta: notificação no CentralX (`cadu_user_notifications` + toast) e a análise por cadência, passo e gancho.
+
 ## Ordem e verificação
 
 1 → 4 → 3 → 5 → 2. Testes sem rede para prompt, parser de ganchos, checagem de frases e mapeamento de

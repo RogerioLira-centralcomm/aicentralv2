@@ -18,6 +18,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request, ses
 from . import db
 from . import leads_v3_cadencias as cadencias
 from . import leads_v3_clientes as clientes
+from . import leads_v3_email as email_mail
 from . import leads_v3_mensagens as mensagens
 from . import leads_v3_prospeccao as prospeccao
 from .auth import centralcomm_required, centralcomm_required_api
@@ -1591,37 +1592,83 @@ def api_sugerir_foco(lead_id):
     return _ok({"foco": foco})
 
 
+_COLUNAS_PREFS = "assinatura, dispositivo, modelo_assinatura, nome_assinatura, cargo, telefone, linkedin_url"
+
+
+def _remetente_info(prefs):
+    """O que a tela mostra do envio: de quem sai, o bloco de assinatura e se o e-mail de login pode enviar."""
+    email = session.get("user_email")
+    try:
+        email_mail.validar_remetente(email)
+        pode = True
+    except prospeccao.ProspeccaoError:
+        pode = False
+    texto, _ = email_mail.assinatura(prefs, nome_usuario=session.get("user_name"))
+    return {"remetente": {"nome": prefs.get("nome_assinatura") or session.get("user_name"), "email": email,
+                          "pode_enviar": pode},
+            "assinatura_texto": texto, "limite_diario": email_mail.LIMITE_DIARIO,
+            "modelos": [{"id": k, "rotulo": v["rotulo"]} for k, v in email_mail.MODELOS_ASSINATURA.items()]}
+
+
 @bp.route("/api/preferencias", methods=["GET", "PUT"])
 @centralcomm_required_api
 def api_preferencias():
-    """Assinatura e 'Enviado do meu…' do executivo logado (entram no fim dos e-mails gerados)."""
+    """Fecho, assinatura e 'Enviado do meu…' do executivo logado (entram no fim dos e-mails)."""
     usuario = session.get("user_id")
     if request.method == "GET":
         def ler(cursor):
-            cursor.execute("SELECT assinatura, dispositivo FROM cadu_lead_preferencias WHERE id_usuario = %s", [usuario])
-            return dict(cursor.fetchone() or {"assinatura": None, "dispositivo": "nenhum"})
+            cursor.execute(f"SELECT {_COLUNAS_PREFS} FROM cadu_lead_preferencias WHERE id_usuario = %s", [usuario])
+            return dict(cursor.fetchone() or {"assinatura": None, "dispositivo": "nenhum", "modelo_assinatura": "simples"})
 
         prefs, erro = _ler(ler, "preferências")
-        return erro or _ok(prefs)
+        return erro or _ok({**prefs, **_remetente_info(prefs)})
 
     payload = request.get_json(silent=True) or {}
     dispositivo = payload.get("dispositivo") or "nenhum"
     if dispositivo not in mensagens.DISPOSITIVOS:
         return _erro("Dispositivo inválido.")
     assinatura = str(payload.get("assinatura") or "").strip()[:300] or None
+    try:
+        campos = email_mail.normalizar_preferencias(payload)
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc))
+    prefs = {"assinatura": assinatura, "dispositivo": dispositivo, **campos}
 
     def run(cursor):
+        colunas = list(prefs)
         cursor.execute(
-            """
-            INSERT INTO cadu_lead_preferencias (id_usuario, assinatura, dispositivo) VALUES (%s, %s, %s)
-            ON CONFLICT (id_usuario) DO UPDATE SET assinatura = EXCLUDED.assinatura, dispositivo = EXCLUDED.dispositivo,
+            f"""
+            INSERT INTO cadu_lead_preferencias (id_usuario, {", ".join(colunas)}) VALUES (%s, {", ".join(["%s"] * len(colunas))})
+            ON CONFLICT (id_usuario) DO UPDATE SET {", ".join(f"{c} = EXCLUDED.{c}" for c in colunas)},
                                                    updated_at = CURRENT_TIMESTAMP
             """,
-            [usuario, assinatura, dispositivo],
+            [usuario, *prefs.values()],
         )
-        return _ok({"assinatura": assinatura, "dispositivo": dispositivo})
+        return _ok({**prefs, **_remetente_info(prefs)})
 
     return _transacao(run, "preferências")
+
+
+@bp.route("/api/inscricoes/<int:inscricao_id>/enviar-email", methods=["POST"])
+@centralcomm_required_api
+def api_enviar_email(inscricao_id):
+    """Envia pela Brevo o e-mail revisado do passo, em nome do executivo, e marca o passo como feito."""
+    payload = request.get_json(silent=True) or {}
+    passo = payload.get("passo")
+    if not isinstance(passo, int):
+        return _erro("Passo inválido.")
+    from .services.brevo_service import BrevoService
+
+    def run(cursor):
+        cursor.execute(f"SELECT {_COLUNAS_PREFS} FROM cadu_lead_preferencias WHERE id_usuario = %s", [session.get("user_id")])
+        prefs = dict(cursor.fetchone() or {})
+        estado = email_mail.enviar_passo(
+            cursor, inscricao_id, assunto=payload.get("assunto"), texto=payload.get("texto"), passo=passo,
+            usuario={"id": session.get("user_id"), "nome": session.get("user_name"), "email": session.get("user_email")},
+            prefs=prefs, enviar_fn=BrevoService().enviar_email, id_gancho=_int(payload.get("id_gancho")))
+        return _ok({k: _json_safe(v) for k, v in estado.items()})
+
+    return _transacao(run, "enviar e-mail")
 
 
 def tarefas_pendentes(cursor, executivo=None):
@@ -1654,7 +1701,8 @@ def api_operacao():
         return _ok({"passos": _linhas(cadencias.fila_do_dia(cursor, executivo=executivo)),
                     "tarefas": _linhas(tarefas_pendentes(cursor, executivo)),
                     "proximos": _linhas(cadencias.proximos_passos(cursor, executivo=executivo)),
-                    "feitos": _linhas(cadencias.feitos_hoje(cursor, executivo=executivo))})
+                    "feitos": _linhas(cadencias.feitos_hoje(cursor, executivo=executivo)),
+                    "agora": _json_safe(datetime.now())})  # relógio dos eventos da Brevo, para o "há 10 min"
 
     return _transacao(run, "operação")
 

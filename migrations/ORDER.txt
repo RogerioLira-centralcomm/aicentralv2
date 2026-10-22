@@ -239,3 +239,5 @@ migrations/run_sql_migration.py create_cotacao_comunicacao.sql
 migrations/run_sql_migration.py add_cadu_leads_v3_fluxos.sql
 # Leads v3: cliente que volta para lead pelo CRM v3 (cliente_origem_id) e reconversão no mesmo cadastro (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
 migrations/run_sql_migration.py add_cadu_leads_v3_cliente_retorno.sql
+# Leads v3: envio de e-mail pela Brevo em nome do executivo (assinatura em modelo com nome, cargo, telefone e LinkedIn; índice de envios por executivo) (aditivo, idempotente; depende de add_cadu_leads_v3_ganchos.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_envio_brevo.sql

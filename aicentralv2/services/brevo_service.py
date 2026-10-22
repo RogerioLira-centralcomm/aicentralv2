@@ -245,6 +245,7 @@ class BrevoService:
         cc_email: Union[str, List[str]] = None,
         headers: Dict[str, str] = None,
         tags: List[str] = None,
+        sender: Dict[str, str] = None,
     ) -> Dict[str, Any]:
         """
         Envia email transacional via API Brevo
@@ -258,6 +259,7 @@ class BrevoService:
             params: Parâmetros para substituição no template
             reply_to: Email de resposta {"name": "...", "email": "..."}
             attachments: Lista de anexos [{"name": "...", "content": "base64..."}]
+            sender: Remetente deste envio {"name": "...", "email": "..."} (padrão: o configurado)
         
         Returns:
             Dict com messageId em caso de sucesso ou error em caso de falha
@@ -269,7 +271,7 @@ class BrevoService:
             recipients = [{"email": email, "name": to_name} for email in to_email]
         
         payload = {
-            "sender": self._sender,
+            "sender": sender or self._sender,
             "to": recipients,
             "subject": subject,
             "htmlContent": html_content

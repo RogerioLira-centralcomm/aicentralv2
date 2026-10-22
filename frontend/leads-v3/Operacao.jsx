@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {Button, Empty, Field, Icon, decode, formatDate, gmailUrl, linkedinSearchUrl, prettyName as pretty, todayLocal, whatsappUrl} from './ui.jsx';
 import {ManageCadence} from './CadenceControls.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
+import {EmailSeal, SignatureDialog} from './Email.jsx';
 
 const CANAL = {
   email: {label: 'E-mail', icon: 'envelope'},
@@ -74,7 +75,7 @@ const canalDaMensagem = passo => (passo?.canal === 'linkedin' ? (passo.acao === 
 const RODAPES = {nenhum: '', iphone: 'Enviado do meu iPhone', galaxy: 'Enviado do meu Galaxy'};
 const RODAPE_RE = /\n+Enviado do meu (iPhone|Galaxy)\s*$/;
 
-function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
+function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersao}) {
   const passo = item.passo || {};
   const canal = canalDaMensagem(passo);
   // A etapa vem do passo do fluxo; fluxo antigo sem etapa segue a regra de antes (primeira metade topo).
@@ -89,6 +90,7 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
   const [alertas, setAlertas] = useState([]);
   const [prefs, setPrefs] = useState({dispositivo: 'nenhum', assinatura: ''});
   const [gerir, setGerir] = useState(false);
+  const [editandoAssinatura, setEditandoAssinatura] = useState(false);
   const nome = pretty(item.contato_nome);
   const empresa = decode(item.empresa || item.lead_nome);
   const corpoCompleto = (assunto ? `Assunto: ${assunto}\n\n` : '') + texto;
@@ -96,7 +98,8 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
   useEffect(() => {
     api.hooks(item.id_lead, item.id_contato).then(lista => setGanchos(lista.filter(g => g.status !== 'descartado'))).catch(() => setGanchos([]));
   }, [api, item.id_lead, item.id_contato, pautaVersao]);
-  useEffect(() => { api.preferences().then(p => setPrefs({dispositivo: p.dispositivo || 'nenhum', assinatura: p.assinatura || ''})).catch(() => null); }, [api]);
+  useEffect(() => { api.preferences().then(p => setPrefs({...p, dispositivo: p.dispositivo || 'nenhum', assinatura: p.assinatura || ''})).catch(() => null); }, [api]);
+  const podeEnviar = passo.canal === 'email' && !!item.email && !!prefs.remetente?.pode_enviar;
 
   const escrever = async () => {
     setBusy('ia');
@@ -114,11 +117,17 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
     setTexto(t => (t ? t.replace(RODAPE_RE, '') + (RODAPES[dispositivo] ? `\n\n${RODAPES[dispositivo]}` : '') : t));
     try { await api.savePreferences({...prefs, dispositivo}); } catch (error) { notify(error.message, 'error'); }
   };
-  const editarAssinatura = async () => {
-    const valor = window.prompt('Assinatura dos e-mails (ex.: "Abs,\nApolo"). Deixe vazio para usar "Abs," e seu primeiro nome.', prefs.assinatura || '');
-    if (valor === null) return;
-    try { setPrefs(await api.savePreferences({...prefs, assinatura: valor})); notify('Assinatura salva. Vale a partir da próxima mensagem.'); }
-    catch (error) { notify(error.message, 'error'); }
+  // Envia pela Brevo em nome do executivo (resposta volta para a caixa dele) e o passo anda sozinho.
+  const enviar = async () => {
+    if (!assunto.trim()) return notify('Escreva o assunto antes de enviar.', 'error');
+    setBusy('enviar');
+    try {
+      const r = await api.sendEmail(item.id, {passo: item.passo_atual, assunto, texto, id_gancho: usado?.id || null});
+      await api.saveCommunication(item.id_lead, {tipo_canal: 'email', objetivo, texto: `Assunto: ${assunto}\n\n${r.texto || texto}`, status: 'enviado',
+        id_contato: item.id_contato, gerado_por_ia: true, tamanho: 'medio', tom: 'cordial'}).catch(() => null);
+      notify(`E-mail enviado para ${String(item.email).toLowerCase()}. Abertura e clique aparecem na Operação.`);
+      onDone();
+    } catch (error) { notify(error.message, 'error'); setBusy(''); }
   };
   const copiar = async () => {
     try { await navigator.clipboard.writeText(assunto ? `${assunto}\n\n${texto}` : texto); notify('Texto copiado.'); return true; }
@@ -167,6 +176,7 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
         <div>
           <h2>{nome}{item.golden && <span className="lv3-gc-badge">Golden Circle</span>}</h2>
           <p>{[pretty(item.cargo), empresa].filter(Boolean).join(' · ')}</p>
+          {item.ultimo_email && <p className="lv3-op__lastmail"><span className="lv3-muted">Último e-mail:</span> <EmailSeal ultimo={item.ultimo_email} agora={agora} full/></p>}
           <p className="lv3-op__links">
             {item.email && <a href={`mailto:${item.email}`}><Icon name="envelope"/>{String(item.email).toLowerCase()}</a>}
             {item.telefone && <a href={whatsappUrl(item.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{item.telefone}</a>}
@@ -232,15 +242,31 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
                       <button key={v} type="button" role="radio" aria-checked={prefs.dispositivo === v} className={prefs.dispositivo === v ? 'is-on' : ''} onClick={() => mudarRodape(v)}>{l}</button>
                     ))}
                   </div>
-                  <button type="button" className="lv3-link lv3-link--muted" onClick={editarAssinatura}>Editar assinatura</button>
+                  <button type="button" className="lv3-link lv3-link--muted" onClick={() => setEditandoAssinatura(true)}>Editar assinatura</button>
                 </div>
+              )}
+              {passo.canal === 'email' && prefs.assinatura_texto && (
+                <div className="lv3-sigpreview">
+                  <span className="lv3-field__label">Assinatura no envio pela Brevo</span>
+                  <pre>{prefs.assinatura_texto}</pre>
+                </div>
+              )}
+              {passo.canal === 'email' && prefs.remetente && (
+                prefs.remetente.pode_enviar
+                  ? <p className="lv3-muted lv3-op__from">De: {prefs.remetente.nome} &lt;{prefs.remetente.email}&gt; · a resposta cai na sua caixa</p>
+                  : <p className="lv3-op__warn"><Icon name="triangle-exclamation"/>Seu login ({prefs.remetente.email || 'sem e-mail'}) não é @centralcomm.media: o envio pela Brevo fica desligado. Use "Abrir no Gmail".</p>
               )}
             </>
           )}
         </div>
 
+      {editandoAssinatura && <SignatureDialog api={api} prefs={prefs} notify={notify} onClose={() => setEditandoAssinatura(false)}
+        onSaved={salvo => setPrefs(p => ({...p, ...salvo}))}/>}
       <div className="lv3-op__actions">
-        <Button variant="primary" icon={passo.canal === 'linkedin' ? 'arrow-up-right-from-square' : passo.canal === 'telefone' ? 'phone' : 'paper-plane'} onClick={abrir}>
+        {podeEnviar && texto && (
+          <Button variant="primary" icon="paper-plane" onClick={enviar} disabled={!!busy}>{busy === 'enviar' ? 'Enviando…' : 'Enviar'}</Button>
+        )}
+        <Button variant={podeEnviar && texto ? 'secondary' : 'primary'} icon={passo.canal === 'linkedin' ? 'arrow-up-right-from-square' : passo.canal === 'telefone' ? 'phone' : passo.canal === 'email' ? 'envelope' : 'paper-plane'} onClick={abrir}>
           {{email: 'Abrir no Gmail', whatsapp: 'Abrir no WhatsApp', linkedin: texto ? 'Copiar e abrir LinkedIn' : 'Abrir LinkedIn', telefone: 'Ligar'}[passo.canal] || 'Abrir'}
         </Button>
         {texto && <Button icon="copy" onClick={copiar}>Copiar</Button>}
@@ -260,7 +286,7 @@ function StepComposer({api, item, fluxos = [], notify, onDone, pautaVersao}) {
   );
 }
 
-function DonePanel({item, onOpenLead}) {
+function DonePanel({item, agora, onOpenLead}) {
   const info = CANAL[item.canal] || CANAL.email;
   const respondeu = item.evento === 'respondeu';
   const prox = item.proximo_passo;
@@ -280,6 +306,7 @@ function DonePanel({item, onOpenLead}) {
           <span className="lv3-muted">{item.cadencia ? `${item.cadencia} · ` : ''}hoje às {String(item.ocorreu_em).slice(11, 16)}</span>
         </div>
       </div>
+      {item.canal === 'email' && item.ultimo_email && <p className="lv3-op__lastmail"><span className="lv3-muted">E-mail:</span> <EmailSeal ultimo={item.ultimo_email} agora={agora} full/></p>}
       <div className="lv3-card lv3-op__next">
         <h4>Próximo toque</h4>
         {item.status_cadencia === 'ativa' && prox ? (
@@ -412,6 +439,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
           <span className="lv3-op__itembody">
             <span className="lv3-op__itemtop"><strong>{pretty(p.contato_nome)}</strong>{p.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
             <span className="lv3-op__itemsub">{decode(p.empresa || p.lead_nome)} · {p.passo?.titulo}</span>
+            {p.ultimo_email && <EmailSeal ultimo={p.ultimo_email} agora={data.agora}/>}
             <span className={`lv3-op__itemdue ${tipo === 'passo' && late !== 'hoje' ? 'is-late' : ''}`}>{tipo === 'passo' ? late : (CANAL[p.passo?.canal] || CANAL.email).label} · passo {p.passo_atual + 1}/{p.total}</span>
           </span>
         </button>
@@ -490,6 +518,7 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
                         <span className="lv3-op__itembody">
                           <span className="lv3-op__itemtop"><strong>{pretty(f.contato_nome) || 'Pessoa'}</strong>{f.golden && <span className="lv3-gc-dot" title="Golden Circle"/>}</span>
                           <span className="lv3-op__itemsub">{decode(f.empresa)} · {f.evento === 'respondeu' ? 'respondeu' : (f.titulo || info.label)}</span>
+                          {f.canal === 'email' && f.ultimo_email && <EmailSeal ultimo={f.ultimo_email} agora={data.agora}/>}
                           <span className="lv3-op__itemdue">{String(f.ocorreu_em).slice(11, 16)}{f.status_cadencia === 'ativa' && f.proximo_passo ? ` · próximo: ${f.proximo_passo.titulo} (${rotuloDia(f.proxima_em)})` : ''}</span>
                         </span>
                       </button>
@@ -505,9 +534,9 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       <section className="lv3-col lv3-op__main" aria-label="Pendência selecionada">
         {item ? (
           selected.tipo === 'passo' || selected.tipo === 'proximo'
-            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} fluxos={fluxos} notify={notify} onDone={load} pautaVersao={pautaVersao}/>
+            ? <StepComposer key={`p${item.id}-${item.passo_atual}`} api={api} item={item} agora={data.agora} fluxos={fluxos} notify={notify} onDone={load} pautaVersao={pautaVersao}/>
             : selected.tipo === 'feito'
-              ? <DonePanel key={`f${item.id}`} item={item} onOpenLead={onOpenLead}/>
+              ? <DonePanel key={`f${item.id}`} item={item} agora={data.agora} onOpenLead={onOpenLead}/>
               : <TaskPanel key={`t${item.id}`} api={api} item={item} notify={notify} onDone={load} onOpenLead={onOpenLead}/>
         ) : <Empty icon="hand-pointer" title="Escolha uma pendência"/>}
       </section>

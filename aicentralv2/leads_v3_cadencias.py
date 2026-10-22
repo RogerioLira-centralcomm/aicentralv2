@@ -516,7 +516,7 @@ def fila_do_dia(cursor, *, executivo=None, ate=None):
         SELECT i.id, i.id_lead, i.id_contato, i.passo_atual, i.proxima_em, i.created_at,
                {_COLUNAS_PASSO}
          WHERE i.status = 'ativa' AND i.proxima_em <= %(ate)s {filtro}
-         ORDER BY golden DESC, i.proxima_em, i.id
+         ORDER BY golden DESC, abriu_recente DESC, i.proxima_em, i.id
          LIMIT 300
         """,
         {"ate": ate, "executivo": executivo, "trimestre": trimestre_atual(ate.date())},
@@ -539,17 +539,43 @@ def inscricoes_do_lead(cursor, lead_id):
     return cursor.fetchall()
 
 
+def _selo_email(contato):
+    """Junção com o último e-mail enviado pela Brevo à pessoa e o que aconteceu com ele (selo na Operação).
+
+    `ultimo_email` = {enviado_em, assunto, eventos: {aberto: {reais, proxy, ultima_real}, clicado: {...}, ...}};
+    `abriu_recente` = abertura real nos últimos 3 dias (sobe na fila do dia).
+    """
+    return f"""
+          LEFT JOIN LATERAL (
+              SELECT jsonb_build_object(
+                         'enviado_em', to_char(env.ocorreu_em, 'YYYY-MM-DD"T"HH24:MI'),
+                         'assunto', env.payload ->> 'assunto',
+                         'eventos', COALESCE(ev.eventos, '{{}}'::jsonb)) AS ultimo_email,
+                     COALESCE(ev.eventos -> 'aberto' ->> 'ultima_real', '') >= to_char(NOW() - INTERVAL '3 days', 'YYYY-MM-DD"T"HH24:MI')
+                         AS abriu_recente
+                FROM cadu_lead_mensagem_eventos env
+                LEFT JOIN LATERAL (
+                    SELECT jsonb_object_agg(x.evento, x.payload) AS eventos FROM cadu_lead_mensagem_eventos x
+                     WHERE x.provedor = 'brevo' AND x.provedor_message_id = env.provedor_message_id AND x.evento <> 'enviado'
+                ) ev ON TRUE
+               WHERE env.id_contato = {contato} AND env.evento = 'enviado' AND env.provedor = 'brevo'
+               ORDER BY env.ocorreu_em DESC
+               LIMIT 1
+          ) em ON TRUE"""
+
+
 # Colunas e junções comuns da Fila do dia e dos Próximos (a trilha usa `passos` inteiro).
 _COLUNAS_PASSO = """
                cad.id AS id_cadencia, cad.nome AS cadencia, cad.passos -> i.passo_atual AS passo, cad.passos AS passos,
                jsonb_array_length(cad.passos) AS total,
                c.nome AS contato_nome, c.cargo, c.email, c.telefone, c.linkedin_url, c.papel,
                l.empresa, l.nome AS lead_nome,
-               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = i.id_lead AND g.trimestre = %(trimestre)s) AS golden
+               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = i.id_lead AND g.trimestre = %(trimestre)s) AS golden,
+               em.ultimo_email, COALESCE(em.abriu_recente, FALSE) AS abriu_recente
           FROM cadu_lead_cadencia_inscricoes i
           JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
           JOIN cadu_lead_contatos c ON c.id = i.id_contato
-          JOIN cadu_leads l ON l.id = i.id_lead"""
+          JOIN cadu_leads l ON l.id = i.id_lead""" + _selo_email("i.id_contato")
 
 
 def proximos_passos(cursor, *, executivo=None, dias=14, agora=None):
@@ -581,12 +607,13 @@ def feitos_hoje(cursor, *, executivo=None, agora=None):
                e.payload ->> 'titulo' AS titulo, c.nome AS contato_nome, COALESCE(l.empresa, l.nome) AS empresa,
                i.status AS status_cadencia, i.proxima_em, cad.nome AS cadencia,
                cad.passos -> i.passo_atual AS proximo_passo,
-               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = e.id_lead AND g.trimestre = %(trimestre)s) AS golden
+               EXISTS (SELECT 1 FROM cadu_golden_circle g WHERE g.id_lead = e.id_lead AND g.trimestre = %(trimestre)s) AS golden,
+               em.ultimo_email
           FROM cadu_lead_mensagem_eventos e
           JOIN cadu_leads l ON l.id = e.id_lead
           LEFT JOIN cadu_lead_contatos c ON c.id = e.id_contato
           LEFT JOIN cadu_lead_cadencia_inscricoes i ON i.id = e.id_inscricao
-          LEFT JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
+          LEFT JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia{_selo_email("e.id_contato")}
          WHERE e.evento IN ('tarefa_feita', 'respondeu') AND e.ocorreu_em >= %(inicio)s {filtro}
          ORDER BY e.ocorreu_em DESC
          LIMIT 200

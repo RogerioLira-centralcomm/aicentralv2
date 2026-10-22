@@ -682,6 +682,15 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-op__usedhook .lv3-icon { margin-top: 2px; color: #ca8a04; }
 .lv3-op__warn { display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-warning-bg); color: var(--lv3-warning); font-size: 12.5px; }
 .lv3-op__signature { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lv3-sigpreview { display: grid; gap: 4px; }
+.lv3-sigpreview pre { margin: 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-sunken); font: inherit; font-size: 12.5px; line-height: 1.5; color: var(--lv3-ink-2); white-space: pre-wrap; }
+.lv3-op__from { margin: 0; font-size: 12.5px; }
+.lv3-op__lastmail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12.5px; }
+.lv3-seal { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 12px; line-height: 1.3; color: var(--lv3-ink-2); }
+.lv3-seal .lv3-icon { flex: none; font-size: 11px; }
+.lv3-seal--success { color: var(--lv3-success); font-weight: 600; }
+.lv3-seal--warning { color: var(--lv3-warning); }
+.lv3-seal--danger { color: var(--lv3-danger); }
 .lv3-segmented--sm { grid-template-columns: repeat(3, auto); }
 .lv3-segmented--sm button { height: 28px; padding: 0 12px; font-size: 12.5px; }
 

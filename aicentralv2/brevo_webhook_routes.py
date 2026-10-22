@@ -53,9 +53,32 @@ def receive_brevo_webhook():
             apply_brevo_event(event)
         except Exception:  # um evento ruim não derruba o lote; a Brevo reenviaria tudo
             logger.warning("Webhook Brevo: evento não aplicado ao registro de envios.", exc_info=True)
-            try:
-                from .db import get_db
-                get_db().rollback()
-            except Exception:
-                pass
+            _rollback()
+        try:
+            _aplicar_no_lead(event)
+        except Exception:
+            logger.warning("Webhook Brevo: evento não aplicado ao lead.", exc_info=True)
+            _rollback()
     return jsonify({"success": True, "received": len(events)}), 200
+
+
+def _rollback():
+    try:
+        from .db import get_db
+        get_db().rollback()
+    except Exception:
+        pass
+
+
+def _aplicar_no_lead(event):
+    """E-mails do Leads v3 (enviados em nome do executivo): entrega, abertura, clique, bounce e descadastro."""
+    from . import leads_v3_email
+    from .db import get_db
+
+    conn = get_db()
+    with conn.cursor() as cursor:
+        gravou = leads_v3_email.aplicar_evento_brevo(cursor, event)
+    if gravou:
+        conn.commit()
+    else:
+        conn.rollback()

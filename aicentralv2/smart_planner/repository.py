@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import logging
+import re
 import secrets
 from typing import Any, Optional
 
+from psycopg.errors import StringDataRightTruncation
 from psycopg.types.json import Json
 
 from ..db import get_db
@@ -47,14 +49,21 @@ def _column_limits() -> dict[str, int]:
     try:
         # Savepoint: se a leitura falhar, desfaz só ela, sem perder o que a requisição já escreveu.
         with conn.transaction(), conn.cursor() as cur:
+            # to_regclass acha a tabela pelo search_path, igual ao INSERT/UPDATE, em qualquer esquema.
             cur.execute(
-                """SELECT column_name, character_maximum_length FROM information_schema.columns
-                    WHERE table_schema = current_schema() AND table_name = 'cadu_smart_planner_sessions'
-                      AND character_maximum_length IS NOT NULL"""
+                """SELECT a.attname AS column_name, a.atttypmod - 4 AS character_maximum_length
+                     FROM pg_attribute a
+                    WHERE a.attrelid = to_regclass('cadu_smart_planner_sessions')
+                      AND a.attnum > 0 AND NOT a.attisdropped
+                      AND a.atttypid IN ('varchar'::regtype, 'bpchar'::regtype) AND a.atttypmod > 4"""
             )
             rows = cur.fetchall() or []
     except Exception:
         logger.warning("Não foi possível ler o tamanho das colunas do Smart Planner.", exc_info=True)
+        return {}
+    if not rows:
+        # Vazio não vira cache: deixaria de cortar para sempre neste processo.
+        logger.warning("Tamanho das colunas do Smart Planner não encontrado; o UPDATE corta pelo erro do banco.")
         return {}
     _LIMITS["cols"] = {
         (row["column_name"] if isinstance(row, dict) else row[0]): int(row["character_maximum_length"] if isinstance(row, dict) else row[1])
@@ -462,14 +471,47 @@ def update_session(token: str, fields: dict) -> dict:
         return row
     params.append(row["id"])
     conn = get_db()
-    with conn.cursor() as cur:
-        cur.execute(
-            f"UPDATE cadu_smart_planner_sessions SET {', '.join(sets)} WHERE id = %s RETURNING *",
-            params,
-        )
-        updated = cur.fetchone()
+    try:
+        with conn.transaction(), conn.cursor() as cur:
+            cur.execute(
+                f"UPDATE cadu_smart_planner_sessions SET {', '.join(sets)} WHERE id = %s RETURNING *",
+                params,
+            )
+            updated = cur.fetchone()
+    except StringDataRightTruncation:
+        logger.warning("Texto maior que a coluna no Smart Planner; gravando coluna a coluna.", exc_info=True)
+        updated = _update_cutting_each(conn, row["id"], fields)
     conn.commit()
     return updated or row
+
+
+def _update_cutting_each(conn, row_id: int, fields: dict) -> dict | None:
+    """Rede de segurança: grava coluna a coluna e corta pelo tamanho que o próprio erro do banco informa."""
+    for col, value in fields.items():
+        if col not in UPDATE_COLS:
+            continue
+        if col in JSON_COLS:
+            param = Json(value) if value is not None else None
+        else:
+            param = fit_column(col, value)
+        try:
+            _update_one(conn, row_id, col, param)
+        except StringDataRightTruncation as exc:
+            match = re.search(r"\((\d+)\)", str(exc))
+            if col in KEEP_WHOLE_COLS or not match or not isinstance(param, str):
+                raise
+            limit = int(match.group(1))
+            if _LIMITS["cols"] is not None:
+                _LIMITS["cols"][col] = limit
+            _update_one(conn, row_id, col, param[: limit - 1].rstrip() + "…")
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM cadu_smart_planner_sessions WHERE id = %s", (row_id,))
+        return cur.fetchone()
+
+
+def _update_one(conn, row_id: int, col: str, param: Any) -> None:
+    with conn.transaction(), conn.cursor() as cur:
+        cur.execute(f"UPDATE cadu_smart_planner_sessions SET {col} = %s WHERE id = %s", (param, row_id))
 
 
 def merge_dados(token: str, patch: dict) -> dict:

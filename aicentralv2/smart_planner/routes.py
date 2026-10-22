@@ -12,6 +12,7 @@ from flask import Blueprint, Response, current_app, jsonify, make_response, redi
 from ..auth import centralcomm_required, centralcomm_required_api, is_admin
 from ..db import obter_vendedores_centralcomm
 from ..services.openrouter_service import OpenRouterError
+from . import art_jobs
 from . import canvas as canvas_mod
 from . import planner
 from . import processor
@@ -34,7 +35,7 @@ from .materials import save_upload
 from .references import capture_file, capture_ooh_inventory, capture_search, capture_url, discover_campaigns
 from .brand import brand_for_client, search_parties
 from .editor import editor_context
-from .images import materialize_uploaded_references, regenerate_creative
+from .images import materialize_uploaded_references
 from .logos import lookup_agency_for_client
 from .models import preview_cost
 from .repository import SessionNotFound, SmartPlannerError, get_by_public_token, merge_dados
@@ -819,8 +820,6 @@ def api_canvas_gerar(token):
 @centralcomm_required_api
 def api_canvas_imagem(token):
     try:
-        from .repository import update_session
-
         payload = request.get_json(silent=True) or {}
         if not isinstance(payload, dict):
             return _error("Payload inválido para geração da imagem.", 400)
@@ -851,9 +850,6 @@ def api_canvas_imagem(token):
             hero["logo_url"] = logo_url
             branding["hero"] = hero
             folha["branding"] = branding
-        # The image is platform-funded for the user, but its provider spend is
-        # still part of the plan's internal total AI cost.
-        from .cost import bound_session
         stored_inputs = as_dict(folha.get("visual_inputs"))
         reference_url = text(stored_inputs.get("reference_url"))
         generation_references = list(uploaded_references)
@@ -863,22 +859,37 @@ def api_canvas_imagem(token):
             count = int(payload.get("count") or 1)
         except (TypeError, ValueError):
             count = 1
-        with bound_session(token):
-            folha = regenerate_creative(
-                folha, uploaded_references=generation_references, channels=_plan_channels(folha, dados),
-                count=count, shape="vertical" if text(payload.get("shape")) == "vertical" else "horizontal",
-            )
-        merge_dados(token, {"folha": folha})
-        if (dados.get("plan_mode") or "").strip().lower() != "completo":
-            update_session(token, {"plan_content": folha})
-        return _ok({"plan": folha, "editor": editor_context(load_owned(token))})
+        # As artes saem fora da requisição: três delas e as versões dos canais passam do timeout.
+        job = art_jobs.start(
+            token, folha, references=generation_references, channels=_plan_channels(folha, dados),
+            count=count, shape="vertical" if text(payload.get("shape")) == "vertical" else "horizontal",
+            plan_mode=(dados.get("plan_mode") or "").strip().lower(),
+        )
+        return _ok({"job": job})
     except SessionNotFound as exc:
         return _error(exc, 404)
     except (ValueError, OpenRouterError) as exc:
         return _error(exc, 422)
-    except Exception:
-        logger.exception("Falha ao gerar imagem da folha")
-        return _error("Não foi possível gerar a imagem.", 500)
+    except Exception as exc:
+        logger.exception("Falha ao iniciar a geração das artes")
+        return _error(art_jobs.error_message(exc), 500)
+
+
+@bp.route("/api/<token>/canvas/imagem/status", methods=["GET"])
+@centralcomm_required_api
+def api_canvas_imagem_status(token):
+    """Estado da geração das artes; pronta, devolve o plano com as artes novas."""
+    try:
+        row = load_owned(token)
+        job = art_jobs.job_view(row)
+        data = {"job": job}
+        if job.get("status") == "done":
+            dados = as_dict(row.get("dados_detectados"))
+            data["plan"] = as_dict(dados.get("folha")) or as_dict(row.get("plan_content"))
+            data["editor"] = editor_context(row)
+        return _ok(data)
+    except SessionNotFound as exc:
+        return _error(exc, 404)
 
 
 def _plan_channels(folha: dict, dados: dict) -> list:

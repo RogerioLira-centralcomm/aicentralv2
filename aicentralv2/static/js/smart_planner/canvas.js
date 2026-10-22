@@ -266,6 +266,7 @@
 
   // Progresso explícito: etapas, tempo corrido e espaços das artes que estão saindo.
   var artProgressTimer = null;
+  var artServerStep = "";
 
   function startArtProgress(count, shape, mode) {
     var box = document.getElementById("sp-art-progress");
@@ -286,7 +287,7 @@
     }
     function tick() {
       var seconds = Math.round((Date.now() - started) / 1000);
-      var step = mode === "use" ? "variants" : seconds < 6 ? "prep" : seconds < 75 ? "arts" : "variants";
+      var step = mode === "use" ? "variants" : ["prep", "arts", "variants"].indexOf(artServerStep) >= 0 ? artServerStep : seconds < 6 ? "prep" : "arts";
       var labels = {
         prep: "Preparando logo, referência e prompt…",
         arts: count > 1 ? "Gerando " + count + " artes " + (shape === "vertical" ? "verticais" : "horizontais") + " ao mesmo tempo…" : "Gerando a arte " + (shape === "vertical" ? "vertical" : "horizontal") + "…",
@@ -310,6 +311,7 @@
   function stopArtProgress() {
     window.clearInterval(artProgressTimer);
     artProgressTimer = null;
+    artServerStep = "";
     var box = document.getElementById("sp-art-progress");
     if (box) box.hidden = true;
     document.querySelectorAll("#sp-gallery .is-pending").forEach(function (node) { node.remove(); });
@@ -619,10 +621,56 @@
     if (!payload.success) throw new Error(payload.error || "Falha ao salvar");
   }
 
+  // Resposta que não é JSON (504 do nginx, 502 do Gunicorn) vira um motivo legível em vez de "tente de novo".
+  async function readApi(response, fallback) {
+    var payload = await response.json().catch(function () { return null; });
+    if (payload && payload.success) return payload.data || {};
+    if (payload && payload.error) throw new Error(payload.error);
+    var reasons = {
+      413: "A logo ou a referência é grande demais para enviar.",
+      502: "O servidor caiu no meio da geração (HTTP 502).",
+      503: "O servidor está indisponível no momento (HTTP 503).",
+      504: "O servidor demorou demais para responder (HTTP 504).",
+    };
+    throw new Error(reasons[response.status] || fallback + " (HTTP " + response.status + ").");
+  }
+
+  function waitArtJob() {
+    return new Promise(function (resolve, reject) {
+      var failures = 0;
+      function poll() {
+        fetch("/smart-planner/api/" + token + "/canvas/imagem/status", { credentials: "same-origin" })
+          .then(function (response) { return readApi(response, "Não foi possível acompanhar a geração"); })
+          .then(function (data) {
+            failures = 0;
+            var job = data.job || {};
+            if (job.status === "done") return resolve(data);
+            if (job.status === "error") return reject(new Error(job.error || "A geração das artes falhou."));
+            if (job.status !== "running") return reject(new Error("A geração das artes não está mais em andamento. Gere de novo."));
+            artServerStep = job.step || artServerStep;
+            window.setTimeout(poll, 3000);
+          })
+          .catch(function (error) {
+            // Uma falha de rede isolada não derruba a espera; a geração segue no servidor.
+            if (++failures >= 5) return reject(error);
+            window.setTimeout(poll, 5000);
+          });
+      }
+      poll();
+    });
+  }
+
+  function finishArtJob(data, count) {
+    applyPlanResponse(data);
+    setLive("Artes geradas.");
+    setImageStatus((count > 1 ? count + " artes geradas. A primeira já está no plano; escolha outra ao lado se preferir." : "Arte gerada e aplicada ao plano."), "success");
+  }
+
   async function generateImage() {
     var count = artCount();
     var shape = artShape();
     setLive("Gerando artes…");
+    artServerStep = "prep";
     startArtProgress(count, shape, "generate");
     try {
       await save();
@@ -634,14 +682,31 @@
         credentials: "same-origin",
         body: JSON.stringify({ logo: logo, reference: reference, count: count, shape: shape }),
       });
-      var payload = await response.json().catch(function () { return {}; });
-      if (!payload.success) throw new Error(payload.error || "Não foi possível gerar as artes. Tente de novo.");
+      await readApi(response, "Não foi possível iniciar a geração das artes");
+      var data = await waitArtJob();
       stopArtProgress();
-      applyPlanResponse(payload.data);
-      setLive("Artes geradas.");
-      setImageStatus((count > 1 ? count + " artes geradas. A primeira já está no plano; escolha outra ao lado se preferir." : "Arte gerada e aplicada ao plano."), "success");
+      finishArtJob(data, count);
     } finally {
       stopArtProgress();
+    }
+  }
+
+  // Ao recarregar a página no meio de uma geração, volta a acompanhar em vez de parecer parada.
+  async function resumeArtJob() {
+    try {
+      var response = await fetch("/smart-planner/api/" + token + "/canvas/imagem/status", { credentials: "same-origin" });
+      var job = (await readApi(response, "")).job || {};
+      if (job.status !== "running") return;
+      var count = job.count || 1;
+      artServerStep = job.step || "arts";
+      startArtProgress(count, job.shape || "horizontal", "generate");
+      try {
+        finishArtJob(await waitArtJob(), count);
+      } finally {
+        stopArtProgress();
+      }
+    } catch (error) {
+      if (error.message) setImageStatus(error.message, "error");
     }
   }
 
@@ -656,10 +721,9 @@
         credentials: "same-origin",
         body: JSON.stringify({ url: url }),
       });
-      var payload = await response.json().catch(function () { return {}; });
-      if (!payload.success) throw new Error(payload.error || "Não foi possível usar esta arte.");
+      var data = await readApi(response, "Não foi possível usar esta arte");
       stopArtProgress();
-      applyPlanResponse(payload.data);
+      applyPlanResponse(data);
       setLive("Arte aplicada.");
       setImageStatus("Arte aplicada ao plano, com as versões dos canais.", "success");
     } finally {
@@ -701,6 +765,7 @@
   });
 
   document.getElementById("sp-review-image-prompt")?.addEventListener("click", reviewImagePrompt);
+  if (document.getElementById("sp-canvas-image")) resumeArtJob();
   if (!val("sp-field-image-prompt")) reviewImagePrompt();
   setupUploadPreviews();
 

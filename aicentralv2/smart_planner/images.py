@@ -176,7 +176,7 @@ def creative_images(creative: dict) -> list[dict]:
     return images
 
 
-def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None, channels: list | None = None, count: int = 1, shape: str = "horizontal") -> dict:
+def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None, channels: list | None = None, count: int = 1, shape: str = "horizontal", on_variants=None) -> dict:
     """Gera de uma a quatro artes do criativo no canal, horizontais (16:9) ou verticais (9:16), em paralelo.
 
     A primeira que sair vai para o plano; só ela ganha a vertical e a quadrada que os canais
@@ -214,6 +214,8 @@ def regenerate_creative(plan: dict, uploaded_references: list[str] | None = None
     fresh = [{"url": url, "shape": shape, "variants": {}, "model": model} for url in urls]
     creative["images"] = (fresh + [item for item in creative_images(creative) if item["url"] not in urls])[:MAX_ARTS_KEPT]
     creative["image_model"] = model
+    if on_variants:
+        on_variants()
     use_creative(plan, urls[0], channels)
     return plan
 

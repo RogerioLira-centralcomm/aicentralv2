@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Button, Field, Icon, Modal} from './ui.jsx';
 
 const parse = valor => (valor ? new Date(String(valor).slice(0, 16)) : null);
@@ -95,5 +95,85 @@ export function SignatureDialog({api, prefs, notify, onClose, onSaved}) {
         <p className="lv3-muted">O fecho entra no texto que a IA escreve (vale a partir da próxima mensagem). O bloco com nome, cargo e contatos vai no envio pela Brevo; os links dele contam clique.</p>
       </div>
     </Modal>
+  );
+}
+
+const pessoa = e => (e?.email ? (e.name ? `${e.name} <${e.email}>` : e.email) : '—');
+const diaMes = v => (v ? `${String(v).slice(8, 10)}/${String(v).slice(5, 7)}` : '');
+
+/** Visualizador do e-mail como ele vai sair pela Brevo: envelope, assunto (ou "Re:" da conversa) e o HTML final. */
+export function EmailPreview({api, item, assunto, setAssunto, texto, naConversa, setNaConversa, versao, onPrevia}) {
+  const [p, setP] = useState(null);
+  const [erro, setErro] = useState('');
+  useEffect(() => {
+    // Espera o executivo parar de digitar; a prévia é montada no servidor, igual ao envio.
+    const t = setTimeout(() => {
+      api.previewEmail(item.id, {assunto, texto, na_conversa: naConversa})
+        .then(r => { setP(r); setErro(''); onPrevia?.(r); })
+        .catch(error => setErro(error.message));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [api, item.id, assunto, texto, naConversa, versao]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const emConversa = naConversa && p?.conversa;
+  return (
+    <section className="lv3-mailview" aria-label="Prévia do e-mail">
+      <dl className="lv3-mailview__env">
+        <dt>De</dt><dd>{pessoa(p?.de)}</dd>
+        <dt>Para</dt><dd>{pessoa(p?.para)}</dd>
+        <dt>Responder para</dt><dd>{p?.reply_to?.email || '—'} <span className="lv3-muted">· a resposta cai na sua caixa</span></dd>
+        <dt>Assunto</dt>
+        <dd>
+          {emConversa
+            ? <span className="lv3-mailview__thread"><Icon name="reply"/><strong>{p.assunto}</strong><span className="lv3-muted"> · mesma conversa do e-mail de {diaMes(p.conversa.enviado_em)}</span></span>
+            : <input className="lv3-input lv3-input--sm" value={assunto} placeholder="assunto curto, em minúsculas" onChange={e => setAssunto(e.target.value)} aria-label="Assunto"/>}
+        </dd>
+      </dl>
+      {p?.tem_conversa && (
+        <label className="lv3-mailview__toggle">
+          <input type="checkbox" checked={naConversa} onChange={e => setNaConversa(e.target.checked)}/>
+          Responder na mesma conversa (o e-mail chega agrupado com os anteriores)
+        </label>
+      )}
+      {(erro || p?.bloqueio) && <p className="lv3-op__warn"><Icon name="triangle-exclamation"/>{erro || p.bloqueio}</p>}
+      {/* Sem scripts; links abrem em outra aba (o HTML vem do servidor, com o texto escapado). */}
+      <iframe className="lv3-mailview__body" title="Corpo do e-mail" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        srcDoc={p?.html ? `<base target="_blank"><body style="margin:16px">${p.html}</body>` : ''}/>
+      <p className="lv3-muted lv3-mailview__note"><Icon name="eye"/>Abertura e cliques nos links voltam para as atividades do lead e da pessoa.</p>
+    </section>
+  );
+}
+
+/** Insere "[texto](https://…)" onde está o cursor; no e-mail vira link com o texto, e o clique é medido. */
+export function LinkInserter({textareaRef, texto, setTexto, notify}) {
+  const [aberto, setAberto] = useState(false);
+  const [rotulo, setRotulo] = useState('');
+  const [url, setUrl] = useState('');
+  const pos = useRef(null);
+  const abrir = () => {
+    const el = textareaRef.current;
+    pos.current = el ? [el.selectionStart, el.selectionEnd] : [texto.length, texto.length];
+    setRotulo(el && el.selectionEnd > el.selectionStart ? texto.slice(el.selectionStart, el.selectionEnd) : '');
+    setUrl('');
+    setAberto(true);
+  };
+  const inserir = () => {
+    let link = url.trim();
+    if (link && !/^https?:\/\//i.test(link)) link = `https://${link}`;
+    if (!/^https?:\/\/[^\s.]+\.[^\s]+$/i.test(link)) return notify('Cole um link válido (https://…).', 'error');
+    const [ini, fim] = pos.current || [texto.length, texto.length];
+    const trecho = rotulo.trim() ? `[${rotulo.trim().replace(/[[\]]/g, '')}](${link})` : link;
+    setTexto(texto.slice(0, ini) + trecho + texto.slice(fim));
+    setAberto(false);
+  };
+  if (!aberto) return <button type="button" className="lv3-link lv3-link--muted" onClick={abrir}><Icon name="link"/> Inserir link</button>;
+  return (
+    <div className="lv3-linkins">
+      <input className="lv3-input lv3-input--sm" value={rotulo} placeholder="texto do link (ex.: o estudo da Kantar)" onChange={e => setRotulo(e.target.value)} aria-label="Texto do link"/>
+      <input className="lv3-input lv3-input--sm" value={url} placeholder="https://…" onChange={e => setUrl(e.target.value)} aria-label="Endereço do link"
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); inserir(); } }}/>
+      <Button size="sm" variant="primary" onClick={inserir}>Inserir</Button>
+      <Button size="sm" variant="ghost" onClick={() => setAberto(false)}>Cancelar</Button>
+    </div>
   );
 }

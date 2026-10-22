@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useState} from 'react';
-import {Button, Empty, Field, Icon, Modal, MoreMenu} from './ui.jsx';
+import {Button, Empty, Field, Icon, Modal, MoreMenu, useAsk} from './ui.jsx';
 
 // Fluxos de cadência comuns a todos os executivos. O estágio diz para quem o fluxo serve; a etapa
 // de cada passo (topo, meio, fundo) é o que a IA usa para escrever a mensagem daquele toque.
@@ -152,6 +152,7 @@ function FlowEditor({boot, inicial, onClose, onSave}) {
 
 /** Visão Fluxos: os modelos de cadência da equipe, por estágio da relação. */
 export function Fluxos({boot, api, notify}) {
+  const ask = useAsk();
   const [fluxos, setFluxos] = useState([]);
   const [state, setState] = useState({loading: true, error: ''});
   const [editor, setEditor] = useState(null); // null | {} (novo) | fluxo
@@ -169,7 +170,8 @@ export function Fluxos({boot, api, notify}) {
     load();
   };
   const arquivar = async f => {
-    if (!window.confirm(`Arquivar o fluxo "${f.nome}"? Quem está nele segue até o fim; ele só sai da lista.`)) return;
+    if (!(await ask({title: 'Arquivar fluxo', confirmLabel: 'Arquivar', danger: true,
+      message: `Arquivar o fluxo "${f.nome}"? Quem está nele segue até o fim; ele só sai da lista.`}))) return;
     try { await api.archiveFlow(f.id); notify('Fluxo arquivado.'); load(); } catch (error) { notify(error.message, 'error'); }
   };
 

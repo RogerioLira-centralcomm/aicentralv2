@@ -102,20 +102,29 @@ def assinatura(prefs, *, nome_usuario=None):
                              "telefone": prefs.get("telefone"), "linkedin_url": prefs.get("linkedin_url")})
 
 
+_LINK_RE = re.compile(r"\[([^\]\n]{1,120})\]\((https?://[^\s)<>\"']+)\)|" + _URL_RE.pattern)
+
+
 def _paragrafos_html(texto):
-    """Texto puro → parágrafos HTML; links viram <a> (é por eles que a Brevo mede o clique)."""
+    """Texto puro → parágrafos HTML. '[texto](https://…)' e URLs soltas viram <a>: é por eles que a Brevo mede o clique."""
     def linha(trecho):
         partes, inicio = [], 0
-        for m in _URL_RE.finditer(trecho):
+        for m in _LINK_RE.finditer(trecho):
             partes.append(html.escape(trecho[inicio:m.start()]))
-            url = html.escape(m.group(0))
-            partes.append(f'<a href="{url}">{url}</a>')
+            url = html.escape(m.group(2) or m.group(0))
+            rotulo = html.escape(m.group(1)) if m.group(1) else url
+            partes.append(f'<a href="{url}" style="color:#1a56db">{rotulo}</a>')
             inicio = m.end()
         partes.append(html.escape(trecho[inicio:]))
         return "".join(partes)
 
     blocos = [b.strip("\n") for b in re.split(r"\n\s*\n", texto.strip()) if b.strip()]
     return "".join(f'<p style="margin:0 0 12px">{"<br>".join(linha(l) for l in b.split(chr(10)))}</p>' for b in blocos)
+
+
+def _texto_puro(texto):
+    """Versão texto do e-mail: '[texto](url)' vira 'texto (url)'."""
+    return re.sub(r"\[([^\]\n]{1,120})\]\((https?://[^\s)<>\"']+)\)", r"\1 (\2)", texto)
 
 
 def montar_email(texto, prefs, *, nome_usuario=None):
@@ -126,7 +135,7 @@ def montar_email(texto, prefs, *, nome_usuario=None):
     if match:
         corpo = corpo[:match.start()].rstrip()
     assin_txt, assin_html = assinatura(prefs, nome_usuario=nome_usuario)
-    texto_final = "\n\n".join(p for p in (corpo, assin_txt, rodape) if p)
+    texto_final = "\n\n".join(p for p in (_texto_puro(corpo), assin_txt, rodape) if p)
     html_final = (f'<div style="{_FONTE}font-size:14px;line-height:1.5;color:#222">{_paragrafos_html(corpo)}{assin_html}'
                   + (f'<p style="margin:16px 0 0;color:#888;font-size:13px">{html.escape(rodape)}</p>' if rodape else "")
                   + "</div>")
@@ -154,60 +163,149 @@ def enviados_hoje(cursor, usuario_id, *, agora=None):
     return int((cursor.fetchone() or {}).get("n") or 0)
 
 
-def enviar_passo(cursor, inscricao_id, *, assunto, texto, passo, usuario, prefs, enviar_fn, id_gancho=None, agora=None):
-    """Envia o e-mail do passo atual e marca o passo como feito, na mesma transação.
+_PREFIXO_RESPOSTA_RE = re.compile(r"^\s*((re|res|fw|fwd|enc|rv)\s*:\s*)+", re.I)
 
-    `usuario` = {id, nome, email} do executivo logado. `passo` é o passo que a tela mostrava: se a
-    cadência já andou (clique duplo, outra aba), nada é enviado. `enviar_fn(**kwargs)` é o
-    BrevoService.enviar_email (injetado para teste). A inscrição fica travada durante o envio.
-    """
-    assunto = str(assunto or "").strip()[:200]
-    texto = str(texto or "").strip()
-    if not assunto:
-        raise ProspeccaoError("Escreva o assunto antes de enviar.")
-    if not texto:
-        raise ProspeccaoError("Escreva a mensagem antes de enviar.")
-    remetente = validar_remetente(usuario.get("email"))
+
+def assunto_resposta(assunto):
+    """'Re: <assunto da conversa>' sem empilhar 'Re: Re:'; é o assunto igual que agrupa a conversa no outro lado."""
+    base = _PREFIXO_RESPOSTA_RE.sub("", str(assunto or "")).strip()
+    return f"Re: {base}" if base else ""
+
+
+def conversa_anterior(cursor, contato_id):
+    """Último e-mail enviado pela Brevo à pessoa: assunto da conversa e a cadeia de Message-IDs (para a thread)."""
     cursor.execute(
         """
+        SELECT provedor_message_id, payload, ocorreu_em FROM cadu_lead_mensagem_eventos
+         WHERE id_contato = %s AND evento = 'enviado' AND provedor = 'brevo'
+         ORDER BY ocorreu_em DESC, id DESC
+         LIMIT 1
+        """,
+        [contato_id],
+    )
+    row = cursor.fetchone()
+    if not row:
+        return None
+    payload = row["payload"] or {}
+    assunto = payload.get("assunto_conversa") or _PREFIXO_RESPOSTA_RE.sub("", payload.get("assunto") or "").strip()
+    referencias = [*(payload.get("referencias") or []), row["provedor_message_id"]][-10:]
+    return {"assunto": assunto, "message_id": row["provedor_message_id"], "referencias": referencias,
+            "enviado_em": row["ocorreu_em"]}
+
+
+def _inscricao(cursor, inscricao_id, *, travar):
+    cursor.execute(
+        f"""
         SELECT i.id, i.id_lead, i.id_contato, i.status, i.passo_atual, cad.passos -> i.passo_atual AS passo,
                c.nome AS contato_nome, c.email, c.email_status
           FROM cadu_lead_cadencia_inscricoes i
           JOIN cadu_lead_cadencias cad ON cad.id = i.id_cadencia
           JOIN cadu_lead_contatos c ON c.id = i.id_contato
          WHERE i.id = %s
-           FOR UPDATE OF i
+         {"FOR UPDATE OF i" if travar else ""}
         """,
         [inscricao_id],
     )
     insc = cursor.fetchone()
     if not insc:
         raise ProspeccaoError("Cadência não encontrada.")
-    if insc["status"] != "ativa" or insc["passo_atual"] != passo:
-        raise ProspeccaoError("Este passo já foi feito ou a cadência mudou. Atualize a tela.")
+    return insc
+
+
+def _bloqueio(cursor, insc, usuario, *, agora=None):
+    """Motivo que impede o envio (o mesmo para a prévia e o envio), ou None."""
     if (insc["passo"] or {}).get("canal") != "email":
-        raise ProspeccaoError("Este passo não é de e-mail.")
+        return "Este passo não é de e-mail."
     destino = str(insc["email"] or "").strip()
     if not destino:
-        raise ProspeccaoError("Esta pessoa não tem e-mail.")
+        return "Esta pessoa não tem e-mail."
     if insc["email_status"] == "invalido":
-        raise ProspeccaoError("O e-mail desta pessoa está marcado como inválido.")
+        return "O e-mail desta pessoa está marcado como inválido."
     cursor.execute("SELECT 1 FROM cadu_lead_optout WHERE canal = 'email' AND valor = %s", [destino.lower()])
     if cursor.fetchone():
-        raise ProspeccaoError("Esta pessoa pediu para não receber e-mails.")
+        return "Esta pessoa pediu para não receber e-mails."
     if enviados_hoje(cursor, usuario["id"], agora=agora) >= LIMITE_DIARIO:
-        raise ProspeccaoError(f"Você chegou ao limite de {LIMITE_DIARIO} e-mails por dia pela Brevo. Amanhã libera.")
+        return f"Você chegou ao limite de {LIMITE_DIARIO} e-mails por dia pela Brevo. Amanhã libera."
+    return None
 
-    corpo_html, corpo_txt = montar_email(texto, prefs, nome_usuario=usuario.get("nome"))
+
+def montar_envio(cursor, insc, *, assunto, texto, prefs, usuario, na_conversa):
+    """Tudo o que vai para a Brevo: de, para, responder para, assunto, corpo e cabeçalhos da conversa.
+
+    Na mesma conversa, o assunto vira 'Re: <assunto do primeiro e-mail>' e os cabeçalhos In-Reply-To e
+    References apontam para o último e-mail, para o cliente do outro lado agrupar tudo numa thread.
+    """
+    remetente = validar_remetente(usuario.get("email"))
     nome_remetente = (prefs or {}).get("nome_assinatura") or usuario.get("nome") or remetente
+    anterior = conversa_anterior(cursor, insc["id_contato"]) if na_conversa else None
+    assunto = str(assunto or "").strip()[:200]
+    headers = {}
+    if anterior and anterior["assunto"]:
+        assunto = assunto_resposta(anterior["assunto"])[:200]
+        headers = {"In-Reply-To": anterior["message_id"], "References": " ".join(anterior["referencias"])}
+    corpo_html, corpo_txt = montar_email(texto, prefs, nome_usuario=usuario.get("nome"))
+    return {
+        "de": {"name": nome_remetente, "email": remetente},
+        "para": {"name": insc["contato_nome"] or "", "email": str(insc["email"] or "").strip()},
+        "assunto": assunto, "html": corpo_html, "texto": corpo_txt, "headers": headers,
+        "conversa": ({"assunto": anterior["assunto"], "enviado_em": anterior["enviado_em"], "referencias": anterior["referencias"]}
+                     if anterior and anterior["assunto"] else None),
+    }
+
+
+def previa(cursor, inscricao_id, *, assunto, texto, prefs, usuario, na_conversa, agora=None):
+    """O e-mail exatamente como vai sair (para o visualizador), com o motivo se o envio estiver bloqueado."""
+    insc = _inscricao(cursor, inscricao_id, travar=False)
+    try:
+        envio = montar_envio(cursor, insc, assunto=assunto, texto=texto, prefs=prefs, usuario=usuario, na_conversa=na_conversa)
+        bloqueio = _bloqueio(cursor, insc, usuario, agora=agora)
+    except ProspeccaoError as exc:  # login fora do domínio: mostra a prévia com o aviso
+        envio = {"de": {"name": usuario.get("nome"), "email": usuario.get("email")},
+                 "para": {"name": insc["contato_nome"] or "", "email": insc["email"] or ""},
+                 "assunto": str(assunto or "").strip(), "headers": {}, "conversa": None,
+                 **dict(zip(("html", "texto"), montar_email(texto, prefs, nome_usuario=usuario.get("nome"))))}
+        bloqueio = str(exc)
+    tem_anterior = bool(conversa_anterior(cursor, insc["id_contato"])) if not envio["conversa"] else True
+    envio = {k: v for k, v in envio.items() if k != "headers"}
+    if envio["conversa"]:
+        envio["conversa"] = {k: v for k, v in envio["conversa"].items() if k != "referencias"}
+    return {**envio, "reply_to": envio["de"], "bloqueio": bloqueio, "tem_conversa": tem_anterior}
+
+
+def enviar_passo(cursor, inscricao_id, *, assunto, texto, passo, usuario, prefs, enviar_fn, id_gancho=None, agora=None,
+                 na_conversa=False):
+    """Envia o e-mail do passo atual e marca o passo como feito, na mesma transação.
+
+    `usuario` = {id, nome, email} do executivo logado. `passo` é o passo que a tela mostrava: se a
+    cadência já andou (clique duplo, outra aba), nada é enviado. `enviar_fn(**kwargs)` é o
+    BrevoService.enviar_email (injetado para teste). A inscrição fica travada durante o envio.
+    `na_conversa` = responder na mesma thread do último e-mail enviado à pessoa.
+    """
+    texto = str(texto or "").strip()
+    if not na_conversa and not str(assunto or "").strip():
+        raise ProspeccaoError("Escreva o assunto antes de enviar.")
+    if not texto:
+        raise ProspeccaoError("Escreva a mensagem antes de enviar.")
+    validar_remetente(usuario.get("email"))
+    insc = _inscricao(cursor, inscricao_id, travar=True)
+    if insc["status"] != "ativa" or insc["passo_atual"] != passo:
+        raise ProspeccaoError("Este passo já foi feito ou a cadência mudou. Atualize a tela.")
+    bloqueio = _bloqueio(cursor, insc, usuario, agora=agora)
+    if bloqueio:
+        raise ProspeccaoError(bloqueio)
+    envio = montar_envio(cursor, insc, assunto=assunto, texto=texto, prefs=prefs, usuario=usuario, na_conversa=na_conversa)
+    if not envio["assunto"]:
+        raise ProspeccaoError("Escreva o assunto antes de enviar.")
+
     resultado = enviar_fn(
-        to_email=destino, to_name=insc["contato_nome"] or "", subject=assunto, html_content=corpo_html,
-        text_content=corpo_txt, reply_to={"name": nome_remetente, "email": remetente}, tags=["leads-v3"],
-        sender={"name": nome_remetente, "email": remetente},
+        to_email=envio["para"]["email"], to_name=envio["para"]["name"], subject=envio["assunto"], html_content=envio["html"],
+        text_content=envio["texto"], reply_to=envio["de"], tags=["leads-v3"], sender=envio["de"],
+        headers=envio["headers"] or None,
     )
     if not resultado.get("success") or not resultado.get("messageId"):
         raise ProspeccaoError(resultado.get("user_message") or "A Brevo não aceitou o envio. Tente de novo em instantes.")
 
+    conversa = envio["conversa"]
     try:
         cursor.execute(
             """
@@ -216,17 +314,21 @@ def enviar_passo(cursor, inscricao_id, *, assunto, texto, passo, usuario, prefs,
             VALUES (%s, %s, %s, 'email', 'saida', 'enviado', 'brevo', %s, %s)
             """,
             [insc["id_lead"], insc["id_contato"], inscricao_id, resultado["messageId"],
-             cadencias._json({"id_usuario": str(usuario["id"]), "assunto": assunto, "passo": passo, "remetente": remetente,
+             cadencias._json({"id_usuario": str(usuario["id"]), "assunto": envio["assunto"], "passo": passo,
+                              "remetente": envio["de"]["email"],
+                              # A conversa guarda o assunto original e os Message-IDs anteriores (próximo "Re:").
+                              "assunto_conversa": conversa["assunto"] if conversa else envio["assunto"],
+                              "referencias": conversa["referencias"] if conversa else [],
                               **({"id_gancho": id_gancho} if id_gancho else {})})],
         )
         estado = cadencias.avancar(cursor, inscricao_id, "feito", usuario_id=usuario["id"], usuario_nome=usuario.get("nome"),
-                                   nota=f"enviado pela Brevo: {assunto}", agora=agora, id_gancho=id_gancho)
+                                   nota=f"enviado pela Brevo: {envio['assunto']}", agora=agora, id_gancho=id_gancho)
     except Exception:
         # O e-mail já saiu: sem o registro, abertura e clique não chegam ao lead. Fica o id para conciliar.
         logger.error("leads-v3: e-mail enviado (messageId=%s, inscrição %s) sem registro no lead.",
                      resultado["messageId"], inscricao_id)
         raise
-    return {**estado, "message_id": resultado["messageId"], "texto": corpo_txt}
+    return {**estado, "message_id": resultado["messageId"], "texto": envio["texto"], "assunto": envio["assunto"]}
 
 
 # ─────────────────────────────────────────────────────
@@ -287,7 +389,7 @@ def aplicar_evento_brevo(cursor, evento_brevo, *, agora=None):
         return False
     cursor.execute(
         """
-        SELECT id_lead, id_contato, id_inscricao FROM cadu_lead_mensagem_eventos
+        SELECT id_lead, id_contato, id_inscricao, payload ->> 'assunto' AS assunto FROM cadu_lead_mensagem_eventos
          WHERE provedor = 'brevo' AND provedor_message_id = %s AND evento = 'enviado'
         """,
         [message_id],
@@ -317,12 +419,25 @@ def aplicar_evento_brevo(cursor, evento_brevo, *, agora=None):
     payload = somar_evento(evento, linha["payload"], nome=nome, quando=quando, url=evento_brevo.get("link"),
                            motivo=evento_brevo.get("reason"))
     cursor.execute("UPDATE cadu_lead_mensagem_eventos SET payload = %s WHERE id = %s", [cadencias._json(payload), linha["id"]])
+    aviso = aviso_de_leitura(evento, linha["payload"] or {}, payload, assunto=envio.get("assunto"), url=evento_brevo.get("link"))
+    if aviso:
+        cadencias._atividade(cursor, envio["id_lead"], "nota", aviso, envio["id_contato"], None, "Brevo")
 
     if evento == "optout" and envio["id_contato"]:
         _parar_por_optout(cursor, envio, nome)
     elif evento == "bounce" and nome in _BOUNCE_DEFINITIVO and envio["id_contato"]:
         _parar_por_bounce(cursor, envio)
     return True
+
+
+def aviso_de_leitura(evento, antes, depois, *, assunto=None, url=None):
+    """Frase para as atividades do lead e da pessoa: 1ª abertura real e 1º clique em cada link (sem repetir a cada abertura)."""
+    sobre = f" «{assunto}»" if assunto else ""
+    if evento == "aberto" and not int(antes.get("reais") or 0) and int(depois.get("reais") or 0):
+        return f"Abriu o e-mail{sobre}."
+    if evento == "clicado" and url and url not in (antes.get("urls") or []):
+        return f"Clicou em {url} no e-mail{sobre}."
+    return None
 
 
 def _parar_cadencias(cursor, contato_id, status, motivo):

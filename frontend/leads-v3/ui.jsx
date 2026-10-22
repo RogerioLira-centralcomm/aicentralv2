@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
 
 /** Textos do site chegam com entidades HTML ("&quot;"). DOMParser decodifica sem executar nada. */
 export function decode(text) {
@@ -68,7 +68,12 @@ export function Field({label, children, wide = false}) {
 export function Modal({title, onClose, children, footer, width = 520}) {
   const ref = useRef(null);
   useEffect(() => {
-    const onKey = event => { if (event.key === 'Escape') onClose(); };
+    // Esc fecha só o modal de cima (uma confirmação aberta sobre outro diálogo não fecha os dois).
+    const onKey = event => {
+      if (event.key !== 'Escape') return;
+      const abertos = document.querySelectorAll('.lv3-modal');
+      if (abertos[abertos.length - 1] === ref.current?.closest('.lv3-modal')) onClose();
+    };
     document.addEventListener('keydown', onKey);
     ref.current?.querySelector('input, select, textarea, button')?.focus();
     return () => document.removeEventListener('keydown', onKey);
@@ -158,12 +163,6 @@ export function Markdown({text, fontes, className = ''}) {
   );
 }
 
-/** Rascunho no Gmail já preenchido (o executivo revisa e envia da própria conta). */
-export function gmailUrl(to, subject, body) {
-  return `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to || '')}&su=${encodeURIComponent(subject || '')}&body=${encodeURIComponent(body || '')}`;
-}
-
-/** "GABRIELA MARTINS" → "Gabriela Martins" (só quando o texto vem todo em maiúsculas). */
 export function prettyName(text) {
   const value = decode(text || '').trim();
   if (!value || value !== value.toUpperCase() || !/[A-ZÀ-Ý]/.test(value)) return value;
@@ -203,4 +202,56 @@ export function MoreMenu({items, disabled, icon = 'ellipsis', label = 'Mais aç�
       )}
     </div>
   );
+}
+
+/* Confirmações e perguntas curtas com o Modal do app (nada de window.confirm/prompt/alert no Leads v3).
+   `const ask = useAsk();`
+   `if (!(await ask({title, message, confirmLabel, danger}))) return;`  → true ou null
+   `const nota = await ask({title, message, input: {label, placeholder}});` → texto (pode ser '') ou null */
+const AskContext = createContext(null);
+
+function AskDialog({pedido, onClose}) {
+  const {title, message, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', danger = false, input} = pedido;
+  const [valor, setValor] = useState(input?.value || '');
+  const alvo = useRef(null);
+  // Roda depois do foco do Modal (efeito do filho vem antes): foco no campo ou no botão de confirmar.
+  useEffect(() => { (alvo.current || [...document.querySelectorAll('[data-ask-ok]')].pop())?.focus(); }, []);
+  const confirmar = () => onClose(input ? valor : true);
+  return (
+    <Modal title={title} onClose={() => onClose(null)} width={460} footer={(
+      <>
+        <Button variant="ghost" onClick={() => onClose(null)}>{cancelLabel}</Button>
+        <Button variant={danger ? 'danger' : 'primary'} onClick={confirmar} data-ask-ok="">{confirmLabel}</Button>
+      </>
+    )}>
+      <div className="lv3-ask">
+        {message && <p className="lv3-ask__msg">{message}</p>}
+        {input && (
+          <Field label={input.label || 'Resposta'} wide>
+            <textarea ref={alvo} className="lv3-input lv3-textarea" rows={3} value={valor} placeholder={input.placeholder || ''}
+              onChange={e => setValor(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); confirmar(); } }}/>
+          </Field>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+export function AskProvider({children}) {
+  const [pedido, setPedido] = useState(null);
+  const ask = useCallback(opcoes => new Promise(resolve => setPedido({...opcoes, resolve})), []);
+  const fechar = valor => { pedido?.resolve(valor); setPedido(null); };
+  return (
+    <AskContext.Provider value={ask}>
+      {children}
+      {pedido && <AskDialog key={pedido.title + (pedido.message || '')} pedido={pedido} onClose={fechar}/>}
+    </AskContext.Provider>
+  );
+}
+
+export function useAsk() {
+  const ask = useContext(AskContext);
+  if (!ask) throw new Error('useAsk precisa do AskProvider (main.jsx).');
+  return ask;
 }

@@ -48,8 +48,17 @@ class MontagemTest(TestCase):
                                       PREFS, nome_usuario="Apolo Lira")
         self.assertTrue(texto.startswith("Ana, veja https://kantar.com/x.\n\nFaz sentido?\n\nAbs,\nApolo\n\nApolo Lira\nDiretor"))
         self.assertTrue(texto.endswith("\n\nEnviado do meu iPhone"))
-        self.assertIn('<a href="https://kantar.com/x">https://kantar.com/x</a>.', html)
+        self.assertIn('<a href="https://kantar.com/x" style="color:#1a56db">https://kantar.com/x</a>.', html)
         self.assertLess(html.index("Diretor"), html.index("Enviado do meu iPhone"))
+
+    def test_link_com_texto_vira_ancora_e_texto_com_url(self):
+        html, texto = em.montar_email("Veja [o estudo da Kantar](https://kantar.com/ctv).", {}, nome_usuario="Apolo")
+        self.assertIn('<a href="https://kantar.com/ctv" style="color:#1a56db">o estudo da Kantar</a>', html)
+        self.assertTrue(texto.startswith("Veja o estudo da Kantar (https://kantar.com/ctv)."))
+
+    def test_assunto_de_resposta_nao_empilha_re(self):
+        self.assertEqual(em.assunto_resposta("RE: Re: dado de ctv"), "Re: dado de ctv")
+        self.assertEqual(em.assunto_resposta("Fwd: dado"), "Re: dado")
 
     def test_html_escapa_o_texto(self):
         html, _ = em.montar_email("<script>x</script>", {}, nome_usuario="Apolo")
@@ -76,6 +85,41 @@ def _inscricao(**extra):
 
 
 class EnvioTest(TestCase):
+    def test_na_mesma_conversa_responde_com_re_e_cabecalhos(self):
+        anterior = {"provedor_message_id": "<m2@brevo>", "ocorreu_em": AGORA,
+                    "payload": {"assunto": "Re: dado de ctv", "assunto_conversa": "dado de ctv", "referencias": ["<m1@brevo>"]}}
+        cursor = Cursor([_inscricao(), None, {"n": 0}, anterior])
+        enviar = MagicMock(return_value={"success": True, "messageId": "<m3@brevo>"})
+        with patch.object(em.cadencias, "avancar", return_value={"status": "ativa", "passo_atual": 2, "proxima_em": None}):
+            r = self._enviar(cursor, enviar, assunto="", na_conversa=True)
+        kw = enviar.call_args.kwargs
+        self.assertEqual(kw["subject"], "Re: dado de ctv")
+        self.assertEqual(kw["headers"], {"In-Reply-To": "<m2@brevo>", "References": "<m1@brevo> <m2@brevo>"})
+        gravado = cursor.executou("'enviado', 'brevo'")[0][4].obj
+        self.assertEqual((gravado["assunto_conversa"], gravado["referencias"]), ("dado de ctv", ["<m1@brevo>", "<m2@brevo>"]))
+        self.assertEqual(r["assunto"], "Re: dado de ctv")
+
+    def test_conversa_sem_email_anterior_vira_conversa_nova(self):
+        cursor = Cursor([_inscricao(), None, {"n": 0}, None])
+        enviar = MagicMock(return_value={"success": True, "messageId": "<m1@brevo>"})
+        with patch.object(em.cadencias, "avancar", return_value={"status": "ativa", "passo_atual": 2, "proxima_em": None}):
+            self._enviar(cursor, enviar, na_conversa=True)
+        self.assertEqual(enviar.call_args.kwargs["subject"], "dado de ctv")
+        self.assertIsNone(enviar.call_args.kwargs["headers"])
+
+    def test_previa_mostra_envelope_e_bloqueio(self):
+        cursor = Cursor([_inscricao(), None, {"n": 0}, None])
+        p = em.previa(cursor, 3, assunto="dado de ctv", texto="Ana, oi.", prefs=PREFS, usuario=USUARIO, na_conversa=False)
+        self.assertEqual(p["de"], {"name": "Apolo Lira", "email": "apolo@centralcomm.media"})
+        self.assertEqual(p["reply_to"], p["de"])
+        self.assertEqual(p["para"]["email"], "ana@marca.com")
+        self.assertIn("Diretor · CentralComm", p["html"])
+        self.assertIsNone(p["bloqueio"])
+        self.assertFalse(p["tem_conversa"])
+        fora = em.previa(Cursor([_inscricao()]), 3, assunto="x", texto="y", prefs={}, usuario={**USUARIO, "email": "a@gmail.com"},
+                         na_conversa=False)
+        self.assertIn("@centralcomm.media", fora["bloqueio"])
+
     def _enviar(self, cursor, enviar_fn, **extra):
         kwargs = dict(assunto="dado de ctv", texto="Ana, oi.\n\nAbs,\nApolo", passo=1, usuario=USUARIO, prefs=PREFS,
                       enviar_fn=enviar_fn, agora=AGORA)
@@ -178,6 +222,20 @@ class EventosTest(TestCase):
         self.assertEqual(update[0].obj["reais"], 2)
         self.assertEqual(update[0].obj["ultima_real"], "2026-10-22T15:30")
         self.assertEqual(cursor.executou("INSERT INTO cadu_lead_mensagem_eventos")[0][3], "aberto")
+
+    def test_aviso_de_leitura_so_na_primeira_abertura_real_e_clique_novo(self):
+        self.assertEqual(em.aviso_de_leitura("aberto", {}, {"reais": 1}, assunto="dado"), "Abriu o e-mail «dado».")
+        self.assertIsNone(em.aviso_de_leitura("aberto", {"reais": 1}, {"reais": 2}))
+        self.assertIsNone(em.aviso_de_leitura("aberto", {}, {"proxy": 1}))
+        self.assertIn("https://a", em.aviso_de_leitura("clicado", {}, {"urls": ["https://a"]}, url="https://a"))
+        self.assertIsNone(em.aviso_de_leitura("clicado", {"urls": ["https://a"]}, {"urls": ["https://a"]}, url="https://a"))
+
+    def test_primeira_abertura_vira_atividade_da_pessoa(self):
+        cursor = Cursor([{**ENVIO, "assunto": "dado de ctv"}, {"id": 99, "payload": {}}])
+        em.aplicar_evento_brevo(cursor, {"event": "unique_opened", "message-id": "<abc>"}, agora=AGORA)
+        atividade = cursor.executou("INSERT INTO cadu_lead_atividades")[0]
+        self.assertEqual(atividade[:4], [10, "nota", "Abriu o e-mail «dado de ctv».", 20])
+        self.assertEqual(atividade[5], "Brevo")
 
     def test_descadastro_registra_optout_e_encerra_cadencias(self):
         cursor = Cursor([ENVIO, {"id": 99, "payload": {}}, {"nome": "Ana", "email": "Ana@Marca.com"}])

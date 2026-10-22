@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button, Field, Icon, Modal, decode} from './ui.jsx';
+import {Button, Field, Icon, Modal, decode, useAsk} from './ui.jsx';
 
 export function DisqualifyDialog({boot, count, onCancel, onConfirm}) {
   const [motivo, setMotivo] = useState(boot.motivos[0]?.value || 'outro');
@@ -523,6 +523,7 @@ export function ExtractDialog({api, lead, onCancel, onDone, notify}) {
 
 /** Mesclar um lead duplicado neste: tudo do duplicado vem para cá e ele é apagado. */
 export function MergeDialog({api, lead, onCancel, onDone, notify}) {
+  const ask = useAsk();
   const [q, setQ] = useState(decode(lead.empresa || lead.nome || '').split(' ')[0] || '');
   const [res, setRes] = useState([]);
   const [escolhido, setEscolhido] = useState(null);
@@ -536,7 +537,8 @@ export function MergeDialog({api, lead, onCancel, onDone, notify}) {
     } catch (error) { notify(error.message, 'error'); } finally { setBusy(''); }
   };
   const mesclar = async () => {
-    if (!window.confirm(`Mesclar "${decode(escolhido.nome_lead)}" em "${decode(lead.empresa || lead.nome)}"? O duplicado será apagado depois de mover pessoas, histórico, comunicações e cadências.`)) return;
+    if (!(await ask({title: 'Mesclar leads', confirmLabel: 'Mesclar', danger: true,
+      message: `Mesclar "${decode(escolhido.nome_lead)}" em "${decode(lead.empresa || lead.nome)}"? O duplicado será apagado depois de mover pessoas, histórico, comunicações e cadências.`}))) return;
     setBusy('mesclar');
     try { const r = await api.merge(lead.id, escolhido.id); onDone(r); }
     catch (error) { notify(error.message, 'error'); setBusy(''); }

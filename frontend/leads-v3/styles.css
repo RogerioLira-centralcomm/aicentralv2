@@ -688,7 +688,6 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-op__signature { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .lv3-sigpreview { display: grid; gap: 4px; }
 .lv3-sigpreview pre { margin: 0; padding: 8px 10px; border-radius: var(--lv3-radius-sm); background: var(--lv3-sunken); font: inherit; font-size: 12.5px; line-height: 1.5; color: var(--lv3-ink-2); white-space: pre-wrap; }
-.lv3-op__from { margin: 0; font-size: 12.5px; }
 .lv3-op__lastmail { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 0; font-size: 12.5px; }
 .lv3-seal { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font-size: 12px; line-height: 1.3; color: var(--lv3-ink-2); }
 .lv3-seal .lv3-icon { flex: none; font-size: 11px; }
@@ -824,3 +823,19 @@ html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):no
 .lv3-cad__why, .lv3-cad__hint { margin: 0; font-size: 12.5px; }
 .lv3-cad__done summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--lv3-ink-2); }
 .lv3-cad__done ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 4px; font-size: 12.5px; color: var(--lv3-ink-2); }
+
+/* Visualizador do e-mail (Operação) */
+.lv3-mailview { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); background: var(--lv3-sunken); }
+.lv3-mailview__env { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 12px; margin: 0; align-items: center; font-size: 13px; }
+.lv3-mailview__env dt { color: var(--lv3-muted); font-weight: 600; }
+.lv3-mailview__env dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--lv3-ink); }
+.lv3-mailview__thread { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lv3-mailview__toggle { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--lv3-ink-2); cursor: pointer; }
+.lv3-mailview__body { width: 100%; height: 340px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius-sm); background: #fff; }
+.lv3-mailview__note { margin: 0; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.lv3-linkins { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex-basis: 100%; }
+.lv3-linkins .lv3-input { flex: 1 1 180px; min-width: 0; }
+
+/* Confirmação do app (useAsk) */
+.lv3-ask { display: grid; gap: 12px; }
+.lv3-ask__msg { margin: 0; font-size: 14px; line-height: 1.5; color: var(--lv3-ink-2); white-space: pre-line; }

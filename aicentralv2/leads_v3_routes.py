@@ -1719,10 +1719,35 @@ def api_enviar_email(inscricao_id):
         estado = email_mail.enviar_passo(
             cursor, inscricao_id, assunto=payload.get("assunto"), texto=payload.get("texto"), passo=passo,
             usuario={"id": session.get("user_id"), "nome": session.get("user_name"), "email": session.get("user_email")},
-            prefs=prefs, enviar_fn=BrevoService().enviar_email, id_gancho=_int(payload.get("id_gancho")))
+            prefs=prefs, enviar_fn=BrevoService().enviar_email, id_gancho=_int(payload.get("id_gancho")),
+            na_conversa=bool(payload.get("na_conversa")))
         return _ok({k: _json_safe(v) for k, v in estado.items()})
 
     return _transacao(run, "enviar e-mail")
+
+
+@bp.route("/api/inscricoes/<int:inscricao_id>/email-previa", methods=["POST"])
+@centralcomm_required_api
+def api_previa_email(inscricao_id):
+    """O e-mail do passo como vai sair: de, para, responder para, assunto (ou 'Re:' da conversa) e o HTML final."""
+    payload = request.get_json(silent=True) or {}
+
+    def ler(cursor):
+        cursor.execute(f"SELECT {_COLUNAS_PREFS} FROM cadu_lead_preferencias WHERE id_usuario = %s", [session.get("user_id")])
+        prefs = dict(cursor.fetchone() or {})
+        try:
+            p = email_mail.previa(
+                cursor, inscricao_id, assunto=payload.get("assunto"), texto=str(payload.get("texto") or ""), prefs=prefs,
+                usuario={"id": session.get("user_id"), "nome": session.get("user_name"), "email": session.get("user_email")},
+                na_conversa=bool(payload.get("na_conversa")))
+        except prospeccao.ProspeccaoError as exc:
+            raise _Resposta(_erro(str(exc), 404))
+        if p.get("conversa"):
+            p["conversa"] = {k: _json_safe(v) for k, v in p["conversa"].items()}
+        return p
+
+    previa, erro = _ler(ler, "prévia do e-mail")
+    return erro or _ok(previa)
 
 
 def tarefas_pendentes(cursor, executivo=None):

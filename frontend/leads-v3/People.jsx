@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, useAsk, whatsappUrl} from './ui.jsx';
 import {FlowSelect, sugerirFluxo} from './Fluxos.jsx';
 import {ManageCadence, SwitchLeadFlow} from './CadenceControls.jsx';
 
@@ -35,6 +35,7 @@ const CANAL_LABEL = {email: 'e-mail', whatsapp: 'WhatsApp', linkedin: 'LinkedIn'
 
 /** Linha da cadência da pessoa: passo, próximo toque e ações (o envio acontece na Operação). */
 function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) {
+  const ask = useAsk();
   const [busy, setBusy] = useState(false);
   const [escolha, setEscolha] = useState(null); // null = fechado; id do fluxo enquanto escolhe
   const [gerir, setGerir] = useState(false);
@@ -80,7 +81,11 @@ function CadenceLine({api, contact, inscricao, fluxos = [], notify, onChanged}) 
         <span><strong>{inscricao.cadencia}</strong> · {etapa} · próximo: {CANAL_LABEL[passo.canal] || passo.canal} {inscricao.proxima_em ? `em ${formatDate(inscricao.proxima_em).slice(0, 10)}` : ''}</span>
         {gerenciar}
         <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={run(() => api.stepAction(inscricao.id, 'pausar'), 'Cadência pausada.')}>Pausar</button>
-        <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={() => { if (window.confirm('Encerrar a cadência desta pessoa?')) run(() => api.stepAction(inscricao.id, 'cancelar'), 'Cadência encerrada.')(); }}>Encerrar</button>
+        <button type="button" className="lv3-link lv3-link--muted" disabled={busy} onClick={async () => {
+          if (await ask({title: 'Encerrar cadência', message: 'Encerrar a cadência desta pessoa? Os próximos toques deixam de aparecer na Operação.', confirmLabel: 'Encerrar', danger: true})) {
+            run(() => api.stepAction(inscricao.id, 'cancelar'), 'Cadência encerrada.')();
+          }
+        }}>Encerrar</button>
         {painel}
       </div>
     );
@@ -122,6 +127,7 @@ function phonesOf(c) {
 }
 
 function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, notify, onChanged}) {
+  const ask = useAsk();
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
   const [edit, setEdit] = useState(null);
@@ -155,21 +161,25 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
     try { r = await fn(false); } catch (error) { setBusy(''); return notify(error.message, 'error'); }
     setBusy('');
     if (r?.bloqueado) {
-      if (window.confirm(`${r.motivo}\n\nConsultar ${nome} no Apollo mesmo assim?`)) run('apollo', () => fn(true), done)();
+      if (await ask({title: 'Consultar o Apollo mesmo assim?', message: `${r.motivo}\n\nConsultar ${nome} no Apollo mesmo assim?`, confirmLabel: 'Consultar'})) {
+        run('apollo', () => fn(true), done)();
+      }
       return;
     }
     notify(done(r), r?.encontrou_email === false ? 'error' : 'success');
     onChanged();
   };
   const revelar = comConfirmacao(forcar => api.revealContact(c.id, forcar), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'));
-  const pedirCelular = () => {
-    if (!window.confirm(`Pedir o celular de ${nome} ao Apollo? Usa 1 crédito pelos dados do perfil e, se vier celular, mais os créditos de telefone do plano.`)) return;
+  const pedirCelular = async () => {
+    if (!(await ask({title: 'Pedir celular ao Apollo', confirmLabel: 'Pedir celular',
+      message: `Pedir o celular de ${nome} ao Apollo? Usa 1 crédito pelos dados do perfil e, se vier celular, mais os créditos de telefone do plano.`}))) return;
     comConfirmacao(forcar => api.requestPhone(c.id, forcar), r => r.email ? `Celular pedido ao Apollo (chega em alguns minutos). O e-mail ${r.email} veio junto.` : 'Celular pedido ao Apollo. Chega em alguns minutos.')();
   };
   const celulares = phonesOf(c);
   const semEmailApollo = c.apollo_tem_email === false || (c.apollo_revelado_em && !c.email);
-  const errado = (campo, valor) => () => {
-    if (window.confirm(`${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`)) {
+  const errado = (campo, valor) => async () => {
+    if (await ask({title: campo === 'email' ? 'E-mail errado' : 'Celular errado', confirmLabel: 'Tirar da ficha', danger: true,
+      message: `${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`})) {
       run('wrong', () => api.wrongData(c.id, campo, valor), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(() => abrirEdicao({[campo]: ''}));
     }
   };
@@ -207,7 +217,11 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
           <MoreMenu trigger="icon" label={`Mais ações de ${nome}`} disabled={!!busy} items={[
             {icon: 'pen', label: 'Editar', onClick: () => abrirEdicao()},
             !c.is_principal && {icon: 'star', label: 'Tornar principal', onClick: run('primary', () => api.makePrimary(leadId, c.id), 'Contato principal atualizado.')},
-            {icon: 'trash', label: 'Remover', danger: true, onClick: () => { if (window.confirm(`Remover ${nome} deste lead?`)) run('remove', () => api.removeContact(c.id), 'Contato removido.')(); }},
+            {icon: 'trash', label: 'Remover', danger: true, onClick: async () => {
+              if (await ask({title: 'Remover pessoa', message: `Remover ${nome} deste lead?`, confirmLabel: 'Remover', danger: true})) {
+                run('remove', () => api.removeContact(c.id), 'Contato removido.')();
+              }
+            }},
           ].filter(Boolean)}/>
         </div>
       </div>
@@ -411,6 +425,7 @@ function Discovery({boot, api, lead, candidates, onChanged, notify, onEditCompan
 }
 
 export function People({boot, api, lead, contacts, candidates, cadences = [], onChanged, notify, onEditCompany}) {
+  const ask = useAsk();
   const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
   const [bulk, setBulk] = useState('');
@@ -452,7 +467,8 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   };
   const verificarTodos = async () => {
     const n = paraVerificar.length;
-    if (!window.confirm(`Verificar no Apollo o e-mail de ${n} ${n === 1 ? 'pessoa' : 'pessoas'}? Usa até ${n} ${n === 1 ? 'crédito' : 'créditos'} de e-mail do plano (a cobrança exata depende do plano Apollo).`)) return;
+    if (!(await ask({title: 'Verificar e-mails no Apollo', confirmLabel: 'Verificar',
+      message: `Verificar no Apollo o e-mail de ${n} ${n === 1 ? 'pessoa' : 'pessoas'}? Usa até ${n} ${n === 1 ? 'crédito' : 'créditos'} de e-mail do plano (a cobrança exata depende do plano Apollo).`}))) return;
     let achados = 0;
     let motivo = '';
     for (const [i, c] of paraVerificar.entries()) {

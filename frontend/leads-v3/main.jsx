@@ -1,6 +1,7 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {LeadsApp} from './LeadsApp.jsx';
+import {AskProvider} from './ui.jsx';
 import './styles.css';
 
 /** Um erro de renderização não deixa a mesa em branco: mostra o aviso e o botão de recarregar. */
@@ -21,4 +22,4 @@ class ErrorBoundary extends React.Component {
 }
 
 const boot = JSON.parse(document.getElementById('leads-v3-bootstrap')?.textContent || '{}');
-createRoot(document.getElementById('leads-v3-root')).render(<ErrorBoundary><LeadsApp boot={boot}/></ErrorBoundary>);
+createRoot(document.getElementById('leads-v3-root')).render(<ErrorBoundary><AskProvider><LeadsApp boot={boot}/></AskProvider></ErrorBoundary>);

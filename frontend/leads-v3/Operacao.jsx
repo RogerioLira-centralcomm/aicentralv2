@@ -1,8 +1,8 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
-import {Button, Empty, Field, Icon, decode, formatDate, gmailUrl, linkedinSearchUrl, prettyName as pretty, todayLocal, whatsappUrl} from './ui.jsx';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Button, Empty, Field, Icon, decode, formatDate, linkedinSearchUrl, prettyName as pretty, todayLocal, useAsk, whatsappUrl} from './ui.jsx';
 import {ManageCadence} from './CadenceControls.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
-import {EmailSeal, SignatureDialog} from './Email.jsx';
+import {EmailPreview, EmailSeal, LinkInserter, SignatureDialog} from './Email.jsx';
 
 const CANAL = {
   email: {label: 'E-mail', icon: 'envelope'},
@@ -76,6 +76,7 @@ const RODAPES = {nenhum: '', iphone: 'Enviado do meu iPhone', galaxy: 'Enviado d
 const RODAPE_RE = /\n+Enviado do meu (iPhone|Galaxy)\s*$/;
 
 function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersao}) {
+  const ask = useAsk();
   const passo = item.passo || {};
   const canal = canalDaMensagem(passo);
   // A etapa vem do passo do fluxo; fluxo antigo sem etapa segue a regra de antes (primeira metade topo).
@@ -91,6 +92,11 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
   const [prefs, setPrefs] = useState({dispositivo: 'nenhum', assinatura: ''});
   const [gerir, setGerir] = useState(false);
   const [editandoAssinatura, setEditandoAssinatura] = useState(false);
+  // Quem já recebeu e-mail nosso recebe o próximo na mesma conversa ("Re:"), salvo se o executivo desmarcar.
+  const [naConversa, setNaConversa] = useState(!!item.ultimo_email);
+  const [previa, setPrevia] = useState(null);
+  const [versaoPrevia, setVersaoPrevia] = useState(0); // assinatura salva → refaz a prévia
+  const textoRef = useRef(null);
   const nome = pretty(item.contato_nome);
   const empresa = decode(item.empresa || item.lead_nome);
   const corpoCompleto = (assunto ? `Assunto: ${assunto}\n\n` : '') + texto;
@@ -99,7 +105,8 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
     api.hooks(item.id_lead, item.id_contato).then(lista => setGanchos(lista.filter(g => g.status !== 'descartado'))).catch(() => setGanchos([]));
   }, [api, item.id_lead, item.id_contato, pautaVersao]);
   useEffect(() => { api.preferences().then(p => setPrefs({...p, dispositivo: p.dispositivo || 'nenhum', assinatura: p.assinatura || ''})).catch(() => null); }, [api]);
-  const podeEnviar = passo.canal === 'email' && !!item.email && !!prefs.remetente?.pode_enviar;
+  const emConversa = naConversa && !!previa?.conversa;
+  const podeEnviar = passo.canal === 'email' && !!texto && !!previa && !previa.bloqueio;
 
   const escrever = async () => {
     setBusy('ia');
@@ -119,11 +126,11 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
   };
   // Envia pela Brevo em nome do executivo (resposta volta para a caixa dele) e o passo anda sozinho.
   const enviar = async () => {
-    if (!assunto.trim()) return notify('Escreva o assunto antes de enviar.', 'error');
+    if (!emConversa && !assunto.trim()) return notify('Escreva o assunto antes de enviar.', 'error');
     setBusy('enviar');
     try {
-      const r = await api.sendEmail(item.id, {passo: item.passo_atual, assunto, texto, id_gancho: usado?.id || null});
-      await api.saveCommunication(item.id_lead, {tipo_canal: 'email', objetivo, texto: `Assunto: ${assunto}\n\n${r.texto || texto}`, status: 'enviado',
+      const r = await api.sendEmail(item.id, {passo: item.passo_atual, assunto, texto, id_gancho: usado?.id || null, na_conversa: naConversa});
+      await api.saveCommunication(item.id_lead, {tipo_canal: 'email', objetivo, texto: `Assunto: ${r.assunto || assunto}\n\n${r.texto || texto}`, status: 'enviado',
         id_contato: item.id_contato, gerado_por_ia: true, tamanho: 'medio', tom: 'cordial'}).catch(() => null);
       notify(`E-mail enviado para ${String(item.email).toLowerCase()}. Abertura e clique aparecem na Operação.`);
       onDone();
@@ -134,10 +141,7 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
     catch { notify('Não foi possível copiar.', 'error'); return false; }
   };
   const abrir = async () => {
-    if (passo.canal === 'email') {
-      if (!item.email) return notify('Esta pessoa não tem e-mail. Use "Achar e-mail" na mesa.', 'error');
-      window.open(gmailUrl(item.email, assunto, texto), '_blank', 'noopener');
-    } else if (passo.canal === 'whatsapp') {
+    if (passo.canal === 'whatsapp') {
       const url = whatsappUrl(item.telefone, texto);
       if (!url) return notify('Esta pessoa não tem telefone.', 'error');
       window.open(url, '_blank', 'noopener');
@@ -152,7 +156,7 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
   const acao = (nome_acao, pedirNota) => async () => {
     let nota = '';
     if (pedirNota) {
-      nota = window.prompt(pedirNota) ?? null;
+      nota = await ask({title: pedirNota.titulo, confirmLabel: pedirNota.botao, input: {label: pedirNota.campo, placeholder: 'opcional'}});
       if (nota === null) return;
     }
     setBusy(nome_acao);
@@ -227,11 +231,8 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
                 <p className="lv3-op__usedhook"><Icon name="lightbulb"/><span>Gancho: {usado.fato}{usado.fonte_url && <> · <a href={usado.fonte_url} target="_blank" rel="noopener noreferrer">fonte</a></>}</span></p>
               )}
               {alertas.length > 0 && <p className="lv3-op__warn"><Icon name="triangle-exclamation"/>Ainda soa como IA: {alertas.join(', ')}. Ajuste antes de enviar.</p>}
-              {passo.canal === 'email' && (
-                <Field label="Assunto" wide><input className="lv3-input" value={assunto} onChange={e => setAssunto(e.target.value)}/></Field>
-              )}
               <Field label={passo.canal === 'telefone' ? 'Roteiro' : 'Mensagem (editável)'} wide>
-                <textarea className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={e => setTexto(e.target.value)}/>
+                <textarea ref={textoRef} className="lv3-input lv3-textarea lv3-textarea--tall" value={texto} onChange={e => setTexto(e.target.value)}/>
               </Field>
               {canal === 'linkedin_conexao' && <p className={`lv3-muted ${texto.length > 300 ? 'lv3-danger' : ''}`}>{texto.length}/300 caracteres</p>}
               {passo.canal === 'email' && (
@@ -243,44 +244,40 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
                     ))}
                   </div>
                   <button type="button" className="lv3-link lv3-link--muted" onClick={() => setEditandoAssinatura(true)}>Editar assinatura</button>
+                  <LinkInserter textareaRef={textoRef} texto={texto} setTexto={setTexto} notify={notify}/>
                 </div>
               )}
-              {passo.canal === 'email' && prefs.assinatura_texto && (
-                <div className="lv3-sigpreview">
-                  <span className="lv3-field__label">Assinatura no envio pela Brevo</span>
-                  <pre>{prefs.assinatura_texto}</pre>
-                </div>
-              )}
-              {passo.canal === 'email' && prefs.remetente && (
-                prefs.remetente.pode_enviar
-                  ? <p className="lv3-muted lv3-op__from">De: {prefs.remetente.nome} &lt;{prefs.remetente.email}&gt; · a resposta cai na sua caixa</p>
-                  : <p className="lv3-op__warn"><Icon name="triangle-exclamation"/>Seu login ({prefs.remetente.email || 'sem e-mail'}) não é @centralcomm.media: o envio pela Brevo fica desligado. Use "Abrir no Gmail".</p>
+              {passo.canal === 'email' && (
+                <EmailPreview api={api} item={item} assunto={assunto} setAssunto={setAssunto} texto={texto} naConversa={naConversa}
+                  setNaConversa={setNaConversa} versao={versaoPrevia} onPrevia={setPrevia}/>
               )}
             </>
           )}
         </div>
 
       {editandoAssinatura && <SignatureDialog api={api} prefs={prefs} notify={notify} onClose={() => setEditandoAssinatura(false)}
-        onSaved={salvo => setPrefs(p => ({...p, ...salvo}))}/>}
+        onSaved={salvo => { setPrefs(p => ({...p, ...salvo})); setVersaoPrevia(v => v + 1); }}/>}
       <div className="lv3-op__actions">
-        {podeEnviar && texto && (
-          <Button variant="primary" icon="paper-plane" onClick={enviar} disabled={!!busy}>{busy === 'enviar' ? 'Enviando…' : 'Enviar'}</Button>
+        {passo.canal === 'email' ? (
+          // E-mail sai daqui pela Brevo, em nome do executivo: sem Gmail nem outro app.
+          <Button variant="primary" icon="paper-plane" onClick={enviar} disabled={!!busy || !podeEnviar}
+            title={!texto ? 'Escreva a mensagem primeiro' : previa?.bloqueio || ''}>
+            {busy === 'enviar' ? 'Enviando…' : emConversa ? 'Enviar na conversa' : 'Enviar'}
+          </Button>
+        ) : (
+          <Button variant="primary" icon={passo.canal === 'linkedin' ? 'arrow-up-right-from-square' : passo.canal === 'telefone' ? 'phone' : 'paper-plane'} onClick={abrir}>
+            {{whatsapp: 'Abrir no WhatsApp', linkedin: texto ? 'Copiar e abrir LinkedIn' : 'Abrir LinkedIn', telefone: 'Ligar'}[passo.canal] || 'Abrir'}
+          </Button>
         )}
-        <Button variant={podeEnviar && texto ? 'secondary' : 'primary'} icon={passo.canal === 'linkedin' ? 'arrow-up-right-from-square' : passo.canal === 'telefone' ? 'phone' : passo.canal === 'email' ? 'envelope' : 'paper-plane'} onClick={abrir}>
-          {{email: 'Abrir no Gmail', whatsapp: 'Abrir no WhatsApp', linkedin: texto ? 'Copiar e abrir LinkedIn' : 'Abrir LinkedIn', telefone: 'Ligar'}[passo.canal] || 'Abrir'}
-        </Button>
         {texto && <Button icon="copy" onClick={copiar}>Copiar</Button>}
-        {passo.canal === 'email' && item.email && texto && (
-          <a className="lv3-btn lv3-btn--ghost lv3-btn--md" href={`mailto:${item.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(texto)}`}><Icon name="envelope"/><span>Outro app de e-mail</span></a>
-        )}
       </div>
       <div className="lv3-op__actions lv3-op__actions--done">
         <Button variant="primary" icon="check" onClick={acao('feito')} disabled={!!busy}>{busy === 'feito' ? 'Registrando…' : 'Marcar como feito'}</Button>
-        <Button icon="reply" onClick={acao('respondeu', 'O que a pessoa respondeu? (opcional)')} disabled={!!busy}>Respondeu</Button>
+        <Button icon="reply" onClick={acao('respondeu', {titulo: 'Registrar resposta', campo: 'O que a pessoa respondeu?', botao: 'Registrar e encerrar cadência'})} disabled={!!busy}>Respondeu</Button>
         <Button variant="ghost" icon="forward" onClick={acao('pular')} disabled={!!busy}>Pular passo</Button>
         <Button variant="ghost" icon="sliders" onClick={() => setGerir(true)} disabled={!!busy} title="Ir para outro passo, adiar ou trocar de fluxo">Gerenciar cadência</Button>
         {gerir && <ManageCadence api={api} inscricao={{...item, status: 'ativa'}} nome={nome} fluxos={fluxos} notify={notify} onClose={() => setGerir(false)} onDone={onDone}/>}
-        <Button variant="ghost" icon="pause" onClick={acao('pausar', 'Motivo da pausa (opcional)')} disabled={!!busy}>Pausar</Button>
+        <Button variant="ghost" icon="pause" onClick={acao('pausar', {titulo: 'Pausar cadência', campo: 'Motivo da pausa', botao: 'Pausar'})} disabled={!!busy}>Pausar</Button>
       </div>
     </div>
   );

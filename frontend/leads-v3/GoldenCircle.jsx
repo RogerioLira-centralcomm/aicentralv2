@@ -1,5 +1,5 @@
 import React from 'react';
-import {Button, Empty, Icon} from './ui.jsx';
+import {Button, Empty, Icon, useAsk} from './ui.jsx';
 
 const STATUS = [
   ['planejada', 'Planejada'], ['em_contato', 'Em contato'], ['reuniao', 'Reunião'], ['proposta', 'Proposta'],
@@ -17,6 +17,7 @@ export function trimestresProximos(atual) {
 
 export function GoldenCircle({boot, data, loading, error, trimestre, setTrimestre, executivo, activeLeadId,
   onOpen, onAdd, onStatus, onRemove, onReload}) {
+  const ask = useAsk();
   const contas = data?.contas || [];
   const nomeExec = id => boot.executivos.find(e => e.id === id)?.nome || `#${id}`;
   const cobertas = contas.filter(c => ROLES.every(([r]) => Number(c[r]) > 0)).length;
@@ -73,7 +74,10 @@ export function GoldenCircle({boot, data, loading, error, trimestre, setTrimestr
                   {STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
                 <button type="button" className="lv3-iconbtn lv3-iconbtn--danger" title="Tirar do Golden Circle" aria-label={`Tirar ${c.nome_conta} do Golden Circle`}
-                  onClick={() => { if (window.confirm(`Tirar ${c.nome_conta} do Golden Circle ${c.trimestre}? O lead continua na base.`)) onRemove(c.id); }}>
+                  onClick={async () => {
+                    if (await ask({title: 'Tirar do Golden Circle', confirmLabel: 'Tirar', danger: true,
+                      message: `Tirar ${c.nome_conta} do Golden Circle ${c.trimestre}? O lead continua na base.`})) onRemove(c.id);
+                  }}>
                   <Icon name="xmark"/>
                 </button>
               </div>

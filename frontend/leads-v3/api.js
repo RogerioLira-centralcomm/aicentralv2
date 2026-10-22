@@ -87,6 +87,7 @@ export function createApi(boot) {
     createHook: (id, body) => request(`${root}/leads/${id}/ganchos`, {method: 'POST', body}).then(p => p.data),
     updateHook: (hookId, body) => request(`${root}/ganchos/${hookId}`, {method: 'PATCH', body}),
     suggestFocus: id => request(`${root}/leads/${id}/foco/sugerir`, {method: 'POST', body: {}}).then(p => p.data.foco),
+    previewEmail: (inscricaoId, body) => request(`${root}/inscricoes/${inscricaoId}/email-previa`, {method: 'POST', body}).then(p => p.data),
     sendEmail: (inscricaoId, body) => request(`${root}/inscricoes/${inscricaoId}/enviar-email`, {method: 'POST', body}).then(p => p.data),
     preferences: () => request(`${root}/preferencias`).then(p => p.data),
     savePreferences: body => request(`${root}/preferencias`, {method: 'PUT', body}).then(p => p.data),

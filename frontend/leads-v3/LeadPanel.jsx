@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Empty, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName, useAsk, whatsappUrl} from './ui.jsx';
 import {People} from './People.jsx';
 import {FocusEditor, GoldenTarget, MarketContext} from './Focus.jsx';
 
@@ -101,6 +101,7 @@ function PeopleColumn({children}) {
 }
 
 export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadences, loading, notify, onChanged, onEdit, onEditCompany, onConvert, onDisqualify, onMarkGolden, onExtract, onMerge, split = false}) {
+  const ask = useAsk();
   const [busy, setBusy] = useState(false);
   if (loading && !lead) {
     return <>
@@ -130,7 +131,8 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
   // Lead que veio de um cliente reativa o mesmo cadastro; os demais abrem o formulário de conversão.
   const virarCliente = async () => {
     if (!lead.cliente_origem_id) return onConvert();
-    if (!window.confirm(`Reativar o cadastro de cliente de ${nome} no CRM? Contatos novos do lead vão junto.`)) return;
+    if (!(await ask({title: 'Reativar cliente', confirmLabel: 'Reativar',
+      message: `Reativar o cadastro de cliente de ${nome} no CRM? Contatos novos do lead vão junto.`}))) return;
     setBusy(true);
     try { await api.reactivateClient(lead.id); notify('Cliente reativado no CRM.'); onChanged(); }
     catch (error) { notify(error.message, 'error'); } finally { setBusy(false); }

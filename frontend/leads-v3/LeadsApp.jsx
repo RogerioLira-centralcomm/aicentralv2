@@ -3,7 +3,7 @@ import {createApi} from './api.js';
 import {Queue} from './Queue.jsx';
 import {LeadPanel} from './LeadPanel.jsx';
 import {Activities} from './Activities.jsx';
-import {Comms} from './Comms.jsx';
+import {AccountCadences} from './Cadences.jsx';
 import {CompanyDialog, ConvertDialog, DisqualifyDialog, EditDialog, ExtractDialog, GoldenAddDialog, ImportDialog, MergeDialog, NewLeadDialog} from './Dialogs.jsx';
 import {Analise} from './Analise.jsx';
 import {GoldenCircle} from './GoldenCircle.jsx';
@@ -59,7 +59,7 @@ export function LeadsApp({boot}) {
     const id = Number(new URLSearchParams(window.location.search).get('lead'));
     return id > 0 ? id : null;
   });
-  const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], communications: [], candidates: [], golden: null, cadences: [], loading: false});
+  const [detail, setDetail] = useState({lead: null, contacts: [], activities: [], candidates: [], golden: null, cadences: [], loading: false});
   const [mode, setModeState] = useState(readMode);
   const [view, setViewState] = useState(readView);
   const [trimestre, setTrimestre] = useState(boot.trimestre);
@@ -133,15 +133,15 @@ export function LeadsApp({boot}) {
   const loadDetail = useCallback(async (id, {quiet = false} = {}) => {
     if (!id) return;
     const seq = ++detailSeq.current;
-    if (!quiet) setDetail(d => ({...d, loading: true, ...(d.lead?.id === id ? {} : {lead: null, contacts: [], activities: [], communications: [], candidates: [], golden: null, cadences: []})}));
+    if (!quiet) setDetail(d => ({...d, loading: true, ...(d.lead?.id === id ? {} : {lead: null, contacts: [], activities: [], candidates: [], golden: null, cadences: []})}));
     try {
-      const [lead, contacts, activities, communications, candidates, golden, cadences] = await Promise.all([
-        api.lead(id), api.contacts(id), api.activities(id), api.communications(id).catch(() => []),
+      const [lead, contacts, activities, candidates, golden, cadences] = await Promise.all([
+        api.lead(id), api.contacts(id), api.activities(id),
         // Partes do Leads v3: sem a migração aplicada, ficam vazias em vez de quebrar a tela.
         api.candidates(id).catch(() => []), api.leadGolden(id).catch(() => null), api.leadCadences(id).catch(() => []),
       ]);
       if (seq !== detailSeq.current) return; // o usuário já abriu outro lead
-      setDetail({lead, contacts, activities, communications, candidates, golden, cadences, loading: false});
+      setDetail({lead, contacts, activities, candidates, golden, cadences, loading: false});
     } catch (error) {
       if (seq !== detailSeq.current) return;
       setDetail(d => ({...d, loading: false}));
@@ -174,6 +174,8 @@ export function LeadsApp({boot}) {
 
   const setView = value => { setViewState(value); try { localStorage.setItem(VIEW_KEY, value); } catch { /* sem armazenamento */ } };
   const openLead = id => { setView('mesa'); setActiveId(id); };
+  const [foco, setFoco] = useState(null); // inscrição que a mesa mandou fazer na Operação
+  const fazerNaOperacao = inscricaoId => { setFoco(inscricaoId); setView('operacao'); };
   const markGolden = async () => {
     if (!detail.lead) return;
     const l = detail.lead;
@@ -233,7 +235,8 @@ export function LeadsApp({boot}) {
 
   const {lead} = detail;
   const activities = lead && <Activities key={lead.id} api={api} leadId={lead.id} contacts={detail.contacts} activities={detail.activities} onChanged={refreshActive} notify={notify}/>;
-  const comms = lead && <Comms key={lead.id} api={api} lead={lead} contacts={detail.contacts} communications={detail.communications} cadences={detail.cadences} onChanged={refreshActive} notify={notify}/>;
+  const emCadencia = detail.cadences.filter(i => ['ativa', 'pausada'].includes(i.status)).length;
+  const cadencias = lead && <AccountCadences key={lead.id} contacts={detail.contacts} cadences={detail.cadences} onDo={fazerNaOperacao}/>;
 
   return (
     <div className="lv3">
@@ -259,7 +262,7 @@ export function LeadsApp({boot}) {
         <Analise boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
           setExecutivo={value => setFilters(f => ({...f, executivo: value}))}/>
       ) : view === 'operacao' ? (
-        <Operacao boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
+        <Operacao key={foco || 'op'} foco={foco} boot={boot} api={api} executivo={filters.executivo} notify={notify} onOpenLead={openLead}
           setExecutivo={value => setFilters(f => ({...f, executivo: value}))}/>
       ) : (
       <div className={`lv3-grid ${wide ? 'lv3-grid--wide' : ''}`}>
@@ -283,17 +286,17 @@ export function LeadsApp({boot}) {
           onExtract={() => setDialog({type: 'extract'})} onMerge={() => setDialog({type: 'merge'})}
           onDisqualify={() => setDialog({type: 'disqualify', ids: [lead.id]})} split={wide}/>
 
-        <section className="lv3-col lv3-side" aria-label="Atividades e comunicação">
+        <section className="lv3-col lv3-side" aria-label="Atividades e cadências">
           <div className="lv3-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={tab === 'atividades'} className={tab === 'atividades' ? 'is-on' : ''} onClick={() => setTab('atividades')}>
               <Icon name="list-check"/>Atividades{detail.activities.length ? <span className="lv3-count">{detail.activities.length}</span> : null}
             </button>
-            <button type="button" role="tab" aria-selected={tab === 'comunicacao'} className={tab === 'comunicacao' ? 'is-on' : ''} onClick={() => setTab('comunicacao')}>
-              <Icon name="comments"/>Comunicação{detail.communications.length ? <span className="lv3-count">{detail.communications.length}</span> : null}
+            <button type="button" role="tab" aria-selected={tab === 'cadencias'} className={tab === 'cadencias' ? 'is-on' : ''} onClick={() => setTab('cadencias')}>
+              <Icon name="route"/>Cadências{emCadencia ? <span className="lv3-count">{emCadencia}</span> : null}
             </button>
           </div>
           <div className="lv3-col__scroll">
-            {(tab === 'atividades' ? activities : comms) || <Empty icon="hand-pointer" title="Sem lead selecionado"/>}
+            {(tab === 'atividades' ? activities : cadencias) || <Empty icon="hand-pointer" title="Sem lead selecionado"/>}
           </div>
         </section>
       </div>

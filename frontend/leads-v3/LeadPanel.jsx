@@ -261,17 +261,18 @@ export function LeadPanel({boot, api, lead, contacts, candidates, golden, cadenc
           </header>
           {(() => {
             // Só o que está preenchido; o que falta vira um lembrete curto no fim.
+            // CNPJ é pouco usado na prospecção: aparece no fim só se já existir e não entra no "Falta".
             const campos = [
-              ['CNPJ', lead.cnpj && formatCnpj(lead.cnpj)],
               ['Site', lead.url_site && <a href={siteUrl(lead.url_site)} target="_blank" rel="noopener noreferrer">{lead.url_site}</a>],
               ['Domínio', lead.dominio],
               ['Segmento', lead.segmento],
               ['Porte', PORTE[lead.porte_estimado] || lead.porte_estimado],
               ['Grupo econômico', lead.grupo_economico],
               ['Tipo', TIPO_LEAD[lead.tipo_lead] || lead.tipo_lead],
+              ['CNPJ', lead.cnpj && formatCnpj(lead.cnpj)],
             ];
             const cheios = campos.filter(([, v]) => v);
-            const faltam = campos.filter(([l, v]) => !v && ['CNPJ', 'Domínio', 'Segmento'].includes(l)).map(([l]) => l);
+            const faltam = campos.filter(([l, v]) => !v && ['Domínio', 'Segmento'].includes(l)).map(([l]) => l);
             return (
               <>
                 {cheios.length > 0 && <dl className="lv3-infos">{cheios.map(([l, v]) => <Info key={l} label={l}>{v}</Info>)}</dl>}

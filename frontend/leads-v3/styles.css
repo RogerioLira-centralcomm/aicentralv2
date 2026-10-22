@@ -506,10 +506,14 @@ html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(
 .lv3-comms__title { display: flex; align-items: center; margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--lv3-ink-2); }
 
 /* Ajustes de densidade (v3) */
-.lv3-lead__title { align-items: flex-start; }
-.lv3-lead__title > div:not(.lv3-lead__actions) { flex: 1; min-width: 0; }
-.lv3-lead__actions { flex: none; display: flex; align-items: center; gap: 6px; }
+/* Coluna estreita: as ações descem para a linha de baixo em vez de espremer o nome (uma letra por linha). */
+.lv3-lead__title { align-items: flex-start; flex-wrap: wrap; row-gap: 10px; }
+.lv3-lead__title > div:not(.lv3-lead__actions) { flex: 1 1 200px; min-width: 0; }
+.lv3-lead__actions { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
 .lv3-lead__bar { gap: 6px; }
+/* Etapa, potencial e responsável dividem a largura por igual (sem um pílula maior que a outra). */
+.lv3-lead__bar > .lv3-pill-select { flex: 1 1 0; min-width: 96px; }
+html body .lv3-root .lv3-lead__bar .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { max-width: none; width: 100%; min-width: 0; }
 .lv3-pill-select--lg .lv3-icon { font-size: 11px; opacity: .8; }
 html body .lv3-root .lv3-pill-select--lg select:not([multiple]):not([size]):not(.select) { max-width: 150px; text-overflow: ellipsis; }
 .lv3-grid--wide { grid-template-columns: 360px minmax(380px, 1fr) minmax(420px, 1.1fr) minmax(340px, 400px); }
@@ -798,3 +802,25 @@ html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):no
 .lv3-manage__row .lv3-select { flex: 1 1 320px; max-width: 100%; }
 .lv3-manage__label { flex: 1 1 100%; font-size: 12.5px; font-weight: 600; color: var(--lv3-ink-2); }
 .lv3-manage__row input[type=date] { width: auto; }
+
+/* Trilha compacta (coluna Cadências da mesa): só pontos; o passo atual leva o rótulo */
+.lv3-track--compact { padding: 8px 10px; gap: 2px; }
+.lv3-track--compact .lv3-track__step { min-width: 0; }
+.lv3-track--compact .lv3-track__dot { width: 20px; height: 20px; font-size: 9px; border-width: 1.5px; }
+.lv3-track--compact .lv3-track__step.is-atual .lv3-track__dot { box-shadow: 0 0 0 3px var(--lv3-brand-soft); }
+.lv3-track--compact .lv3-track__step::before { top: 9px; left: calc(-50% + 10px); right: calc(50% + 10px); }
+.lv3-track--compact .lv3-track__label, .lv3-track--compact .lv3-track__when { display: none; }
+
+/* Coluna Cadências da mesa */
+.lv3-cads { display: grid; gap: 10px; padding: 14px 16px 24px; }
+.lv3-cad { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--lv3-line); border-radius: var(--lv3-radius); background: var(--lv3-surface); }
+.lv3-cad.is-pausada { background: var(--lv3-sunken); }
+.lv3-cad__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; }
+.lv3-cad__status { flex: none; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--lv3-success-bg); color: var(--lv3-success); }
+.lv3-cad__status.is-pausada { background: var(--lv3-warning-bg); color: var(--lv3-warning); }
+.lv3-cad__flow { margin: 0; font-size: 12.5px; color: var(--lv3-muted); }
+.lv3-cad__next { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--lv3-ink-2); }
+.lv3-cad__next .lv3-icon { margin-right: 4px; color: var(--lv3-muted); }
+.lv3-cad__why, .lv3-cad__hint { margin: 0; font-size: 12.5px; }
+.lv3-cad__done summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--lv3-ink-2); }
+.lv3-cad__done ul { margin: 8px 0 0; padding-left: 16px; display: grid; gap: 4px; font-size: 12.5px; color: var(--lv3-ink-2); }

@@ -39,12 +39,12 @@ const somaDias = (valor, dias) => { const d = new Date(String(valor).slice(0, 10
 const ddmm = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 
 /** Trilha da cadência: passos feitos ✓, o atual em destaque e os seguintes com data prevista. */
-function CadenceTrack({item}) {
+export function CadenceTrack({item, compact = false}) {
   const passos = Array.isArray(item.passos) ? item.passos : [];
   if (!passos.length) return null;
   const atual = passos[item.passo_atual] || {};
   return (
-    <ol className="lv3-track" aria-label="Trilha da cadência">
+    <ol className={`lv3-track ${compact ? 'lv3-track--compact' : ''}`} aria-label="Trilha da cadência">
       {passos.map((p, i) => {
         const estado = i < item.passo_atual ? 'feito' : i === item.passo_atual ? 'atual' : 'futuro';
         // Feito; atual vencido = "agora", atual agendado = data; seguintes = data prevista pelo espaçamento do modelo.
@@ -389,11 +389,12 @@ function CompanyPanel({api, leadId, notify, onOpenLead, onPauta}) {
   );
 }
 
-export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead}) {
+export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead, foco = null}) {
   const [data, setData] = useState({passos: [], tarefas: [], proximos: [], feitos: []});
   const [aba, setAba] = useState('hoje');
   const [state, setState] = useState({loading: true, error: ''});
-  const [selected, setSelected] = useState(null); // {tipo, id}
+  // {tipo, id}. `foco` = inscrição vinda da mesa ("Fazer na Operação"): abre o passo dela, vencido ou agendado.
+  const [selected, setSelected] = useState(foco ? {tipo: 'foco', id: foco} : null);
   const [pautaVersao, setPautaVersao] = useState(0); // pesquisa ou estrela na pauta recarrega os ganchos do composer
   const [fluxos, setFluxos] = useState([]);
   useEffect(() => { api.cadenceModels().then(setFluxos).catch(() => setFluxos([])); }, [api]);
@@ -405,6 +406,10 @@ export function Operacao({boot, api, executivo, setExecutivo, notify, onOpenLead
       setData(d);
       setState({loading: false, error: ''});
       setSelected(sel => {
+        if (sel?.tipo === 'foco') {
+          const tipo = d.passos.some(i => i.id === sel.id) ? 'passo' : d.proximos.some(i => i.id === sel.id) ? 'proximo' : null;
+          if (tipo) { setAba(tipo === 'passo' ? 'hoje' : 'proximos'); return {tipo, id: sel.id}; }
+        }
         const existe = sel && (LISTA[sel.tipo] ? (d[LISTA[sel.tipo]] || []).some(i => i.id === sel.id) : false);
         if (existe) return sel;
         // O passo feito saiu de "Hoje": segue para a próxima pendência (o feito aparece em "Feitos hoje").

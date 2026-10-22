@@ -240,7 +240,8 @@ function AskDialog({pedido, onClose}) {
 
 export function AskProvider({children}) {
   const [pedido, setPedido] = useState(null);
-  const ask = useCallback(opcoes => new Promise(resolve => setPedido({...opcoes, resolve})), []);
+  // Uma pergunta nova sobre outra ainda aberta cancela a anterior (a promessa dela resolve com null).
+  const ask = useCallback(opcoes => new Promise(resolve => setPedido(anterior => { anterior?.resolve(null); return {...opcoes, resolve}; })), []);
   const fechar = valor => { pedido?.resolve(valor); setPedido(null); };
   return (
     <AskContext.Provider value={ask}>

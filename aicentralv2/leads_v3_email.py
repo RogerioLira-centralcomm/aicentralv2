@@ -297,11 +297,15 @@ def enviar_passo(cursor, inscricao_id, *, assunto, texto, passo, usuario, prefs,
     if not envio["assunto"]:
         raise ProspeccaoError("Escreva o assunto antes de enviar.")
 
-    resultado = enviar_fn(
-        to_email=envio["para"]["email"], to_name=envio["para"]["name"], subject=envio["assunto"], html_content=envio["html"],
-        text_content=envio["texto"], reply_to=envio["de"], tags=["leads-v3"], sender=envio["de"],
-        headers=envio["headers"] or None,
-    )
+    kwargs = dict(to_email=envio["para"]["email"], to_name=envio["para"]["name"], subject=envio["assunto"],
+                  html_content=envio["html"], text_content=envio["texto"], reply_to=envio["de"], tags=["leads-v3"],
+                  sender=envio["de"])
+    resultado = enviar_fn(**kwargs, headers=envio["headers"] or None)
+    if envio["headers"] and not resultado.get("success") and resultado.get("status_code") == 400:
+        # A Brevo documenta `headers` para cabeçalhos não padrão: se recusar In-Reply-To/References, o "Re:" do
+        # assunto ainda agrupa a conversa na maioria dos clientes. Melhor sair sem eles do que não sair.
+        logger.warning("leads-v3: Brevo recusou os cabeçalhos da conversa (inscrição %s); reenviando sem eles.", inscricao_id)
+        resultado = enviar_fn(**kwargs, headers=None)
     if not resultado.get("success") or not resultado.get("messageId"):
         raise ProspeccaoError(resultado.get("user_message") or "A Brevo não aceitou o envio. Tente de novo em instantes.")
 

@@ -99,6 +99,18 @@ class EnvioTest(TestCase):
         self.assertEqual((gravado["assunto_conversa"], gravado["referencias"]), ("dado de ctv", ["<m1@brevo>", "<m2@brevo>"]))
         self.assertEqual(r["assunto"], "Re: dado de ctv")
 
+    def test_brevo_recusa_cabecalhos_da_conversa_e_sai_sem_eles(self):
+        anterior = {"provedor_message_id": "<m1@brevo>", "ocorreu_em": AGORA, "payload": {"assunto": "dado de ctv"}}
+        cursor = Cursor([_inscricao(), None, {"n": 0}, anterior])
+        enviar = MagicMock(side_effect=[{"success": False, "status_code": 400, "error": "invalid header"},
+                                        {"success": True, "messageId": "<m2@brevo>"}])
+        with patch.object(em.cadencias, "avancar", return_value={"status": "ativa", "passo_atual": 2, "proxima_em": None}):
+            r = self._enviar(cursor, enviar, assunto="", na_conversa=True)
+        self.assertEqual(enviar.call_count, 2)
+        self.assertIsNone(enviar.call_args.kwargs["headers"])
+        self.assertEqual(enviar.call_args.kwargs["subject"], "Re: dado de ctv")
+        self.assertEqual(r["message_id"], "<m2@brevo>")
+
     def test_conversa_sem_email_anterior_vira_conversa_nova(self):
         cursor = Cursor([_inscricao(), None, {"n": 0}, None])
         enviar = MagicMock(return_value={"success": True, "messageId": "<m1@brevo>"})

@@ -859,8 +859,11 @@ def api_mesclar_contatos(contato_id):
 @bp.route("/api/contatos/<int:contato_id>/dado-errado", methods=["POST"])
 @centralcomm_required_api
 def api_contato_dado_errado(contato_id):
-    """E-mail ou celular que não é da pessoa: sai da ficha (fica no histórico) e libera digitar o certo."""
-    campo = (request.get_json(silent=True) or {}).get("campo")
+    """E-mail ou celular que não é da pessoa: sai da ficha (fica no histórico) e libera digitar o certo.
+
+    Para celular, `valor` diz qual dos números saiu (sem ele, é o do WhatsApp); se era o do WhatsApp, o próximo assume."""
+    dados = request.get_json(silent=True) or {}
+    campo = dados.get("campo")
     if campo not in ("email", "telefone"):
         return _erro("Campo inválido.")
 
@@ -870,6 +873,8 @@ def api_contato_dado_errado(contato_id):
         if not contato:
             return _erro("Contato não encontrado.", 404)
         valor = contato[campo]
+        if campo == "telefone" and dados.get("valor"):
+            valor = str(dados["valor"])
         if not valor:
             return _erro("Este contato não tem esse dado.")
         if campo == "email":
@@ -877,6 +882,10 @@ def api_contato_dado_errado(contato_id):
         else:
             errado = prospeccao.digitos(valor)[-11:]
             restantes = [c for c in contato["celulares"] or [] if prospeccao.digitos(c.get("numero"))[-11:] != errado]
+            if contato["telefone"] and prospeccao.digitos(contato["telefone"])[-11:] != errado:
+                principal = contato["telefone"]  # saiu um celular extra: o do WhatsApp continua
+            else:
+                principal = restantes[0]["numero"] if restantes else None
             cursor.execute(
                 """
                 UPDATE cadu_lead_contatos
@@ -884,8 +893,7 @@ def api_contato_dado_errado(contato_id):
                        celulares = %s, updated_at = CURRENT_TIMESTAMP
                  WHERE id = %s
                 """,
-                [restantes[0]["numero"] if restantes else None, restantes[0]["numero"] if restantes else None,
-                 db.Json(restantes) if restantes else None, contato_id],
+                [principal, principal, db.Json(restantes) if restantes else None, contato_id],
             )
         rotulo = "E-mail" if campo == "email" else "Celular"
         _registrar_atividade(cursor, contato["id_lead"], "edicao", f"{rotulo} {str(valor).lower()} de {contato['nome']} marcado como errado.", contato_id)
@@ -1994,7 +2002,8 @@ def api_contato_pedir_celular(contato_id):
         if revelado.get("email") and email == revelado["email"] and email != contato["email"]:
             _registrar_atividade(cursor, contato["id_lead"], "edicao",
                                  f"E-mail de {contato['nome']} veio do Apollo junto com o pedido de celular.", contato_id)
-        return _ok({"status": "pedido", "email": revelado.get("email") if email == revelado.get("email") else None})
+        novo = bool(revelado.get("email")) and email == revelado["email"] and email != contato["email"]
+        return _ok({"status": "pedido", "email": email if novo else None})
 
     return _transacao(run, "pedir celular")
 
@@ -2049,13 +2058,13 @@ def webhook_apollo_celular(contato_id):
             )
             chegaram = len(lista) - len(contato["celulares"] or [])
             if chegaram:
-                texto = "Celular" if chegaram == 1 else f"{chegaram} celulares"
+                texto = f"Celular de {contato['nome']} encontrado" if chegaram == 1 else f"{chegaram} celulares de {contato['nome']} encontrados"
                 cursor.execute(
                     """
                     INSERT INTO cadu_lead_atividades (id_lead, tipo, descricao, id_contato, usuario_nome)
                     VALUES (%s, 'edicao', %s, %s, 'Apollo')
                     """,
-                    [contato["id_lead"], f"{texto} de {contato['nome']} encontrado no Apollo.", contato_id],
+                    [contato["id_lead"], f"{texto} no Apollo.", contato_id],
                 )
         elif not contato["celulares"]:
             cursor.execute("UPDATE cadu_lead_contatos SET telefone_status = 'sem_numero' WHERE id = %s", [contato_id])

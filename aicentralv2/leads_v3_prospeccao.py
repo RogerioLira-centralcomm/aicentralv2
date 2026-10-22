@@ -814,12 +814,19 @@ def celulares_do_webhook(payload, apollo_person_id=None):
 
 
 def juntar_celulares(atuais, novos):
-    """Lista sem repetir (mesmos dígitos), na ordem em que chegaram; os já guardados vêm primeiro."""
-    lista, vistos = [], set()
+    """Lista sem repetir (mesmos dígitos), na ordem em que chegaram; os já guardados vêm primeiro.
+
+    Se o mesmo número volta verificado, o guardado passa a verificado."""
+    lista, por_chave = [], {}
     for item in [*(atuais or []), *(novos or [])]:
-        numero = item.get("numero") if isinstance(item, dict) else item
-        chave = digitos(numero)[-11:]
-        if chave and chave not in vistos:
-            vistos.add(chave)
-            lista.append(item if isinstance(item, dict) else {"numero": numero, "status": "nao_verificado"})
+        item = dict(item) if isinstance(item, dict) else {"numero": item, "status": "nao_verificado"}
+        chave = digitos(item.get("numero"))[-11:]
+        if not chave:
+            continue
+        if chave in por_chave:
+            if item.get("status") == "valido":
+                por_chave[chave]["status"] = "valido"
+            continue
+        por_chave[chave] = item
+        lista.append(item)
     return lista

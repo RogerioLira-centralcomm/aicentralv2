@@ -270,6 +270,26 @@ class CelularApolloTest(TestCase):
         novos = [{"numero": "+5531988880000", "status": "nao_verificado"}, {"numero": "+5531977770000", "status": "valido"}]
         self.assertEqual([c["numero"] for c in p.juntar_celulares(atuais, novos)], ["+5531988880000", "+5531977770000"])
         self.assertEqual(p.juntar_celulares(atuais, novos)[0]["status"], "valido")
+        subiu = p.juntar_celulares([{"numero": "+5531988880000", "status": "nao_verificado"}], [{"numero": "+5531988880000", "status": "valido"}])
+        self.assertEqual(subiu, [{"numero": "+5531988880000", "status": "valido"}])
+
+    def test_celular_extra_errado_sai_e_o_do_whatsapp_fica(self):
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "email": None, "telefone": "+5531988880000",
+                         "celulares": [{"numero": "+5531988880000"}, {"numero": "+5531977770000"}]})
+        with patch.object(routes.db, "get_db", return_value=conn):
+            resp = _client().post("/leads-v3/api/contatos/5/dado-errado", json={"campo": "telefone", "valor": "+5531977770000"})
+        self.assertEqual(resp.status_code, 200)
+        _, params = next(c for c in conn.calls if "celulares = %s" in c[0])
+        self.assertEqual(params[0], "+5531988880000")
+        self.assertEqual(params[2].obj, [{"numero": "+5531988880000"}])
+
+    def test_celular_do_whatsapp_errado_passa_para_o_proximo(self):
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "email": None, "telefone": "+5531988880000",
+                         "celulares": [{"numero": "+5531988880000"}, {"numero": "+5531977770000"}]})
+        with patch.object(routes.db, "get_db", return_value=conn):
+            _client().post("/leads-v3/api/contatos/5/dado-errado", json={"campo": "telefone"})
+        _, params = next(c for c in conn.calls if "celulares = %s" in c[0])
+        self.assertEqual(params[0], "+5531977770000")
 
     def test_flags_da_busca_gratis(self):
         self.assertEqual(p.flags_apollo({"has_email": False, "has_direct_phone": "Yes"}), (False, True))

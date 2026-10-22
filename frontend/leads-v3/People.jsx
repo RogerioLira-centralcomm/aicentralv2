@@ -170,7 +170,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
   const semEmailApollo = c.apollo_tem_email === false || (c.apollo_revelado_em && !c.email);
   const errado = (campo, valor) => () => {
     if (window.confirm(`${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`)) {
-      run('wrong', () => api.wrongData(c.id, campo), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(() => abrirEdicao({[campo]: ''}));
+      run('wrong', () => api.wrongData(c.id, campo, valor), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(() => abrirEdicao({[campo]: ''}));
     }
   };
   // Tudo que completa a ficha fica num menu só; a linha de contato mostra só o dado e a situação dele.
@@ -184,7 +184,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
     !c.linkedin_url && {icon: 'link', label: 'Colar LinkedIn', onClick: () => setLinkedin('')},
     {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: () => abrirEdicao()},
     c.email && {icon: 'envelope', label: 'E-mail está errado', danger: true, onClick: errado('email', String(c.email).toLowerCase())},
-    c.telefone && {icon: 'phone-slash', label: 'Celular está errado', danger: true, onClick: errado('telefone', c.telefone)},
+    ...celulares.map(p => ({icon: 'phone-slash', label: `Celular ${p.numero} está errado`, danger: true, onClick: errado('telefone', p.numero)})),
   ].filter(Boolean);
 
   return (
@@ -460,7 +460,7 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
       try {
         const r = await api.revealContact(c.id);
         if (r.encontrou_email) achados += 1;
-        else if (r.motivo && /cr[eé]dito|permite/i.test(r.motivo)) { motivo = r.motivo; break; } // plano travou: não insiste
+        else if (!r.bloqueado && r.motivo && /plano|permite/i.test(r.motivo)) { motivo = r.motivo; break; } // plano travou: não insiste
       } catch (error) {
         motivo = error.message;
         if (/cr[eé]dito|chave|plano|limite/i.test(error.message)) break;

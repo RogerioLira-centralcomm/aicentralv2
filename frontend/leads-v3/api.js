@@ -101,7 +101,7 @@ export function createApi(boot) {
     leadSuggestions: id => request(`${root}/leads/${id}/sugestoes`).then(p => p.data),
     completeLead: (id, body) => request(`${root}/leads/${id}/completar`, {method: 'POST', body}).then(p => p.data),
     mergeContacts: (contactId, idDuplicado) => request(`${root}/contatos/${contactId}/mesclar`, {method: 'POST', body: {id_duplicado: idDuplicado}}).then(p => p.data),
-    wrongData: (contactId, campo) => request(`${root}/contatos/${contactId}/dado-errado`, {method: 'POST', body: {campo}}),
+    wrongData: (contactId, campo, valor) => request(`${root}/contatos/${contactId}/dado-errado`, {method: 'POST', body: {campo, valor}}),
     findEmail: contactId => request(`${root}/contatos/${contactId}/achar-email`, {method: 'POST', body: {}}).then(p => p.data),
     requestPhone: (contactId, forcar) => request(`${root}/contatos/${contactId}/celular`, {method: 'POST', body: {forcar: !!forcar}}).then(p => p.data),
     mainPhone: (contactId, numero) => request(`${root}/contatos/${contactId}/celular-principal`, {method: 'PATCH', body: {numero}}).then(p => p.data),

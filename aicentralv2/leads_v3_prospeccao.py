@@ -289,6 +289,11 @@ def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dom
     pessoa = (_apollo_post("people/match", api_key, payload) or {}).get("person")
     if not pessoa:
         raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
+    return _pessoa_revelada(pessoa)
+
+
+def _pessoa_revelada(pessoa):
+    """Nome, e-mail e LinkedIn de um people/match. O e-mail bloqueado pelo plano vira None com o motivo."""
     email = pessoa.get("email")
     motivo = None
     if email and "email_not_unlocked" in email:
@@ -297,7 +302,8 @@ def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dom
         motivo = ("O Apollo tem o e-mail desta pessoa, mas não liberou: o plano está sem créditos de e-mail "
                   "ou não permite revelar pela API. Confira em Apollo › Settings › Credits.")
     elif not email:
-        motivo = "O Apollo não tem e-mail para esta pessoa."
+        # A Apollo cobra 1 crédito por "dados de perfil ou e-mail": devolver o nome completo já conta.
+        motivo = "O Apollo não tem e-mail para esta pessoa (a consulta pode ter usado 1 crédito pelos dados do perfil)."
     return {
         "motivo": motivo,
         "nome": pessoa.get("name"),
@@ -728,9 +734,10 @@ def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecraw
 # Celular pelo Apollo (assíncrono: o número chega por webhook)
 # ─────────────────────────────────────────────────────
 def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None):
-    """Pede o celular ao Apollo. Devolve o id da pessoa no Apollo (para casar com o webhook).
+    """Pede o celular ao Apollo. Devolve a pessoa revelada (apollo_id para casar com o webhook, e-mail e nome).
 
-    Consome créditos de telefone do plano; o valor exato vem em `credits_consumed` no webhook.
+    O people/match já cobra 1 crédito pelos dados do perfil ou e-mail, então o e-mail que volta aqui é aproveitado.
+    O celular chega depois pelo webhook e só cobra (8 créditos) se vier um celular; o valor vem em `credits_consumed`.
     """
     payload = {"reveal_phone_number": True, "webhook_url": webhook_url, "reveal_personal_emails": False}
     if apollo_id:
@@ -745,29 +752,74 @@ def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=N
     pessoa = (_apollo_post("people/match", api_key, payload) or {}).get("person")
     if not pessoa or not pessoa.get("id"):
         raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
-    return pessoa["id"]
+    return _pessoa_revelada(pessoa)
 
 
-_PRIORIDADE_TELEFONE = {"mobile": 0, "work_direct": 1, "work_hq": 3, "other": 2}
+def flags_apollo(payload):
+    """O que a busca grátis disse que o Apollo tem: (tem_email, tem_celular). None = não sabe.
+
+    has_email é booleano; has_direct_phone vem 'Yes' ou 'Maybe: ...' (o Apollo não tem certeza)."""
+    payload = payload or {}
+    tem_email = payload.get("has_email")
+    tem_email = tem_email if isinstance(tem_email, bool) else None
+    fone = payload.get("has_direct_phone")
+    if isinstance(fone, bool):
+        tem_celular = fone
+    else:
+        texto = str(fone or "").strip().lower()
+        tem_celular = True if texto == "yes" else False if texto in ("no", "false") else None
+    return tem_email, tem_celular
 
 
-def melhor_celular(payload, apollo_person_id=None):
-    """Escolhe o número do webhook do Apollo: celular válido primeiro, depois direto do trabalho."""
+def celular_br(numero):
+    """Celular no formato E.164 (+55DD9XXXXXXXX) ou None. Fixo brasileiro (10 dígitos) não serve para WhatsApp.
+
+    Número estrangeiro passa como veio (+...), porque só o Apollo sabe se é celular."""
+    d = digitos(numero)
+    if str(numero or "").strip().startswith("+") and not d.startswith("55"):
+        return f"+{d}" if len(d) >= 8 else None
+    if d.startswith("55") and len(d) in (12, 13):
+        d = d[2:]
+    if len(d) == 11 and d[2] == "9" and d[0] != "0":
+        return f"+55{d}"
+    return None
+
+
+def celulares_do_webhook(payload, apollo_person_id=None):
+    """Só celulares do webhook do Apollo, o melhor primeiro: [{numero, status}].
+
+    Fica fora: fixo e telefone da empresa (no Brasil, número sem o 9 depois do DDD conta como fixo
+    mesmo que o Apollo diga 'mobile') e o que o Apollo marcou como inválido. Sem verificação ainda serve."""
     pessoas = (payload or {}).get("people") or []
     if apollo_person_id:
         pessoas = [p for p in pessoas if p.get("id") == apollo_person_id] or pessoas
-    numeros = []
+    achados = {}
     for pessoa in pessoas:
         for n in pessoa.get("phone_numbers") or []:
-            numero = n.get("sanitized_number") or n.get("raw_number")
-            if not numero:
-                continue
+            bruto = n.get("sanitized_number") or n.get("raw_number")
             status = str(n.get("status_cd") or "")
-            if "invalid" in status:
-                continue  # só descarta o que o Apollo marcou como inválido; sem verificação ainda serve
-            # Entre números do mesmo tipo, o verificado vem antes do sem verificação.
-            numeros.append((_PRIORIDADE_TELEFONE.get(n.get("type_cd"), 2), status != "valid_number", numero, n.get("type_cd")))
-    if not numeros:
-        return None
-    numeros.sort(key=lambda x: (x[0], x[1]))
-    return {"numero": numeros[0][2], "tipo": numeros[0][3]}
+            if not bruto or "invalid" in status:
+                continue
+            tipo = n.get("type_cd")
+            numero = celular_br(bruto)
+            if not numero or (not numero.startswith("+55") and tipo != "mobile"):
+                continue
+            if tipo not in ("mobile", None, "", "other", "work_direct"):
+                continue  # work_hq/home: linha da empresa ou de casa, mesmo com 9 na frente
+            verificado = status == "valid_number"
+            chave = (tipo != "mobile", not verificado)
+            if numero not in achados or chave < achados[numero][0]:
+                achados[numero] = (chave, {"numero": numero, "status": "valido" if verificado else "nao_verificado"})
+    return [item for _, item in sorted(achados.values(), key=lambda x: x[0])]
+
+
+def juntar_celulares(atuais, novos):
+    """Lista sem repetir (mesmos dígitos), na ordem em que chegaram; os já guardados vêm primeiro."""
+    lista, vistos = [], set()
+    for item in [*(atuais or []), *(novos or [])]:
+        numero = item.get("numero") if isinstance(item, dict) else item
+        chave = digitos(numero)[-11:]
+        if chave and chave not in vistos:
+            vistos.add(chave)
+            lista.append(item if isinstance(item, dict) else {"numero": numero, "status": "nao_verificado"})
+    return lista

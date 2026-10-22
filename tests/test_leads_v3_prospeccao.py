@@ -224,20 +224,63 @@ class AcharEmailNivelTest(TestCase):
 class CelularApolloTest(TestCase):
     def test_pedido_manda_webhook_e_reveal_phone(self):
         with patch.object(p.requests, "post", return_value=_resp(body={"person": {"id": "ap1"}})) as post:
-            self.assertEqual(p.apollo_pedir_celular("k", "https://x/webhook", linkedin_url="https://linkedin.com/in/a"), "ap1")
+            self.assertEqual(p.apollo_pedir_celular("k", "https://x/webhook", linkedin_url="https://linkedin.com/in/a")["apollo_id"], "ap1")
         body = post.call_args.kwargs["json"]
         self.assertTrue(body["reveal_phone_number"])
         self.assertEqual(body["webhook_url"], "https://x/webhook")
         self.assertEqual(body["linkedin_url"], "https://linkedin.com/in/a")
 
-    def test_escolhe_celular_valido_antes_do_telefone_da_empresa(self):
+    def test_pedido_aproveita_o_email_que_ja_foi_cobrado(self):
+        body = {"person": {"id": "ap1", "name": "Ana Lima", "email": "ana@vale.com", "email_status": "verified"}}
+        with patch.object(p.requests, "post", return_value=_resp(body=body)):
+            r = p.apollo_pedir_celular("k", "https://x/webhook", apollo_id="ap1")
+        self.assertEqual((r["email"], r["email_status"]), ("ana@vale.com", "valido"))
+
+    def test_so_celular_entra_e_fixo_fica_fora(self):
         payload = {"people": [{"id": "ap1", "phone_numbers": [
             {"sanitized_number": "+553133330000", "type_cd": "work_hq", "status_cd": "valid_number"},
             {"sanitized_number": "+5531999990000", "type_cd": "mobile", "status_cd": "invalid_number"},
             {"sanitized_number": "+5531988880000", "type_cd": "mobile", "status_cd": "valid_number"},
+            {"sanitized_number": "+553132221111", "type_cd": "mobile", "status_cd": "valid_number"},  # fixo marcado como mobile
+            {"sanitized_number": "+5531977770000", "type_cd": "work_direct", "status_cd": "no_status"},
+            {"sanitized_number": "+5531966660000", "type_cd": "work_hq", "status_cd": "valid_number"},  # linha da empresa
         ]}]}
-        self.assertEqual(p.melhor_celular(payload, "ap1"), {"numero": "+5531988880000", "tipo": "mobile"})
-        self.assertIsNone(p.melhor_celular({"people": [{"id": "ap1", "phone_numbers": []}]}, "ap1"))
+        self.assertEqual(p.celulares_do_webhook(payload, "ap1"), [
+            {"numero": "+5531988880000", "status": "valido"},
+            {"numero": "+5531977770000", "status": "nao_verificado"},
+        ])
+        self.assertEqual(p.celulares_do_webhook({"people": [{"id": "ap1", "phone_numbers": []}]}, "ap1"), [])
+
+    def test_celular_brasileiro_e_estrangeiro(self):
+        self.assertEqual(p.celular_br("(31) 98888-0000"), "+5531988880000")
+        self.assertEqual(p.celular_br("+55 31 98888-0000"), "+5531988880000")
+        self.assertIsNone(p.celular_br("(31) 3333-0000"))
+        self.assertIsNone(p.celular_br("+55 31 3333-0000"))
+        self.assertEqual(p.celular_br("+1 415 555 0100"), "+14155550100")
+        self.assertIsNone(p.celular_br(""))
+
+    def test_estrangeiro_so_entra_se_o_apollo_disser_mobile(self):
+        payload = {"people": [{"id": "ap1", "phone_numbers": [
+            {"sanitized_number": "+14155550100", "type_cd": "work_direct"},
+            {"sanitized_number": "+14155550199", "type_cd": "mobile"}]}]}
+        self.assertEqual([c["numero"] for c in p.celulares_do_webhook(payload)], ["+14155550199"])
+
+    def test_juntar_celulares_sem_repetir(self):
+        atuais = [{"numero": "+5531988880000", "status": "valido"}]
+        novos = [{"numero": "+5531988880000", "status": "nao_verificado"}, {"numero": "+5531977770000", "status": "valido"}]
+        self.assertEqual([c["numero"] for c in p.juntar_celulares(atuais, novos)], ["+5531988880000", "+5531977770000"])
+        self.assertEqual(p.juntar_celulares(atuais, novos)[0]["status"], "valido")
+
+    def test_flags_da_busca_gratis(self):
+        self.assertEqual(p.flags_apollo({"has_email": False, "has_direct_phone": "Yes"}), (False, True))
+        self.assertEqual(p.flags_apollo({"has_email": True, "has_direct_phone": "Maybe: please request direct dial via people/bulk_match"}), (True, None))
+        self.assertEqual(p.flags_apollo({}), (None, None))
+
+    def test_sem_email_avisa_do_credito_do_perfil(self):
+        with patch.object(p.requests, "post", return_value=_resp(body={"person": {"id": "a1", "name": "Ana Lima"}})):
+            r = p.apollo_revelar("k", apollo_id="a1")
+        self.assertIsNone(r["email"])
+        self.assertIn("1 crédito", r["motivo"])
 
     def test_email_bloqueado_explica_o_motivo(self):
         body = {"person": {"id": "a1", "name": "Ana", "email": "email_not_unlocked@domain.com"}}
@@ -268,13 +311,106 @@ class CelularSemVerificacaoTest(TestCase):
     def test_numero_sem_verificacao_ainda_serve(self):
         payload = {"people": [{"id": "ap1", "phone_numbers": [
             {"sanitized_number": "+5531977770000", "type_cd": "mobile", "status_cd": "no_status"}]}]}
-        self.assertEqual(p.melhor_celular(payload, "ap1")["numero"], "+5531977770000")
+        self.assertEqual(p.celulares_do_webhook(payload, "ap1")[0]["numero"], "+5531977770000")
 
     def test_verificado_vence_sem_verificacao_do_mesmo_tipo(self):
         payload = {"people": [{"id": "ap1", "phone_numbers": [
-            {"sanitized_number": "+55319111", "type_cd": "mobile", "status_cd": "no_status"},
-            {"sanitized_number": "+55319222", "type_cd": "mobile", "status_cd": "valid_number"}]}]}
-        self.assertEqual(p.melhor_celular(payload, "ap1")["numero"], "+55319222")
+            {"sanitized_number": "+5531991110000", "type_cd": "mobile", "status_cd": "no_status"},
+            {"sanitized_number": "+5531992220000", "type_cd": "mobile", "status_cd": "valid_number"}]}]}
+        self.assertEqual(p.celulares_do_webhook(payload, "ap1")[0]["numero"], "+5531992220000")
+
+
+class _Roteiro:
+    """Conexão falsa que devolve, em ordem, as linhas de cada fetchone e guarda o SQL executado."""
+    def __init__(self, *linhas):
+        self.linhas, self.calls = list(linhas), []
+
+    def cursor(self):
+        conn = self
+
+        class C:
+            def __enter__(self): return self
+            def __exit__(self, *e): return False
+            def execute(self, sql, params=None): conn.calls.append((" ".join(sql.split()), params))
+            def fetchone(self): return conn.linhas.pop(0) if conn.linhas else None
+        return C()
+
+    def commit(self): pass
+    def rollback(self): pass
+
+
+class CreditoApolloRotasTest(TestCase):
+    def _contato(self, **extra):
+        return {"id": 5, "id_lead": 1, "nome": "Ana Lima", "email": None, "email_status": None, "linkedin_url": None,
+                "origem_dado": "apollo", "origem_ref": "ap1", "apollo_person_id": "ap1", "telefone": None,
+                "telefone_status": None, "apollo_tem_email": None, "apollo_tem_celular": None, "apollo_revelado_em": None,
+                "cargo": None, "dominio": "vale.com", "url_site": None, **extra}
+
+    def test_revelar_nao_cobra_quem_a_busca_disse_que_nao_tem_email(self):
+        conn = _Roteiro(self._contato(apollo_tem_email=False))
+        with patch.object(routes.db, "get_db", return_value=conn), patch.object(p.requests, "post") as post:
+            r = _client().post("/leads-v3/api/contatos/5/revelar", json={}).get_json()["data"]
+        post.assert_not_called()
+        self.assertTrue(r["bloqueado"])
+
+    def test_revelar_de_novo_quem_ja_voltou_sem_email_pede_confirmacao(self):
+        conn = _Roteiro(self._contato(apollo_revelado_em="2026-10-01"))
+        with patch.object(routes.db, "get_db", return_value=conn), patch.object(p.requests, "post") as post:
+            r = _client().post("/leads-v3/api/contatos/5/revelar", json={}).get_json()["data"]
+        post.assert_not_called()
+        self.assertIn("outro crédito", r["motivo"])
+
+    def test_revelar_com_forcar_consulta(self):
+        conn = _Roteiro(self._contato(apollo_tem_email=False))
+        body = {"person": {"id": "ap1", "name": "Ana Lima", "email": "ana@vale.com", "email_status": "verified"}}
+        with patch.object(routes.db, "get_db", return_value=conn), \
+                patch.object(routes, "resolve_apollo_api_key", return_value="k"), \
+                patch.object(p.requests, "post", return_value=_resp(body=body)):
+            r = _client().post("/leads-v3/api/contatos/5/revelar", json={"forcar": True}).get_json()["data"]
+        self.assertEqual(r["email"], "ana@vale.com")
+        self.assertTrue(any("apollo_revelado_em = CURRENT_TIMESTAMP" in sql for sql, _ in conn.calls))
+
+    def test_celular_nao_e_pedido_quando_o_apollo_ja_disse_que_nao_tem(self):
+        conn = _Roteiro(self._contato(telefone_status="sem_numero"))
+        with patch.object(routes.db, "get_db", return_value=conn), patch.object(p.requests, "post") as post:
+            r = _client().post("/leads-v3/api/contatos/5/celular", json={}).get_json()["data"]
+        post.assert_not_called()
+        self.assertTrue(r["bloqueado"])
+
+    def _webhook(self, conn, payload):
+        from tests.test_leads_v3_routes import _app
+        app = _app()
+        with app.test_request_context():
+            token = routes._assinatura_contato(5)
+        with patch.object(routes.db, "get_db", return_value=conn):
+            return app.test_client().post(f"/leads-v3/webhooks/apollo/celular/5?token={token}", json=payload)
+
+    def test_webhook_guarda_varios_celulares_e_troca_fixo_pelo_celular(self):
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "apollo_person_id": "ap1", "telefone": "(31) 3333-0000",
+                         "celulares": [{"numero": "+5531988880000", "status": "valido"}]})
+        resp = self._webhook(conn, {"people": [{"id": "ap1", "phone_numbers": [
+            {"sanitized_number": "+5531988880000", "type_cd": "mobile", "status_cd": "valid_number"},
+            {"sanitized_number": "+5531977770000", "type_cd": "mobile", "status_cd": "no_status"},
+            {"sanitized_number": "+553133330000", "type_cd": "work_hq"}]}]})
+        self.assertEqual(resp.status_code, 200)
+        sql, params = next(c for c in conn.calls if "SET telefone = %s, celulares" in c[0])
+        self.assertEqual(params[0], "+5531988880000")
+        self.assertEqual([c["numero"] for c in params[1].obj], ["+5531988880000", "+5531977770000"])
+        self.assertTrue(any("Celular de Ana encontrado" in str(prm) for _, prm in conn.calls))  # só o novo conta
+
+    def test_webhook_so_com_fixo_marca_sem_numero(self):
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "apollo_person_id": "ap1", "telefone": None, "celulares": None})
+        self._webhook(conn, {"people": [{"id": "ap1", "phone_numbers": [{"sanitized_number": "+553133330000", "type_cd": "work_hq"}]}]})
+        self.assertTrue(any("telefone_status = 'sem_numero'" in sql for sql, _ in conn.calls))
+
+    def test_escolher_celular_do_whatsapp(self):
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "celulares": [{"numero": "+5531977770000"}]})
+        with patch.object(routes.db, "get_db", return_value=conn):
+            resp = _client().patch("/leads-v3/api/contatos/5/celular-principal", json={"numero": "(31) 97777-0000"})
+        self.assertEqual(resp.get_json()["data"]["telefone"], "+5531977770000")
+        conn = _Roteiro({"id": 5, "id_lead": 1, "nome": "Ana", "celulares": []})
+        with patch.object(routes.db, "get_db", return_value=conn):
+            self.assertEqual(_client().patch("/leads-v3/api/contatos/5/celular-principal", json={"numero": "31977770000"}).status_code, 409)
 
 
 class UrlWebhookTest(TestCase):

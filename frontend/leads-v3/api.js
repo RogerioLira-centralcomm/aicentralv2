@@ -103,8 +103,9 @@ export function createApi(boot) {
     mergeContacts: (contactId, idDuplicado) => request(`${root}/contatos/${contactId}/mesclar`, {method: 'POST', body: {id_duplicado: idDuplicado}}).then(p => p.data),
     wrongData: (contactId, campo) => request(`${root}/contatos/${contactId}/dado-errado`, {method: 'POST', body: {campo}}),
     findEmail: contactId => request(`${root}/contatos/${contactId}/achar-email`, {method: 'POST', body: {}}).then(p => p.data),
-    requestPhone: contactId => request(`${root}/contatos/${contactId}/celular`, {method: 'POST', body: {}}).then(p => p.data),
-    revealContact: contactId => request(`${root}/contatos/${contactId}/revelar`, {method: 'POST', body: {}}).then(p => p.data),
+    requestPhone: (contactId, forcar) => request(`${root}/contatos/${contactId}/celular`, {method: 'POST', body: {forcar: !!forcar}}).then(p => p.data),
+    mainPhone: (contactId, numero) => request(`${root}/contatos/${contactId}/celular-principal`, {method: 'PATCH', body: {numero}}).then(p => p.data),
+    revealContact: (contactId, forcar) => request(`${root}/contatos/${contactId}/revelar`, {method: 'POST', body: {forcar: !!forcar}}).then(p => p.data),
     updateProfile: (contactId, body) => request(`${root}/contatos/${contactId}/perfil`, {method: 'PATCH', body}),
 
     communications: id => request(`${legacy}/${id}/comunicacoes`).then(p => p.comunicacoes || p.data || []),

@@ -711,6 +711,8 @@ html body .lv3-root .lv3-queue__owner select:not([multiple]):not([size]):not(.se
 .lv3-person__email span:not(.lv3-chip) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
 .lv3-person__missing { color: var(--lv3-subtle); }
 .lv3-person__phonewait .lv3-link { margin-left: 2px; font-size: 12px; }
+.lv3-person__phone { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.lv3-person__phone .lv3-link { font-size: 12px; }
 .lv3-person__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-left: 40px; }
 .lv3-person__meta .lv3-cadence { margin: 0; padding: 3px 8px; font-size: 12px; flex: 1 1 100%; }
 .lv3-person__meta .lv3-cadence > span { min-width: 0; }

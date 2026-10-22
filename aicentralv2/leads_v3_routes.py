@@ -550,7 +550,8 @@ def api_candidato_acao(candidato_id, acao):
         if acao == "vincular" and not existente:
             return _erro("Não achei esta pessoa entre os contatos do lead.", 409)
         revelado = {}
-        if payload.get("revelar") and cand["provedor"] == "apollo":
+        tem_email, tem_celular = prospeccao.flags_apollo(cand["payload"]) if cand["provedor"] == "apollo" else (None, None)
+        if payload.get("revelar") and cand["provedor"] == "apollo" and tem_email is not False:
             revelado = prospeccao.apollo_revelar(resolve_apollo_api_key(), apollo_id=cand["provedor_ref"])
             if not existente:  # com nome completo, e-mail e LinkedIn dá para reconhecer quem o nome mascarado escondia
                 existente = prospeccao.achar_existente(
@@ -573,7 +574,10 @@ def api_candidato_acao(candidato_id, acao):
                        linkedin_url = COALESCE(NULLIF(linkedin_url, ''), %(linkedin)s::text),
                        papel = COALESCE(papel, %(papel)s::text), senioridade = COALESCE(senioridade, %(senioridade)s::text),
                        apollo_person_id = COALESCE(apollo_person_id, %(apollo_id)s::text),
+                       apollo_tem_email = COALESCE(%(tem_email)s::boolean, apollo_tem_email),
+                       apollo_tem_celular = COALESCE(%(tem_celular)s::boolean, apollo_tem_celular),
                        enriquecido_em = CASE WHEN %(revelou)s::boolean THEN CURRENT_TIMESTAMP ELSE enriquecido_em END,
+                       apollo_revelado_em = CASE WHEN %(revelou)s::boolean THEN CURRENT_TIMESTAMP ELSE apollo_revelado_em END,
                        updated_at = CURRENT_TIMESTAMP
                  WHERE id = %(id)s
                 RETURNING email
@@ -582,7 +586,7 @@ def api_candidato_acao(candidato_id, acao):
                  "email": revelado.get("email"), "email_status": revelado.get("email_status"),
                  "linkedin": revelado.get("linkedin_url") or cand["linkedin_url"], "papel": papel,
                  "senioridade": cand["senioridade_sugerida"], "apollo_id": apollo_id, "revelou": bool(revelado),
-                 "id": existente["id"]},
+                 "tem_email": tem_email, "tem_celular": tem_celular, "id": existente["id"]},
             )
             email_final = cursor.fetchone()["email"]
             contato_id = existente["id"]
@@ -593,14 +597,16 @@ def api_candidato_acao(candidato_id, acao):
                 """
                 INSERT INTO cadu_lead_contatos
                     (id_lead, nome, cargo, email, papel, senioridade, linkedin_url, origem_dado, origem_ref,
-                     apollo_person_id, email_status, enriquecido_em, adicionado_por)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     apollo_person_id, email_status, enriquecido_em, apollo_revelado_em, apollo_tem_email, apollo_tem_celular,
+                     adicionado_por)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 [cand["id_lead"], nome_novo[:200], (revelado.get("cargo") or cand["cargo"] or "")[:150] or None,
                  revelado.get("email"), papel, cand["senioridade_sugerida"],
                  revelado.get("linkedin_url") or cand["linkedin_url"], cand["provedor"], cand["provedor_ref"], apollo_id,
-                 revelado.get("email_status"), datetime.now() if revelado else None, session.get("user_id")],
+                 revelado.get("email_status"), datetime.now() if revelado else None, datetime.now() if revelado else None,
+                 tem_email, tem_celular, session.get("user_id")],
             )
             contato_id = cursor.fetchone()["id"]
             email_final = revelado.get("email")
@@ -619,10 +625,26 @@ def api_candidato_acao(candidato_id, acao):
     return _transacao(run, f"candidato {acao}")
 
 
+def _motivo_sem_email_apollo(contato):
+    """Por que consultar o Apollo de novo provavelmente gasta crédito sem trazer e-mail (None = pode consultar)."""
+    if contato.get("email") and contato.get("email_status") != "arriscado":
+        return None
+    if contato.get("apollo_revelado_em") and not contato.get("email"):
+        return "O Apollo já foi consultado e não tinha e-mail desta pessoa. Consultar de novo usa outro crédito."
+    if contato.get("apollo_tem_email") is False:
+        return "Na busca, o Apollo disse que não tem e-mail desta pessoa. Consultar mesmo assim usa 1 crédito."
+    return None
+
+
 @bp.route("/api/contatos/<int:contato_id>/revelar", methods=["POST"])
 @centralcomm_required_api
 def api_contato_revelar(contato_id):
-    """Busca e-mail e LinkedIn do contato no Apollo (consome crédito do plano)."""
+    """Busca e-mail e LinkedIn do contato no Apollo (consome crédito do plano).
+
+    O Apollo cobra 1 crédito pelos dados do perfil mesmo sem e-mail. Se a busca grátis já disse que não há e-mail,
+    ou se uma consulta anterior voltou sem e-mail, só consulta com `forcar` (a tela pede confirmação)."""
+    forcar = bool((request.get_json(silent=True) or {}).get("forcar"))
+
     def run(cursor):
         cursor.execute(
             """
@@ -634,6 +656,9 @@ def api_contato_revelar(contato_id):
         contato = cursor.fetchone()
         if not contato:
             return _erro("Contato não encontrado.", 404)
+        motivo = _motivo_sem_email_apollo(contato)
+        if motivo and not forcar:
+            return _ok({"email": None, "encontrou_email": False, "bloqueado": True, "motivo": motivo})
         dominio = contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"])
         revelado = prospeccao.apollo_revelar(
             resolve_apollo_api_key(),
@@ -646,7 +671,8 @@ def api_contato_revelar(contato_id):
             UPDATE cadu_lead_contatos
                SET nome = %s, email = COALESCE(%s, email), email_status = COALESCE(%s, email_status),
                    linkedin_url = COALESCE(linkedin_url, %s), cargo = COALESCE(cargo, %s),
-                   apollo_person_id = COALESCE(apollo_person_id, %s), enriquecido_em = CURRENT_TIMESTAMP
+                   apollo_person_id = COALESCE(apollo_person_id, %s), enriquecido_em = CURRENT_TIMESTAMP,
+                   apollo_revelado_em = CURRENT_TIMESTAMP
              WHERE id = %s
             """,
             [nome, revelado.get("email"), revelado.get("email_status"), revelado.get("linkedin_url"),
@@ -789,6 +815,12 @@ def api_mesclar_contatos(contato_id):
                    email_status = CASE WHEN NULLIF(f.email, '') IS NULL THEN s.email_status ELSE f.email_status END,
                    email = COALESCE(NULLIF(f.email, ''), s.email), telefone = COALESCE(NULLIF(f.telefone, ''), s.telefone),
                    telefone_status = COALESCE(f.telefone_status, s.telefone_status),
+                   celulares = NULLIF(COALESCE(f.celulares, '[]'::jsonb) || COALESCE((
+                       SELECT jsonb_agg(x) FROM jsonb_array_elements(s.celulares) x
+                        WHERE NOT COALESCE(f.celulares, '[]'::jsonb) @> jsonb_build_array(jsonb_build_object('numero', x ->> 'numero'))), '[]'::jsonb), '[]'::jsonb),
+                   apollo_tem_email = COALESCE(f.apollo_tem_email, s.apollo_tem_email),
+                   apollo_tem_celular = COALESCE(f.apollo_tem_celular, s.apollo_tem_celular),
+                   apollo_revelado_em = GREATEST(f.apollo_revelado_em, s.apollo_revelado_em),
                    linkedin_url = COALESCE(NULLIF(f.linkedin_url, ''), s.linkedin_url),
                    papel = COALESCE(f.papel, s.papel), senioridade = COALESCE(f.senioridade, s.senioridade),
                    influencia = COALESCE(f.influencia, s.influencia), apollo_person_id = COALESCE(f.apollo_person_id, s.apollo_person_id),
@@ -833,7 +865,7 @@ def api_contato_dado_errado(contato_id):
         return _erro("Campo inválido.")
 
     def run(cursor):
-        cursor.execute("SELECT id, id_lead, nome, email, telefone FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
+        cursor.execute("SELECT id, id_lead, nome, email, telefone, celulares FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
         contato = cursor.fetchone()
         if not contato:
             return _erro("Contato não encontrado.", 404)
@@ -843,7 +875,18 @@ def api_contato_dado_errado(contato_id):
         if campo == "email":
             cursor.execute("UPDATE cadu_lead_contatos SET email = NULL, email_status = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [contato_id])
         else:
-            cursor.execute("UPDATE cadu_lead_contatos SET telefone = NULL, telefone_status = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [contato_id])
+            errado = prospeccao.digitos(valor)[-11:]
+            restantes = [c for c in contato["celulares"] or [] if prospeccao.digitos(c.get("numero"))[-11:] != errado]
+            cursor.execute(
+                """
+                UPDATE cadu_lead_contatos
+                   SET telefone = %s, telefone_status = CASE WHEN %s::text IS NULL THEN NULL ELSE telefone_status END,
+                       celulares = %s, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = %s
+                """,
+                [restantes[0]["numero"] if restantes else None, restantes[0]["numero"] if restantes else None,
+                 db.Json(restantes) if restantes else None, contato_id],
+            )
         rotulo = "E-mail" if campo == "email" else "Celular"
         _registrar_atividade(cursor, contato["id_lead"], "edicao", f"{rotulo} {str(valor).lower()} de {contato['nome']} marcado como errado.", contato_id)
         return _ok({"id": contato_id})
@@ -1888,14 +1931,18 @@ def _url_webhook_celular(contato_id):
 @bp.route("/api/contatos/<int:contato_id>/celular", methods=["POST"])
 @centralcomm_required_api
 def api_contato_pedir_celular(contato_id):
-    """Pede o celular ao Apollo; o número chega minutos depois pelo webhook."""
+    """Pede o celular ao Apollo; o número chega minutos depois pelo webhook.
+
+    O pedido cobra 1 crédito pelos dados do perfil (e o e-mail que vier é guardado, já que foi pago); o celular
+    só cobra se vier. Se a busca grátis disse que não há telefone, só pede com `forcar` (a tela confirma)."""
+    forcar = bool((request.get_json(silent=True) or {}).get("forcar"))
     conn = db.get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT c.id, c.nome, c.linkedin_url, c.origem_dado, c.origem_ref, c.apollo_person_id, c.telefone,
-                       l.dominio, l.url_site
+                SELECT c.id, c.id_lead, c.nome, c.linkedin_url, c.origem_dado, c.origem_ref, c.apollo_person_id, c.telefone,
+                       c.email, c.apollo_tem_celular, c.telefone_status, l.dominio, l.url_site
                   FROM cadu_lead_contatos c JOIN cadu_leads l ON l.id = c.id_lead WHERE c.id = %s
                 """,
                 [contato_id],
@@ -1910,9 +1957,14 @@ def api_contato_pedir_celular(contato_id):
         return _erro("Não foi possível pedir o celular.", 500)
     if not contato:
         return _erro("Contato não encontrado.", 404)
+    if not forcar and (contato["apollo_tem_celular"] is False or contato["telefone_status"] == "sem_numero"):
+        motivo = ("O Apollo já respondeu que não tem celular desta pessoa. Pedir de novo usa outro crédito."
+                  if contato["telefone_status"] == "sem_numero" else
+                  "Na busca, o Apollo disse que não tem telefone desta pessoa. Pedir mesmo assim usa 1 crédito.")
+        return _ok({"status": None, "bloqueado": True, "motivo": motivo})
     webhook = _url_webhook_celular(contato_id)
     try:
-        apollo_id = prospeccao.apollo_pedir_celular(
+        revelado = prospeccao.apollo_pedir_celular(
             resolve_apollo_api_key(), webhook,
             apollo_id=contato["apollo_person_id"] or (contato["origem_ref"] if contato["origem_dado"] == "apollo" else None),
             linkedin_url=contato["linkedin_url"], nome=contato["nome"],
@@ -1922,17 +1974,51 @@ def api_contato_pedir_celular(contato_id):
         return _erro(str(exc), 400)
 
     def run(cursor):
+        # O e-mail veio junto (e foi cobrado): entra se a ficha não tem um, ou se o que tem é só palpite.
         cursor.execute(
             """
             UPDATE cadu_lead_contatos
-               SET telefone_status = 'pedido', telefone_pedido_em = CURRENT_TIMESTAMP, apollo_person_id = %s
+               SET telefone_status = 'pedido', telefone_pedido_em = CURRENT_TIMESTAMP, apollo_person_id = %s,
+                   apollo_revelado_em = CURRENT_TIMESTAMP,
+                   email_status = CASE WHEN %s::text IS NOT NULL AND (COALESCE(email, '') = '' OR email_status = 'arriscado')
+                                       THEN %s::text ELSE email_status END,
+                   email = CASE WHEN %s::text IS NOT NULL AND (COALESCE(email, '') = '' OR email_status = 'arriscado')
+                                THEN %s::text ELSE email END
              WHERE id = %s
+            RETURNING email
             """,
-            [apollo_id, contato_id],
+            [revelado["apollo_id"], revelado.get("email"), revelado.get("email_status"),
+             revelado.get("email"), revelado.get("email"), contato_id],
         )
-        return _ok({"status": "pedido"})
+        email = cursor.fetchone()["email"]
+        if revelado.get("email") and email == revelado["email"] and email != contato["email"]:
+            _registrar_atividade(cursor, contato["id_lead"], "edicao",
+                                 f"E-mail de {contato['nome']} veio do Apollo junto com o pedido de celular.", contato_id)
+        return _ok({"status": "pedido", "email": revelado.get("email") if email == revelado.get("email") else None})
 
     return _transacao(run, "pedir celular")
+
+
+@bp.route("/api/contatos/<int:contato_id>/celular-principal", methods=["PATCH"])
+@centralcomm_required_api
+def api_contato_celular_principal(contato_id):
+    """Escolhe, entre os celulares da pessoa, o que vai para o WhatsApp (fica em telefone)."""
+    numero = prospeccao.celular_br((request.get_json(silent=True) or {}).get("numero"))
+    if not numero:
+        return _erro("Escolha um celular.")
+
+    def run(cursor):
+        cursor.execute("SELECT id, id_lead, nome, celulares FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
+        contato = cursor.fetchone()
+        if not contato:
+            return _erro("Contato não encontrado.", 404)
+        if numero not in [c.get("numero") for c in contato["celulares"] or []]:
+            return _erro("Este celular não está na ficha.", 409)
+        cursor.execute("UPDATE cadu_lead_contatos SET telefone = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", [numero, contato_id])
+        _registrar_atividade(cursor, contato["id_lead"], "edicao", f"WhatsApp de {contato['nome']} passa a ser {numero}.", contato_id)
+        return _ok({"telefone": numero})
+
+    return _transacao(run, "celular principal")
 
 
 @bp.route("/webhooks/apollo/celular/<int:contato_id>", methods=["POST"])
@@ -1944,31 +2030,37 @@ def webhook_apollo_celular(contato_id):
     payload = request.get_json(silent=True) or {}
 
     def run(cursor):
-        cursor.execute("SELECT id, id_lead, nome, apollo_person_id FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
+        cursor.execute("SELECT id, id_lead, nome, apollo_person_id, telefone, celulares FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])
         contato = cursor.fetchone()
         if not contato:
             return jsonify({"ok": True})  # contato apagado depois do pedido: nada a fazer
-        achado = prospeccao.melhor_celular(payload, contato["apollo_person_id"])
-        if achado:
+        # Só celular: fixo e telefone da empresa ficam fora. O Apollo pode repetir a chamada, então junta sem duplicar.
+        novos = prospeccao.celulares_do_webhook(payload, contato["apollo_person_id"])
+        if novos:
+            lista = prospeccao.juntar_celulares(contato["celulares"], novos)
+            principal = contato["telefone"] if prospeccao.celular_br(contato["telefone"]) else lista[0]["numero"]
             cursor.execute(
                 """
                 UPDATE cadu_lead_contatos
-                   SET telefone = CASE WHEN COALESCE(telefone, '') = '' THEN %s ELSE telefone END,
-                       telefone_status = 'encontrado', enriquecido_em = CURRENT_TIMESTAMP
+                   SET telefone = %s, celulares = %s, telefone_status = 'encontrado', enriquecido_em = CURRENT_TIMESTAMP
                  WHERE id = %s
                 """,
-                [achado["numero"], contato_id],
+                [principal, db.Json(lista), contato_id],
             )
-            tipo = "celular" if achado["tipo"] == "mobile" else "telefone direto"
-            cursor.execute(
-                """
-                INSERT INTO cadu_lead_atividades (id_lead, tipo, descricao, id_contato, usuario_nome)
-                VALUES (%s, 'edicao', %s, %s, 'Apollo')
-                """,
-                [contato["id_lead"], f"{tipo.capitalize()} de {contato['nome']} encontrado no Apollo.", contato_id],
-            )
-        else:
+            chegaram = len(lista) - len(contato["celulares"] or [])
+            if chegaram:
+                texto = "Celular" if chegaram == 1 else f"{chegaram} celulares"
+                cursor.execute(
+                    """
+                    INSERT INTO cadu_lead_atividades (id_lead, tipo, descricao, id_contato, usuario_nome)
+                    VALUES (%s, 'edicao', %s, %s, 'Apollo')
+                    """,
+                    [contato["id_lead"], f"{texto} de {contato['nome']} encontrado no Apollo.", contato_id],
+                )
+        elif not contato["celulares"]:
             cursor.execute("UPDATE cadu_lead_contatos SET telefone_status = 'sem_numero' WHERE id = %s", [contato_id])
+        else:
+            cursor.execute("UPDATE cadu_lead_contatos SET telefone_status = 'encontrado' WHERE id = %s", [contato_id])
         return jsonify({"ok": True})
 
     return _transacao(run, "webhook celular apollo")

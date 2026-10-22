@@ -113,6 +113,14 @@ function emailFoundMessage(r) {
   return `E-mail sugerido: ${r.email} (${fonte}). Confira antes de enviar.`;
 }
 
+/** Celulares da ficha: o do WhatsApp (telefone) primeiro, depois os outros que o Apollo trouxe. */
+function phonesOf(c) {
+  const chave = n => String(n || '').replace(/\D/g, '').slice(-11);
+  const lista = (c.celulares || []).map(p => ({...p, principal: !!c.telefone && chave(p.numero) === chave(c.telefone)}));
+  if (c.telefone && !lista.some(p => p.principal)) lista.unshift({numero: c.telefone, principal: true, digitado: true});
+  return lista.sort((a, b) => b.principal - a.principal);
+}
+
 function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, notify, onChanged}) {
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
@@ -140,7 +148,26 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
     run('linkedin', () => api.updateProfile(c.id, {linkedin_url: linkedin}), 'LinkedIn salvo.')().then(() => setLinkedin(null));
   };
   const palpite = c.email && c.email_status === 'arriscado';
-  const revelar = run('reveal', () => api.revealContact(c.id), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'));
+  // Se o Apollo já disse que não tem o dado, a API devolve `bloqueado` sem gastar crédito; insistir pede confirmação.
+  const comConfirmacao = (fn, done) => async () => {
+    setBusy('apollo');
+    let r;
+    try { r = await fn(false); } catch (error) { setBusy(''); return notify(error.message, 'error'); }
+    setBusy('');
+    if (r?.bloqueado) {
+      if (window.confirm(`${r.motivo}\n\nConsultar ${nome} no Apollo mesmo assim?`)) run('apollo', () => fn(true), done)();
+      return;
+    }
+    notify(done(r), r?.encontrou_email === false ? 'error' : 'success');
+    onChanged();
+  };
+  const revelar = comConfirmacao(forcar => api.revealContact(c.id, forcar), r => r.encontrou_email ? `E-mail verificado: ${r.email}.` : (r.motivo || 'O Apollo não tem e-mail para esta pessoa.'));
+  const pedirCelular = () => {
+    if (!window.confirm(`Pedir o celular de ${nome} ao Apollo? Usa 1 crédito pelos dados do perfil e, se vier celular, mais os créditos de telefone do plano.`)) return;
+    comConfirmacao(forcar => api.requestPhone(c.id, forcar), r => r.email ? `Celular pedido ao Apollo (chega em alguns minutos). O e-mail ${r.email} veio junto.` : 'Celular pedido ao Apollo. Chega em alguns minutos.')();
+  };
+  const celulares = phonesOf(c);
+  const semEmailApollo = c.apollo_tem_email === false || (c.apollo_revelado_em && !c.email);
   const errado = (campo, valor) => () => {
     if (window.confirm(`${valor} não é de ${nome}? Ele sai da ficha (fica registrado no histórico) e você pode digitar o certo.`)) {
       run('wrong', () => api.wrongData(c.id, campo), `${campo === 'email' ? 'E-mail' : 'Celular'} retirado. Digite o certo em Editar.`)().then(() => abrirEdicao({[campo]: ''}));
@@ -149,9 +176,11 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
   // Tudo que completa a ficha fica num menu só; a linha de contato mostra só o dado e a situação dele.
   const enriquecer = [
     !c.email && {icon: 'wand-magic-sparkles', label: 'Achar e-mail', hint: 'padrão da empresa, grátis', onClick: run('find', () => api.findEmail(c.id), emailFoundMessage)},
-    boot.fontes.apollo && (!c.email || palpite) && {icon: 'envelope-circle-check', label: palpite ? 'Verificar e-mail no Apollo' : 'E-mail verificado (Apollo)', hint: '1 crédito', onClick: revelar},
-    boot.fontes.apollo && !c.telefone && c.telefone_status !== 'pedido' && {icon: 'mobile-screen', label: 'Buscar celular (Apollo)', hint: c.telefone_status === 'sem_numero' ? 'o Apollo já disse que não tem; tentar de novo gasta créditos' : 'créditos de telefone, chega em minutos',
-      onClick: () => { if (window.confirm(`Pedir o celular de ${nome} ao Apollo? Consome créditos de telefone do plano (mais que um e-mail).`)) run('phone', () => api.requestPhone(c.id), 'Celular pedido ao Apollo. Chega em alguns minutos.')(); }},
+    boot.fontes.apollo && (!c.email || palpite) && {icon: 'envelope-circle-check', label: palpite ? 'Verificar e-mail no Apollo' : 'E-mail verificado (Apollo)',
+      hint: semEmailApollo ? 'o Apollo já disse que não tem; tentar de novo gasta 1 crédito' : '1 crédito', onClick: revelar},
+    boot.fontes.apollo && !celulares.some(p => !p.digitado) && c.telefone_status !== 'pedido' && {icon: 'mobile-screen', label: 'Buscar celular (Apollo)',
+      hint: c.telefone_status === 'sem_numero' || c.apollo_tem_celular === false ? 'o Apollo já disse que não tem; tentar de novo gasta créditos' : 'só celular, chega em minutos',
+      onClick: pedirCelular},
     !c.linkedin_url && {icon: 'link', label: 'Colar LinkedIn', onClick: () => setLinkedin('')},
     {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: () => abrirEdicao()},
     c.email && {icon: 'envelope', label: 'E-mail está errado', danger: true, onClick: errado('email', String(c.email).toLowerCase())},
@@ -205,10 +234,18 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
             {c.email_status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
             {palpite && <span className="lv3-chip lv3-chip--warning lv3-chip--tiny">palpite</span>}
           </a>
-        ) : <span className="lv3-person__missing"><Icon name="envelope"/>{busy === 'find' || busy === 'reveal' ? 'procurando…' : 'sem e-mail'}</span>}
-        {c.telefone ? (
-          <a href={whatsappUrl(c.telefone)} target="_blank" rel="noopener noreferrer"><Icon name="phone"/>{c.telefone}</a>
-        ) : c.telefone_status === 'pedido' ? (
+        ) : <span className="lv3-person__missing" title={semEmailApollo ? 'O Apollo não tem e-mail desta pessoa' : ''}>
+          <Icon name="envelope"/>{busy === 'find' || busy === 'apollo' ? 'procurando…' : semEmailApollo ? 'Apollo sem e-mail' : 'sem e-mail'}</span>}
+        {celulares.length ? celulares.map(p => (
+          <span key={p.numero} className="lv3-person__phone">
+            <a href={whatsappUrl(p.numero)} target="_blank" rel="noopener noreferrer" title={p.principal ? 'Celular do WhatsApp' : 'Outro celular'}>
+              <Icon name={p.principal ? 'phone' : 'mobile-screen'}/>{p.numero}
+            </a>
+            {p.status === 'valido' && <Icon name="circle-check" className="lv3-ok"/>}
+            {!p.principal && <button type="button" className="lv3-link lv3-link--muted" disabled={!!busy}
+              onClick={run('mainphone', () => api.mainPhone(c.id, p.numero), `WhatsApp de ${nome}: ${p.numero}.`)}>usar no WhatsApp</button>}
+          </span>
+        )) : c.telefone_status === 'pedido' ? (
           <span className="lv3-person__phonewait" title="O Apollo envia o número alguns minutos depois do pedido">
             <Icon name="hourglass-half"/>celular pedido<button type="button" className="lv3-link" onClick={onChanged}>atualizar</button>
           </span>
@@ -385,7 +422,9 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
   const empresa = decode(lead.empresa || lead.nome);
   const semEmail = contacts.filter(c => !c.email);
   // Quem ainda não tem e-mail verificado (sem e-mail ou só palpite): onde o crédito do Apollo rende.
-  const paraVerificar = contacts.filter(c => !c.email || c.email_status === 'arriscado');
+  // Fica de fora quem o Apollo já disse que não tem e-mail: consultar cobraria o crédito do perfil sem trazer nada.
+  const paraVerificar = contacts.filter(c => (!c.email || c.email_status === 'arriscado')
+    && c.apollo_tem_email !== false && !(c.apollo_revelado_em && !c.email));
   // Inscrição que importa por pessoa: a ativa/pausada; senão a mais recente (a API já ordena assim).
   const inscricaoDe = id => cadences.find(i => i.id_contato === id);
   const semCadencia = contacts.filter(c => !cadences.some(i => i.id_contato === c.id && ['ativa', 'pausada'].includes(i.status)));

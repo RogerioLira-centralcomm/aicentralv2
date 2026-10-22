@@ -57,6 +57,8 @@ class MontagemTest(TestCase):
 
     def test_preferencias_validam_linkedin_e_modelo(self):
         self.assertEqual(em.normalizar_preferencias({"linkedin_url": "linkedin.com/in/a"})["linkedin_url"], "https://linkedin.com/in/a")
+        self.assertEqual(em.normalizar_preferencias({"linkedin_url": "http://www.linkedin.com/in/a"})["linkedin_url"],
+                         "https://www.linkedin.com/in/a")
         with self.assertRaises(ProspeccaoError):
             em.normalizar_preferencias({"linkedin_url": "https://evil.com/in/a"})
         with self.assertRaises(ProspeccaoError):
@@ -207,21 +209,40 @@ class RotasTest(TestCase):
         from aicentralv2 import leads_v3_routes as routes
         from tests.test_leads_v3_routes import FakeConn
         conn = FakeConn([])
+        cursor = Cursor([{"dispositivo": "iphone", "assinatura": "Abs,", "cargo": "Diretor",
+                          "linkedin_url": "https://linkedin.com/in/apolo", "modelo_assinatura": "simples"}])
+        conn.cursor = lambda: cursor
         with patch.object(routes.db, "get_db", return_value=conn):
             resp = self._client().put("/leads-v3/api/preferencias", json={
                 "dispositivo": "iphone", "assinatura": "Abs,", "cargo": "Diretor", "linkedin_url": "linkedin.com/in/apolo"})
         data = resp.get_json()["data"]
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(conn.committed)
-        self.assertIn("cargo = EXCLUDED.cargo", conn.calls[0][0])
+        self.assertIn("cargo = EXCLUDED.cargo", cursor.sqls[0][0])
+        self.assertEqual(cursor.sqls[0][1][-1], "https://linkedin.com/in/apolo")
         self.assertEqual(data["linkedin_url"], "https://linkedin.com/in/apolo")
         self.assertTrue(data["remetente"]["pode_enviar"])
         self.assertIn("Diretor · CentralComm", data["assinatura_texto"])
 
+    def test_trocar_so_o_rodape_nao_apaga_a_assinatura(self):
+        from aicentralv2 import leads_v3_routes as routes
+        from tests.test_leads_v3_routes import FakeConn
+        conn = FakeConn([])
+        cursor = Cursor([{"dispositivo": "iphone", "cargo": "Diretor", "modelo_assinatura": "simples"}])
+        conn.cursor = lambda: cursor
+        with patch.object(routes.db, "get_db", return_value=conn):
+            resp = self._client().put("/leads-v3/api/preferencias", json={"dispositivo": "iphone"})
+        upsert = cursor.sqls[0][0]
+        self.assertIn("(id_usuario, dispositivo)", upsert)
+        self.assertNotIn("cargo", upsert)
+        self.assertEqual(resp.get_json()["data"]["cargo"], "Diretor")
+
     def test_login_de_fora_do_dominio_nao_pode_enviar(self):
         from aicentralv2 import leads_v3_routes as routes
         from tests.test_leads_v3_routes import FakeConn
-        with patch.object(routes.db, "get_db", return_value=FakeConn([])):
+        conn = FakeConn([])
+        conn.cursor = lambda: Cursor([None])
+        with patch.object(routes.db, "get_db", return_value=conn):
             resp = self._client("exec@gmail.com").put("/leads-v3/api/preferencias", json={"dispositivo": "nenhum"})
         self.assertFalse(resp.get_json()["data"]["remetente"]["pode_enviar"])
 

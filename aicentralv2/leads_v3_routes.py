@@ -1627,23 +1627,26 @@ def api_preferencias():
     dispositivo = payload.get("dispositivo") or "nenhum"
     if dispositivo not in mensagens.DISPOSITIVOS:
         return _erro("Dispositivo inválido.")
-    assinatura = str(payload.get("assinatura") or "").strip()[:300] or None
     try:
         campos = email_mail.normalizar_preferencias(payload)
     except prospeccao.ProspeccaoError as exc:
         return _erro(str(exc))
-    prefs = {"assinatura": assinatura, "dispositivo": dispositivo, **campos}
+    # Só grava o que veio: trocar o rodapé (só `dispositivo`) não apaga cargo, telefone nem LinkedIn.
+    novos = {"assinatura": str(payload.get("assinatura") or "").strip()[:300] or None, "dispositivo": dispositivo, **campos}
+    novos = {k: v for k, v in novos.items() if k in payload or k == "dispositivo"}
 
     def run(cursor):
-        colunas = list(prefs)
+        colunas = list(novos)
         cursor.execute(
             f"""
             INSERT INTO cadu_lead_preferencias (id_usuario, {", ".join(colunas)}) VALUES (%s, {", ".join(["%s"] * len(colunas))})
             ON CONFLICT (id_usuario) DO UPDATE SET {", ".join(f"{c} = EXCLUDED.{c}" for c in colunas)},
                                                    updated_at = CURRENT_TIMESTAMP
             """,
-            [usuario, *prefs.values()],
+            [usuario, *novos.values()],
         )
+        cursor.execute(f"SELECT {_COLUNAS_PREFS} FROM cadu_lead_preferencias WHERE id_usuario = %s", [usuario])
+        prefs = dict(cursor.fetchone() or novos)
         return _ok({**prefs, **_remetente_info(prefs)})
 
     return _transacao(run, "preferências")

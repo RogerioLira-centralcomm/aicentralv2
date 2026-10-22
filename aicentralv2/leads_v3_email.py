@@ -82,8 +82,7 @@ def normalizar_preferencias(payload):
     if modelo not in MODELOS_ASSINATURA:
         raise ProspeccaoError("Modelo de assinatura inválido.")
     linkedin = str(payload.get("linkedin_url") or "").strip()
-    if linkedin and not linkedin.lower().startswith("http"):
-        linkedin = "https://" + linkedin
+    linkedin = re.sub(r"^(https?://)?", "https://", linkedin, flags=re.I) if linkedin else ""
     if linkedin and not _LINKEDIN_RE.match(linkedin):
         raise ProspeccaoError("O LinkedIn precisa ser um link do linkedin.com.")
     return {

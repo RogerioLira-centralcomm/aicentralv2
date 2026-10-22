@@ -115,7 +115,7 @@ function StepComposer({api, item, agora, fluxos = [], notify, onDone, pautaVersa
   const mudarRodape = async dispositivo => {
     setPrefs(p => ({...p, dispositivo}));
     setTexto(t => (t ? t.replace(RODAPE_RE, '') + (RODAPES[dispositivo] ? `\n\n${RODAPES[dispositivo]}` : '') : t));
-    try { await api.savePreferences({...prefs, dispositivo}); } catch (error) { notify(error.message, 'error'); }
+    try { await api.savePreferences({dispositivo}); } catch (error) { notify(error.message, 'error'); }
   };
   // Envia pela Brevo em nome do executivo (resposta volta para a caixa dele) e o passo anda sozinho.
   const enviar = async () => {

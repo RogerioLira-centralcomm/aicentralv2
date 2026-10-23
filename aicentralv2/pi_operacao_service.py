@@ -602,8 +602,64 @@ class PiOperacaoService:
         self.repository.obter_pi(id_pi)
         return self.repository.obter_email_log(id_pi, log_id)
 
-    def estado_completo(self, id_pi):
+    def _garantir_destinatarios_operacionais(self, id_pi, pi, autor_id=None):
+        """Persiste sugestões válidas quando o PI está em operação e ainda não há destinatários."""
+        try:
+            substatus = int(pi.get("id_sub_status_pi"))
+        except (TypeError, ValueError):
+            return
+        if substatus not in (1, 2, 3):
+            return
+        try:
+            if self.repository.listar_destinatarios(id_pi):
+                return
+        except Exception:
+            logger.exception(
+                "Não foi possível verificar destinatários do PI %s para auto-confirmação",
+                id_pi,
+            )
+            return
+        try:
+            sugestoes = self.repository.listar_destinatarios_sugeridos(id_pi)
+        except Exception:
+            logger.exception(
+                "Não foi possível carregar sugestões de destinatários do PI %s",
+                id_pi,
+            )
+            return
+        payload = []
+        padrao_por_papel = set()
+        for item in sugestoes or []:
+            contato_id = item.get("id_contato_cliente")
+            email = str(item.get("email") or "").strip()
+            if not contato_id or not email:
+                continue
+            papel = str(item.get("papel") or "cliente_final").strip()
+            if papel not in ("agencia", "cliente_final", "parceiro"):
+                papel = "cliente_final"
+            padrao = bool(item.get("padrao")) or papel not in padrao_por_papel
+            if padrao:
+                padrao_por_papel.add(papel)
+            payload.append(
+                {
+                    "id_contato_cliente": int(contato_id),
+                    "papel": papel,
+                    "padrao": padrao,
+                }
+            )
+        if not payload:
+            return
+        try:
+            self.salvar_destinatarios(id_pi, payload, autor_id)
+        except Exception:
+            logger.exception(
+                "Falha ao confirmar destinatários sugeridos automaticamente no PI %s",
+                id_pi,
+            )
+
+    def estado_completo(self, id_pi, autor_id=None):
         pi = self.repository.obter_pi(id_pi)
+        self._garantir_destinatarios_operacionais(id_pi, pi, autor_id)
         campanhas = self.repository.listar_campanhas(id_pi)
         emails_meta = self.repository.listar_emails(id_pi)
         checklist = self._aplicar_evidencias(

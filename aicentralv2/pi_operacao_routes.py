@@ -84,7 +84,9 @@ def _executar(callback):
 @bp.get("/<int:id_pi>/operacao")
 @operacao_required_api
 def obter_operacao(id_pi):
-    return _executar(lambda: _ok(_service().estado_completo(id_pi)))
+    return _executar(
+        lambda: _ok(_service().estado_completo(id_pi, session.get("user_id")))
+    )
 
 
 @bp.get("/<int:id_pi>/operacao/campanhas/<int:id_campanha>")

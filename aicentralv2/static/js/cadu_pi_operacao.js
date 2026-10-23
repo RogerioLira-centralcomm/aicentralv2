@@ -542,13 +542,18 @@
       target.innerHTML = errorHtml(data.recipient_error) +
         '<button type="button" class="pi-op-text-btn pi-op-recipient-retry" data-retry-recipients>Tentar novamente</button>';
       if (count) count.textContent = '';
-      if (form) form.dataset.savedRecipientSignature = '';
+      if (form) {
+        form.dataset.savedRecipientSignature = '';
+        form.dataset.recipientsConfirmed = 'false';
+      }
       if (submit) submit.disabled = true;
       return;
     }
     var selected = list(data.destinatarios || data.recipients);
     var available = list(data.contatos_disponiveis || data.available_contacts);
+    var pi = data.pi || {};
     if (form) {
+      form.dataset.recipientsConfirmed = data.destinatarios_confirmados ? 'true' : 'false';
       form.dataset.savedRecipientSignature = data.destinatarios_confirmados
         ? recipientSignature(selected)
         : '';
@@ -573,13 +578,14 @@
       }
     });
     if (!available.length && !isFinanceiroWorkspace()) {
-      target.className = '';
-      target.innerHTML = '<div class="pi-op-state">Nenhum contato com vínculo ativo foi encontrado para o cliente ou agência deste PI.</div>';
-      if (count) count.textContent = '0 selecionados';
-      if (submit) submit.disabled = true;
-      return;
+      if (!(pi.id_cliente || pi.id_agencia || pi.id_parceiro)) {
+        target.className = '';
+        target.innerHTML = '<div class="pi-op-state">Nenhum contato com vínculo ativo foi encontrado para o cliente ou agência deste PI.</div>';
+        if (count) count.textContent = '0 selecionados';
+        if (submit) submit.disabled = true;
+        return;
+      }
     }
-    var pi = data.pi || {};
     var groups = { cliente_final: [], agencia: [], parceiro: [] };
     available.forEach(function (item) {
       var id = recipientId(item);
@@ -645,9 +651,52 @@
     if (submit) {
       var dirty = selectedRecipientSignature(form) !==
         String(form.dataset.savedRecipientSignature || '');
-      submit.disabled = readOnly || total === 0 || invalid || !dirty;
-      submit.textContent = dirty ? 'Salvar destinatários' : 'Destinatários salvos';
+      var unconfirmed = form.dataset.recipientsConfirmed !== 'true';
+      submit.disabled = readOnly || total === 0 || invalid || (!unconfirmed && !dirty);
+      submit.textContent = unconfirmed || dirty ? 'Salvar destinatários' : 'Destinatários salvos';
     }
+  }
+
+  function recipientsPayloadFromFormOrState(extra) {
+    var form = document.getElementById('pi-recipients-form');
+    var checked = form ? form.querySelectorAll('[data-recipient-id]:checked') : [];
+    var items = [];
+    if (checked.length) {
+      items = Array.prototype.map.call(checked, function (input) {
+        return {
+          id_contato_cliente: Number(input.dataset.recipientId),
+          papel: input.dataset.recipientRole,
+          padrao: false
+        };
+      });
+    } else {
+      items = list(operationData && operationData.destinatarios).filter(function (item) {
+        return recipientId(item) && String(item.email || '').trim();
+      }).map(function (item) {
+        return {
+          id_contato_cliente: Number(recipientId(item)),
+          papel: item.papel || item.role || 'cliente_final',
+          padrao: Boolean(item.padrao)
+        };
+      });
+    }
+    if (extra) {
+      var exists = items.some(function (item) {
+        return Number(item.id_contato_cliente) === Number(extra.id_contato_cliente);
+      });
+      if (!exists) items.push(extra);
+    }
+    var defaultRoles = {};
+    return items.map(function (item) {
+      var role = item.papel || 'cliente_final';
+      var isDefault = !defaultRoles[role];
+      defaultRoles[role] = true;
+      return {
+        id_contato_cliente: item.id_contato_cliente,
+        papel: role,
+        padrao: isDefault
+      };
+    });
   }
 
   function isFinanceiroWorkspace() {
@@ -1735,27 +1784,11 @@
   }
 
   async function attachContact(contatoId) {
-    var form = document.getElementById('pi-recipients-form');
-    var existing = form ? Array.prototype.map.call(
-      form.querySelectorAll('[data-recipient-id]:checked'),
-      function (input) {
-        return {
-          id_contato_cliente: Number(input.dataset.recipientId),
-          papel: input.dataset.recipientRole,
-          padrao: false
-        };
-      }
-    ) : [];
-    var already = existing.some(function (item) {
-      return Number(item.id_contato_cliente) === Number(contatoId);
+    var existing = recipientsPayloadFromFormOrState({
+      id_contato_cliente: Number(contatoId),
+      papel: pendingContactRole,
+      padrao: false
     });
-    if (!already) {
-      existing.push({
-        id_contato_cliente: Number(contatoId),
-        papel: pendingContactRole,
-        padrao: !existing.some(function (item) { return item.papel === pendingContactRole; })
-      });
-    }
     await request(base + '/destinatarios', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

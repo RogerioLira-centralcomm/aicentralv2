@@ -148,6 +148,20 @@ class FakeRepository:
     def listar_destinatarios(self, id_pi):
         return [dict(item) for item in self.destinatarios]
 
+    def substituir_destinatarios(self, id_pi, destinatarios, autor_id):
+        self.destinatarios = []
+        for item in destinatarios:
+            self.destinatarios.append(
+                {
+                    "id_contato_cliente": item["id_contato_cliente"],
+                    "papel": item.get("papel", "cliente_final"),
+                    "padrao": bool(item.get("padrao")),
+                    "nome_completo": "Cliente Teste",
+                    "email": "cliente@example.com",
+                }
+            )
+        return [dict(item) for item in self.destinatarios]
+
     def listar_destinatarios_sugeridos(self, id_pi):
         return []
 
@@ -369,7 +383,7 @@ class PiOperacaoServiceTest(unittest.TestCase):
         self.assertIn("Não foi possível carregar", estado["recipient_error"])
         self.assertIn("checklist_operacional", estado)
 
-    def test_destinatario_sugerido_precisa_ser_salvo_antes_do_email(self):
+    def test_destinatario_sugerido_e_confirmado_ao_carregar_operacao(self):
         class SuggestedRecipientRepository(FakeRepository):
             def __init__(self):
                 super().__init__(substatus=3)
@@ -389,12 +403,13 @@ class PiOperacaoServiceTest(unittest.TestCase):
             repository=repo,
             renderer=lambda *args, **kwargs: "<p>ok</p>",
         )
-        estado = service.estado_completo(10)
+        estado = service.estado_completo(10, autor_id=99)
 
-        self.assertFalse(estado["destinatarios_confirmados"])
+        self.assertTrue(estado["destinatarios_confirmados"])
         self.assertEqual(len(estado["destinatarios"]), 1)
-        with self.assertRaisesRegex(ValueError, "Nenhum destinatário operacional"):
-            service.preview_email(10, {"tipo": "campanha_iniciada"})
+        self.assertEqual(estado["destinatarios"][0]["id_contato_cliente"], 40)
+        preview = service.preview_email(10, {"tipo": "campanha_iniciada"})
+        self.assertIn("html", preview)
 
     def test_marcos_de_objetivo_sao_automaticos_por_campanha(self):
         repo = FakeRepository(substatus=3)

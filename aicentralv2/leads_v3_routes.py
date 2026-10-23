@@ -1994,17 +1994,19 @@ def _gravar_chamadas_apollo(registro, *, lead_id=None, contato_id=None, usuario_
 def api_contato_apollo_chamadas(contato_id):
     """Últimas chamadas ao Apollo desta pessoa (e as buscas da empresa dela), para ver o que o Apollo devolveu."""
     def run(cursor):
+        # As da pessoa e as da empresa têm limites separados: buscas repetidas não empurram as da pessoa para fora.
         cursor.execute(
             """
-            SELECT a.id, a.criado_em, a.endpoint, a.http_status, a.pago, a.erro, a.resumo,
-                   CASE WHEN a.id_contato = %s THEN a.resposta END AS resposta
-              FROM cadu_apollo_chamadas a
-             WHERE a.id_contato = %s
-                OR (a.id_contato IS NULL AND a.id_lead = (SELECT id_lead FROM cadu_lead_contatos WHERE id = %s))
-             ORDER BY a.criado_em DESC, a.id DESC
-             LIMIT 30
+            (SELECT id, criado_em, endpoint, http_status, pago, erro, resumo, resposta
+               FROM cadu_apollo_chamadas WHERE id_contato = %s ORDER BY criado_em DESC, id DESC LIMIT 25)
+            UNION ALL
+            (SELECT id, criado_em, endpoint, http_status, pago, erro, resumo, NULL::jsonb
+               FROM cadu_apollo_chamadas
+              WHERE id_contato IS NULL AND id_lead = (SELECT id_lead FROM cadu_lead_contatos WHERE id = %s)
+              ORDER BY criado_em DESC, id DESC LIMIT 10)
+            ORDER BY criado_em DESC, id DESC
             """,
-            [contato_id, contato_id, contato_id],
+            [contato_id, contato_id],
         )
         return _ok({"chamadas": _linhas(cursor.fetchall())})
 
@@ -2034,6 +2036,12 @@ def api_lead_apollo_checar(lead_id):
     except prospeccao.ProspeccaoError as exc:
         conn.rollback()
         return _erro(str(exc), 400)
+    except Exception as exc:
+        conn.rollback()
+        if _sqlstate(exc) in _SQLSTATE_SEM_ESQUEMA:
+            return _erro("A migração do Leads v3 ainda não foi aplicada neste banco.", 503)
+        current_app.logger.error("leads-v3 checar apollo: %s", exc)
+        return _erro("Não foi possível checar no Apollo.", 500)
     if not dominio:
         return _erro("Preencha o site ou domínio da empresa para checar no Apollo.")
     if not contatos:

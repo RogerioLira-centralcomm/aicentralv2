@@ -298,19 +298,25 @@ def anotar_webhook_celular(payload):
 def apollo_checar_pessoas(api_key, dominio, ids, *, registro=None, paginas=3):
     """Busca grátis: o que o Apollo tem hoje de cada pessoa (pelo id) da empresa. Não revela nem cobra.
 
-    Varre até `paginas` páginas de 100 da empresa, sem filtro de cargo, e para quando acha todos os ids.
-    Devolve {id: (tem_email, tem_celular)}; quem não aparece não está no dicionário."""
+    Primeiro com os mesmos filtros de cargo da busca que trouxe os candidatos (em empresa grande, sem filtro
+    eles ficariam depois das primeiras páginas); quem faltar, sem filtro. Até `paginas` páginas de 100 em
+    cada passada, parando quando acha todos os ids. Devolve {id: (tem_email, tem_celular)}; quem não aparece
+    não está no dicionário."""
     faltam, achados = set(ids), {}
-    for pagina in range(1, paginas + 1):
-        body = _apollo_post("mixed_people/api_search", api_key, {
-            "q_organization_domains_list": [dominio], "page": pagina, "per_page": 100}, registro)
-        pessoas = body.get("people") or []
-        for p in pessoas:
-            if p.get("id") in faltam:
-                achados[p["id"]] = flags_apollo(p)
-                faltam.discard(p["id"])
-        if not faltam or len(pessoas) < 100:
-            break
+    filtros = [{"person_titles": APOLLO_TITLES, "person_seniorities": APOLLO_SENIORITIES}, {}]
+    for filtro in filtros:
+        for pagina in range(1, paginas + 1):
+            if not faltam:
+                return achados
+            body = _apollo_post("mixed_people/api_search", api_key, {
+                "q_organization_domains_list": [dominio], **filtro, "page": pagina, "per_page": 100}, registro)
+            pessoas = body.get("people") or []
+            for p in pessoas:
+                if p.get("id") in faltam:
+                    achados[p["id"]] = flags_apollo(p)
+                    faltam.discard(p["id"])
+            if len(pessoas) < 100:
+                break
     return achados
 
 

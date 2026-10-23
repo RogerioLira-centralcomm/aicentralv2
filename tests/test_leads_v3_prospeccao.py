@@ -552,11 +552,13 @@ class ChecagemGratisTest(TestCase):
     def test_busca_por_pagina_ate_achar_todos(self):
         pagina1 = {"people": [{"id": f"x{i}"} for i in range(99)] + [{"id": "a1", "has_email": True, "has_direct_phone": "Yes"}]}
         pagina2 = {"people": [{"id": "a2", "has_email": False}]}
-        with patch.object(p.requests, "post", side_effect=[_resp(body=pagina1), _resp(body=pagina2)]) as post:
+        with patch.object(p.requests, "post", side_effect=[_resp(body=pagina1), _resp(body=pagina2), _resp(body={"people": []})]) as post:
             r = p.apollo_checar_pessoas("k", "vale.com", {"a1", "a2", "a3"})
         self.assertEqual(r, {"a1": (True, True), "a2": (False, None)})
-        self.assertEqual(post.call_count, 2)  # a 2ª página veio incompleta: acabou a empresa
+        self.assertEqual(post.call_count, 3)  # 2 páginas com filtro de cargo; a3 faltou, 1 página sem filtro
         self.assertTrue(all(c.args[0].endswith("mixed_people/api_search") for c in post.call_args_list))
+        self.assertIn("person_titles", post.call_args_list[0].kwargs["json"])
+        self.assertNotIn("person_titles", post.call_args_list[2].kwargs["json"])
 
     def test_rota_atualiza_flags_e_nao_chama_endpoint_pago(self):
         conn = _Roteiro({"id": 1, "empresa": "Vale", "nome": "Vale", "email": None, "url_site": None, "dominio": "vale.com"})

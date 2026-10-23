@@ -217,7 +217,13 @@ def digitos(valor) -> str:
 # ─────────────────────────────────────────────────────
 # Apollo
 # ─────────────────────────────────────────────────────
-def _apollo_post(path, api_key, payload):
+# Endpoints que podem cobrar crédito (a busca é sempre grátis).
+APOLLO_PAGOS = {"people/match"}
+
+
+def _apollo_post(path, api_key, payload, registro=None):
+    """POST no Apollo. Se `registro` (lista) vier, anota o que foi pedido e o que o Apollo devolveu,
+    com ou sem erro, para a rota gravar em cadu_apollo_chamadas."""
     if not api_key:
         raise ProspeccaoError("Apollo sem chave. Cadastre em Parâmetros › Integrações ou no .env (APOLLO_API_KEY).")
     try:
@@ -227,7 +233,16 @@ def _apollo_post(path, api_key, payload):
             json=payload, timeout=TIMEOUT,
         )
     except requests.RequestException as exc:
+        if registro is not None:
+            registro.append(_anotar_chamada(path, payload, None, None, "sem conexão"))
         raise ProspeccaoError("Não foi possível falar com o Apollo agora.") from exc
+    if registro is not None:
+        try:
+            corpo = response.json()
+        except ValueError:
+            corpo = None
+        registro.append(_anotar_chamada(path, payload, response.status_code, corpo,
+                                        None if response.ok else str(response.text or "")[:300]))
     if response.status_code in (401, 403):
         raise ProspeccaoError("O Apollo recusou a chave ou o plano não libera esta função.")
     if response.status_code == 429:
@@ -242,7 +257,64 @@ def _apollo_post(path, api_key, payload):
         raise ProspeccaoError("Resposta inválida do Apollo.") from exc
 
 
-def apollo_buscar_pessoas(api_key, dominio, *, por_pagina=25):
+def _anotar_chamada(path, pedido, http_status, corpo, erro):
+    """Resumo do que o Apollo devolveu, sem guardar a resposta inteira da busca (25 a 100 pessoas)."""
+    pedido = {k: v for k, v in (pedido or {}).items() if k != "webhook_url"}  # a URL leva a assinatura do webhook
+    corpo = corpo if isinstance(corpo, dict) else {}
+    resumo, resposta = {}, None
+    if path == "mixed_people/api_search":
+        pessoas = corpo.get("people") or []
+        resumo = {"total": corpo.get("total_entries"), "pessoas": len(pessoas),
+                  "com_email": sum(1 for p in pessoas if p.get("has_email") is True),
+                  "com_telefone": sum(1 for p in pessoas if str(p.get("has_direct_phone") or "").lower() == "yes"),
+                  "telefone_talvez": sum(1 for p in pessoas if str(p.get("has_direct_phone") or "").lower().startswith("maybe"))}
+        resposta = [{k: p.get(k) for k in ("id", "first_name", "last_name_obfuscated", "title", "has_email", "has_direct_phone")}
+                    for p in pessoas]
+    elif path == "people/match":
+        pessoa = corpo.get("person") or {}
+        email = pessoa.get("email") or ""
+        resumo = {"achou": bool(pessoa), "email": bool(email) and "email_not_unlocked" not in email,
+                  "email_bloqueado": "email_not_unlocked" in email, "email_status": pessoa.get("email_status"),
+                  "pediu_celular": bool((pedido or {}).get("reveal_phone_number"))}
+        resposta = {k: pessoa.get(k) for k in ("id", "name", "title", "email", "email_status", "linkedin_url")} if pessoa else None
+    return {"endpoint": path, "http_status": http_status, "pago": path in APOLLO_PAGOS, "erro": erro,
+            "pedido": pedido, "resumo": resumo, "resposta": resposta}
+
+
+def anotar_webhook_celular(payload):
+    """Resumo do webhook de celular: créditos que o Apollo diz ter usado e números por tipo."""
+    payload = payload if isinstance(payload, dict) else {}
+    tipos = {}
+    for pessoa in payload.get("people") or []:
+        for n in pessoa.get("phone_numbers") or []:
+            chave = f"{n.get('type_cd') or 'sem_tipo'}/{n.get('status_cd') or 'sem_status'}"
+            tipos[chave] = tipos.get(chave, 0) + 1
+    return {"endpoint": "webhook/celular", "http_status": None, "pago": bool(payload.get("credits_consumed")), "erro": None,
+            "pedido": None, "resumo": {"creditos": payload.get("credits_consumed"), "status": payload.get("status"),
+                                       "numeros": tipos, "sem_registro": payload.get("missing_records")},
+            "resposta": payload}
+
+
+def apollo_checar_pessoas(api_key, dominio, ids, *, registro=None, paginas=3):
+    """Busca grátis: o que o Apollo tem hoje de cada pessoa (pelo id) da empresa. Não revela nem cobra.
+
+    Varre até `paginas` páginas de 100 da empresa, sem filtro de cargo, e para quando acha todos os ids.
+    Devolve {id: (tem_email, tem_celular)}; quem não aparece não está no dicionário."""
+    faltam, achados = set(ids), {}
+    for pagina in range(1, paginas + 1):
+        body = _apollo_post("mixed_people/api_search", api_key, {
+            "q_organization_domains_list": [dominio], "page": pagina, "per_page": 100}, registro)
+        pessoas = body.get("people") or []
+        for p in pessoas:
+            if p.get("id") in faltam:
+                achados[p["id"]] = flags_apollo(p)
+                faltam.discard(p["id"])
+        if not faltam or len(pessoas) < 100:
+            break
+    return achados
+
+
+def apollo_buscar_pessoas(api_key, dominio, *, por_pagina=25, registro=None):
     """Busca de pessoas por domínio da empresa. Não consome créditos; sobrenome vem oculto."""
     body = _apollo_post("mixed_people/api_search", api_key, {
         "q_organization_domains_list": [dominio],
@@ -250,7 +322,7 @@ def apollo_buscar_pessoas(api_key, dominio, *, por_pagina=25):
         "person_seniorities": APOLLO_SENIORITIES,
         "page": 1,
         "per_page": por_pagina,
-    })
+    }, registro)
     candidatos = []
     for p in body.get("people") or []:
         cargo = p.get("title") or ""
@@ -274,7 +346,7 @@ _EMAIL_STATUS = {"verified": "valido", "likely to engage": "valido", "guessed": 
                  "extrapolated": "arriscado", "unavailable": "invalido", "bounced": "invalido"}
 
 
-def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None):
+def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None, registro=None):
     """people/match: devolve nome completo, e-mail e LinkedIn. Consome crédito do plano Apollo."""
     payload = {"reveal_personal_emails": False}
     if apollo_id:
@@ -286,7 +358,7 @@ def apollo_revelar(api_key, *, apollo_id=None, linkedin_url=None, nome=None, dom
         payload.update({"first_name": partes[0], "last_name": " ".join(partes[1:]), "domain": dominio})
     else:
         raise ProspeccaoError("Faltam dados para o Apollo achar esta pessoa (LinkedIn ou nome + domínio).")
-    pessoa = (_apollo_post("people/match", api_key, payload) or {}).get("person")
+    pessoa = (_apollo_post("people/match", api_key, payload, registro) or {}).get("person")
     if not pessoa:
         raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
     return _pessoa_revelada(pessoa)
@@ -733,7 +805,7 @@ def achar_email(nome, dominio, exemplos, *, firecrawl_key=None, coletar=firecraw
 # ─────────────────────────────────────────────────────
 # Celular pelo Apollo (assíncrono: o número chega por webhook)
 # ─────────────────────────────────────────────────────
-def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None):
+def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=None, nome=None, dominio=None, registro=None):
     """Pede o celular ao Apollo. Devolve a pessoa revelada (apollo_id para casar com o webhook, e-mail e nome).
 
     O people/match já cobra 1 crédito pelos dados do perfil ou e-mail, então o e-mail que volta aqui é aproveitado.
@@ -749,7 +821,7 @@ def apollo_pedir_celular(api_key, webhook_url, *, apollo_id=None, linkedin_url=N
         payload.update({"first_name": partes[0], "last_name": " ".join(partes[1:]), "domain": dominio})
     else:
         raise ProspeccaoError("Faltam dados para o Apollo achar esta pessoa (LinkedIn ou nome + domínio).")
-    pessoa = (_apollo_post("people/match", api_key, payload) or {}).get("person")
+    pessoa = (_apollo_post("people/match", api_key, payload, registro) or {}).get("person")
     if not pessoa or not pessoa.get("id"):
         raise ProspeccaoError("O Apollo não encontrou esta pessoa.")
     return _pessoa_revelada(pessoa)

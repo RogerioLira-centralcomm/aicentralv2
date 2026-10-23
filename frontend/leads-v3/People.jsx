@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Button, Empty, Field, Icon, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, useAsk, whatsappUrl} from './ui.jsx';
+import {Button, Empty, Field, Icon, Modal, MoreMenu, decode, formatDate, linkedinSearchUrl, prettyName as pretty, useAsk, whatsappUrl} from './ui.jsx';
 import {FlowSelect, sugerirFluxo} from './Fluxos.jsx';
 import {ManageCadence, SwitchLeadFlow} from './CadenceControls.jsx';
 
@@ -126,10 +126,61 @@ function phonesOf(c) {
   return lista.sort((a, b) => b.principal - a.principal);
 }
 
+const APOLLO_ENDPOINT = {'mixed_people/api_search': 'Busca', 'people/match': 'Revelar e-mail', 'webhook/celular': 'Celular (webhook)'};
+
+/** Uma linha legível do que o Apollo devolveu numa chamada. */
+function apolloResumo(ch) {
+  const r = ch.resumo || {};
+  if (ch.erro) return `Erro${ch.http_status ? ` ${ch.http_status}` : ''}: ${ch.erro}`;
+  if (ch.endpoint === 'mixed_people/api_search') {
+    return `${r.pessoas ?? 0} pessoas na página (${r.total ?? '?'} na empresa): ${r.com_email ?? 0} com e-mail, ${r.com_telefone ?? 0} com telefone, ${r.telefone_talvez ?? 0} talvez.`;
+  }
+  if (ch.endpoint === 'people/match') {
+    if (!r.achou) return 'O Apollo não achou a pessoa.';
+    const email = r.email ? `veio e-mail (${r.email_status || 'sem status'})` : r.email_bloqueado ? 'e-mail bloqueado pelo plano' : 'sem e-mail';
+    return r.pediu_celular ? `Celular pedido; ${email}. O número chega pelo webhook.` : `${email[0].toUpperCase()}${email.slice(1)}.`;
+  }
+  const numeros = Object.entries(r.numeros || {}).map(([tipo, n]) => `${n} ${tipo}`).join(', ');
+  return `${numeros || 'Nenhum número'}. Créditos que o Apollo diz ter usado: ${r.creditos ?? 0}.`;
+}
+
+/** O que o Apollo devolveu para esta pessoa (e as buscas da empresa), para entender por que veio sem dado. */
+function ApolloLog({api, contact, onClose}) {
+  const [chamadas, setChamadas] = useState(null);
+  const [erro, setErro] = useState('');
+  useEffect(() => { api.apolloCalls(contact.id).then(setChamadas).catch(e => setErro(e.message)); }, [api, contact.id]);
+  return (
+    <Modal title={`Apollo: ${pretty(contact.nome)}`} onClose={onClose} width={640}>
+      <p className="lv3-hint"><Icon name="circle-info"/>Busca não cobra. Revelar e pedir celular cobram 1 crédito pelo perfil; o celular cobra mais só se vier.</p>
+      {erro ? <p className="lv3-hint">{erro}</p> : chamadas === null ? <p className="lv3-hint">Carregando…</p> : !chamadas.length ? (
+        <Empty icon="clock-rotate-left" title="Nenhuma chamada registrada">O registro começa a valer a partir de agora.</Empty>
+      ) : (
+        <ul className="lv3-apollo-log">
+          {chamadas.map(ch => (
+            <li key={ch.id}>
+              <div className="lv3-apollo-log__head">
+                <strong>{APOLLO_ENDPOINT[ch.endpoint] || ch.endpoint}</strong>
+                {ch.endpoint === 'people/match' && ch.resumo?.pediu_celular && <span className="lv3-chip lv3-chip--neutral lv3-chip--tiny">celular</span>}
+                <span className={`lv3-chip lv3-chip--tiny ${ch.pago ? 'lv3-chip--warning' : 'lv3-chip--neutral'}`}>{ch.pago ? 'pode cobrar' : 'grátis'}</span>
+                <span className="lv3-apollo-log__when">{formatDate(ch.criado_em)}</span>
+              </div>
+              <p>{apolloResumo(ch)}</p>
+              {ch.resposta && (
+                <details><summary>Resposta do Apollo</summary><pre>{JSON.stringify(ch.resposta, null, 2)}</pre></details>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  );
+}
+
 function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, notify, onChanged}) {
   const ask = useAsk();
   const [busy, setBusy] = useState('');
   const [linkedin, setLinkedin] = useState(null);
+  const [apolloLog, setApolloLog] = useState(false);
   const [edit, setEdit] = useState(null);
   const nome = pretty(c.nome);
   const abrirEdicao = (limpar = {}) => setEdit({nome: pretty(c.nome), cargo: pretty(c.cargo), email: String(c.email || '').toLowerCase(), telefone: c.telefone || '', ...limpar});
@@ -191,6 +242,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
     boot.fontes.apollo && !celulares.some(p => !p.digitado) && c.telefone_status !== 'pedido' && {icon: 'mobile-screen', label: 'Buscar celular (Apollo)',
       hint: c.telefone_status === 'sem_numero' || c.apollo_tem_celular === false ? 'o Apollo já disse que não tem; tentar de novo gasta créditos' : 'só celular, chega em minutos',
       onClick: pedirCelular},
+    boot.fontes.apollo && {icon: 'clock-rotate-left', label: 'O que o Apollo devolveu', hint: 'grátis', onClick: () => setApolloLog(true)},
     !c.linkedin_url && {icon: 'link', label: 'Colar LinkedIn', onClick: () => setLinkedin('')},
     {icon: 'keyboard', label: 'Digitar e-mail ou celular', onClick: () => abrirEdicao()},
     c.email && {icon: 'envelope', label: 'E-mail está errado', danger: true, onClick: errado('email', String(c.email).toLowerCase())},
@@ -226,6 +278,7 @@ function Person({boot, api, leadId, contact: c, empresa, inscricao, fluxos, noti
         </div>
       </div>
 
+      {apolloLog && <ApolloLog api={api} contact={c} onClose={() => setApolloLog(false)}/>}
       {edit && (
         <form className="lv3-person__edit" onSubmit={salvarEdicao}>
           <div className="lv3-form__grid">
@@ -465,6 +518,17 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
       onChanged();
     } catch (error) { notify(error.message, 'error'); } finally { setSaving(false); }
   };
+  // Busca grátis: atualiza o que o Apollo diz ter de cada contato que veio dele, sem revelar nada.
+  const comIdApollo = contacts.filter(c => c.apollo_person_id || (c.origem_dado === 'apollo' && c.origem_ref));
+  const checarApollo = async () => {
+    setBulk('checar');
+    try {
+      const r = await api.apolloCheck(lead.id);
+      const fora = r.fora_da_busca ? ` ${r.fora_da_busca} não ${r.fora_da_busca === 1 ? 'apareceu' : 'apareceram'} na busca da empresa.` : '';
+      notify(`Checagem grátis: ${r.achados} de ${r.checados} no Apollo, ${r.com_email} com e-mail e ${r.com_celular} com telefone.${fora}`);
+      onChanged();
+    } catch (error) { notify(error.message, 'error'); } finally { setBulk(''); }
+  };
   const verificarTodos = async () => {
     const n = paraVerificar.length;
     if (!(await ask({title: 'Verificar e-mails no Apollo', confirmLabel: 'Verificar',
@@ -512,6 +576,12 @@ export function People({boot, api, lead, contacts, candidates, cadences = [], on
         <header className="lv3-section__head">
           <h3>Pessoas <span className="lv3-count">{contacts.length}</span></h3>
           <div className="lv3-section__tools">
+            {boot.fontes.apollo && comIdApollo.length > 0 && (
+              <Button size="sm" variant="ghost" icon="magnifying-glass-chart" onClick={checarApollo} disabled={!!bulk}
+                title="Pela busca do Apollo (não gasta crédito): quem tem e-mail e telefone hoje, sem revelar">
+                {bulk === 'checar' ? 'Checando…' : `Checar no Apollo, grátis (${comIdApollo.length})`}
+              </Button>
+            )}
             {boot.fontes.apollo && paraVerificar.length > 0 && (
               <Button size="sm" variant="ghost" icon="envelope-circle-check" onClick={verificarTodos} disabled={!!bulk}
                 title="E-mail verificado do Apollo para quem não tem e-mail ou só tem palpite (até 1 crédito por pessoa)">

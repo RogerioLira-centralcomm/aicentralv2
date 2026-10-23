@@ -468,6 +468,7 @@ def api_descobrir(lead_id):
         return _erro("Fonte inválida.")
 
     conn = db.get_db()
+    registro = []
     try:
         with conn.cursor() as cursor:
             lead, dominio = _lead_para_busca(cursor, lead_id)
@@ -475,11 +476,13 @@ def api_descobrir(lead_id):
         if fonte == "apollo":
             if not dominio:
                 raise prospeccao.ProspeccaoError("Preencha o site ou domínio da empresa para buscar no Apollo.")
-            encontrados, total = prospeccao.apollo_buscar_pessoas(resolve_apollo_api_key(), dominio)
+            encontrados, total = prospeccao.apollo_buscar_pessoas(resolve_apollo_api_key(), dominio, registro=registro)
         else:
             encontrados, total = prospeccao.web_buscar_pessoas(resolve_firecrawl_api_key(), lead["empresa"] or lead["nome"]), None
     except prospeccao.ProspeccaoError as exc:
+        _gravar_chamadas_apollo(registro, lead_id=lead_id)
         return _erro(str(exc), 400)
+    _gravar_chamadas_apollo(registro, lead_id=lead_id)
 
     def run(cursor):
         contatos = _contatos_do_lead(cursor, lead_id)
@@ -530,6 +533,7 @@ def api_candidato_acao(candidato_id, acao):
     if acao not in ("aprovar", "vincular", "descartar"):
         return _erro("Ação inválida.", 404)
     payload = request.get_json(silent=True) or {}
+    registro, gravar = [], {}
 
     def run(cursor):
         cursor.execute("SELECT * FROM cadu_lead_contato_candidatos WHERE id = %s FOR UPDATE", [candidato_id])
@@ -552,7 +556,8 @@ def api_candidato_acao(candidato_id, acao):
         revelado = {}
         tem_email, tem_celular = prospeccao.flags_apollo(cand["payload"]) if cand["provedor"] == "apollo" else (None, None)
         if payload.get("revelar") and cand["provedor"] == "apollo" and tem_email is not False:
-            revelado = prospeccao.apollo_revelar(resolve_apollo_api_key(), apollo_id=cand["provedor_ref"])
+            gravar["lead_id"] = cand["id_lead"]
+            revelado = prospeccao.apollo_revelar(resolve_apollo_api_key(), apollo_id=cand["provedor_ref"], registro=registro)
             if not existente:  # com nome completo, e-mail e LinkedIn dá para reconhecer quem o nome mascarado escondia
                 existente = prospeccao.achar_existente(
                     {"nome": revelado.get("nome"), "email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
@@ -611,6 +616,7 @@ def api_candidato_acao(candidato_id, acao):
             contato_id = cursor.fetchone()["id"]
             email_final = revelado.get("email")
             _registrar_atividade(cursor, cand["id_lead"], "contato_add", f"Contato adicionado via {origem}: {nome_novo}", contato_id)
+        gravar["contato_id"] = contato_id
         cursor.execute(
             """
             UPDATE cadu_lead_contato_candidatos
@@ -622,7 +628,9 @@ def api_candidato_acao(candidato_id, acao):
         return _ok({"id_contato": contato_id, "email": email_final, "revelado": bool(revelado),
                     "mesclado_com": existente["nome"] if existente else None}, 201)
 
-    return _transacao(run, f"candidato {acao}")
+    resposta = _transacao(run, f"candidato {acao}")
+    _gravar_chamadas_apollo(registro, **gravar)  # o id do contato só vale se a transação gravou; senão fica só o lead
+    return resposta
 
 
 def _motivo_sem_email_apollo(contato):
@@ -644,6 +652,7 @@ def api_contato_revelar(contato_id):
     O Apollo cobra 1 crédito pelos dados do perfil mesmo sem e-mail. Se a busca grátis já disse que não há e-mail,
     ou se uma consulta anterior voltou sem e-mail, só consulta com `forcar` (a tela pede confirmação)."""
     forcar = bool((request.get_json(silent=True) or {}).get("forcar"))
+    registro = []
 
     def run(cursor):
         cursor.execute(
@@ -661,7 +670,7 @@ def api_contato_revelar(contato_id):
             return _ok({"email": None, "encontrou_email": False, "bloqueado": True, "motivo": motivo})
         dominio = contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"])
         revelado = prospeccao.apollo_revelar(
-            resolve_apollo_api_key(),
+            resolve_apollo_api_key(), registro=registro,
             apollo_id=contato["apollo_person_id"] or (contato["origem_ref"] if contato["origem_dado"] == "apollo" else None),
             linkedin_url=contato["linkedin_url"], nome=contato["nome"], dominio=dominio,
         )
@@ -681,7 +690,9 @@ def api_contato_revelar(contato_id):
         return _ok({"email": revelado.get("email"), "linkedin_url": revelado.get("linkedin_url"),
                     "encontrou_email": bool(revelado.get("email")), "motivo": revelado.get("motivo")})
 
-    return _transacao(run, "revelar contato")
+    resposta = _transacao(run, "revelar contato")
+    _gravar_chamadas_apollo(registro, contato_id=contato_id)
+    return resposta
 
 
 @bp.route("/api/contatos/<int:contato_id>/perfil", methods=["PATCH"])
@@ -1944,6 +1955,121 @@ def api_analise_v3():
 
 
 # ─────────────────────────────────────────────────────
+# Diagnóstico do Apollo: registro das chamadas e checagem grátis
+# ─────────────────────────────────────────────────────
+_SEM_SESSAO = object()
+
+
+def _gravar_chamadas_apollo(registro, *, lead_id=None, contato_id=None, usuario_id=_SEM_SESSAO):
+    """Grava cada chamada anotada em cadu_apollo_chamadas, numa transação própria.
+
+    Roda depois da transação da rota (com ela já encerrada). Falha aqui nunca derruba a rota: sem a tabela
+    (migração não aplicada) ou com erro, só registra no log da aplicação."""
+    if not registro:
+        return
+    usuario = session.get("user_id") if usuario_id is _SEM_SESSAO else usuario_id
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            for c in registro:
+                cursor.execute(
+                    """
+                    INSERT INTO cadu_apollo_chamadas
+                        (endpoint, id_lead, id_contato, http_status, pago, erro, pedido, resumo, resposta, usuario_id)
+                    VALUES (%s, COALESCE(%s, (SELECT id_lead FROM cadu_lead_contatos WHERE id = %s)),
+                            (SELECT id FROM cadu_lead_contatos WHERE id = %s), %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    [c["endpoint"], lead_id, contato_id, contato_id, c["http_status"], c["pago"], c["erro"],
+                     db.Json(c["pedido"]) if c["pedido"] is not None else None, db.Json(c["resumo"]),
+                     db.Json(c["resposta"]) if c["resposta"] is not None else None, usuario],
+                )
+        conn.commit()
+    except Exception as exc:
+        conn.rollback()
+        current_app.logger.warning("leads-v3 registro apollo (%s): %s", ", ".join(c["endpoint"] for c in registro), exc)
+
+
+@bp.route("/api/contatos/<int:contato_id>/apollo-chamadas")
+@centralcomm_required_api
+def api_contato_apollo_chamadas(contato_id):
+    """Últimas chamadas ao Apollo desta pessoa (e as buscas da empresa dela), para ver o que o Apollo devolveu."""
+    def run(cursor):
+        cursor.execute(
+            """
+            SELECT a.id, a.criado_em, a.endpoint, a.http_status, a.pago, a.erro, a.resumo,
+                   CASE WHEN a.id_contato = %s THEN a.resposta END AS resposta
+              FROM cadu_apollo_chamadas a
+             WHERE a.id_contato = %s
+                OR (a.id_contato IS NULL AND a.id_lead = (SELECT id_lead FROM cadu_lead_contatos WHERE id = %s))
+             ORDER BY a.criado_em DESC, a.id DESC
+             LIMIT 30
+            """,
+            [contato_id, contato_id, contato_id],
+        )
+        return _ok({"chamadas": _linhas(cursor.fetchall())})
+
+    return _transacao(run, "chamadas apollo")
+
+
+@bp.route("/api/leads/<int:lead_id>/apollo-checar", methods=["POST"])
+@centralcomm_required_api
+def api_lead_apollo_checar(lead_id):
+    """Checa pela busca grátis o que o Apollo tem hoje de cada contato do Apollo deste lead. Não cobra crédito.
+
+    Atualiza apollo_tem_email e apollo_tem_celular de quem aparece na busca. Contato sem id do Apollo
+    (digitado, importado ou da web) não dá para checar sem revelar, e fica de fora."""
+    conn = db.get_db()
+    try:
+        with conn.cursor() as cursor:
+            lead, dominio = _lead_para_busca(cursor, lead_id)
+            cursor.execute(
+                """
+                SELECT id, COALESCE(apollo_person_id, CASE WHEN origem_dado = 'apollo' THEN origem_ref END) AS apollo_id
+                  FROM cadu_lead_contatos WHERE id_lead = %s
+                """,
+                [lead_id],
+            )
+            contatos = [r for r in cursor.fetchall() if r["apollo_id"]]
+        conn.rollback()
+    except prospeccao.ProspeccaoError as exc:
+        conn.rollback()
+        return _erro(str(exc), 400)
+    if not dominio:
+        return _erro("Preencha o site ou domínio da empresa para checar no Apollo.")
+    if not contatos:
+        return _ok({"checados": 0, "achados": 0, "com_email": 0, "com_celular": 0, "fora_da_busca": 0})
+    registro = []
+    try:
+        achados = prospeccao.apollo_checar_pessoas(resolve_apollo_api_key(), dominio,
+                                                   {c["apollo_id"] for c in contatos}, registro=registro)
+    except prospeccao.ProspeccaoError as exc:
+        return _erro(str(exc), 400)
+    finally:
+        _gravar_chamadas_apollo(registro, lead_id=lead_id)
+
+    def run(cursor):
+        for c in contatos:
+            if c["apollo_id"] not in achados:
+                continue
+            tem_email, tem_celular = achados[c["apollo_id"]]
+            # O que a busca diz agora vale mais que o que dizia antes; "talvez" (None) não apaga um sim/não.
+            cursor.execute(
+                """
+                UPDATE cadu_lead_contatos
+                   SET apollo_tem_email = COALESCE(%s, apollo_tem_email), apollo_tem_celular = COALESCE(%s, apollo_tem_celular)
+                 WHERE id = %s
+                """,
+                [tem_email, tem_celular, c["id"]],
+            )
+        vistos = [achados[c["apollo_id"]] for c in contatos if c["apollo_id"] in achados]
+        return _ok({"checados": len(contatos), "achados": len(vistos),
+                    "com_email": sum(1 for e, _ in vistos if e), "com_celular": sum(1 for _, t in vistos if t),
+                    "fora_da_busca": len(contatos) - len(vistos)})
+
+    return _transacao(run, "checar apollo")
+
+
+# ─────────────────────────────────────────────────────
 # Celular pelo Apollo: pedido + webhook assinado
 # ─────────────────────────────────────────────────────
 def _assinatura_contato(contato_id):
@@ -1996,15 +2122,18 @@ def api_contato_pedir_celular(contato_id):
                   "Na busca, o Apollo disse que não tem telefone desta pessoa. Pedir mesmo assim usa 1 crédito.")
         return _ok({"status": None, "bloqueado": True, "motivo": motivo})
     webhook = _url_webhook_celular(contato_id)
+    registro = []
     try:
         revelado = prospeccao.apollo_pedir_celular(
-            resolve_apollo_api_key(), webhook,
+            resolve_apollo_api_key(), webhook, registro=registro,
             apollo_id=contato["apollo_person_id"] or (contato["origem_ref"] if contato["origem_dado"] == "apollo" else None),
             linkedin_url=contato["linkedin_url"], nome=contato["nome"],
             dominio=contato["dominio"] or prospeccao.normalizar_dominio(contato["url_site"]),
         )
     except prospeccao.ProspeccaoError as exc:
         return _erro(str(exc), 400)
+    finally:
+        _gravar_chamadas_apollo(registro, contato_id=contato_id)
 
     def run(cursor):
         # O e-mail veio junto (e foi cobrado): entra se a ficha não tem um, ou se o que tem é só palpite.
@@ -2062,6 +2191,7 @@ def webhook_apollo_celular(contato_id):
     if not hmac.compare_digest(token, _assinatura_contato(contato_id)):
         return jsonify({"ok": False}), 403
     payload = request.get_json(silent=True) or {}
+    _gravar_chamadas_apollo([prospeccao.anotar_webhook_celular(payload)], contato_id=contato_id, usuario_id=None)
 
     def run(cursor):
         cursor.execute("SELECT id, id_lead, nome, apollo_person_id, telefone, celulares FROM cadu_lead_contatos WHERE id = %s FOR UPDATE", [contato_id])

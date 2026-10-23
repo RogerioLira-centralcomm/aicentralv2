@@ -839,3 +839,12 @@ html body .lv3-root .lv3-person__meta .lv3-pill-select select:not([multiple]):no
 /* Confirmação do app (useAsk) */
 .lv3-ask { display: grid; gap: 12px; }
 .lv3-ask__msg { margin: 0; font-size: 14px; line-height: 1.5; color: var(--lv3-ink-2); white-space: pre-line; }
+
+/* Registro do Apollo (o que cada chamada devolveu) */
+.lv3-apollo-log { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.lv3-apollo-log li { border: 1px solid var(--lv3-line); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.lv3-apollo-log p { margin: 4px 0 0; }
+.lv3-apollo-log__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.lv3-apollo-log__when { margin-left: auto; color: var(--lv3-subtle); font-size: 12px; }
+.lv3-apollo-log details { margin-top: 6px; }
+.lv3-apollo-log pre { max-height: 240px; overflow: auto; margin: 6px 0 0; padding: 8px; font-size: 11.5px; background: var(--lv3-sunken); border-radius: 6px; white-space: pre-wrap; word-break: break-word; }

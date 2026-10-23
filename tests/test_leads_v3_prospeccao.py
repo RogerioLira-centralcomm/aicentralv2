@@ -510,3 +510,70 @@ class LeadDoFormularioTest(TestCase):
         lista = set(re.findall(r"'([a-z.]+\.[a-z]+)'", sql.split("NOT IN (", 1)[1].split(")", 1)[0]))
         self.assertEqual(lista, p.FREE_EMAIL_DOMAINS)
 
+
+
+class RegistroApolloTest(TestCase):
+    def test_busca_anota_resumo_sem_guardar_dado_revelado(self):
+        body = {"total_entries": 40, "people": [
+            {"id": "a1", "first_name": "Ana", "last_name_obfuscated": "Li***a", "has_email": True, "has_direct_phone": "Yes"},
+            {"id": "a2", "first_name": "Bia", "has_email": False, "has_direct_phone": "Maybe: please request direct dial"}]}
+        registro = []
+        with patch.object(p.requests, "post", return_value=_resp(body=body)):
+            p.apollo_buscar_pessoas("k", "vale.com", registro=registro)
+        (ch,) = registro
+        self.assertEqual((ch["endpoint"], ch["pago"], ch["http_status"]), ("mixed_people/api_search", False, 200))
+        self.assertEqual(ch["resumo"], {"total": 40, "pessoas": 2, "com_email": 1, "com_telefone": 1, "telefone_talvez": 1})
+        self.assertEqual(ch["resposta"][1]["has_direct_phone"], "Maybe: please request direct dial")
+
+    def test_erro_do_apollo_tambem_fica_anotado(self):
+        registro = []
+        with patch.object(p.requests, "post", return_value=_resp(status=422, text="insufficient credits")):
+            with self.assertRaises(p.ProspeccaoError):
+                p.apollo_revelar("k", apollo_id="a1", registro=registro)
+        self.assertEqual((registro[0]["http_status"], registro[0]["pago"]), (422, True))
+        self.assertIn("credits", registro[0]["erro"])
+
+    def test_pedido_de_celular_nao_guarda_a_url_assinada(self):
+        registro = []
+        with patch.object(p.requests, "post", return_value=_resp(body={"person": {"id": "ap1", "email": "email_not_unlocked@x.com"}})):
+            p.apollo_pedir_celular("k", "https://x/webhook?token=segredo", apollo_id="ap1", registro=registro)
+        self.assertNotIn("webhook_url", registro[0]["pedido"])
+        self.assertEqual(registro[0]["resumo"]["email_bloqueado"], True)
+        self.assertTrue(registro[0]["resumo"]["pediu_celular"])
+
+    def test_webhook_resume_creditos_e_tipos(self):
+        ch = p.anotar_webhook_celular({"credits_consumed": 8, "people": [{"phone_numbers": [
+            {"type_cd": "mobile", "status_cd": "valid_number"}, {"type_cd": "work_hq"}]}]})
+        self.assertEqual(ch["resumo"]["numeros"], {"mobile/valid_number": 1, "work_hq/sem_status": 1})
+        self.assertTrue(ch["pago"])
+
+
+class ChecagemGratisTest(TestCase):
+    def test_busca_por_pagina_ate_achar_todos(self):
+        pagina1 = {"people": [{"id": f"x{i}"} for i in range(99)] + [{"id": "a1", "has_email": True, "has_direct_phone": "Yes"}]}
+        pagina2 = {"people": [{"id": "a2", "has_email": False}]}
+        with patch.object(p.requests, "post", side_effect=[_resp(body=pagina1), _resp(body=pagina2)]) as post:
+            r = p.apollo_checar_pessoas("k", "vale.com", {"a1", "a2", "a3"})
+        self.assertEqual(r, {"a1": (True, True), "a2": (False, None)})
+        self.assertEqual(post.call_count, 2)  # a 2ª página veio incompleta: acabou a empresa
+        self.assertTrue(all(c.args[0].endswith("mixed_people/api_search") for c in post.call_args_list))
+
+    def test_rota_atualiza_flags_e_nao_chama_endpoint_pago(self):
+        conn = _Roteiro({"id": 1, "empresa": "Vale", "nome": "Vale", "email": None, "url_site": None, "dominio": "vale.com"})
+        contatos = [{"id": 5, "apollo_id": "a1"}, {"id": 6, "apollo_id": None}, {"id": 7, "apollo_id": "a9"}]
+        orig = conn.cursor
+
+        def cursor():
+            c = orig()
+            c.fetchall = lambda: contatos
+            return c
+        conn.cursor = cursor
+        body = {"people": [{"id": "a1", "has_email": True, "has_direct_phone": "Yes"}]}
+        with patch.object(routes.db, "get_db", return_value=conn), \
+                patch.object(routes, "resolve_apollo_api_key", return_value="k"), \
+                patch.object(p.requests, "post", return_value=_resp(body=body)) as post:
+            r = _client().post("/leads-v3/api/leads/1/apollo-checar", json={}).get_json()["data"]
+        self.assertEqual(r, {"checados": 2, "achados": 1, "com_email": 1, "com_celular": 1, "fora_da_busca": 1})
+        self.assertTrue(all("people/match" not in c.args[0] for c in post.call_args_list))
+        self.assertTrue(any("SET apollo_tem_email" in sql and prm[-1] == 5 for sql, prm in conn.calls))
+        self.assertTrue(any("INSERT INTO cadu_apollo_chamadas" in sql for sql, _ in conn.calls))

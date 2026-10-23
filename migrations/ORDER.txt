@@ -243,3 +243,5 @@ migrations/run_sql_migration.py add_cadu_leads_v3_cliente_retorno.sql
 migrations/run_sql_migration.py add_cadu_leads_v3_envio_brevo.sql
 # Leads v3: vários celulares por contato (sem fixo) e o que a busca do Apollo disse que existe, para não gastar crédito à toa (aditivo, idempotente; depende de add_cadu_leads_v3_telefone_apollo.sql).
 migrations/run_sql_migration.py add_cadu_leads_v3_celulares.sql
+# Leads v3: registro do que o Apollo devolveu em cada chamada, para diagnóstico sem gastar crédito (aditivo, idempotente; depende de add_cadu_leads_v3_prospeccao.sql).
+migrations/run_sql_migration.py add_cadu_leads_v3_apollo_chamadas.sql

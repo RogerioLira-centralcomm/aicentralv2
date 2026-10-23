@@ -106,6 +106,8 @@ export function createApi(boot) {
     findEmail: contactId => request(`${root}/contatos/${contactId}/achar-email`, {method: 'POST', body: {}}).then(p => p.data),
     requestPhone: (contactId, forcar) => request(`${root}/contatos/${contactId}/celular`, {method: 'POST', body: {forcar: !!forcar}}).then(p => p.data),
     mainPhone: (contactId, numero) => request(`${root}/contatos/${contactId}/celular-principal`, {method: 'PATCH', body: {numero}}).then(p => p.data),
+    apolloCalls: contactId => request(`${root}/contatos/${contactId}/apollo-chamadas`).then(p => p.data.chamadas),
+    apolloCheck: leadId => request(`${root}/leads/${leadId}/apollo-checar`, {method: 'POST', body: {}}).then(p => p.data),
     revealContact: (contactId, forcar) => request(`${root}/contatos/${contactId}/revelar`, {method: 'POST', body: {forcar: !!forcar}}).then(p => p.data),
     updateProfile: (contactId, body) => request(`${root}/contatos/${contactId}/perfil`, {method: 'PATCH', body}),
 

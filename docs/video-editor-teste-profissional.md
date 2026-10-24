@@ -44,7 +44,7 @@ Objetivo: saber se o vídeo que sai do editor tem qualidade de entrega profissio
 
 `POST …/video-editor/projects/<id>/montage` lê o storyboard salvo no projeto pela tela de Vídeo (`script.beats` + `scene_ids`), vincula as imagens das cenas como mídia do projeto e monta a timeline. No editor: menu **Cadu → Montar do storyboard…**.
 
-- **Diretor** (`creative_media/studio_montage.py`, padrão `anthropic/claude-opus-5.5`, trocável por `CREATIVE_VIDEO_MONTAGE_MODEL`): vê uma imagem por cena e devolve só o plano (peso, texto já gravado, enquadramento preencher/inteira, foco do sujeito, zoom, movimento, frase curta, zona). Cobrança pela mesma régua do storyboard (`stage=video_montage`). Se falhar, a montagem usa as regras e avisa.
+- **Diretor** (`creative_media/studio_montage.py`, padrão `anthropic/claude-sonnet-5.5` pelo A/B abaixo, trocável por `CREATIVE_VIDEO_MONTAGE_MODEL`): vê uma imagem por cena e devolve só o plano (peso, texto já gravado, enquadramento preencher/inteira, caixa do sujeito, movimento, frase curta, zona). O código aproxima e centraliza a caixa do sujeito e põe o texto na faixa que não encosta nela. Cobrança pela mesma régua do storyboard (`stage=video_montage`). Se falhar, a montagem usa as regras e avisa.
 - **Compilador** (código): área segura do Reels (texto entre 13% e 82% da altura), texto troca de lado se cair sobre o sujeito, preenchimento sem bordas ou imagem inteira sobre fundo desfocado, imagem com texto gravado entra inteira e sem zoom e sem texto por cima, soma das durações, vídeo não estica além da origem, cores da marca nas caixas de texto, logo da marca no canto seguro.
 
 ### A/B no Lab (`scripts/lab_montage.py`)
@@ -58,7 +58,20 @@ Rodada parcial de 24/10 (sem juiz: a chave do OpenRouter não está no `.env` lo
 | CEMIG | Põe "Saiba mais." por cima do texto da arte | Detecta o texto gravado: artes inteiras, nenhum texto por cima |
 | Tecnologia | Vídeo e ilustrações inteiros; títulos só no fim | Títulos em todas as cenas, mas escolhe "preencher" e corta a cena da equipe |
 
-Rodada completa, com a chave do OpenRouter:
+Rodada completa de 24/10 (juiz cego Haiku 5.5, chave lida de Integrações só para leitura), já com a caixa do sujeito:
+
+| Variante | Tecnologia (nota) | CEMIG (nota) | Texto sobre o sujeito | Tempo do plano | Tokens (entrada+saída) |
+|---|---|---|---|---|---|
+| Regras | 3,4 | 3,5 (texto por cima da arte) | 0 / 0 | — | — |
+| Opus 5.5 | 3,2 | 3,75 | 0 / 1* | 13–19 s | ~4 mil + 1,2–1,8 mil |
+| **Sonnet 5.5** | **3,4** | **3,75** | 0 / 1* | **5–6 s** | ~4 mil + 0,6–0,9 mil |
+| gpt-5-mini | 3,0 | 3,75 | 1 / 1* | 12–18 s | ~3 mil + 1–1,4 mil |
+
+\* no CEMIG o juiz marca o texto já gravado na arte, que nenhum modelo cobriu.
+
+**Decisão:** Sonnet 5.5 como diretor padrão (empata ou supera o Opus com metade do custo e 3× mais rápido). O ganho sobre as regras aparece onde o código sozinho não alcança: detectar arte com texto gravado (CEMIG) e escrever títulos por cena. Na primeira rodada, sem a caixa do sujeito, todos os modelos cobriam o celular com o texto do gancho; a caixa resolveu. Limite que nenhum modelo resolve: arte quadrada com sujeito pequeno em 9:16 fica com muito fundo (as cenas de ilustração tiraram notas 2–3 em todas as variantes).
+
+Rodada nova:
 
 ```sh
 OPENROUTER_API_KEY=… .venv/bin/python scripts/lab_montage.py --gpu metal

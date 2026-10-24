@@ -16,7 +16,8 @@ import re
 import subprocess
 
 logger = logging.getLogger(__name__)
-DIRECTOR_MODEL = os.getenv('CREATIVE_VIDEO_MONTAGE_MODEL', 'anthropic/claude-opus-5.5')
+# Lab de 24/10 (scripts/lab_montage.py): Sonnet 5.5 empatou ou superou o Opus 5.5, com metade do custo e 3× mais rápido.
+DIRECTOR_MODEL = os.getenv('CREATIVE_VIDEO_MONTAGE_MODEL', 'anthropic/claude-sonnet-5.5')
 PURPOSES = ('hook', 'beat', 'offer', 'proof', 'end')
 # Interface do Reels/Stories sobre o vídeo (fração da altura): topo com perfil/áudio, base com legenda e botões.
 SAFE_TOP, SAFE_BOTTOM = 250 / 1920, 340 / 1920
@@ -60,7 +61,7 @@ def rules_plan(pkg):
     scenes = []
     for index, beat in enumerate(pkg['beats']):
         line = beat['text'] or (_short(beat['spoken']) if beat['purpose'] in {'offer', 'end'} else '')
-        scenes.append({'beat_id': beat['id'], 'weight': weights[beat['purpose']], 'baked_text': False, 'fit': _default_fit(pkg, beat['id']),
+        scenes.append({'beat_id': beat['id'], 'weight': weights[beat['purpose']], 'baked_text': False, 'fit': _default_fit(pkg, beat['id']), 'subject': None,
                        'focus': {'x': .5, 'y': .5}, 'zoom': 1.0,
                        'motion': 'zoom_in' if index % 2 == 0 else 'zoom_out', 'text': line, 'zone': 'bottom' if beat['purpose'] in {'offer', 'end'} else 'top'})
     return {'scenes': scenes, 'captions': pkg['captions'], 'notes': 'regras'}
@@ -86,8 +87,8 @@ def _short(text):
 DIRECTOR_SYSTEM = """Você é o editor de montagem do Cadu Video Studio. Recebe o storyboard aprovado de um anúncio curto
 (cenas com função, plano, visual e fala), a marca, o formato e UMA IMAGEM POR CENA, na ordem. Decide como cada
 cena entra na timeline. Responda somente JSON:
-{"cenas":[{"beat_id":"...","peso":1.0,"texto_gravado":false,"enquadramento":"preencher","foco":{"x":0.5,"y":0.5},"zoom":1.0,
-  "movimento":"zoom_in","texto":"...","zona":"topo"}],
+{"cenas":[{"beat_id":"...","peso":1.0,"texto_gravado":false,"enquadramento":"preencher",
+  "sujeito":{"x0":0.3,"y0":0.2,"x1":0.7,"y1":0.9},"movimento":"zoom_in","texto":"...","zona":"topo"}],
  "legendas":false,"observacoes":"..."}
 
 Campos:
@@ -97,9 +98,10 @@ Campos:
 - enquadramento: "preencher" recorta a imagem para cobrir o quadro (bom para foto com o sujeito no centro);
   "inteira" mostra a imagem completa sobre um fundo desfocado (bom para ilustração, produto em fundo liso, imagem
   muito mais larga ou mais alta que o formato, ou quando recortar cortaria pessoas, produto ou texto).
-- foco: centro do sujeito principal NA IMAGEM daquela cena (x e y de 0 a 1, a partir do canto superior esquerdo).
-  É o que precisa continuar visível quando a imagem for recortada para o formato.
-- zoom: 1.0 a 1.6. Aumente quando o sujeito é pequeno ou há muito espaço vazio; 1.0 quando ele já ocupa a imagem.
+- sujeito: a caixa que contém o elemento principal NA IMAGEM daquela cena (rosto ou pessoas, produto, tela, ilustração
+  principal), em frações de 0 a 1 a partir do canto superior esquerdo: x0,y0 = canto superior esquerdo, x1,y1 = inferior
+  direito. Seja justo: sem o fundo vazio em volta. O código aproxima e centraliza essa caixa no quadro e põe o texto
+  fora dela; não decida zoom nem posição.
 - movimento: zoom_in, zoom_out ou nenhum. Alterne entre cenas; use zoom_in para aproximar do detalhe importante.
 - texto: frase curta na tela, no máximo 7 palavras, em português do Brasil, ou "" para nenhuma.
   Só fatos do storyboard e da marca: não invente preço, prazo, benefício, número ou CTA.
@@ -164,12 +166,29 @@ def normalize_plan(raw, pkg):
         text = row.get('texto') if isinstance(row.get('texto'), str) else base['text']
         baked = row.get('texto_gravado') is True
         fit = {'preencher': 'fill', 'fill': 'fill', 'inteira': 'fit', 'fit': 'fit'}.get(str(row.get('enquadramento') or ''), base['fit'])
+        subject = _box(row.get('sujeito'))
+        if subject:
+            focus = {'x': (subject[0] + subject[2]) / 2, 'y': (subject[1] + subject[3]) / 2}
         scenes.append({'beat_id': beat['id'], 'weight': _clamp(row.get('peso'), base['weight'], .6, 1.6), 'baked_text': baked, 'fit': fit,
+                       'subject': subject,
                        'focus': {'x': _clamp(focus.get('x'), .5, 0, 1), 'y': _clamp(focus.get('y'), .5, 0, 1)},
                        'zoom': _clamp(row.get('zoom'), base['zoom'], 1, 1.6), 'motion': motion, 'text': _short(text)[:MAX_CHARS],
                        'zone': {'topo': 'top', 'top': 'top', 'base': 'bottom', 'bottom': 'bottom'}.get(str(row.get('zona') or ''), base['zone'])})
     notes = str(raw.get('observacoes') or '')[:500] if isinstance(raw, dict) else ''
     return {'scenes': scenes, 'captions': bool(raw.get('legendas')) and pkg['captions'] if isinstance(raw, dict) else False, 'notes': notes}
+
+
+def _box(raw):
+    """Caixa do sujeito (x0,y0,x1,y1 em 0–1) válida e com tamanho mínimo, ou None."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        x0, y0, x1, y1 = (max(0.0, min(1.0, float(raw[key]))) for key in ('x0', 'y0', 'x1', 'y1'))
+    except (KeyError, TypeError, ValueError):
+        return None
+    x0, x1 = sorted((x0, x1))
+    y0, y1 = sorted((y0, y1))
+    return (x0, y0, x1, y1) if x1 - x0 >= .05 and y1 - y0 >= .05 else None
 
 
 def _clamp(value, default, low, high):
@@ -219,6 +238,58 @@ def framing(asset, width, height, zoom, focus, fit='fill'):
     return round(scale, 4), round(dx, 1), round(dy, 1), subject_y
 
 
+# Faixas de texto (fração da altura) e a área livre entre elas, onde o sujeito deve caber.
+TEXT_BANDS = {'top': (SAFE_TOP, .29), 'bottom': (.64, 1 - SAFE_BOTTOM)}
+
+
+def subject_framing(asset, width, height, box, fit, zone, has_text):
+    """Aproxima e centraliza a caixa do sujeito; devolve escala, deslocamento, zona do texto e a caixa no quadro.
+
+    O sujeito ocupa até 80% da largura e, com texto, cabe entre as faixas de texto; o texto vai para a faixa que
+    não encosta nele. Em 'fill' a escala nunca fica abaixo da que cobre o quadro (sem bordas).
+    """
+    aw, ah = float(asset.get('width') or width), float(asset.get('height') or height)
+    if aw / ah > width / height:
+        shown_w, shown_h = width, width * ah / aw
+    else:
+        shown_w, shown_h = height * aw / ah, height
+    cover = max(width / shown_w, height / shown_h)
+    floor = cover if fit == 'fill' else 1.0
+    x0, y0, x1, y1 = box
+    room = (TEXT_BANDS['bottom'][0] - TEXT_BANDS['top'][1] - .02) if has_text else .82
+    target = min(.8 * width / ((x1 - x0) * shown_w), room * height / ((y1 - y0) * shown_h))
+    scale = max(floor, min(cover * 1.8, target))
+
+    def place(scale, center_y):
+        span_x, span_y = max(0.0, (shown_w * scale - width) / 2), max(0.0, (shown_h * scale - height) / 2)
+        dx = max(-span_x, min(span_x, (.5 - (x0 + x1) / 2) * shown_w * scale))
+        dy = max(-span_y, min(span_y, (center_y - .5) * height - ((y0 + y1) / 2 - .5) * shown_h * scale))
+        top = .5 + ((y0 - .5) * shown_h * scale + dy) / height
+        bottom = .5 + ((y1 - .5) * shown_h * scale + dy) / height
+        return dx, dy, top, bottom
+
+    free = lambda band, top, bottom: bottom <= TEXT_BANDS[band][0] or top >= TEXT_BANDS[band][1]
+    middle = (TEXT_BANDS['top'][1] + TEXT_BANDS['bottom'][0]) / 2
+    dx, dy, top, bottom = place(scale, middle if has_text else .5)
+    if has_text and not free(zone, top, bottom):
+        other = 'bottom' if zone == 'top' else 'top'
+        if free(other, top, bottom):
+            zone = other
+        else:
+            # Nenhuma faixa livre: afasta o sujeito da faixa pedida e, se preciso, diminui até caber.
+            for _ in range(8):
+                center = (TEXT_BANDS['top'][1] + 1 - SAFE_BOTTOM) / 2 if zone == 'top' else (SAFE_TOP + TEXT_BANDS['bottom'][0]) / 2
+                dx, dy, top, bottom = place(scale, center)
+                if free(zone, top, bottom) or scale <= floor:
+                    break
+                scale = max(floor, scale * .9)
+            if not free(zone, top, bottom):
+                # Sujeito ocupa a altura toda e não dá para diminuir (vídeo que preenche): texto na faixa que menos encosta.
+                overlap = lambda band: max(0.0, min(bottom, TEXT_BANDS[band][1]) - max(top, TEXT_BANDS[band][0]))
+                zone = min(('top', 'bottom'), key=overlap)
+    return round(scale, 4), round(dx, 1), round(dy, 1), zone, (top, bottom)
+
+
 def _zone(requested, subject_y):
     """Texto nunca sobre o sujeito: se o sujeito, já recortado, cai na faixa pedida, o texto troca de lado."""
     in_top, in_bottom = subject_y < .38, subject_y > .58
@@ -253,7 +324,12 @@ def compile_plan(plan, pkg):
     texts = []
     for index, (row, duration) in enumerate(zip(plan['scenes'], durations)):
         asset = pkg['scenes'][row['beat_id']]
-        scale, dx, dy, subject_y = framing(asset, width, height, row['zoom'], row['focus'], row.get('fit', 'fill'))
+        if row.get('subject') and not row.get('baked_text'):
+            scale, dx, dy, subject_zone, _ = subject_framing(asset, width, height, row['subject'], row.get('fit', 'fill'), row['zone'], bool(row['text']))
+            subject_y = None
+        else:
+            scale, dx, dy, subject_y = framing(asset, width, height, row['zoom'], row['focus'], row.get('fit', 'fill'))
+            subject_zone = None
         motion = row['motion'] if row['motion'] in {'zoom_in', 'zoom_out'} else None
         commands.append({'op': 'add_media', 'args': {'asset_id': asset['id'], 'duration': duration, 'scale': scale, 'motion': motion}})
         commands.append({'op': 'set_params', 'args': {'element_id': '@last', 'params': {'transform.positionX': dx, 'transform.positionY': dy}}})
@@ -261,7 +337,7 @@ def compile_plan(plan, pkg):
             commands.append({'op': 'animate', 'args': {'element_id': '@last', 'property': 'opacity', 'ease': 'ease',
                                                        'keyframes': [{'at': 0, 'value': 0}, {'at': .25, 'value': 1}]}})
         if row['text']:
-            zone = _zone(row['zone'], subject_y)
+            zone = subject_zone or _zone(row['zone'], subject_y)
             is_cta = beats[row['beat_id']]['purpose'] in {'offer', 'end'}
             box = accent if is_cta else (primary if primary and _luminance(primary) < .45 else '#000000')
             ink = '#111111' if _luminance(box) > .55 else '#ffffff'

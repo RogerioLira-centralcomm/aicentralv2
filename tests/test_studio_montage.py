@@ -43,6 +43,16 @@ class CompilerTest(unittest.TestCase):
         self.assertAlmostEqual(subject_y, .36, places=2)
         self.assertEqual(montage.framing({'width': 1024, 'height': 1024}, 1080, 1920, 1.0, {'x': .2, 'y': .3}, 'fit')[:3], (1.0, 0.0, 0.0))
 
+    def test_subject_box_gets_zoom_and_text_band_clear_of_it(self):
+        # Produto pequeno no centro de uma foto 9:16: aproxima e o texto fica fora da caixa.
+        scale, dx, dy, zone, (top, bottom) = montage.subject_framing({'width': 1080, 'height': 1920}, 1080, 1920, (.4, .45, .6, .55), 'fill', 'top', True)
+        self.assertGreater(scale, 1.5)
+        band = montage.TEXT_BANDS[zone]
+        self.assertTrue(bottom <= band[0] or top >= band[1], (zone, top, bottom))
+        # Sujeito com a altura toda num vídeo que preenche: não dá para fugir; vai para a faixa que menos encosta.
+        *_, zone, (top, bottom) = montage.subject_framing({'width': 1280, 'height': 720}, 1080, 1920, (.42, .2, .58, .97), 'fill', 'bottom', True)
+        self.assertEqual(zone, 'top')
+
     def test_text_moves_away_from_subject(self):
         self.assertEqual(montage._zone('top', .25), 'bottom')
         self.assertEqual(montage._zone('bottom', .75), 'top')

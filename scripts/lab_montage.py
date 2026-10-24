@@ -6,6 +6,7 @@ gerou o quadro) avalia um quadro do meio de cada cena: texto sobre o sujeito, le
 quadro preenchido e nota de 1 a 5. Sem banco; chamadas pagas direto no OpenRouter (centavos por rodada).
 
 Uso: .venv/bin/python scripts/lab_montage.py [--gpu metal] [--models anthropic/claude-opus-5.5,...] [--cases tecnologia,cemig]
+     [--key-from-integrations]  (lê a chave do OpenRouter de Integrações, só leitura, sem exibir)
 """
 import argparse
 import base64
@@ -71,6 +72,27 @@ JUDGE_SYSTEM = """Você avalia quadros de anúncios verticais para Reels/Stories
 - quadro_preenchido: sem faixas vazias grandes ou bordas sem imagem.
 - nota: qualidade profissional do quadro de 1 (amador) a 5 (agência).
 Seja exigente e consistente entre imagens."""
+
+
+def openrouter_key_from_integrations():
+    """Lê, só para leitura, a chave do OpenRouter salva em Integrações. Nunca imprime nem grava a chave."""
+    from flask import g
+    from aicentralv2.config import Config
+    from aicentralv2.services import integration_credentials
+    app = Flask('lab_credentials')
+    app.config.from_object(Config)
+    with app.app_context():
+        try:
+            config = integration_credentials.get_configuration('openrouter', include_secrets=True)
+        finally:
+            connection = g.pop('db', None)
+            if connection is not None:
+                connection.rollback()  # nada é escrito
+                connection.close()
+    key = str(config.get('api_key') or '').strip()
+    if not key:
+        raise SystemExit('Chave do OpenRouter não encontrada ou não descriptografável com o SECRET_KEY local.')
+    return key
 
 
 def resolve_asset(name):
@@ -173,7 +195,11 @@ def main():
     parser.add_argument('--cases', default='tecnologia,cemig')
     parser.add_argument('--out', type=Path, default=REPO / 'instance/lab-montage')
     parser.add_argument('--no-judge', action='store_true', help='só planos, renders e quadros (sem chave do OpenRouter para o juiz)')
+    parser.add_argument('--key-from-integrations', action='store_true', help='lê a chave do OpenRouter de Integrações (só leitura)')
     args = parser.parse_args()
+    if args.key_from_integrations and not os.environ.get('OPENROUTER_API_KEY'):
+        os.environ['OPENROUTER_API_KEY'] = openrouter_key_from_integrations()
+        print('Chave do OpenRouter carregada de Integrações (não exibida).')
     variants = ['regras'] + [m for m in args.models.split(',') if m]
     report = []
     for case_name in args.cases.split(','):

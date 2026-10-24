@@ -283,14 +283,17 @@ def compile_plan(plan, pkg):
     if pkg['logo']:
         marked = [i for i, row in enumerate(plan['scenes']) if beats[row['beat_id']]['brand'] != 'none'] or [len(durations) - 1]
         logo = pkg['logo']
-        lw = float(logo.get('width') or 400)
-        shown = min(width / lw, height / float(logo.get('height') or 400)) * lw
-        scale = round(width * .22 / shown, 4)
+        lw, lh = float(logo.get('width') or 400), float(logo.get('height') or 400)
+        fit = min(width / lw, height / lh)  # 'contain' do OpenCut
+        scale = round(width * .22 / (lw * fit), 4)
+        logo_w, logo_h = lw * fit * scale, lh * fit * scale
         for i in marked:
             commands.append({'op': 'add_media', 'args': {'asset_id': logo['id'], 'track': 'overlay', 'start': starts[i], 'duration': durations[i], 'scale': scale}})
-            # Canto superior direito, abaixo da área do perfil e dentro da margem lateral.
+            # Canto superior direito: borda de cima abaixo da área do perfil (+2%) e borda direita a 6% da lateral.
+            center_x = width * (1 - .06) - logo_w / 2
+            center_y = height * (SAFE_TOP + .02) + logo_h / 2
             commands.append({'op': 'set_params', 'args': {'element_id': '@last', 'params': {
-                'transform.positionX': round(width * (.5 - .06) - width * .11, 1), 'transform.positionY': round(-height * .5 + height * (SAFE_TOP + .05), 1)}}})
+                'transform.positionX': round(center_x - width / 2, 1), 'transform.positionY': round(center_y - height / 2, 1)}}})
     if pkg['music']:
         music, cursor = pkg['music'], 0.0
         length = float(music.get('duration') or pkg['duration'])

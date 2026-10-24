@@ -64,6 +64,19 @@ class CompilerTest(unittest.TestCase):
         self.assertEqual(len(result['scenes'][0]['tracks']['main']['elements']), 3)
         self.assertEqual(result['settings']['background']['type'], 'blur')
 
+    def test_brand_logo_stays_below_reels_header(self):
+        logo = {'id': 'logo', 'type': 'image', 'width': 600, 'height': 600, 'path': self.pkg['scenes']['b2']['path']}
+        pkg = {**self.pkg, 'logo': logo}
+        commands = montage.compile_plan(montage.rules_plan(pkg), pkg)
+        index = next(i for i, c in enumerate(commands) if c['op'] == 'add_media' and c['args']['asset_id'] == 'logo')
+        scale, position = commands[index]['args']['scale'], commands[index + 1]['args']['params']
+        side = 600 * min(1080 / 600, 1920 / 600) * scale
+        top = 1920 / 2 + position['transform.positionY'] - side / 2
+        right = 1080 / 2 + position['transform.positionX'] + side / 2
+        self.assertGreaterEqual(top, 1920 * montage.SAFE_TOP)
+        self.assertLessEqual(right, 1080 * .95)
+        self.assertEqual(commands[index]['args']['track'], 'overlay')
+
     def test_director_plan_is_clamped_and_baked_text_is_protected(self):
         raw = {'cenas': [
             {'beat_id': 'b1', 'peso': 9, 'foco': {'x': 2, 'y': -1}, 'zoom': 5, 'movimento': 'explodir', 'texto': 'um dois três quatro cinco seis sete oito nove', 'zona': 'base'},

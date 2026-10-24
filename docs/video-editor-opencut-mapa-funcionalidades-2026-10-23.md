@@ -37,6 +37,22 @@ O fork do `opencut-classic` (MIT, commit `cf5e79e`) roda dentro do Studio, sem o
 | Testes | `tests/test_studio_video_editor.py` (8 testes) entra em `npm run test:studio`; 84 testes das suítes do Studio passando |
 | PT-BR, tema do Studio, 5 abas, `UrlSource`, upload em tarefa | **Pendentes** — próxima etapa, depois de ver o render no servidor |
 
+### Render: diagnóstico da lentidão (24/10)
+
+| Onde | Vídeo | Tempo | Observação |
+|---|---|---|---|
+| Servidor Linux (sem GPU) | 6 s, 1080p | 226 s | Todas as checagens OK; ~37× o tempo real |
+| Mac, Chromium headless (software, SwiftShader) | 9 s, 1080p / 720p | 26 s / 14 s | Mesmo modo do servidor, CPU mais forte |
+| Mac, headless com GPU (`CADU_RENDER_GPU=metal`) | 9 s, 1080p / 720p | 6 s / 2,9 s | |
+| **Navegador do usuário (botão Exportar, GPU)** | 6 s, 1080p | **4 s** | |
+
+Por quadro em 1080p: compor (enfileirar) 3,5 ms; capturar e codificar 87 ms por software contra 11 ms com GPU. O codificador H.264 sozinho faz 7–20 ms/quadro (`scripts/studio-video-encode-bench.mjs`); o custo é o compositor WebGL/wgpu rodando por software na captura do quadro. 720p corta o tempo pela metade, mas o OpenCut não tem resolução de saída diferente do canvas (exige escala no compositor).
+
+**Proposta:**
+1. **Exportar no navegador do usuário por padrão** e enviar o MP4 pronto para a biblioteca do Studio (validado por FFprobe). Custo zero de servidor, ~1,5× o tempo real com GPU. É o desenho original do OpenCut.
+2. **Render no servidor só para automação** (agente, lote, variações), numa máquina com GPU dedicada ao worker, com `CADU_RENDER_GPU=vulkan`, a validar em Linux com GPU.
+3. Enquanto não houver GPU: render no servidor fica para fila sem pressa; paralelizar por trechos só vale com muitos núcleos (o SwiftShader já usa ~5 núcleos por render no Mac). Medir `nproc` e rodar o benchmark no servidor antes de decidir.
+
 **Depois do deploy, no servidor:**
 
 ```sh

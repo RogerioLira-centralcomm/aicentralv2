@@ -37,6 +37,9 @@ const qualityMap = {
 	very_high: QUALITY_VERY_HIGH,
 };
 
+// Cadu: medições do último export (render no servidor).
+export const exportStats = { frames: 0, composeMs: 0, encodeMs: 0, finalizeMs: 0, width: 0, height: 0 };
+
 export type SceneExporterEvents = {
 	progress: [progress: number];
 	complete: [buffer: ArrayBuffer];
@@ -90,6 +93,8 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 			(TICKS_PER_SECOND * fps.denominator) / fps.numerator,
 		);
 		const frameCount = Math.floor(rootNode.duration / ticksPerFrame);
+		Object.assign(exportStats, { frames: 0, composeMs: 0, encodeMs: 0, finalizeMs: 0,
+			width: this.renderer.getOutputCanvas().width, height: this.renderer.getOutputCanvas().height });
 
 		const outputFormat =
 			this.format === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat();
@@ -143,8 +148,14 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 
 			const timeTicks = i * ticksPerFrame;
 			const timeSeconds = mediaTimeToSeconds({ time: timeTicks });
+			// Cadu: tempo de composição e de codificação por quadro, lido pelo render do servidor.
+			const composeStarted = performance.now();
 			await this.renderer.render({ node: rootNode, time: timeTicks });
+			const encodeStarted = performance.now();
 			await videoSource.add(timeSeconds, 1 / fpsFloat);
+			exportStats.composeMs += encodeStarted - composeStarted;
+			exportStats.encodeMs += performance.now() - encodeStarted;
+			exportStats.frames += 1;
 
 			this.emit("progress", i / frameCount);
 		}
@@ -156,7 +167,9 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		}
 
 		videoSource.close();
+		const finalizeStarted = performance.now();
 		await output.finalize();
+		exportStats.finalizeMs += performance.now() - finalizeStarted;
 		this.emit("progress", 1);
 
 		const buffer = output.target.buffer;

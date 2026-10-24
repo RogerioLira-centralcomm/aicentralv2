@@ -32,10 +32,17 @@ async function serveStatic(route, pathname) {
 	}
 }
 
-// CADU_RENDER_ARGS permite testar combinações de GPU no servidor sem alterar o script.
+// Sem GPU o Chromium headless compõe por software (SwiftShader): ~87 ms/quadro em 1080p contra ~13 ms com GPU.
+// CADU_RENDER_GPU=metal|vulkan|gl liga a GPU da máquina; CADU_RENDER_ARGS substitui tudo (testes).
+// Forçar --use-angle=swiftshader gera quadros pretos.
+const GPU_ARGS = {
+	metal: ["--headless=new", "--enable-gpu", "--use-angle=metal", "--enable-unsafe-webgpu"],
+	vulkan: ["--headless=new", "--enable-gpu", "--use-angle=vulkan", "--enable-features=Vulkan", "--enable-unsafe-webgpu"],
+	gl: ["--headless=new", "--enable-gpu", "--use-angle=gl"],
+};
 const launchArgs = process.env.CADU_RENDER_ARGS
 	? process.env.CADU_RENDER_ARGS.split(" ").filter(Boolean)
-	: ["--autoplay-policy=no-user-gesture-required"]; // forçar --use-angle=swiftshader gera quadros pretos
+	: [...(GPU_ARGS[process.env.CADU_RENDER_GPU] || []), "--autoplay-policy=no-user-gesture-required"];
 const browser = await chromium.launch({ channel: process.env.CADU_RENDER_CHANNEL || undefined, args: launchArgs });
 let failed = false;
 try {
@@ -63,7 +70,9 @@ try {
 		}
 		return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ success: false, error: "fora do render" }) });
 	});
+	const startedAt = Date.now();
 	await page.goto(`${ORIGIN}/render.html`);
+	const pageMs = Date.now() - startedAt;
 	const handle = await page.waitForFunction(() => {
 		const state = window.__caduRender;
 		return state && (state.status === "done" || state.status === "error") ? state : null;
@@ -77,7 +86,8 @@ try {
 	}
 	await writeFile(job.output, Buffer.concat(parts));
 	// Última linha da saída: o worker lê o formato real (WebM quando o Chromium não codifica H.264).
-	console.log(JSON.stringify({ ok: true, gpu: state.gpu, format: state.format, bytes: parts.reduce((sum, part) => sum + part.length, 0) }));
+	console.log(JSON.stringify({ ok: true, gpu: state.gpu, format: state.format, bytes: parts.reduce((sum, part) => sum + part.length, 0),
+		page_ms: pageMs, total_ms: Date.now() - startedAt, timings: state.timings, stats: state.stats }));
 } catch (error) {
 	failed = true;
 	console.error(error.message);

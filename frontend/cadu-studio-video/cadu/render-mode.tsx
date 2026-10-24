@@ -3,6 +3,7 @@ import { EditorCore } from "@/core";
 import { initializeGpuRenderer, isGpuAvailable } from "@/services/renderer/gpu-renderer";
 import { canEncodeAudio, canEncodeVideo } from "mediabunny";
 import type { ExportOptions } from "@/export";
+import { exportStats } from "@/services/renderer/scene-exporter";
 import { boot } from "./config";
 
 type RenderState = {
@@ -11,6 +12,8 @@ type RenderState = {
 	error?: string;
 	gpu?: boolean;
 	format?: ExportOptions["format"];
+	timings?: Record<string, number>;
+	stats?: typeof exportStats;
 };
 
 declare global {
@@ -26,12 +29,21 @@ const CHUNK = 4 * 1024 * 1024;
 export async function runRenderMode(options: ExportOptions): Promise<void> {
 	const state: RenderState = { status: "loading", progress: 0 };
 	window.__caduRender = state;
+	const marks: Record<string, number> = {};
+	let last = performance.now();
+	const mark = (name: string) => {
+		const now = performance.now();
+		marks[name] = Math.round(now - last);
+		last = now;
+	};
 	try {
 		await initializeGpuRenderer();
+		mark("gpu");
 		state.gpu = isGpuAvailable();
 		const editor = EditorCore.getInstance();
 		editor.renderer.setDegraded(!state.gpu);
 		await editor.project.loadProject({ id: boot().projectId });
+		mark("projeto_e_midias");
 		editor.save.stop();
 		// Chromium sem codecs proprietários (Linux) não codifica H.264/AAC: exporta WebM e o worker converte para MP4.
 		const size = editor.project.getActive().settings.canvasSize;
@@ -49,6 +61,9 @@ export async function runRenderMode(options: ExportOptions): Promise<void> {
 		});
 		const result = await editor.project.export({ options });
 		unsubscribe?.();
+		mark("export");
+		state.timings = marks;
+		state.stats = { ...exportStats };
 		if (!result.success || !result.buffer) throw new Error(result.error || "Exportação sem resultado.");
 		const bytes = new Uint8Array(result.buffer);
 		window.__caduRenderChunks = Math.ceil(bytes.length / CHUNK);

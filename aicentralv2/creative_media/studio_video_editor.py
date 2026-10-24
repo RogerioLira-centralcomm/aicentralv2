@@ -839,7 +839,10 @@ def _run_render(command, cwd, timeout):
     try:
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass  # o grupo terminou junto com o prazo
         process.communicate()
         raise
     return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)

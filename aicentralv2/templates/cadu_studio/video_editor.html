@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de vídeo · Cadu Studio</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='cadu_studio/video_editor/app.css') }}?v={{ version }}">
+  <script>window.CADU_VIDEO_EDITOR = {{ boot | tojson }};</script>
+</head>
+<body class="bg-background text-foreground">
+  <div id="cadu-video-editor"></div>
+  <script type="module" src="{{ url_for('static', filename='cadu_studio/video_editor/app.js') }}?v={{ version }}"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "id": "legendas",
+  "name": "Legendas automáticas",
+  "description": "Transcreve a fala de um vídeo ou áudio do projeto (Whisper local, sem envio externo) e cria uma faixa de legendas editáveis.",
+  "group": "Texto",
+  "handler": "captions.auto_captions",
+  "params": [
+    {"key": "asset", "label": "Mídia com a fala", "type": "media"},
+    {"key": "position", "label": "Posição", "type": "select", "default": "bottom", "options": [
+      {"value": "top", "label": "Topo"}, {"value": "center", "label": "Centro"}, {"value": "bottom", "label": "Base"}]},
+    {"key": "style", "label": "Estilo", "type": "select", "default": "box", "options": [
+      {"value": "box", "label": "Caixa escura"}, {"value": "bold", "label": "Negrito"}]},
+    {"key": "size", "label": "Tamanho", "type": "number", "default": 9, "min": 4, "max": 40}
+  ]
+}

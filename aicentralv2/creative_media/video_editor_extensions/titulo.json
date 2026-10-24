@@ -1,0 +1,17 @@
+{
+  "id": "titulo",
+  "name": "Título na tela",
+  "description": "Adiciona um texto no playhead, com posição e estilo prontos.",
+  "group": "Texto",
+  "handler": "titles.add_title",
+  "params": [
+    {"key": "text", "label": "Texto", "type": "text", "default": ""},
+    {"key": "duration", "label": "Duração (s)", "type": "number", "default": 3, "min": 0.5, "max": 60},
+    {"key": "position", "label": "Posição", "type": "select", "default": "bottom", "options": [
+      {"value": "top", "label": "Topo"}, {"value": "center", "label": "Centro"}, {"value": "bottom", "label": "Base"}]},
+    {"key": "style", "label": "Estilo", "type": "select", "default": "bold", "options": [
+      {"value": "bold", "label": "Negrito"}, {"value": "box", "label": "Caixa escura"}, {"value": "plain", "label": "Simples"}]},
+    {"key": "size", "label": "Tamanho", "type": "number", "default": 15, "min": 4, "max": 60},
+    {"key": "color", "label": "Cor", "type": "color", "default": "#ffffff"}
+  ]
+}

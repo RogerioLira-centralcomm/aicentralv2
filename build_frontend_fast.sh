@@ -39,6 +39,7 @@ fi
 cache_prefix "frontend/reports-v1/untitled-kit"
 cache_prefix "frontend/cadu-design-system/untitled-kit"
 cache_prefix "frontend/planner/untitled-kit"
+cache_prefix "frontend/cadu-studio-video"
 
 # Build Tailwind (rápido)
 echo "[INFO] Gerando CSS..."
@@ -57,6 +58,7 @@ npm run build:audio &
 npm run build:studio-ui &
 npm run build:lab &
 npm run build:studio-home &
+npm run build --prefix frontend/cadu-studio-video &
 wait
 
 echo "[OK] Build concluído com sucesso!"

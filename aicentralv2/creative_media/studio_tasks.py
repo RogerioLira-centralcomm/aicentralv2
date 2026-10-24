@@ -93,7 +93,7 @@ def status(ident):
     return execute(run)
 
 
-def transcribe(source):
+def transcribe(source,language=None):
     """Model is provisioned by the installer, never downloaded on an HTTP request."""
     try:from faster_whisper import WhisperModel
     except ImportError as error:raise ValueError('Transcrição não instalada no worker. Execute deploy/install_media_worker.sh.') from error
@@ -111,7 +111,7 @@ def transcribe(source):
     # a time per web process, preventing two voice notes from exhausting the
     # worker and making both requests slower.
     with _TRANSCRIBE_RUN_LOCK:
-        segments,info=model.transcribe(str(source),beam_size=5,vad_filter=True,word_timestamps=True)
+        segments,info=model.transcribe(str(source),beam_size=5,vad_filter=True,word_timestamps=True,language=language)
         for segment in segments:
             words=list(segment.words or [])
             timed_words.extend({'start':float(w.start),'end':float(w.end),'text':w.word.strip(),'probability':float(getattr(w,'probability',0))} for w in words)
@@ -178,6 +178,12 @@ def run_task(root,ident):
             elif work.get('autocut',{}).get('enabled'):
                 result['autocut_warning']='Vídeo sem áudio: nenhum corte automático aplicado.'
             _write(root/f'clip-{ident}.json',result)
+        elif kind=='opencut_render':
+            from .studio_video_editor import render_project
+            _write(path,{**row,'status':'processing','stage':'Renderizando a timeline'})
+            extension=work['options']['format']
+            result=render_project(work,root/f'{ident}.{extension}')
+            result['url']=f'/parametros/api/format-lab/studio/video-editor/renders/{ident}/content?client_id={client}'
         elif kind=='inspect':result=inspect_clip(source,root,client,work['clip_id'])
         elif kind=='extract':
             duration,streams=probe(source)
@@ -193,7 +199,7 @@ def run_task(root,ident):
                 source=root/f'transcribe-{ident}.mp4'
                 render_composition(work['composition'],list(map(Path,work['sources'])),list(map(Path,work['sounds'])),source)
             if 'audio' not in probe(source)[1]:raise ValueError('Este vídeo não contém áudio para transcrever.')
-            result=transcribe(source)
+            result=transcribe(source,work.get('language'))
         _write(path,{**row,'status':'ready','result':result})
     except Exception as error:
         import logging
@@ -215,3 +221,4 @@ def run_task(root,ident):
             # Preserve the exact original upload, independent from the editing copy.
             source.replace(root/f'{ident}.original')
         if work.get('composition') and source:source.unlink(missing_ok=True)
+        if source and source.name.endswith('.transcribe.wav'):source.unlink(missing_ok=True)  # áudio do editor de vídeo

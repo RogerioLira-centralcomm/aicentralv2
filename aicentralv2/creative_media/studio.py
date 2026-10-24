@@ -289,6 +289,8 @@ def _record(root, ident, kind):
 def register_studio_routes(blueprint):
     from .studio_media import register
     register(blueprint)
+    from .studio_video_editor import register as register_video_editor
+    register_video_editor(blueprint)
     blueprint.add_url_rule('/api/format-lab/studio/agent/plan', view_func=studio_agent_plan, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/prompt/optimize', view_func=studio_prompt_optimize, methods=['POST'])
     blueprint.add_url_rule('/api/format-lab/studio/quadro/decompose', view_func=studio_quadro_decompose, methods=['POST'])

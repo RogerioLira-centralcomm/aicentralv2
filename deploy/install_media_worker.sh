@@ -29,14 +29,29 @@ WhisperModel(path,device='cpu',compute_type='int8',local_files_only=True)
 print('Modelo de transcrição preparado.')
 PY
 fi
+# Editor de vídeo: o render roda o editor compilado no Chromium do Playwright (node + navegador no worker).
+studio_node_dir=""
+studio_browsers="$studio_root/instance/ms-playwright"
+if command -v node >/dev/null && [[ -d "$studio_root/node_modules/playwright" ]]; then
+    studio_node_dir="$(dirname "$(command -v node)")"
+    sudo mkdir -p "$studio_browsers"
+    sudo chown "$studio_user" "$studio_browsers"
+    (cd "$studio_root" && sudo env PATH="$studio_node_dir:$PATH" "$studio_node_dir/npx" playwright install-deps chromium) \
+        || echo 'Aviso: bibliotecas do sistema para o Chromium não instaladas; o render do editor de vídeo pode falhar.'
+    (cd "$studio_root" && sudo -u "$studio_user" env PATH="$studio_node_dir:$PATH" PLAYWRIGHT_BROWSERS_PATH="$studio_browsers" \
+        "$studio_node_dir/npx" playwright install chromium) \
+        || echo 'Aviso: Chromium do editor de vídeo não instalado; o render do editor ficará indisponível.'
+else
+    echo 'Aviso: node ou playwright ausentes; o render do editor de vídeo ficará indisponível.'
+fi
 studio_unit_dir="$(mktemp -d)"
 studio_unit="$studio_unit_dir/cadu-media-worker.service"
 trap 'rm -rf "$studio_unit_dir"' EXIT
-"$studio_python" - "$studio_unit" "$studio_root" "$studio_python" "$studio_user" "$studio_model" <<'PY'
+"$studio_python" - "$studio_unit" "$studio_root" "$studio_python" "$studio_user" "$studio_model" "$studio_node_dir" "$studio_browsers" <<'PY'
 import sys
 from pathlib import Path
-out,root,python,user,model=sys.argv[1:]
-if any(c in value for value in (root,python,user,model) for c in '\n\r"%'):
+out,root,python,user,model,node_dir,browsers=sys.argv[1:]
+if any(c in value for value in (root,python,user,model,node_dir,browsers) for c in '\n\r"%'):
     raise SystemExit('Caminho/usuário incompatível com a unidade systemd.')
 if not root.startswith('/') or not python.startswith('/') or not model.startswith('/'):
     raise SystemExit('A unidade systemd requer caminhos absolutos.')
@@ -48,7 +63,8 @@ Wants=network-online.target
 Type=simple
 User={user}
 WorkingDirectory={root}
-Environment=PATH={Path(python).parent}:/usr/local/bin:/usr/bin:/bin
+Environment=PATH={Path(python).parent}:{node_dir + ':' if node_dir else ''}/usr/local/bin:/usr/bin:/bin
+Environment=PLAYWRIGHT_BROWSERS_PATH={browsers}
 Environment=AICENTRAL_ENV=production
 Environment=MEDIA_WORKER_MODE=supervised
 Environment=MEDIA_TRANSCRIBE_MODEL_PATH={model}

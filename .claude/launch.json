@@ -50,6 +50,14 @@
       ],
       "port": 5051,
       "url": "http://planner.localhost:5051"
+    },
+    {
+      "name": "video-editor-dev",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "tests/frontend/video_editor_dev_server.py"
+      ],
+      "port": 5077
     }
   ]
 }

@@ -1,0 +1,50 @@
+{
+ "metadata": {
+  "id": "render-check",
+  "name": "Verificação de render",
+  "duration": 0,
+  "createdAt": "2026-10-23T14:09:12.476Z",
+  "updatedAt": "2026-10-23T14:09:18.000Z"
+ },
+ "scenes": [
+  {
+   "id": "ad17881f-8d1a-41b0-af7f-9dae10c98bd0",
+   "name": "Main scene",
+   "isMain": true,
+   "tracks": {
+    "overlay": [],
+    "main": {
+     "id": "7dc22892-fdc7-4a91-bf7d-b6f903684aca",
+     "name": "Main Track",
+     "type": "video",
+     "elements": [],
+     "muted": false,
+     "hidden": false
+    },
+    "audio": []
+   },
+   "bookmarks": [],
+   "createdAt": "2026-10-23T14:09:12.476Z",
+   "updatedAt": "2026-10-23T14:09:18.000Z"
+  }
+ ],
+ "currentSceneId": "ad17881f-8d1a-41b0-af7f-9dae10c98bd0",
+ "settings": {
+  "fps": {
+   "numerator": 30,
+   "denominator": 1
+  },
+  "canvasSize": {
+   "width": 1920,
+   "height": 1080
+  },
+  "canvasSizeMode": "preset",
+  "lastCustomCanvasSize": null,
+  "originalCanvasSize": null,
+  "background": {
+   "type": "color",
+   "color": "#000000"
+  }
+ },
+ "version": 31
+}

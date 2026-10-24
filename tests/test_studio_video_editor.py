@@ -215,6 +215,11 @@ class EditorApiTest(unittest.TestCase):
         with self.client.get(listed[0]['contentUrl']) as content:
             self.assertEqual(content.status_code, 200)
             self.assertEqual(content.headers['Cache-Control'], 'private, max-age=3600')
+        video_item = next(item for item in listed if item['type'] == 'video')
+        self.assertGreater(video_item['fps'], 0)
+        with self.client.get(video_item['thumbnailUrl']) as thumb:
+            self.assertEqual((thumb.status_code, thumb.mimetype), (200, 'image/jpeg'), 'timeline precisa da miniatura para mostrar os quadros')
+        self.assertIsNone(next(item for item in listed if item['type'] == 'audio')['thumbnailUrl'])
         self.assertEqual(self.client.get(listed[0]['contentUrl'].replace('client_id=31', 'client_id=32')).status_code, 400)
 
         library = self.client.get(f'{BASE}/library?client_id=31').json['data']['items']

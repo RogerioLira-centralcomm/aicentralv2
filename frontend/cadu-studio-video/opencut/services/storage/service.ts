@@ -242,7 +242,10 @@ class StorageService {
 
 	async loadAllProjectsMetadata(): Promise<TProjectMetadata[]> {
 		await this.ensureMigrations();
-		const serializedProjects = await this.projectsAdapter.getAll();
+		// Cadu: projetos vêm do Studio; carrega um a um pelo adaptador (não há getAll no servidor).
+		const serializedProjects = (
+			await Promise.all((await this.projectsAdapter.list()).map((id) => this.projectsAdapter.get(id)))
+		).filter((project): project is SerializedProject => project !== null);
 
 		const metadata: TProjectMetadata[] = [];
 		for (const serializedProject of serializedProjects) {
@@ -378,6 +381,9 @@ class StorageService {
 			duration: metadata.duration,
 			thumbnailUrl: metadata.thumbnailUrl,
 			ephemeral: metadata.ephemeral,
+			// Cadu: o servidor informa fps e áudio da mídia (o OpenCut só os tinha no upload).
+			...(metadata.fps ? { fps: metadata.fps } : {}),
+			...(metadata.hasAudio !== undefined ? { hasAudio: metadata.hasAudio } : {}),
 		};
 	}
 

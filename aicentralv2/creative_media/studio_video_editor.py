@@ -39,6 +39,7 @@ def register(bp):
     bp.add_url_rule(API + '/projects/<ident>/media/link', view_func=link_media, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/media/<asset_id>', view_func=unlink_media, methods=['DELETE'])
     bp.add_url_rule(API + '/projects/<ident>/media/<asset_id>/content', view_func=media_content)
+    bp.add_url_rule(API + '/projects/<ident>/media/<asset_id>/thumbnail', view_func=media_thumbnail)
     bp.add_url_rule(API + '/projects/<ident>/commands', view_func=project_commands, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/extensions/<ext_id>/run', view_func=run_extension, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/renders', view_func=submit_render, methods=['POST'])
@@ -204,8 +205,11 @@ def _write_links(root, ident, links):
 def _public(client, ident, asset_id, link):
     return {'id': asset_id, 'name': link['name'], 'type': link['type'], 'size': link.get('size', 0),
             'lastModified': int(link.get('created_at', 0) * 1000), 'width': link.get('width'), 'height': link.get('height'),
-            'duration': link.get('duration'), 'hasAudio': link.get('has_audio'), 'ref': link['ref'], 'libraryKind': link['type'],
-            'contentUrl': f'{_api_root()}/format-lab/studio/video-editor/projects/{_project_id(ident)}/media/{asset_id}/content?client_id={int(client)}'}
+            'duration': link.get('duration'), 'hasAudio': link.get('has_audio'), 'fps': link.get('fps'), 'ref': link['ref'], 'libraryKind': link['type'],
+            'contentUrl': f'{_api_root()}/format-lab/studio/video-editor/projects/{_project_id(ident)}/media/{asset_id}/content?client_id={int(client)}',
+            # A timeline do OpenCut desenha as miniaturas a partir daqui; sem ela o clipe aparece só com o nome.
+            'thumbnailUrl': (f'{_api_root()}/format-lab/studio/video-editor/projects/{_project_id(ident)}/media/{asset_id}/thumbnail'
+                             f'?client_id={int(client)}' if link['type'] != 'audio' else None)}
 
 
 def resolve_ref(root, client, ref):
@@ -267,12 +271,16 @@ def _media_meta(path, kind):
         from PIL import Image
         with Image.open(path) as image:
             return {'width': image.width, 'height': image.height}
-    result = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration:stream=codec_type,width,height',
+    result = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration:stream=codec_type,width,height,avg_frame_rate',
                              '-of', 'json', str(path)], capture_output=True, text=True, check=True, timeout=20)
     data = json.loads(result.stdout)
     video = next((s for s in data.get('streams', []) if s.get('codec_type') == 'video'), {})
+    fps = None
+    if '/' in str(video.get('avg_frame_rate') or ''):
+        num, den = (float(part or 0) for part in video['avg_frame_rate'].split('/'))
+        fps = round(num / den, 3) if den and num else None
     return {'duration': float(data.get('format', {}).get('duration') or 0), 'width': video.get('width'), 'height': video.get('height'),
-            'has_audio': any(s.get('codec_type') == 'audio' for s in data.get('streams', []))}
+            'fps': fps, 'has_audio': any(s.get('codec_type') == 'audio' for s in data.get('streams', []))}
 
 
 def ingest_upload(root, client, upload, declared):
@@ -430,6 +438,36 @@ def media_content(ident, asset_id):
         mime = row.get('mime') or {'video': 'video/mp4', 'audio': 'audio/mp4'}.get(kind)
         response = send_file(path, mimetype=mime, conditional=True)
         response.headers['Cache-Control'] = 'private, max-age=3600'  # mídia da marca: nunca em cache compartilhado
+        return response
+    return execute(run)
+
+
+@studio_or_admin_required_api
+def media_thumbnail(ident, asset_id):
+    """Miniatura JPEG (quadro do vídeo ou imagem reduzida), em cache por mídia da biblioteca."""
+    execute, _, _, _ = _http()
+
+    def run():
+        client = request.args.get('client_id')
+        root = _scope(client)
+        link = read_links(root, ident).get(asset_id)
+        if not link or link['type'] == 'audio':
+            raise ValueError('Mídia sem miniatura.')
+        path, kind, _ = resolve_ref(root, client, link['ref'])
+        cache = root / f'vthumb-{hashlib.sha256(f"{link["ref"]}:{path.stat().st_mtime_ns}".encode()).hexdigest()[:32]}.jpg'
+        if not cache.exists():
+            if kind == 'video':
+                at = min(1.0, max(0.0, float(link.get('duration') or 0) / 2))
+                subprocess.run(['ffmpeg', '-y', '-v', 'error', '-ss', f'{at:.2f}', '-i', str(path), '-frames:v', '1',
+                                '-vf', 'scale=320:-2', '-q:v', '4', str(cache)], check=True, capture_output=True, timeout=30)
+            else:
+                from PIL import Image
+                with Image.open(path) as image:
+                    image = image.convert('RGB')
+                    image.thumbnail((320, 320))
+                    image.save(cache, format='JPEG', quality=82)
+        response = send_file(cache, mimetype='image/jpeg', conditional=True)
+        response.headers['Cache-Control'] = 'private, max-age=86400'
         return response
     return execute(run)
 

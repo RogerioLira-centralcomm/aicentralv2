@@ -447,6 +447,24 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
 else
     echo "  > Workers sem alteracoes; instaladores pulados."
 fi
+# Chromium do render do editor de vídeo: roda em todo deploy porque o instalador acima só
+# roda quando deploy/ muda. Rápido quando o navegador da versão atual do Playwright já existe;
+# bibliotecas do sistema (--with-deps) só na primeira instalação. Falha não interrompe o deploy.
+if command -v node >/dev/null 2>&1 && [ -d node_modules/playwright ]; then
+    VIDEO_BROWSERS="$(pwd)/instance/ms-playwright"
+    mkdir -p "$VIDEO_BROWSERS"
+    VIDEO_BROWSER_DEPS=""
+    ls -d "$VIDEO_BROWSERS"/chromium_headless_shell-* >/dev/null 2>&1 || VIDEO_BROWSER_DEPS="--with-deps"
+    if PLAYWRIGHT_BROWSERS_PATH="$VIDEO_BROWSERS" npx playwright install $VIDEO_BROWSER_DEPS chromium >> "$DEPLOY_LOG" 2>&1; then
+        VIDEO_SERVICE_USER="$(systemctl show aicentralv2 --property=User --value 2>/dev/null)"
+        [ -n "$VIDEO_SERVICE_USER" ] && chown -R "$VIDEO_SERVICE_USER" "$VIDEO_BROWSERS" 2>/dev/null || true
+        echo "  > Chromium do editor de vídeo pronto em instance/ms-playwright."
+    else
+        echo "  > Aviso: Chromium do editor de vídeo não instalado (detalhes em $DEPLOY_LOG)."
+    fi
+else
+    echo "  > Aviso: node ou playwright ausentes; render do editor de vídeo indisponível."
+fi
 # Workers de longa duração carregam o código da aplicação uma vez só: sem restart
 # ficam na versão anterior (os instaladores usam enable --now, que não reinicia o que
 # já roda). Os timers não entram aqui: cada disparo já sobe o código novo.

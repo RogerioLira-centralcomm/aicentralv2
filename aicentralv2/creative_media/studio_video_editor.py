@@ -835,7 +835,12 @@ def _run_render(command, cwd, timeout):
     """Node e o Chromium que ele abre ficam num grupo próprio; no timeout o grupo inteiro é encerrado."""
     import os
     import signal
-    process = subprocess.Popen(command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+    env = dict(os.environ)
+    browsers = Path(cwd) / 'instance' / 'ms-playwright'
+    if not env.get('PLAYWRIGHT_BROWSERS_PATH') and browsers.is_dir():
+        env['PLAYWRIGHT_BROWSERS_PATH'] = str(browsers)  # instalado pelo deploy; unidade antiga do worker não tem a variável
+    process = subprocess.Popen(command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                               start_new_session=True, env=env)
     try:
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:

@@ -44,6 +44,7 @@ def register(bp):
     bp.add_url_rule(API + '/projects/<ident>/renders', view_func=submit_render, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/transcriptions', view_func=submit_transcription, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/exports', view_func=upload_export, methods=['POST'])
+    bp.add_url_rule(API + '/projects/<ident>/montage', view_func=montage, methods=['POST'])
     bp.add_url_rule(API + '/renders/<ident>/content', view_func=render_content)
     bp.add_url_rule(API + '/library', view_func=library)
     bp.add_url_rule(API + '/commands', view_func=command_catalog)
@@ -230,7 +231,35 @@ def resolve_ref(root, client, ref):
         _, _, _, service = _http()
         path = resolve_clip(root, client, key, service())
         return path, 'video', {'name': 'Vídeo gerado'}
+    if kind == 'still' and key:
+        return _resolve_still(client, key)
+    if kind == 'static' and key:
+        # Logo e referências da marca servidos pelo próprio app: só imagens dentro de static/.
+        base = Path(current_app.static_folder).resolve()
+        path = (base / key.removeprefix('/static/').lstrip('/')).resolve()
+        if base not in path.parents or path.suffix.lower() not in {'.png', '.jpg', '.jpeg', '.webp'} or not path.is_file():
+            raise ValueError('Imagem da marca indisponível.')
+        return path, 'image', {'name': path.name, 'mime': 'image/png' if path.suffix.lower() == '.png' else 'image/jpeg'}
     raise ValueError('Mídia não encontrada nesta marca.')
+
+
+def _resolve_still(client, ident):
+    """Imagem gerada no Studio (cena do storyboard): só as da biblioteca desta marca."""
+    _, _, _, service = _http()
+    modeling = service()
+    rows = modeling.load_format_lab_swap_library({'client_id': client, 'media': 'still'}, session.get('user_id'))
+    item = next((row for row in (rows or {}).get('items', []) if str(row.get('id')) == ident), None)
+    if not item or item.get('broken'):
+        raise ValueError('Imagem da cena não encontrada nesta marca.')
+    name = Path(str(item.get('image_url') or '').split('?')[0]).name
+    storage = getattr(modeling, 'storage', None)
+    for loader in ('load_trocr_still', 'load_generated_still'):
+        load = getattr(storage, loader, None)
+        path = load(name) if callable(load) and name else None
+        if path:
+            path = Path(path)
+            return path, 'image', {'name': str(item.get('name') or name)[:120], 'mime': 'image/png' if path.suffix.lower() == '.png' else 'image/jpeg'}
+    raise ValueError('Arquivo da imagem da cena indisponível.')
 
 
 def _media_meta(path, kind):
@@ -666,6 +695,14 @@ def cmd_set_params(timeline, args, links):
     return {'element_id': element['id']}
 
 
+def cmd_clear(timeline, args, links):
+    """Esvazia a cena atual (remontar do zero). As mídias do projeto continuam vinculadas."""
+    tracks = _scene(timeline)['tracks']
+    removed = sum(len(track['elements']) for track in _all_tracks(_scene(timeline)))
+    tracks['main']['elements'], tracks['overlay'], tracks['audio'] = [], [], []
+    return {'removed': removed}
+
+
 def cmd_set_canvas(timeline, args, links):
     """Formato do projeto (ex.: 1080×1920 para Reels) e cor de fundo."""
     width, height = int(_number(args, 'width', 1920, 240, 4096)), int(_number(args, 'height', 1080, 240, 4096))
@@ -676,7 +713,10 @@ def cmd_set_canvas(timeline, args, links):
     settings['canvasSizeMode'] = 'custom'
     settings['lastCustomCanvasSize'] = {'width': width, 'height': height}
     background = str(args.get('background') or '')
-    if background:
+    if background == 'blur':
+        # Fundo desfocado da própria mídia da faixa principal (imagem inteira em formato diferente do quadro).
+        settings['background'] = {'type': 'blur', 'blurIntensity': int(_number(args, 'blur', 200, 10, 500))}
+    elif background:
         if not re.fullmatch(r'#[0-9a-fA-F]{6}', background):
             raise ValueError('Cor de fundo inválida.')
         settings['background'] = {'type': 'color', 'color': background}
@@ -720,7 +760,8 @@ def _apply_motion(element, motion, base_scale=1.0):
 
 
 COMMANDS = {
-    'set_canvas': (cmd_set_canvas, 'Formato do projeto e fundo (width, height, background #rrggbb).'),
+    'clear': (cmd_clear, 'Esvazia a timeline da cena atual (mídias continuam no projeto).'),
+    'set_canvas': (cmd_set_canvas, 'Formato do projeto e fundo (width, height, background #rrggbb ou blur, blur 10–500).'),
     'add_text': (cmd_add_text, 'Adiciona um texto (text, start, duration, x, y, size, color, background, bold).'),
     'add_media': (cmd_add_media, 'Coloca uma mídia do projeto na timeline (asset_id, track main|overlay, start, duration, scale, motion zoom_in|zoom_out).'),
     'split': (cmd_split, 'Divide um elemento num instante (element_id, at).'),
@@ -825,6 +866,109 @@ def run_extension(ident, ext_id):
         except repository.RevisionConflict as error:
             return jsonify(success=False, error=str(error), code='revision_conflict'), 409
         return ok({'revision': revision, 'summary': summary, 'results': outputs})
+    return execute(run)
+
+
+# ---------------------------------------------------------------- montar na timeline a partir do storyboard
+
+FORMATS = {'9:16': (1080, 1920), '16:9': (1920, 1080), '1:1': (1080, 1080), '4:5': (1080, 1350), '3:4': (1080, 1440), '4:3': (1440, 1080)}
+
+
+def storyboard_package(client, root, ident, document, *, brand=None, captions=False, music_ref=None, ratio=None, duration=None):
+    """Cenas do storyboard salvo no projeto do Studio → pacote da montagem, vinculando as imagens das cenas ao projeto."""
+    from .studio_montage import package
+    beats = ((document.get('script') or {}).get('beats') or []) if isinstance(document.get('script'), dict) else []
+    scene_ids = [str(value) for value in (document.get('scene_ids') or [])][:30]
+    if not beats or not scene_ids:
+        raise ValueError('Este projeto não tem storyboard com imagens. Monte o storyboard na tela de Vídeo antes.')
+    links = read_links(root, ident)
+    by_ref = {link['ref']: key for key, link in links.items()}
+
+    def linked(ref):
+        if ref not in by_ref:
+            asset_id = uuid.uuid4().hex
+            _link(root, client, ident, asset_id, ref)
+            by_ref[ref] = asset_id
+        current = read_links(root, ident)[by_ref[ref]]
+        path, _, _ = resolve_ref(root, client, ref)
+        return {'id': by_ref[ref], 'type': current['type'], 'width': current.get('width'), 'height': current.get('height'),
+                'duration': current.get('duration'), 'path': str(path)}
+
+    scenes = {}
+    for beat in beats:
+        if isinstance(beat, dict) and str(beat.get('id')) in scene_ids:
+            scenes[str(beat['id'])] = linked(f'still:{beat["id"]}')
+    brand = brand or {}
+    logo = None
+    if str(brand.get('logo_url') or '').startswith('/static/'):
+        try:
+            logo = linked('static:' + brand['logo_url'])
+        except ValueError:
+            logo = None
+    music = linked(music_ref) if music_ref else None
+    width, height = FORMATS.get(ratio or document.get('aspect_ratio') or '9:16', FORMATS['9:16'])
+    return package(beats, scenes, width=width, height=height, duration=duration or document.get('duration') or 2.5 * len(scenes),
+                   brand=brand, music=music, logo=logo, captions=captions)
+
+
+def _metered_director(modeling, client, key):
+    """Chamada do diretor cobrada como as do storyboard (mesma régua de tokens; repetir o pedido não cobra de novo)."""
+    from ..cadu_credit_connector import CaduCreditConnector
+    from ..services.cadu_ai_connector import CaduAIConnector
+    connector = CaduAIConnector(CaduCreditConnector(modeling.credit_ledger))
+    payer = modeling._credits_crm_id(client) or int(client)
+
+    def call(messages, **options):
+        return connector.complete(messages, client_id=payer, user_id=session.get('user_id'), idempotency_key=key, app='Cadu Studio',
+                                  stage='video_montage', estimated_tokens=12000,
+                                  metadata={'studio_client_id': int(client), 'billing_class': 'agent'}, **options)
+    return call
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def montage(ident):
+    """Monta a timeline a partir do storyboard salvo no projeto (diretor com visão ou regras) e grava como nova revisão."""
+    from flask import jsonify
+    from ..services.openrouter_service import OpenRouterError
+    from .studio import _storyboard_brand
+    from .studio_montage import compile_plan, director_plan, rules_plan
+    execute, body, ok, service = _http()
+
+    def run():
+        client = request.args.get('client_id')
+        root = _scope(client)
+        data = body() or {}
+        mode = 'rules' if data.get('mode') == 'rules' else 'director'
+        revision, document = read_project(client, ident)
+        timeline = document.get('video_editor')
+        if not isinstance(timeline, dict):
+            raise ValueError('Abra o editor neste projeto antes de montar.')
+        if any(track['elements'] for scene in timeline['scenes'] for track in _all_tracks(scene)) and not data.get('replace'):
+            raise ValueError('A timeline já tem conteúdo. Escolha substituir para montar de novo.')
+        modeling = service()
+        pkg = storyboard_package(client, root, ident, document, brand=_storyboard_brand(modeling, client),
+                                 captions=bool(data.get('captions')), ratio=data.get('ratio'))
+        plan, usage, warning = None, None, ''
+        if mode == 'director':
+            try:
+                plan, usage = director_plan(pkg, text_callable=_metered_director(modeling, client, f'studio:montage:{_project_id(ident)}:{revision}'),
+                                            briefing=(document.get('storyboard_draft') or {}).get('briefing') or '')
+            except (OpenRouterError, ValueError) as error:
+                current_app.logger.warning('Diretor de montagem indisponível: %s', error)
+                warning = 'O diretor de IA não respondeu; a montagem usou as regras padrão.'
+        plan = plan or rules_plan(pkg)
+        commands = [{'op': 'clear', 'args': {}}] + compile_plan(plan, pkg)
+        _, repository = _store()
+        montage_timeline, _ = apply_commands(timeline, commands, read_links(root, ident))
+        try:
+            revision = save_timeline(client, ident, montage_timeline, revision)
+        except repository.RevisionConflict as error:
+            return jsonify(success=False, error=str(error), code='revision_conflict'), 409
+        texts = [row['text'] for row in plan['scenes'] if row['text']]
+        summary = f"{len(plan['scenes'])} cenas, {len(texts)} textos na tela, {pkg['duration']:.0f} s em {pkg['width']}×{pkg['height']}."
+        return ok({'revision': revision, 'mode': 'director' if mode == 'director' and not warning else 'rules', 'summary': summary,
+                   'warning': warning, 'plan': plan, 'usage': usage})
     return execute(run)
 
 

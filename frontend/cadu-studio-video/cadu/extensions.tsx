@@ -62,6 +62,7 @@ export function ExtensionsMenu() {
 	const [extensions, setExtensions] = useState<Extension[]>([]);
 	const [active, setActive] = useState<Extension | null>(null);
 	const [libraryOpen, setLibraryOpen] = useState(false);
+	const [montageOpen, setMontageOpen] = useState(false);
 
 	useEffect(() => {
 		caduFetch<{ items: Extension[] }>("/extensions")
@@ -89,6 +90,7 @@ export function ExtensionsMenu() {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" className="z-100 w-64">
+					<DropdownMenuItem onClick={() => setMontageOpen(true)}>Montar do storyboard…</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => setLibraryOpen(true)}>Biblioteca do Studio…</DropdownMenuItem>
 					{groups.map((group) => (
 						<div key={group}>
@@ -107,6 +109,7 @@ export function ExtensionsMenu() {
 			</DropdownMenu>
 			{active && <ExtensionDialog extension={active} onClose={() => setActive(null)} onRun={run} />}
 			<LibraryDialog open={libraryOpen} onOpenChange={setLibraryOpen} />
+			<MontageDialog open={montageOpen} onOpenChange={setMontageOpen} />
 		</>
 	);
 }
@@ -273,6 +276,88 @@ function LibraryDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
 						</ul>
 					)}
 				</DialogBody>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+// Storyboard da tela de Vídeo (mesmo projeto do Studio) → timeline. O diretor só planeja; regras de área segura,
+// enquadramento e marca são aplicadas no servidor.
+function MontageDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+	const editor = useEditor();
+	const hasContent = useEditor((e) => {
+		const scene = e.scenes.getActiveSceneOrNull();
+		return !!scene && [scene.tracks.main, ...scene.tracks.overlay, ...scene.tracks.audio].some((track) => track.elements.length > 0);
+	});
+	const [mode, setMode] = useState<"director" | "rules">("director");
+	const [replace, setReplace] = useState(false);
+	const [captions, setCaptions] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState("");
+
+	const submit = async () => {
+		setBusy(true);
+		setError("");
+		try {
+			await editor.save.flush();
+			const { projectId } = boot();
+			const result = await caduFetch<{ summary: string; warning: string; mode: string }>(
+				`/projects/${encodeURIComponent(projectId)}/montage`,
+				{ method: "POST", body: JSON.stringify({ mode, replace, captions }) },
+			);
+			const title = result.mode === "director" ? "Montado pelo diretor" : "Montado pelas regras";
+			reloadWithMessage(title, [result.summary, result.warning].filter(Boolean).join(" "));
+		} catch (failure) {
+			setError((failure as Error).message);
+			setBusy(false);
+		}
+	};
+
+	return (
+		<Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Montar do storyboard</DialogTitle>
+					<DialogDescription>
+						Usa as cenas, a fala e as imagens do storyboard deste projeto. O texto fica fora da área do Reels e longe do sujeito.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogBody className="flex flex-col gap-3 text-sm">
+					<label className="flex flex-col gap-1">
+						<span>Quem monta</span>
+						<select
+							className="bg-background border-border h-9 rounded-md border px-2"
+							value={mode}
+							onChange={(event) => setMode(event.target.value as "director" | "rules")}
+						>
+							<option value="director">Diretor de IA (olha as imagens; usa tokens)</option>
+							<option value="rules">Regras padrão (sem IA)</option>
+						</select>
+					</label>
+					<label className="flex items-center gap-2">
+						<input type="checkbox" checked={captions} onChange={(event) => setCaptions(event.target.checked)} />
+						Legendas com a fala das cenas
+					</label>
+					{hasContent && (
+						<label className="flex items-center gap-2">
+							<input type="checkbox" checked={replace} onChange={(event) => setReplace(event.target.checked)} />
+							Substituir a timeline atual (as mídias continuam no projeto)
+						</label>
+					)}
+					{error && (
+						<p className="text-destructive" role="alert">
+							{error}
+						</p>
+					)}
+				</DialogBody>
+				<DialogFooter>
+					<Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
+						Cancelar
+					</Button>
+					<Button onClick={submit} disabled={busy || (hasContent && !replace)}>
+						{busy ? (mode === "director" ? "Diretor montando…" : "Montando…") : "Montar"}
+					</Button>
+				</DialogFooter>
 			</DialogContent>
 		</Dialog>
 	);

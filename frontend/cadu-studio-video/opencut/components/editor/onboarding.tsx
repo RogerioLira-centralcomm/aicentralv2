@@ -47,7 +47,7 @@ export function Onboarding() {
 							<Title title="Welcome to OpenCut Beta! 🎉" />
 							<Description description="You're among the first to try OpenCut - the fully open source CapCut alternative." />
 						</div>
-						<NextButton onClick={handleNext}>Next</NextButton>
+						<NextButton onClick={handleNext}>Próximo</NextButton>
 					</div>
 				);
 			case 1:
@@ -59,7 +59,7 @@ export function Onboarding() {
 							<Description description="A lot of features are still missing. We're working hard to build them out!" />
 							<Description description="If you're curious, check out our roadmap [here](https://opencut.app/roadmap)" />
 						</div>
-						<NextButton onClick={handleNext}>Next</NextButton>
+						<NextButton onClick={handleNext}>Próximo</NextButton>
 					</div>
 				);
 			case 2:
@@ -71,7 +71,7 @@ export function Onboarding() {
 								description={`Join our [Discord](${SOCIAL_LINKS.discord}), chat with cool people and share feedback to help make OpenCut the best editor ever.`}
 							/>
 						</div>
-						<NextButton onClick={handleClose}>Finish</NextButton>
+						<NextButton onClick={handleClose}>Concluir</NextButton>
 					</div>
 				);
 			default:

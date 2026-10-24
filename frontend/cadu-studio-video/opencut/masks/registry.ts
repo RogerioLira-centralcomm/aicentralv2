@@ -32,7 +32,7 @@ export const BASE_MASK_PARAM_DEFINITIONS: ParamDefinition<
 >[] = [
 	{
 		key: "feather",
-		label: "Feather",
+		label: "Suavizar borda",
 		type: "number",
 		default: 0,
 		min: 0,
@@ -42,7 +42,7 @@ export const BASE_MASK_PARAM_DEFINITIONS: ParamDefinition<
 	},
 	{
 		key: "strokeWidth",
-		label: "Stroke width",
+		label: "Espessura do contorno",
 		type: "number",
 		default: 0,
 		min: 0,
@@ -51,7 +51,7 @@ export const BASE_MASK_PARAM_DEFINITIONS: ParamDefinition<
 	},
 	{
 		key: "strokeColor",
-		label: "Stroke color",
+		label: "Cor do contorno",
 		type: "color",
 		default: "#ffffff",
 	},

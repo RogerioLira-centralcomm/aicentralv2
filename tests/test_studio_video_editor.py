@@ -224,6 +224,13 @@ class EditorApiTest(unittest.TestCase):
 
         library = self.client.get(f'{BASE}/library?client_id=31').json['data']['items']
         refs = {item['ref'] for item in library}
+        sounds = [item for item in library if item['kind'] == 'audio']
+        self.assertTrue(sounds and all(item.get('preview_url') for item in sounds), 'aba Áudio precisa ouvir antes de adicionar')
+        public = next(item for item in sounds if item['ref'].startswith('public-sound:'))
+        # O app de teste não serve a pasta static real; o arquivo apontado precisa existir nela.
+        self.assertTrue(public['preview_url'].startswith('/static/audio/studio/'))
+        real_static = Path(editor.__file__).resolve().parents[1] / 'static'
+        self.assertTrue((real_static / public['preview_url'].removeprefix('/static/')).is_file())
         self.assertIn(video.json['data']['ref'], refs, 'o vídeo enviado no editor entra na biblioteca da marca')
         other = self.create()
         linked = self.client.post(f'{BASE}/projects/{other}/media/link?client_id=31', json={'ref': video.json['data']['ref']}, headers=HEADERS)
@@ -271,6 +278,17 @@ class EditorApiTest(unittest.TestCase):
         self.assertEqual((task['kind'], task['work']['revision']), ('opencut_render', saved['revision']))
         self.assertEqual([item['id'] for item in task['work']['media']], [asset], 'só as mídias usadas na timeline vão para o worker')
         self.assertEqual(self.client.get(f'{BASE}/renders/{queued.json["data"]["id"]}/content?client_id=31').status_code, 400, 'render não pronto')
+
+    def test_brand_kit_for_title_presets(self):
+        with patch('aicentralv2.creative_media.studio._storyboard_brand', return_value={
+                'name': 'Conecta', 'primary_color': '#3a0b3d', 'secondary_color': 'azul', 'fonts': [{'family': 'Montserrat'}],
+                'logo_url': 'https://externo/logo.png'}):
+            brand = self.client.get(f'{BASE}/brand?client_id=31').json['data']
+        self.assertEqual((brand['primary'], brand['secondary'], brand['font'], brand['logo_url'], brand['configured']),
+                         ('#3a0b3d', '#4c8dff', 'Montserrat', '', True), 'cor inválida cai no padrão; logo só local')
+        with patch('aicentralv2.creative_media.studio._storyboard_brand', side_effect=RuntimeError('sem banco')):
+            fallback = self.client.get(f'{BASE}/brand?client_id=31').json['data']
+        self.assertEqual((fallback['primary'], fallback['configured']), ('#1dbf73', False))
 
     def test_delivery_loudness(self):
         loud = self.root / 'loud.mp4'

@@ -155,7 +155,7 @@ export class RendererManager {
 			const activeProject = this.editor.project.getActive();
 
 			if (!activeProject) {
-				return { success: false, error: "No active project" };
+				return { success: false, error: "Nenhum projeto aberto" };
 			}
 
 			const duration = this.editor.timeline.getTotalDuration();

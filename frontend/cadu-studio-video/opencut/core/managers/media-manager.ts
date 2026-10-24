@@ -41,7 +41,7 @@ export class MediaManager {
 			this.notify();
 
 			if (storageService.isQuotaExceededError({ error })) {
-				toast.error("Not enough browser storage", {
+				toast.error("Sem espaço no navegador", {
 					description: error instanceof Error ? error.message : undefined,
 				});
 			}

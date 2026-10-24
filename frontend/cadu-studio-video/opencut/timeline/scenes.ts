@@ -11,7 +11,7 @@ export function getMainScene({ scenes }: { scenes: TScene[] }): TScene | null {
 export function ensureMainScene({ scenes }: { scenes: TScene[] }): TScene[] {
 	const hasMain = scenes.some((scene) => scene.isMain);
 	if (!hasMain) {
-		const mainScene = buildDefaultScene({ name: "Main scene", isMain: true });
+		const mainScene = buildDefaultScene({ name: "Cena principal", isMain: true });
 		return [mainScene, ...scenes];
 	}
 	return scenes;

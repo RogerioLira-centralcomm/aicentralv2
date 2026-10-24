@@ -291,11 +291,11 @@ function ColorPickerContent({
 			<header className="border-b flex justify-between items-center pb-2 px-2">
 				<Select defaultValue="custom">
 					<SelectTrigger variant="outline">
-						<SelectValue placeholder="Select a mode" />
+						<SelectValue placeholder="Escolha um modo" />
 					</SelectTrigger>
 					<SelectContent position="popper">
-						<SelectItem value="custom">Custom</SelectItem>
-						<SelectItem value="saved">Saved</SelectItem>
+						<SelectItem value="custom">Personalizado</SelectItem>
+						<SelectItem value="saved">Salvo</SelectItem>
 					</SelectContent>
 				</Select>
 				<div>

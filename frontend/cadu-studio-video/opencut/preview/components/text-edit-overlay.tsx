@@ -122,7 +122,7 @@ export function TextEditOverlay({
 				suppressContentEditableWarning
 				tabIndex={0}
 				role="textbox"
-				aria-label="Edit text"
+				aria-label="Editar texto"
 				className="cursor-text select-text outline-none whitespace-pre"
 				style={{
 					fontSize: resolvedTextLayout.scaledFontSize,

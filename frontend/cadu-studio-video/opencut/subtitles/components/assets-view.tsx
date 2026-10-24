@@ -104,7 +104,7 @@ export function Captions() {
 	};
 
 	const handleGenerateTranscript = async () => {
-		dispatch({ type: "start", step: "Extracting audio..." });
+		dispatch({ type: "start", step: "Extraindo o áudio…" });
 		try {
 			const audioBlob = await extractTimelineAudio({
 				tracks: editor.scenes.getActiveScene().tracks,
@@ -119,11 +119,11 @@ export function Captions() {
 				onStep: (step) => dispatch({ type: "update_step", step }),
 			});
 
-			dispatch({ type: "update_step", step: "Generating captions..." });
+			dispatch({ type: "update_step", step: "Criando legendas…" });
 			const captionChunks = buildCaptionChunks({ segments: result.segments });
 
 			if (!insertCaptions({ captions: captionChunks })) {
-				dispatch({ type: "fail", error: "No captions were generated" });
+				dispatch({ type: "fail", error: "Nenhuma legenda gerada" });
 				return;
 			}
 
@@ -164,7 +164,7 @@ export function Captions() {
 			dispatch({ type: "update_step", step: "Importing subtitles..." });
 
 			if (!insertCaptions({ captions: result.captions })) {
-				dispatch({ type: "fail", error: "No captions were generated" });
+				dispatch({ type: "fail", error: "Nenhuma legenda gerada" });
 				return;
 			}
 
@@ -220,7 +220,7 @@ export function Captions() {
 
 	return (
 		<PanelView
-			title="Captions"
+			title="Legendas"
 			contentClassName="px-0 flex flex-col h-full"
 			actions={
 				<TooltipProvider>
@@ -249,7 +249,7 @@ export function Captions() {
 							className="items-center justify-center gap-1.5"
 						>
 							<HugeiconsIcon icon={CloudUploadIcon} />
-							Import
+							Importar
 						</Button>
 					</div>
 				</TooltipProvider>
@@ -270,16 +270,16 @@ export function Captions() {
 			>
 				<SectionContent className="flex flex-col gap-4 h-full pt-1">
 					<SectionFields>
-						<SectionField label="Language">
+						<SectionField label="Idioma">
 							<Select
 								value={selectedLanguage}
 								onValueChange={(value) => handleLanguageChange({ value })}
 							>
 								<SelectTrigger>
-									<SelectValue placeholder="Select a language" />
+									<SelectValue placeholder="Escolha o idioma" />
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="auto">Auto detect</SelectItem>
+									<SelectItem value="auto">Detectar automaticamente</SelectItem>
 									{TRANSCRIPTION_LANGUAGES.map((language) => (
 										<SelectItem key={language.code} value={language.code}>
 											{language.name}
@@ -297,7 +297,7 @@ export function Captions() {
 						disabled={isProcessing || activeDiagnostics.length > 0}
 					>
 						{isProcessing && <Spinner className="mr-1" />}
-						{isProcessing ? processing.step : "Generate transcript"}
+						{isProcessing ? processing.step : "Gerar legendas"}
 					</Button>
 					{error && (
 						<div className="bg-destructive/10 border-destructive/20 rounded-md border p-3">

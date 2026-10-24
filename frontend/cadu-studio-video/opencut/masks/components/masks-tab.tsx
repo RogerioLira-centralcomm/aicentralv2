@@ -254,7 +254,7 @@ export function MasksTab({ element, trackId }: MasksTabProps) {
 	return (
 		<div className="flex flex-col h-full">
 			<div className="border-b px-3.5 h-11 shrink-0 flex items-center justify-between gap-2">
-				<SectionTitle>Masks</SectionTitle>
+				<SectionTitle>Máscaras</SectionTitle>
 				<DropdownMenu
 					open={hasMask ? false : isDropdownOpen}
 					onOpenChange={handleDropdownOpenChange}
@@ -267,7 +267,7 @@ export function MasksTab({ element, trackId }: MasksTabProps) {
 										variant="ghost"
 										size="icon"
 										disabled
-										aria-label="Add mask"
+										aria-label="Adicionar máscara"
 									>
 										<HugeiconsIcon icon={PlusSignIcon} className="size-3.5!" />
 									</Button>
@@ -280,7 +280,7 @@ export function MasksTab({ element, trackId }: MasksTabProps) {
 						</Tooltip>
 					) : (
 						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon" aria-label="Add mask">
+							<Button variant="ghost" size="icon" aria-label="Adicionar máscara">
 								<HugeiconsIcon icon={PlusSignIcon} className="size-3.5!" />
 							</Button>
 						</DropdownMenuTrigger>
@@ -432,7 +432,7 @@ function MaskParamsFields({
 			{definition.features.hasPosition &&
 				"centerX" in mask.params &&
 				"centerY" in mask.params && (
-					<SectionField label="Position">
+					<SectionField label="Posição">
 						<div className="flex items-center gap-2">
 							<MaskNumberField
 								className="flex-1"
@@ -469,7 +469,7 @@ function MaskParamsFields({
 			{definition.features.sizeMode === "width-height" &&
 				"width" in mask.params &&
 				"height" in mask.params && (
-					<SectionField label="Size">
+					<SectionField label="Tamanho">
 						<div className="flex items-center gap-2">
 							<MaskNumberField
 								className="flex-1"
@@ -505,7 +505,7 @@ function MaskParamsFields({
 
 			{definition.features.sizeMode === "height-only" &&
 				"height" in mask.params && (
-					<SectionField label="Height">
+					<SectionField label="Altura">
 						<MaskNumberField
 							icon="H"
 							param={getNumberParamDefinition({
@@ -524,7 +524,7 @@ function MaskParamsFields({
 
 			{definition.features.sizeMode === "width-only" &&
 				"width" in mask.params && (
-					<SectionField label="Width">
+					<SectionField label="Largura">
 						<MaskNumberField
 							icon="W"
 							param={getNumberParamDefinition({
@@ -542,7 +542,7 @@ function MaskParamsFields({
 				)}
 
 			{definition.features.sizeMode === "uniform" && "scale" in mask.params && (
-				<SectionField label="Scale">
+				<SectionField label="Escala">
 					<MaskNumberField
 						icon={
 							isTextMask(mask) ? <HugeiconsIcon icon={ArrowExpandIcon} /> : "S"
@@ -562,7 +562,7 @@ function MaskParamsFields({
 			)}
 
 			{definition.features.hasRotation && "rotation" in mask.params && (
-				<SectionField label="Rotation">
+				<SectionField label="Rotação">
 					<MaskNumberField
 						icon={<HugeiconsIcon icon={RotateClockwiseIcon} />}
 						param={getNumberParamDefinition({
@@ -579,7 +579,7 @@ function MaskParamsFields({
 				</SectionField>
 			)}
 
-			<SectionField label="Feather">
+			<SectionField label="Suavizar borda">
 				<MaskNumberField
 					icon={<HugeiconsIcon icon={FeatherIcon} />}
 					param={featherParam}
@@ -592,7 +592,7 @@ function MaskParamsFields({
 				/>
 			</SectionField>
 
-			<SectionField label="Stroke">
+			<SectionField label="Contorno">
 				<div className="flex flex-col gap-2">
 					<div className="flex items-center gap-2">
 						<MaskNumberField
@@ -644,7 +644,7 @@ function MaskParamsFields({
 
 const LETTER_SPACING_PARAM: NumberParamDefinition = {
 	key: "letterSpacing",
-	label: "Letter spacing",
+	label: "Espaçamento entre letras",
 	type: "number",
 	default: 0,
 	min: -100,
@@ -654,7 +654,7 @@ const LETTER_SPACING_PARAM: NumberParamDefinition = {
 
 const LINE_HEIGHT_PARAM: NumberParamDefinition = {
 	key: "lineHeight",
-	label: "Line height",
+	label: "Altura da linha",
 	type: "number",
 	default: 1.2,
 	min: 0.1,
@@ -685,7 +685,7 @@ function TextMaskFields({
 
 	return (
 		<>
-			<SectionField label="Content">
+			<SectionField label="Conteúdo">
 				<Textarea
 					value={content.displayValue}
 					className="min-h-20"
@@ -694,7 +694,7 @@ function TextMaskFields({
 					onBlur={content.onBlur}
 				/>
 			</SectionField>
-			<SectionField label="Font">
+			<SectionField label="Fonte">
 				<FontPicker
 					defaultValue={mask.params.fontFamily}
 					onValueChange={(value) => {
@@ -703,7 +703,7 @@ function TextMaskFields({
 					}}
 				/>
 			</SectionField>
-			<SectionField label="Size">
+			<SectionField label="Tamanho">
 				<MaskNumberField
 					icon={<HugeiconsIcon icon={TextFontIcon} />}
 					param={fontSizeParam}
@@ -712,7 +712,7 @@ function TextMaskFields({
 					onCommit={onCommit}
 				/>
 			</SectionField>
-			<SectionField label="Spacing">
+			<SectionField label="Espaçamento">
 				<div className="flex items-start gap-2">
 					<MaskNumberField
 						className="w-1/2"
@@ -839,13 +839,13 @@ function EmptyView({ onAddMask }: EmptyViewProps) {
 		<div className="flex flex-col h-full items-center justify-center gap-4 text-center">
 			<OcShapesIcon className="size-10 text-muted-foreground" strokeWidth={1} />
 			<div className="flex flex-col gap-2">
-				<h3 className="font-medium text-foreground">No masks</h3>
+				<h3 className="font-medium text-foreground">Sem máscaras</h3>
 				<p className="text-muted-foreground text-sm text-balance max-w-40">
-					Add a mask to hide or reveal parts of this layer.
+					Adicione uma máscara para esconder ou revelar partes desta camada.
 				</p>
 			</div>
 			<Button variant="default" size="sm" onClick={onAddMask}>
-				Add mask
+				Adicionar máscara
 			</Button>
 		</div>
 	);

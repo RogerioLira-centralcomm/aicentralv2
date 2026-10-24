@@ -1,3 +1,82 @@
 @import "../opencut/app/globals.css";
 @source "../opencut";
 @source "../cadu";
+
+/* Tema do Cadu Studio (só escuro): grafite, destaque verde da marca, seleção azul — mesmos tons da mesa do Studio. */
+:root.dark {
+  --background: #0b0c0f;
+  --foreground: #eceef2;
+  --card: #111318;
+  --card-foreground: #eceef2;
+  --popover: #15171c;
+  --popover-hover: #1d2027;
+  --popover-foreground: #eceef2;
+  --primary: #1dbf73;
+  --primary-foreground: #04140c;
+  --secondary: #0f2a1d;
+  --secondary-border: #17402c;
+  --secondary-foreground: #4fe0a0;
+  --muted: #2b2f37;
+  --muted-foreground: #9097a3;
+  --accent: #1a1d23;
+  --accent-foreground: #eceef2;
+  --destructive: #f04438;
+  --border: #22252c;
+  --input: #111318;
+  --ring: #4c8dff;
+  --sidebar: #0e1014;
+  --sidebar-background: #0e1014;
+  --sidebar-border: #22252c;
+}
+
+:root.dark .panel {
+  --background: #111318;
+  --foreground: #e3e6eb;
+  --card: #111318;
+  --card-foreground: #e3e6eb;
+  --secondary: #0f2a1d;
+  --secondary-border: #17402c;
+  --secondary-foreground: #4fe0a0;
+  --muted: #2b2f37;
+  --accent: #1a1d23;
+  --accent-foreground: #eceef2;
+  --border: #22252c;
+  --input: #1a1d23;
+  --ring: #4c8dff;
+}
+
+/* Barra de rolagem fina, no tom dos painéis, que acende ao passar o mouse. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2f343d transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2f343d;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #4a515d;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::selection {
+  background: rgb(76 141 255 / 0.35);
+}

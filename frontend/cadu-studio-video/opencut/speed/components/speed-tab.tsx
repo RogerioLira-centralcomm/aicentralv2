@@ -111,11 +111,11 @@ export function SpeedTab({
 	return (
 		<Section collapsible sectionKey={`${element.id}:speed`}>
 			<SectionHeader>
-				<SectionTitle>Speed</SectionTitle>
+				<SectionTitle>Velocidade</SectionTitle>
 			</SectionHeader>
 			<SectionContent>
 				<SectionFields>
-					<SectionField label="Speed">
+					<SectionField label="Velocidade">
 						<NumberField
 							icon={<HugeiconsIcon icon={DashboardSpeed02Icon} />}
 							value={speedDraft.displayValue}
@@ -140,7 +140,7 @@ export function SpeedTab({
 						/>
 					</SectionField>
 					<div className="flex items-center justify-between">
-						<span className="text-sm">Change pitch</span>
+						<span className="text-sm">Alterar tom</span>
 						<Switch
 							checked={!maintainPitch}
 							disabled={!isPitchPreserveAvailable}

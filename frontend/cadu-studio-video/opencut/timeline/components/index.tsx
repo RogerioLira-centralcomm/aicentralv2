@@ -843,7 +843,7 @@ function TimelineTrackRows({
 								invokeAction("paste-copied");
 							}}
 						>
-							Paste elements
+							Colar elementos
 						</ContextMenuItem>
 						<ContextMenuItem
 							icon={<HugeiconsIcon icon={VolumeHighIcon} />}
@@ -876,7 +876,7 @@ function TimelineTrackRows({
 								}}
 								variant="destructive"
 							>
-								Delete track
+								Excluir faixa
 							</ContextMenuItem>
 						)}
 					</ContextMenuContent>

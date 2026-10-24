@@ -138,7 +138,7 @@ export function BrowserExportButton() {
 
 	return (
 		<>
-			<Button size="sm" onClick={() => setOpen(true)} disabled={!project}>
+			<Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => setOpen(true)} disabled={!project}>
 				Exportar
 			</Button>
 			<Dialog open={open} onOpenChange={close}>

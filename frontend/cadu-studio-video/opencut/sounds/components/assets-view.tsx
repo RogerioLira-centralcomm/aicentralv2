@@ -42,7 +42,7 @@ export function SoundsView() {
 				<div className="px-3 pt-4 pb-0">
 					<TabsList>
 						<TabsTrigger value="sound-effects">Sound effects</TabsTrigger>
-						<TabsTrigger value="saved">Saved</TabsTrigger>
+						<TabsTrigger value="saved">Salvo</TabsTrigger>
 					</TabsList>
 				</div>
 				<Separator className="my-4" />
@@ -276,7 +276,7 @@ function SoundEffectsView() {
 							</div>
 						)}
 						{isSearching && searchQuery && (
-							<div className="text-muted-foreground text-sm">Searching...</div>
+							<div className="text-muted-foreground text-sm">Buscando…</div>
 						)}
 						{displayedSounds.map((sound) => (
 							<AudioItem
@@ -428,7 +428,7 @@ function SavedSoundsView() {
 							size="sm"
 							className="text-muted-foreground hover:text-destructive h-auto !opacity-100"
 						>
-							Clear all
+							Limpar tudo
 						</Button>
 					</DialogTrigger>
 					<DialogContent>
@@ -441,7 +441,7 @@ function SavedSoundsView() {
 						</DialogHeader>
 						<DialogFooter>
 							<Button variant="text" onClick={() => setShowClearDialog(false)}>
-								Cancel
+								Cancelar
 							</Button>
 							<Button
 								variant="destructive"
@@ -537,7 +537,7 @@ function AudioItem({ sound, isPlaying, onPlay }: AudioItemProps) {
 					size="icon"
 					className="text-muted-foreground hover:text-foreground w-auto !opacity-100"
 					onClick={handleAddToTimeline}
-					title="Add to timeline"
+					title="Adicionar à timeline"
 				>
 					<HugeiconsIcon icon={PlusSignIcon} />
 				</Button>

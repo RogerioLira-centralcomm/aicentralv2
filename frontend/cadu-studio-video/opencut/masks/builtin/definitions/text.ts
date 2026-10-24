@@ -59,7 +59,7 @@ const TEXT_MASK_PARAMS: ParamDefinition<keyof TextMaskParams & string>[] = [
 	},
 	{
 		key: "fontSize",
-		label: "Size",
+		label: "Tamanho",
 		type: "number",
 		default: 15,
 		min: MIN_FONT_SIZE,
@@ -68,7 +68,7 @@ const TEXT_MASK_PARAMS: ParamDefinition<keyof TextMaskParams & string>[] = [
 	},
 	{
 		key: "rotation",
-		label: "Rotation",
+		label: "Rotação",
 		type: "number",
 		default: 0,
 		min: 0,
@@ -77,7 +77,7 @@ const TEXT_MASK_PARAMS: ParamDefinition<keyof TextMaskParams & string>[] = [
 	},
 	{
 		key: "scale",
-		label: "Scale",
+		label: "Escala",
 		type: "number",
 		default: 1,
 		min: 1,

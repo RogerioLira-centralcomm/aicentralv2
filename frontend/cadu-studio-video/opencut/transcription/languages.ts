@@ -1,13 +1,13 @@
 export const LANGUAGES = [
-	{ code: "en", name: "English" },
-	{ code: "es", name: "Spanish" },
-	{ code: "it", name: "Italian" },
-	{ code: "fr", name: "French" },
-	{ code: "de", name: "German" },
-	{ code: "pt", name: "Portuguese" },
-	{ code: "ru", name: "Russian" },
-	{ code: "ja", name: "Japanese" },
-	{ code: "zh", name: "Chinese" },
+	{ code: "en", name: "Inglês" },
+	{ code: "es", name: "Espanhol" },
+	{ code: "it", name: "Italiano" },
+	{ code: "fr", name: "Francês" },
+	{ code: "de", name: "Alemão" },
+	{ code: "pt", name: "Português" },
+	{ code: "ru", name: "Russo" },
+	{ code: "ja", name: "Japonês" },
+	{ code: "zh", name: "Chinês" },
 ] as const;
 
 export type Language = (typeof LANGUAGES)[number];

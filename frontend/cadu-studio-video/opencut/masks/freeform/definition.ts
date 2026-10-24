@@ -61,7 +61,7 @@ const FREEFORM_PATH_MASK_PARAMS: ParamDefinition<keyof FreeformPathMaskParams & 
 	},
 	{
 		key: "rotation",
-		label: "Rotation",
+		label: "Rotação",
 		type: "number",
 		default: 0,
 		min: 0,
@@ -70,7 +70,7 @@ const FREEFORM_PATH_MASK_PARAMS: ParamDefinition<keyof FreeformPathMaskParams & 
 	},
 	{
 		key: "scale",
-		label: "Scale",
+		label: "Escala",
 		type: "number",
 		default: 1,
 		min: 1,

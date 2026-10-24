@@ -31,9 +31,9 @@ export function StoragePersistenceDialog() {
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="outline" onClick={onDismiss}>
-						Not now
+						Agora não
 					</Button>
-					<Button onClick={onConfirm}>Allow</Button>
+					<Button onClick={onConfirm}>Permitir</Button>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

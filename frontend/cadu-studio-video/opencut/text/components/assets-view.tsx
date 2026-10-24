@@ -24,12 +24,12 @@ export function TextView() {
 	};
 
 	return (
-		<PanelView title="Text">
+		<PanelView title="Texto">
 			<DraggableItem
 				name="Default text"
 				preview={
 					<div className="bg-accent flex size-full items-center justify-center rounded">
-						<span className="text-xs select-none">Default text</span>
+						<span className="text-xs select-none">Texto</span>
 					</div>
 				}
 				dragData={{

@@ -102,7 +102,7 @@ function ZoomSelect() {
 	const { isAtFit, zoomPercent, fitToScreen, setViewportPercent } =
 		usePreviewViewport();
 
-	const displayLabel = isAtFit ? "Fit" : `${zoomPercent}%`;
+	const displayLabel = isAtFit ? "Ajustar" : `${zoomPercent}%`;
 
 	const onValueChange = (value: string) => {
 		if (value === "fit") {
@@ -119,7 +119,7 @@ function ZoomSelect() {
 		>
 			<SelectTrigger className="tabular-nums">{displayLabel}</SelectTrigger>
 			<SelectContent>
-				<SelectItem value="fit">Fit</SelectItem>
+				<SelectItem value="fit">Ajustar</SelectItem>
 				<SelectSeparator />
 				{PREVIEW_ZOOM_PRESETS.map((preset) => (
 					<SelectItem key={preset} value={String(preset)}>

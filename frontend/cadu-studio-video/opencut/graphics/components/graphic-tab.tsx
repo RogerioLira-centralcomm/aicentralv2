@@ -166,7 +166,7 @@ function StrokeSection({
 					</Button>
 				}
 			>
-				<SectionTitle>Stroke</SectionTitle>
+				<SectionTitle>Contorno</SectionTitle>
 			</SectionHeader>
 			<SectionContent
 				className={cn(!isStrokeEnabled && "pointer-events-none opacity-50")}

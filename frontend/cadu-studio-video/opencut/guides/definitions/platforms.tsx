@@ -60,6 +60,6 @@ export const ytShortsGuide = platformGuide({
 });
 export const spotlightGuide = platformGuide({
 	id: "spotlight",
-	label: "Spotlight",
+	label: "Holofote",
 	domain: "snapchat.com",
 });

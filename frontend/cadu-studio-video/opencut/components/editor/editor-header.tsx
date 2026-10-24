@@ -79,7 +79,7 @@ function ProjectDropdown() {
 					name: newName.trim(),
 				});
 			} catch (error) {
-				toast.error("Failed to rename project", {
+				toast.error("Não foi possível renomear o projeto", {
 					description:
 						error instanceof Error ? error.message : "Please try again",
 				});
@@ -97,7 +97,7 @@ function ProjectDropdown() {
 				});
 				router.push("/projects");
 			} catch (error) {
-				toast.error("Failed to delete project", {
+				toast.error("Não foi possível excluir o projeto", {
 					description:
 						error instanceof Error ? error.message : "Please try again",
 				});
@@ -127,14 +127,14 @@ function ProjectDropdown() {
 						disabled={isExiting}
 						icon={<HugeiconsIcon icon={Logout05Icon} />}
 					>
-						Exit project
+						Sair do projeto
 					</DropdownMenuItem>
 
 					<DropdownMenuItem
 						onClick={() => setOpenDialog("shortcuts")}
 						icon={<HugeiconsIcon icon={CommandIcon} />}
 					>
-						Shortcuts
+						Atalhos
 					</DropdownMenuItem>
 
 					<DropdownMenuSeparator />
@@ -206,7 +206,7 @@ function EditableProjectName() {
 					name: newName,
 				});
 			} catch (error) {
-				toast.error("Failed to rename project", {
+				toast.error("Não foi possível renomear o projeto", {
 					description:
 						error instanceof Error ? error.message : "Please try again",
 				});

@@ -19,9 +19,9 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { TextIcon } from "@hugeicons/core-free-icons";
 
 const FONT_TABS = [
-	{ key: "all", label: "All fonts" },
-	{ key: "my-fonts", label: "My fonts" },
-	{ key: "favorites", label: "Favorites" },
+	{ key: "all", label: "Todas as fontes" },
+	{ key: "my-fonts", label: "Minhas fontes" },
+	{ key: "favorites", label: "Favoritos" },
 ] as const;
 
 type FontTab = (typeof FONT_TABS)[number]["key"];
@@ -146,16 +146,16 @@ export function FontPicker({
 				</div>
 				{status === "loading" && (
 					<div className="py-8 text-center text-sm text-muted-foreground">
-						Loading fonts...
+						Carregando fontes…
 					</div>
 				)}
 				{status === "error" && (
 					<div className="flex flex-col items-center gap-3 py-8 px-4">
 						<p className="text-sm text-muted-foreground text-center">
-							Failed to load font previews.
+							Não foi possível carregar as prévias das fontes.
 						</p>
 						<Button variant="outline" size="sm" onClick={handleRetry}>
-							Retry
+							Tentar de novo
 						</Button>
 					</div>
 				)}
@@ -163,7 +163,7 @@ export function FontPicker({
 					fontNames.length > 0 &&
 					filteredFonts.length === 0 && (
 						<div className="py-6 text-center text-sm text-muted-foreground">
-							No fonts found.
+							Nenhuma fonte encontrada.
 						</div>
 					)}
 				{status === "idle" && atlas && filteredFonts.length > 0 && (

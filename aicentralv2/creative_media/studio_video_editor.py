@@ -14,7 +14,7 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import current_app, make_response, render_template, request, send_file, session
+from flask import current_app, make_response, render_template, request, send_file, session, url_for
 
 from .http import studio_http as _http
 from .studio_auth import studio_or_admin_required_api
@@ -48,6 +48,7 @@ def register(bp):
     bp.add_url_rule(API + '/projects/<ident>/montage', view_func=montage, methods=['POST'])
     bp.add_url_rule(API + '/renders/<ident>/content', view_func=render_content)
     bp.add_url_rule(API + '/library', view_func=library)
+    bp.add_url_rule(API + '/brand', view_func=brand_kit)
     bp.add_url_rule(API + '/commands', view_func=command_catalog)
     bp.add_url_rule(API + '/extensions', view_func=extension_catalog)
 
@@ -473,6 +474,29 @@ def media_thumbnail(ident, asset_id):
 
 
 @studio_or_admin_required_api
+def brand_kit():
+    """Cores, fonte e logo da marca para os títulos prontos do editor; sem cadastro, cores neutras do Studio."""
+    from .studio import _storyboard_brand
+    execute, _, ok, service = _http()
+
+    def run():
+        client = request.args.get('client_id')
+        _scope(client)
+        try:
+            brand = _storyboard_brand(service(), client) or {}
+        except Exception:
+            current_app.logger.warning('Marca indisponível para o editor de vídeo', exc_info=True)
+            brand = {}
+        hex_or = lambda value, default: value if re.fullmatch(r'#[0-9a-fA-F]{6}', str(value or '')) else default
+        fonts = [str(font.get('family') or '') for font in brand.get('fonts') or [] if isinstance(font, dict) and font.get('family')]
+        return ok({'name': str(brand.get('name') or '')[:80], 'primary': hex_or(brand.get('primary_color'), '#1dbf73'),
+                   'secondary': hex_or(brand.get('secondary_color'), '#4c8dff'), 'font': fonts[0][:80] if fonts else '',
+                   'logo_url': brand.get('logo_url') if str(brand.get('logo_url') or '').startswith('/static/') else '',
+                   'configured': bool(brand)})
+    return execute(run)
+
+
+@studio_or_admin_required_api
 def library():
     """Biblioteca única da marca: enviados no editor ou no Studio, gerados e sons públicos."""
     execute, _, ok, service = _http()
@@ -490,7 +514,8 @@ def library():
             items.append({'ref': 'image:' + row['id'], 'kind': 'image', 'name': row.get('name'), 'source': 'Imagem enviada'})
         for path in sorted(root.glob('sound-*.json'), key=lambda p: p.stat().st_mtime, reverse=True):
             row = json.loads(path.read_text())
-            items.append({'ref': 'sound:' + row['id'], 'kind': 'audio', 'name': row.get('name'), 'duration': row.get('duration'), 'source': 'Áudio da marca'})
+            items.append({'ref': 'sound:' + row['id'], 'kind': 'audio', 'name': row.get('name'), 'duration': row.get('duration'), 'source': 'Áudio da marca',
+                          'preview_url': row.get('url'), 'category': row.get('category') or 'music'})
         try:
             generated = service().load_format_lab_swap_library({'client_id': client, 'media': 'video'}, session.get('user_id'))
             for row in (generated or {}).get('items', [])[:60]:
@@ -501,7 +526,8 @@ def library():
             current_app.logger.warning('Vídeos gerados indisponíveis na biblioteca do editor', exc_info=True)
         from .studio_media import public_sounds
         items.extend({'ref': 'public-sound:' + row['id'], 'kind': 'audio', 'name': row.get('name'), 'duration': row.get('duration'),
-                      'source': 'Efeito sonoro (CC0)'} for row in public_sounds()[1])
+                      'source': 'Efeito sonoro (CC0)', 'category': row.get('category') or 'effect',
+                      'preview_url': url_for('static', filename=f'audio/studio/{row["filename"]}')} for row in public_sounds()[1])
         return ok({'items': items})
     return execute(run)
 

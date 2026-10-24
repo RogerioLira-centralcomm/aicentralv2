@@ -32,7 +32,7 @@ export function PreviewContextMenu({
 		const result = await editor.renderer.copySnapshot();
 
 		if (!result.success) {
-			toast.error("Failed to copy snapshot", {
+			toast.error("Não foi possível copiar o quadro", {
 				description: result.error ?? "Please try again",
 			});
 			return;
@@ -43,7 +43,7 @@ export function PreviewContextMenu({
 		const result = await editor.renderer.saveSnapshot();
 
 		if (!result.success) {
-			toast.error("Failed to save snapshot", {
+			toast.error("Não foi possível salvar o quadro", {
 				description: result.error ?? "Please try again",
 			});
 			return;
@@ -53,17 +53,17 @@ export function PreviewContextMenu({
 	return (
 		<ContextMenuContent className="w-56" container={container}>
 			<ContextMenuItem onClick={viewport.fitToScreen} inset>
-				Fit to screen
+				Ajustar à tela
 			</ContextMenuItem>
 			<ContextMenuSeparator />
 			<ContextMenuItem onClick={onToggleFullscreen} inset>
-				Full screen
+				Tela cheia
 			</ContextMenuItem>
 			<ContextMenuItem onClick={handleSaveSnapshot} inset>
-				Save snapshot
+				Salvar quadro
 			</ContextMenuItem>
 			<ContextMenuItem onClick={handleCopySnapshot} inset>
-				Copy snapshot
+				Copiar quadro
 			</ContextMenuItem>
 			{overlayControls.length > 0 ? <ContextMenuSeparator /> : null}
 			{overlayControls.map((overlayControl) => (

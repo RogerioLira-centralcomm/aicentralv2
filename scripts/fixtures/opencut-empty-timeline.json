@@ -9,7 +9,7 @@
  "scenes": [
   {
    "id": "ad17881f-8d1a-41b0-af7f-9dae10c98bd0",
-   "name": "Main scene",
+   "name": "Cena principal",
    "isMain": true,
    "tracks": {
     "overlay": [],

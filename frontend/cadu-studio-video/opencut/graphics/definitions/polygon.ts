@@ -20,20 +20,20 @@ interface PolygonParams {
 const POLYGON_PARAMS: ParamDefinition<keyof PolygonParams & string>[] = [
 	{
 		key: "fill",
-		label: "Fill",
+		label: "Preencher",
 		type: "color",
 		default: "#ffffff",
 	},
 	{
 		key: "stroke",
-		label: "Color",
+		label: "Cor",
 		type: "color",
 		default: "#000000",
 		group: "stroke",
 	},
 	{
 		key: "strokeWidth",
-		label: "Width",
+		label: "Largura",
 		type: "number",
 		default: 0,
 		min: 0,
@@ -45,7 +45,7 @@ const POLYGON_PARAMS: ParamDefinition<keyof PolygonParams & string>[] = [
 	STROKE_ALIGN_PARAM,
 	{
 		key: "sides",
-		label: "Sides",
+		label: "Lados",
 		type: "number",
 		default: 5,
 		min: 3,
@@ -55,7 +55,7 @@ const POLYGON_PARAMS: ParamDefinition<keyof PolygonParams & string>[] = [
 	},
 	{
 		key: "cornerRadius",
-		label: "Corner radius",
+		label: "Arredondamento",
 		type: "number",
 		default: 0,
 		min: 0,

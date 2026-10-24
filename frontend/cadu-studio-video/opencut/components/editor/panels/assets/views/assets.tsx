@@ -80,7 +80,7 @@ export function MediaView() {
 	const processFiles = async ({ files }: { files: File[] }) => {
 		if (!files || files.length === 0) return;
 		if (!activeProject) {
-			toast.error("No active project");
+			toast.error("Nenhum projeto aberto");
 			return;
 		}
 
@@ -192,7 +192,7 @@ export function MediaView() {
 			<input {...fileInputProps} />
 
 			<PanelView
-				title="Assets"
+				title="Mídias"
 				actions={
 					<MediaActions
 						mediaViewMode={mediaViewMode}
@@ -271,9 +271,16 @@ function MediaAssetDraggable({
 			duration,
 			startTime,
 		});
+		if (asset.type === "audio") {
+			editor.timeline.insertElement({ element, placement: { mode: "auto", trackType: "audio" } });
+			return;
+		}
+		// Cadu: como no CapCut, o "+" de vídeo ou imagem entra no fim da faixa principal, não numa camada nova.
+		const main = editor.scenes.getActiveScene().tracks.main;
+		const end = main.elements.reduce((last, item) => Math.max(last, item.startTime + item.duration), 0);
 		editor.timeline.insertElement({
-			element,
-			placement: { mode: "auto" },
+			element: { ...element, startTime: end as MediaTime },
+			placement: { mode: "explicit", trackId: main.id },
 		});
 	};
 
@@ -324,7 +331,7 @@ function MediaItemWithContextMenu({
 		<ContextMenu>
 			<ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
 			<ContextMenuContent>
-				<ContextMenuItem>Export clips</ContextMenuItem>
+				<ContextMenuItem>Exportar clipes</ContextMenuItem>
 				<ContextMenuItem
 					variant="destructive"
 					onClick={(event: React.MouseEvent<HTMLDivElement>) =>
@@ -482,7 +489,7 @@ function MediaPreview({
 		return (
 			<MediaTypePlaceholder
 				icon={Video01Icon}
-				label="Video"
+				label="Vídeo"
 				duration={item.duration}
 				variant="muted"
 			/>
@@ -493,7 +500,7 @@ function MediaPreview({
 		return (
 			<MediaTypePlaceholder
 				icon={MusicNote03Icon}
-				label="Audio"
+				label="Áudio"
 				duration={item.duration}
 				variant="bordered"
 			/>
@@ -501,7 +508,7 @@ function MediaPreview({
 	}
 
 	return (
-		<MediaTypePlaceholder icon={Image02Icon} label="Unknown" variant="muted" />
+		<MediaTypePlaceholder icon={Image02Icon} label="Desconhecido" variant="muted" />
 	);
 }
 
@@ -567,28 +574,28 @@ function MediaActions({
 						</TooltipTrigger>
 						<DropdownMenuContent align="end">
 							<SortMenuItem
-								label="Name"
+								label="Nome"
 								sortKey="name"
 								currentSortBy={sortBy}
 								currentSortOrder={sortOrder}
 								onSort={onSort}
 							/>
 							<SortMenuItem
-								label="Type"
+								label="Tipo"
 								sortKey="type"
 								currentSortBy={sortBy}
 								currentSortOrder={sortOrder}
 								onSort={onSort}
 							/>
 							<SortMenuItem
-								label="Duration"
+								label="Duração"
 								sortKey="duration"
 								currentSortBy={sortBy}
 								currentSortOrder={sortOrder}
 								onSort={onSort}
 							/>
 							<SortMenuItem
-								label="File size"
+								label="Tamanho do arquivo"
 								sortKey="size"
 								currentSortBy={sortBy}
 								currentSortOrder={sortOrder}
@@ -612,7 +619,7 @@ function MediaActions({
 				className="items-center justify-center gap-1.5"
 			>
 				<HugeiconsIcon icon={CloudUploadIcon} />
-				Import
+				Importar
 			</Button>
 		</div>
 	);

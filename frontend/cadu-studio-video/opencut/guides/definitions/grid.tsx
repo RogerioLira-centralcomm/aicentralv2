@@ -117,7 +117,7 @@ function GridGuideOptions() {
 
 export const gridGuide = {
 	id: "grid",
-	label: "Grid",
+	label: "Grade",
 	renderPreview: () => <GridGuidePreview />,
 	renderTriggerIcon: () => <HugeiconsIcon icon={GridTableIcon} />,
 	renderOverlay: () => <GridGuideOverlay />,

@@ -80,7 +80,7 @@ export function ExportButton() {
 				>
 					<div className="relative flex items-center gap-1.5 rounded-[0.6rem] bg-linear-270 from-[#2567EC] to-[#37B6F7] px-4 py-1 shadow-[0_1px_3px_0px_rgba(0,0,0,0.65)]">
 						<HugeiconsIcon icon={TransitionTopIcon} className="z-50 size-3.5" />
-						<span className="z-50 text-[0.875rem]">Export</span>
+						<span className="z-50 text-[0.875rem]">Exportar</span>
 						<div className="absolute top-0 left-0 z-10 flex size-full items-center justify-center rounded-[0.6rem] bg-linear-to-t from-white/0 to-white/50">
 							<div className="absolute top-[0.08rem] z-50 h-[calc(100%-2px)] w-[calc(100%-2px)] rounded-[0.6rem] bg-linear-270 from-[#2567EC] to-[#37B6F7]"></div>
 						</div>
@@ -169,7 +169,7 @@ function ExportPopover({
 										showTopBorder={false}
 									>
 										<SectionHeader>
-											<SectionTitle>Format</SectionTitle>
+											<SectionTitle>Formato</SectionTitle>
 										</SectionHeader>
 										<SectionContent>
 											<RadioGroup
@@ -183,13 +183,13 @@ function ExportPopover({
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="mp4" id="mp4" />
 													<Label htmlFor="mp4">
-														MP4 (H.264) - Better compatibility
+														MP4 (H.264), mais compatível
 													</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="webm" id="webm" />
 													<Label htmlFor="webm">
-														WebM (VP9) - Smaller file size
+														WebM (VP9), arquivo menor
 													</Label>
 												</div>
 											</RadioGroup>
@@ -198,7 +198,7 @@ function ExportPopover({
 
 									<Section collapsible defaultOpen={false}>
 										<SectionHeader>
-											<SectionTitle>Quality</SectionTitle>
+											<SectionTitle>Qualidade</SectionTitle>
 										</SectionHeader>
 										<SectionContent>
 											<RadioGroup
@@ -211,20 +211,20 @@ function ExportPopover({
 											>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="low" id="low" />
-													<Label htmlFor="low">Low - Smallest file size</Label>
+													<Label htmlFor="low">Baixa (arquivo menor)</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="medium" id="medium" />
-													<Label htmlFor="medium">Medium - Balanced</Label>
+													<Label htmlFor="medium">Média (equilibrada)</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="high" id="high" />
-													<Label htmlFor="high">High - Recommended</Label>
+													<Label htmlFor="high">Alta (recomendada)</Label>
 												</div>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem value="very_high" id="very_high" />
 													<Label htmlFor="very_high">
-														Very high - Largest file size
+														Máxima (arquivo maior)
 													</Label>
 												</div>
 											</RadioGroup>
@@ -233,7 +233,7 @@ function ExportPopover({
 
 									<Section collapsible defaultOpen={false}>
 										<SectionHeader>
-											<SectionTitle>Audio</SectionTitle>
+											<SectionTitle>Áudio</SectionTitle>
 										</SectionHeader>
 										<SectionContent>
 											<div className="flex items-center space-x-2">
@@ -245,7 +245,7 @@ function ExportPopover({
 													}
 												/>
 												<Label htmlFor="include-audio">
-													Include audio in export
+													Incluir áudio na exportação
 												</Label>
 											</div>
 										</SectionContent>
@@ -255,7 +255,7 @@ function ExportPopover({
 								<div className="p-3 pt-0">
 									<Button onClick={handleExport} className="w-full gap-2">
 										<Download className="size-4" />
-										Export
+										Exportar
 									</Button>
 								</div>
 							</>
@@ -278,7 +278,7 @@ function ExportPopover({
 									className="w-full rounded-md"
 									onClick={handleCancel}
 								>
-									Cancel
+									Cancelar
 								</Button>
 							</div>
 						)}
@@ -307,7 +307,7 @@ function ExportError({
 	return (
 		<div className="space-y-4 p-3">
 			<div className="flex flex-col gap-1.5">
-				<p className="text-destructive text-sm font-medium">Export failed</p>
+				<p className="text-destructive text-sm font-medium">A exportação falhou</p>
 				<p className="text-muted-foreground text-xs">{error}</p>
 			</div>
 
@@ -328,7 +328,7 @@ function ExportError({
 					onClick={onRetry}
 				>
 					<RotateCcw />
-					Retry
+					Tentar de novo
 				</Button>
 			</div>
 		</div>

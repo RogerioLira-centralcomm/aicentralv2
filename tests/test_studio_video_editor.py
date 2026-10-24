@@ -109,6 +109,28 @@ class CommandsTest(unittest.TestCase):
                               ('https://evil.com', '/studio'), (None, '/studio')):
             self.assertEqual(editor._local_path(raw), expected)
 
+    def test_vertical_text_fits_and_finishing_commands(self):
+        result, out = editor.apply_commands(timeline('p1'), [
+            {'op': 'set_canvas', 'args': {'width': 1080, 'height': 1920, 'background': '#3a0b3d'}},
+            {'op': 'add_media', 'args': {'asset_id': 'img', 'duration': 2, 'scale': 1.5, 'motion': 'zoom_in'}},
+            {'op': 'add_text', 'args': {'text': 'Gestão em qualquer tela', 'size': 8, 'bold': True}},
+            {'op': 'animate', 'args': {'element_id': '@last', 'property': 'opacity', 'keyframes': [{'at': 0, 'value': 0}, {'at': .3, 'value': 1}]}},
+        ], self.links)
+        self.assertEqual(result['settings']['canvasSize'], {'width': 1080, 'height': 1920})
+        image = result['scenes'][0]['tracks']['main']['elements'][0]
+        scale = image['animations']['transform.scaleX']['keys']
+        self.assertEqual([(k['time'], k['value']) for k in scale], [(0, 1.5), (2 * TICKS, 1.5 * 1.08)])
+        text = result['scenes'][0]['tracks']['overlay'][0]['elements'][0]
+        longest = max(len(line) for line in text['params']['content'].split('\n'))
+        pixels = text['params']['fontSize'] * 1920 / editor.FONT_SIZE_REFERENCE
+        self.assertLessEqual(longest * .6 * pixels, 1080 * .88 + 1, 'o texto cabe na largura do quadro vertical')
+        self.assertEqual([k['value'] for k in text['animations']['opacity']['keys']], [0, 1])
+        for bad in ({'op': 'set_canvas', 'args': {'width': 1081, 'height': 1920}},
+                    {'op': 'animate', 'args': {'element_id': text['id'], 'property': 'mediaId', 'keyframes': [{'at': 0, 'value': 0}, {'at': 1, 'value': 1}]}}):
+            with self.subTest(op=bad['op']), self.assertRaises(ValueError):
+                editor.apply_commands(result, [bad], self.links)
+        self.assertEqual(editor.fit_text('Gestão em qualquer tela', 8, 1920, 1080, True), ('Gestão em qualquer tela', 8.0), 'no horizontal cabe sem mexer')
+
     def test_timeline_contract(self):
         self.assertEqual(editor.validate_timeline(timeline('p1'), 'p1')['metadata']['id'], 'p1')
         for broken in (timeline('outro'), {**timeline('p1'), 'scenes': []}, [], {**timeline('p1'), 'scenes': [{'tracks': {}}]}):
@@ -243,6 +265,18 @@ class EditorApiTest(unittest.TestCase):
         self.assertEqual((task['kind'], task['work']['revision']), ('opencut_render', saved['revision']))
         self.assertEqual([item['id'] for item in task['work']['media']], [asset], 'só as mídias usadas na timeline vão para o worker')
         self.assertEqual(self.client.get(f'{BASE}/renders/{queued.json["data"]["id"]}/content?client_id=31').status_code, 400, 'render não pronto')
+
+    def test_delivery_loudness(self):
+        loud = self.root / 'loud.mp4'
+        fixtures.subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(self.voiced), '-af', 'volume=12dB', '-c:v', 'copy', '-c:a', 'aac', str(loud)],
+                                check=True, capture_output=True)
+        before = editor.normalize_loudness(loud)
+        self.assertTrue(before['changed'])
+        after = editor.normalize_loudness(loud)
+        self.assertFalse(after['changed'], after)
+        self.assertLessEqual(abs(after['lufs'] - editor.DELIVERY_LUFS), 1)
+        self.assertLessEqual(after['true_peak'], editor.DELIVERY_TRUE_PEAK + .1)
+        self.assertIsNone(editor.normalize_loudness(self.silent), 'vídeo sem áudio fica como está')
 
     def test_timeline_audio_transcription_task(self):
         ident = self.create()

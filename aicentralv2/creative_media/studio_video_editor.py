@@ -490,15 +490,41 @@ def _number(args, key, default, low, high):
     return max(low, min(high, value))
 
 
+FONT_SIZE_REFERENCE = 90  # OpenCut: pixels da fonte = fontSize × altura do quadro / 90
+_CHAR_WIDTH = {True: .60, False: .55}  # largura média de um caractere em fração do tamanho (Arial)
+
+
+def fit_text(text, size, width, height, bold):
+    """Quebra e reduz o texto para caber em 88% da largura do quadro.
+
+    O OpenCut não quebra linha sozinho e mede a fonte pela altura do quadro: num vertical, o mesmo tamanho
+    fica bem mais largo. Abaixo de 3% da altura o texto fica ilegível no celular; aí a linha é quebrada.
+    """
+    import textwrap
+    usable = width * .88
+    char = _CHAR_WIDTH[bold]
+    pixels = size * height / FONT_SIZE_REFERENCE
+    minimum = max(height * .03, 24.0)
+    lines = []
+    for line in text.split('\n'):
+        per_line = max(6, int(usable / (char * max(pixels, minimum))))
+        lines.extend(textwrap.wrap(line, per_line, break_long_words=True) or [''])
+    longest = max((len(line) for line in lines), default=1) or 1
+    pixels = min(pixels, usable / (char * longest))
+    return '\n'.join(lines), round(max(pixels, 1) * FONT_SIZE_REFERENCE / height, 2)
+
+
 def _text_params(timeline, args):
     width, height = _canvas(timeline)
     color = str(args.get('color') or '#ffffff')
     if not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
         raise ValueError('Cor inválida.')
     background = str(args.get('background') or '')
+    content, font_size = fit_text(str(args.get('text') or '').strip()[:500] or 'Texto', _number(args, 'size', 15, 1, 60),
+                                  width, height, bool(args.get('bold')))
     params = {
-        'content': str(args.get('text') or '').strip()[:500] or 'Texto',
-        'fontSize': _number(args, 'size', 15, 4, 60),
+        'content': content,
+        'fontSize': font_size,
         'fontFamily': str(args.get('font') or 'Arial')[:80], 'color': color, 'textAlign': 'center',
         'fontWeight': 'bold' if args.get('bold') else 'normal', 'fontStyle': 'normal', 'textDecoration': 'none',
         'letterSpacing': 0, 'lineHeight': 1.2,
@@ -567,6 +593,12 @@ def cmd_add_media(timeline, args, links):
             track = scene['tracks']['main']
     end = max((e['startTime'] + e['duration'] for e in track['elements']), default=0)
     element['startTime'] = _ticks(args['start']) if args.get('start') is not None else end
+    if kind != 'audio':
+        scale = _number(args, 'scale', 1, .1, 10)
+        element['params'].update({'transform.scaleX': scale, 'transform.scaleY': scale})
+        _apply_motion(element, args.get('motion'), scale)
+    else:
+        element['params']['volume'] = _number(args, 'volume', 0, -60, 12)
     track['elements'].append(element)
     track['elements'].sort(key=lambda e: e['startTime'])
     return {'element_id': element['id'], 'track_id': track['id']}
@@ -634,14 +666,69 @@ def cmd_set_params(timeline, args, links):
     return {'element_id': element['id']}
 
 
+def cmd_set_canvas(timeline, args, links):
+    """Formato do projeto (ex.: 1080×1920 para Reels) e cor de fundo."""
+    width, height = int(_number(args, 'width', 1920, 240, 4096)), int(_number(args, 'height', 1080, 240, 4096))
+    if width % 2 or height % 2:
+        raise ValueError('Largura e altura precisam ser pares (H.264).')
+    settings = timeline.setdefault('settings', {})
+    settings['canvasSize'] = {'width': width, 'height': height}
+    settings['canvasSizeMode'] = 'custom'
+    settings['lastCustomCanvasSize'] = {'width': width, 'height': height}
+    background = str(args.get('background') or '')
+    if background:
+        if not re.fullmatch(r'#[0-9a-fA-F]{6}', background):
+            raise ValueError('Cor de fundo inválida.')
+        settings['background'] = {'type': 'color', 'color': background}
+    return {'canvas': f'{width}x{height}'}
+
+
+ANIMATABLE = {'transform.positionX', 'transform.positionY', 'transform.scaleX', 'transform.scaleY', 'transform.rotate', 'opacity', 'volume'}
+
+
+def _keyframes(element, prop, points, ease):
+    """Grava um canal de keyframes no formato do OpenCut (tempo relativo ao início do elemento)."""
+    keys = []
+    for at, value in sorted(points, key=lambda point: point[0]):
+        keys.append({'id': _new_id(), 'time': max(0, min(element['duration'], round(at * TICKS))), 'value': value,
+                     'segmentToNext': 'bezier' if ease == 'ease' else 'linear', 'tangentMode': 'auto' if ease == 'ease' else 'flat'})
+    element.setdefault('animations', {})[prop] = {'keys': keys}
+
+
+def cmd_animate(timeline, args, links):
+    scene = _scene(timeline)
+    _, _, element = _find(scene, args.get('element_id'))
+    prop = args.get('property')
+    if prop not in ANIMATABLE:
+        raise ValueError(f'Propriedade não animável: {prop}.')
+    raw = args.get('keyframes') if isinstance(args.get('keyframes'), list) else []
+    if not 2 <= len(raw) <= 60:
+        raise ValueError('Envie de 2 a 60 keyframes.')
+    points = [(_number(row, 'at', 0, 0, 3600), _number(row, 'value', 0, -100000, 100000)) for row in raw if isinstance(row, dict)]
+    _keyframes(element, prop, points, 'ease' if args.get('ease') == 'ease' else 'linear')
+    return {'element_id': element['id']}
+
+
+def _apply_motion(element, motion, base_scale=1.0):
+    """Zoom lento em imagem ou vídeo (Ken Burns): evita quadro parado e dá ritmo à montagem."""
+    if motion not in {'zoom_in', 'zoom_out'}:
+        return
+    seconds = element['duration'] / TICKS
+    start, end = (base_scale, base_scale * 1.08) if motion == 'zoom_in' else (base_scale * 1.08, base_scale)
+    for prop in ('transform.scaleX', 'transform.scaleY'):
+        _keyframes(element, prop, [(0, start), (seconds, end)], 'linear')
+
+
 COMMANDS = {
+    'set_canvas': (cmd_set_canvas, 'Formato do projeto e fundo (width, height, background #rrggbb).'),
     'add_text': (cmd_add_text, 'Adiciona um texto (text, start, duration, x, y, size, color, background, bold).'),
-    'add_media': (cmd_add_media, 'Coloca uma mídia do projeto na timeline (asset_id, track main|overlay, start, duration).'),
+    'add_media': (cmd_add_media, 'Coloca uma mídia do projeto na timeline (asset_id, track main|overlay, start, duration, scale, motion zoom_in|zoom_out).'),
     'split': (cmd_split, 'Divide um elemento num instante (element_id, at).'),
     'delete': (cmd_delete, 'Remove um elemento (element_id, ripple).'),
     'move': (cmd_move, 'Move um elemento no tempo (element_id, start).'),
     'trim': (cmd_trim, 'Corta início/fim da fonte (element_id, trim_start, trim_end).'),
     'set_params': (cmd_set_params, 'Altera propriedades permitidas (element_id, params).'),
+    'animate': (cmd_animate, 'Keyframes de escala, posição, rotação, opacidade ou volume (element_id, property, keyframes[{at, value}], ease linear|ease).'),
 }
 
 
@@ -659,8 +746,11 @@ def apply_commands(timeline, commands, links):
             raise ValueError(f'Comando desconhecido: {name}.')
         args = dict(command.get('args') or {})
         if args.get('track_id') == '@previous':
-            # Lote de comandos na mesma faixa criada pelo comando anterior (ex.: todas as legendas).
-            args['track_id'] = outputs[-1].get('track_id') if outputs else None
+            # Lote de comandos na mesma faixa criada antes (ex.: todas as legendas).
+            args['track_id'] = next((out['track_id'] for out in reversed(outputs) if out.get('track_id')), None)
+        if args.get('element_id') == '@last':
+            # Ajuste no elemento que o comando anterior criou (ex.: animar o texto recém-inserido).
+            args['element_id'] = next((out['element_id'] for out in reversed(outputs) if out.get('element_id')), None)
         outputs.append(COMMANDS[name][0](result, args, links))
     _refresh_duration(result)
     return result, outputs
@@ -788,6 +878,8 @@ def upload_export(ident):
             if 'mp4' in container and streams.get('video') == 'h264' and streams.get('audio') in (None, 'aac'):
                 dest = root / f'{ident_file}.mp4'
                 source.replace(dest)
+                if 'audio' in streams:
+                    normalize_loudness(dest)  # entrega no volume das redes, como o render do servidor
                 from .studio_media import inspect_clip
                 meta = inspect_clip(dest, root, client, 'upload:' + ident_file) if duration <= 300 else {
                     'duration': duration, 'has_audio': 'audio' in streams, 'frames': [{'url': ''}]}
@@ -884,7 +976,8 @@ def submit_render(ident):
             raise ValueError('A timeline está vazia: adicione mídia ou texto antes de renderizar.')
         data = body() or {}
         options = {'format': 'webm' if data.get('format') == 'webm' else 'mp4',
-                   'quality': data.get('quality') if data.get('quality') in {'low', 'medium', 'high', 'very_high'} else 'high',
+                   # very_high: em 1080p fica acima de 5 Mb/s mesmo no codificador por hardware (teste profissional).
+                   'quality': data.get('quality') if data.get('quality') in {'low', 'medium', 'high', 'very_high'} else 'very_high',
                    'includeAudio': data.get('include_audio') is not False}
         links = read_links(root, ident)
         used = {e.get('mediaId') for scene in timeline['scenes'] for track in _all_tracks(scene) for e in track['elements'] if e.get('mediaId')}
@@ -901,6 +994,34 @@ def submit_render(ident):
         _enqueue(root, row)
         return ok({'id': task, 'status': 'queued', 'revision': revision})
     return execute(run)
+
+
+DELIVERY_LUFS, DELIVERY_TRUE_PEAK = -14.0, -1.0  # padrão de Instagram, TikTok e YouTube
+
+
+def normalize_loudness(path, timeout=600):
+    """Leva o áudio da entrega a −14 LUFS e pico ≤ −1 dBTP (duas passadas do loudnorm); o vídeo é copiado.
+
+    Não faz nada se o arquivo não tem áudio ou já está dentro de ±1 LU e do pico. Devolve as medições.
+    """
+    measured = subprocess.run(['ffmpeg', '-nostats', '-i', str(path), '-vn', '-af',
+                               f'loudnorm=I={DELIVERY_LUFS}:TP={DELIVERY_TRUE_PEAK}:LRA=11:print_format=json', '-f', 'null', '-'],
+                              capture_output=True, text=True, timeout=timeout)
+    found = re.search(r'\{[^{}]*"input_i"[^{}]*\}', measured.stderr)
+    if not found:
+        return None
+    stats = json.loads(found.group(0))
+    loudness, peak = float(stats['input_i']), float(stats['input_tp'])
+    if loudness < -70 or (abs(loudness - DELIVERY_LUFS) <= 1 and peak <= DELIVERY_TRUE_PEAK):
+        return {'lufs': loudness, 'true_peak': peak, 'changed': False}
+    target = path.with_name(f'{path.stem}.loudnorm{path.suffix}')
+    filters = (f'loudnorm=I={DELIVERY_LUFS}:TP={DELIVERY_TRUE_PEAK}:LRA=11:measured_I={stats["input_i"]}:measured_TP={stats["input_tp"]}:'
+               f'measured_LRA={stats["input_lra"]}:measured_thresh={stats["input_thresh"]}:offset={stats["target_offset"]}:linear=true,'
+               'aresample=48000')
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(path), '-map', '0', '-c:v', 'copy', '-af', filters, '-c:a', 'aac', '-b:a', '192k',
+                    '-shortest', '-movflags', '+faststart', str(target)], check=True, capture_output=True, timeout=timeout)
+    target.replace(path)
+    return {'lufs': loudness, 'true_peak': peak, 'changed': True}
 
 
 def _run_render(command, cwd, timeout):
@@ -958,7 +1079,8 @@ def render_project(work, dest, timeout=900):
     duration, streams = probe(dest)
     if 'video' not in streams:
         raise ValueError('O render não produziu vídeo.')
-    return {'duration': duration, 'has_audio': 'audio' in streams}
+    loudness = normalize_loudness(dest) if 'audio' in streams and work['options']['format'] == 'mp4' else None
+    return {'duration': duration, 'has_audio': 'audio' in streams, 'loudness': loudness}
 
 
 @studio_or_admin_required_api

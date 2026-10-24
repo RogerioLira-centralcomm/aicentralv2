@@ -19,10 +19,11 @@ type Step =
 	| { kind: "done"; name: string; savedAs: string }
 	| { kind: "error"; message: string };
 
+// "Alta" usa very_high: em 1080p fica acima de 5 Mb/s mesmo no codificador por hardware do navegador.
 const QUALITIES: { value: ExportQuality; label: string }[] = [
-	{ value: "high", label: "Alta" },
-	{ value: "medium", label: "Média (arquivo menor)" },
-	{ value: "very_high", label: "Máxima" },
+	{ value: "very_high", label: "Alta (recomendada para redes)" },
+	{ value: "high", label: "Média (arquivo menor)" },
+	{ value: "medium", label: "Rascunho" },
 ];
 
 async function pickFormat(width: number, height: number): Promise<ExportFormat> {
@@ -78,7 +79,7 @@ export function BrowserExportButton() {
 	const editor = useEditor();
 	const project = useEditor((e) => e.project.getActiveOrNull());
 	const [open, setOpen] = useState(false);
-	const [quality, setQuality] = useState<ExportQuality>("high");
+	const [quality, setQuality] = useState<ExportQuality>("very_high");
 	const [step, setStep] = useState<Step>({ kind: "idle" });
 	const result = useRef<{ blob: Blob; name: string } | null>(null);
 	const busy = step.kind === "exporting" || step.kind === "uploading" || step.kind === "converting";

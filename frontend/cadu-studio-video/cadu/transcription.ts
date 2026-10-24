@@ -28,7 +28,9 @@ export async function transcribeOnServer({
 		method: "POST",
 		body: form,
 	});
+	const deadline = Date.now() + 30 * 60 * 1000;
 	for (;;) {
+		if (Date.now() > deadline) throw new Error("A transcrição passou de 30 minutos. Tente de novo mais tarde.");
 		await new Promise((resolve) => setTimeout(resolve, 1500));
 		const response = await fetch(`${apiRoot}/format-lab/studio/tasks/${created.id}?client_id=${clientId}`, { credentials: "same-origin" });
 		const payload = await response.json();

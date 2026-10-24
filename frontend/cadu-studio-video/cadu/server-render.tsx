@@ -25,8 +25,13 @@ export function ServerRenderButton() {
 
 	useEffect(() => () => void (timer.current && window.clearTimeout(timer.current)), []);
 
-	const poll = (id: string) => {
+	const poll = (id: string, deadline = Date.now() + 45 * 60 * 1000) => {
 		timer.current = window.setTimeout(async () => {
+			if (Date.now() > deadline) {
+				toast.error("Render demorou demais", { description: "Confira mais tarde no histórico do Studio." });
+				setTask(null);
+				return;
+			}
 			try {
 				const next = await taskStatus(id);
 				setTask(next);
@@ -37,7 +42,7 @@ export function ServerRenderButton() {
 				} else if (next.status === "failed") {
 					toast.error("Render falhou", { description: next.error });
 				} else {
-					poll(id);
+					poll(id, deadline);
 				}
 			} catch (error) {
 				toast.error("Render indisponível", { description: (error as Error).message });

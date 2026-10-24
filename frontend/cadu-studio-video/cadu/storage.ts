@@ -5,6 +5,7 @@ import { caduFetch, CaduApiError } from "./api";
 import { notifySave } from "./save-status";
 
 const revisions = new Map<string, number>();
+const saving = new Map<string, Promise<void>>();
 
 type ProjectResponse = { revision: number; project: SerializedProject | null };
 
@@ -15,7 +16,15 @@ export class CaduProjectsAdapter implements StorageAdapter<SerializedProject> {
 		return data.project;
 	}
 
+	// Uma gravação por vez: duas em paralelo levariam a mesma revisão e a segunda viraria um falso conflito.
 	async set({ key, value }: { key: string; value: SerializedProject }): Promise<void> {
+		const previous = saving.get(key) ?? Promise.resolve();
+		const next = previous.catch(() => undefined).then(() => this.save(key, value));
+		saving.set(key, next);
+		return next;
+	}
+
+	private async save(key: string, value: SerializedProject): Promise<void> {
 		notifySave({ state: "saving" });
 		try {
 			const data = await caduFetch<{ revision: number }>(`/projects/${encodeURIComponent(key)}`, {

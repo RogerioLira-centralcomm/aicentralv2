@@ -65,11 +65,17 @@ def _editor_page():
     version = int(max((static / name).stat().st_mtime for name in ('app.js', 'app.css'))) if (static / 'app.js').exists() else 0
     boot = {'clientId': int(client), 'projectId': ident, 'projectName': str(request.args.get('name') or '')[:120],
             'apiRoot': _api_root(), 'csrfToken': get_or_create_token(),
-            'exitUrl': str(request.args.get('back') or '/studio') if str(request.args.get('back') or '').startswith('/') else '/studio',
+            'exitUrl': _local_path(request.args.get('back')),
             'editorUrl': request.path}
     response = make_response(render_template('cadu_studio/video_editor.html', boot=boot, version=version))
     response.headers['Cache-Control'] = 'no-store, private'
     return response
+
+
+def _local_path(raw):
+    """Só caminhos do próprio site: '//host' e '/\\host' viram redirecionamento externo no navegador."""
+    value = str(raw or '')
+    return value if re.fullmatch(r'/(?![/\\])[^\s]*', value) else '/studio'
 
 
 # ---------------------------------------------------------------- projeto
@@ -392,7 +398,9 @@ def media_content(ident, asset_id):
             raise ValueError('Mídia não vinculada a este projeto.')
         path, kind, row = resolve_ref(root, client, link['ref'])
         mime = row.get('mime') or {'video': 'video/mp4', 'audio': 'audio/mp4'}.get(kind)
-        return send_file(path, mimetype=mime, conditional=True, max_age=3600)
+        response = send_file(path, mimetype=mime, conditional=True)
+        response.headers['Cache-Control'] = 'private, max-age=3600'  # mídia da marca: nunca em cache compartilhado
+        return response
     return execute(run)
 
 
@@ -473,6 +481,14 @@ TEXT_PARAMS = VISUAL_PARAMS | {'content', 'fontSize', 'fontFamily', 'color', 'te
                                'background.enabled', 'background.color', 'background.cornerRadius', 'background.paddingX', 'background.paddingY'}
 
 
+def _number(args, key, default, low, high):
+    try:
+        value = float(args.get(key, default) if args.get(key) is not None else default)
+    except (TypeError, ValueError):
+        raise ValueError(f'Valor inválido em {key}.')
+    return max(low, min(high, value))
+
+
 def _text_params(timeline, args):
     width, height = _canvas(timeline)
     color = str(args.get('color') or '#ffffff')
@@ -481,15 +497,15 @@ def _text_params(timeline, args):
     background = str(args.get('background') or '')
     params = {
         'content': str(args.get('text') or '').strip()[:500] or 'Texto',
-        'fontSize': max(4.0, min(60.0, float(args.get('size') or 15))),
+        'fontSize': _number(args, 'size', 15, 4, 60),
         'fontFamily': str(args.get('font') or 'Arial')[:80], 'color': color, 'textAlign': 'center',
         'fontWeight': 'bold' if args.get('bold') else 'normal', 'fontStyle': 'normal', 'textDecoration': 'none',
         'letterSpacing': 0, 'lineHeight': 1.2,
         'background.enabled': bool(re.fullmatch(r'#[0-9a-fA-F]{6}', background)), 'background.color': background or '#000000',
         'background.cornerRadius': 12, 'background.paddingX': 30, 'background.paddingY': 18, 'background.offsetX': 0, 'background.offsetY': 0,
         # Posição: fração do quadro (0–1), convertida para pixels a partir do centro como no OpenCut.
-        'transform.positionX': (max(0.0, min(1.0, float(args.get('x', .5)))) - .5) * width,
-        'transform.positionY': (max(0.0, min(1.0, float(args.get('y', .5)))) - .5) * height,
+        'transform.positionX': (_number(args, 'x', .5, 0, 1) - .5) * width,
+        'transform.positionY': (_number(args, 'y', .5, 0, 1) - .5) * height,
         'transform.scaleX': 1, 'transform.scaleY': 1, 'transform.rotate': 0, 'opacity': 1, 'blendMode': 'normal',
     }
     return params
@@ -809,10 +825,24 @@ def submit_render(ident):
         task = uuid.uuid4().hex
         row = {'id': task, 'kind': 'opencut_render', 'status': 'queued', 'created_at': time.time(), 'user_id': session.get('user_id'),
                'client_id': int(client), 'work': {'project_id': _project_id(ident), 'revision': revision, 'timeline': timeline,
-                                                   'media': media, 'options': options}}
+                                                   'media': media, 'options': options, 'api_root': _api_root()}}
         _enqueue(root, row)
         return ok({'id': task, 'status': 'queued', 'revision': revision})
     return execute(run)
+
+
+def _run_render(command, cwd, timeout):
+    """Node e o Chromium que ele abre ficam num grupo próprio; no timeout o grupo inteiro é encerrado."""
+    import os
+    import signal
+    process = subprocess.Popen(command, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate()
+        raise
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
 def render_project(work, dest, timeout=900):
@@ -826,7 +856,7 @@ def render_project(work, dest, timeout=900):
     with tempfile.TemporaryDirectory(prefix='vedit-render-') as temp:
         job = Path(temp) / 'job.json'
         job.write_text(json.dumps({**work, 'static': str(static), 'output': str(dest)}, ensure_ascii=False))
-        result = subprocess.run(['node', str(script), str(job)], cwd=str(repo), capture_output=True, text=True, timeout=timeout)
+        result = _run_render(['node', str(script), str(job)], repo, timeout)
     if result.returncode != 0 or not dest.exists() or dest.stat().st_size == 0:
         current_app.logger.error('Render do editor falhou: %s', (result.stderr or result.stdout)[-2000:])
         raise ValueError('O render do vídeo falhou no servidor.')

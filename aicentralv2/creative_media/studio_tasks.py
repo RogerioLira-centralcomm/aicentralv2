@@ -183,7 +183,7 @@ def run_task(root,ident):
             _write(path,{**row,'status':'processing','stage':'Renderizando a timeline'})
             extension=work['options']['format']
             result=render_project(work,root/f'{ident}.{extension}')
-            result['url']=f'/parametros/api/format-lab/studio/video-editor/renders/{ident}/content?client_id={client}'
+            result['url']=f'{work.get("api_root") or "/parametros/api"}/format-lab/studio/video-editor/renders/{ident}/content?client_id={client}'
         elif kind=='inspect':result=inspect_clip(source,root,client,work['clip_id'])
         elif kind=='extract':
             duration,streams=probe(source)

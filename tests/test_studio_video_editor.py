@@ -94,6 +94,21 @@ class CommandsTest(unittest.TestCase):
         self.assertEqual(len(overlay), 1)
         self.assertEqual([e['params']['content'] for e in overlay[0]['elements']], ['um', 'dois'])
 
+    def test_null_numbers_are_validation_errors(self):
+        for args in ({'text': 'x', 'x': None}, {'text': 'x', 'size': {'a': 1}}, {'text': 'x', 'y': 'meio'}):
+            with self.subTest(args=args):
+                try:
+                    editor.apply_commands(timeline('p1'), [{'op': 'add_text', 'args': args}], {})
+                except ValueError:
+                    pass
+                else:
+                    self.assertIn(None, args.values(), 'nulo usa o padrão; texto ou objeto precisa ser recusado')
+
+    def test_exit_url_stays_on_site(self):
+        for raw, expected in (('/studio/projetos?x=1', '/studio/projetos?x=1'), ('//evil.com', '/studio'), ('/\\evil.com', '/studio'),
+                              ('https://evil.com', '/studio'), (None, '/studio')):
+            self.assertEqual(editor._local_path(raw), expected)
+
     def test_timeline_contract(self):
         self.assertEqual(editor.validate_timeline(timeline('p1'), 'p1')['metadata']['id'], 'p1')
         for broken in (timeline('outro'), {**timeline('p1'), 'scenes': []}, [], {**timeline('p1'), 'scenes': [{'tracks': {}}]}):
@@ -176,6 +191,7 @@ class EditorApiTest(unittest.TestCase):
         self.assertEqual(sorted(item['type'] for item in listed), ['audio', 'image', 'video'])
         with self.client.get(listed[0]['contentUrl']) as content:
             self.assertEqual(content.status_code, 200)
+            self.assertEqual(content.headers['Cache-Control'], 'private, max-age=3600')
         self.assertEqual(self.client.get(listed[0]['contentUrl'].replace('client_id=31', 'client_id=32')).status_code, 400)
 
         library = self.client.get(f'{BASE}/library?client_id=31').json['data']['items']

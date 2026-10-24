@@ -5,6 +5,7 @@ import time
 import uuid
 import subprocess
 import threading
+import logging
 from pathlib import Path
 from flask import request, session, current_app
 from .http import studio_http as _http
@@ -179,7 +180,9 @@ def run_task(root,ident):
                 result['autocut_warning']='Vídeo sem áudio: nenhum corte automático aplicado.'
             if work.get('origin'):
                 from .studio_video_editor import normalize_loudness
-                if meta['has_audio']:normalize_loudness(dest)  # export do editor: entrega no volume das redes
+                if meta['has_audio']:
+                    try:normalize_loudness(dest)  # export do editor: entrega no volume das redes
+                    except (subprocess.SubprocessError,OSError,ValueError):logging.getLogger(__name__).warning('Volume do export não normalizado: %s',ident,exc_info=True)
                 result.update(work['origin'])  # projeto e revisão de origem
             _write(root/f'clip-{ident}.json',result)
         elif kind=='opencut_render':

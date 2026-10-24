@@ -702,9 +702,9 @@ def cmd_animate(timeline, args, links):
     if prop not in ANIMATABLE:
         raise ValueError(f'Propriedade não animável: {prop}.')
     raw = args.get('keyframes') if isinstance(args.get('keyframes'), list) else []
-    if not 2 <= len(raw) <= 60:
+    points = [(_number(row, 'at', 0, 0, 3600), _number(row, 'value', 0, -100000, 100000)) for row in raw[:61] if isinstance(row, dict)]
+    if not 2 <= len(points) <= 60:
         raise ValueError('Envie de 2 a 60 keyframes.')
-    points = [(_number(row, 'at', 0, 0, 3600), _number(row, 'value', 0, -100000, 100000)) for row in raw if isinstance(row, dict)]
     _keyframes(element, prop, points, 'ease' if args.get('ease') == 'ease' else 'linear')
     return {'element_id': element['id']}
 
@@ -879,7 +879,10 @@ def upload_export(ident):
                 dest = root / f'{ident_file}.mp4'
                 source.replace(dest)
                 if 'audio' in streams:
-                    normalize_loudness(dest)  # entrega no volume das redes, como o render do servidor
+                    try:
+                        normalize_loudness(dest)  # entrega no volume das redes, como o render do servidor
+                    except (subprocess.SubprocessError, OSError, ValueError):
+                        current_app.logger.warning('Volume do export não normalizado; arquivo salvo como veio', exc_info=True)
                 from .studio_media import inspect_clip
                 meta = inspect_clip(dest, root, client, 'upload:' + ident_file) if duration <= 300 else {
                     'duration': duration, 'has_audio': 'audio' in streams, 'frames': [{'url': ''}]}
@@ -1079,7 +1082,12 @@ def render_project(work, dest, timeout=900):
     duration, streams = probe(dest)
     if 'video' not in streams:
         raise ValueError('O render não produziu vídeo.')
-    loudness = normalize_loudness(dest) if 'audio' in streams and work['options']['format'] == 'mp4' else None
+    loudness = None
+    if 'audio' in streams and work['options']['format'] == 'mp4':
+        try:
+            loudness = normalize_loudness(dest)
+        except (subprocess.SubprocessError, OSError, ValueError):
+            current_app.logger.warning('Volume do render não normalizado; arquivo entregue como saiu', exc_info=True)
     return {'duration': duration, 'has_audio': 'audio' in streams, 'loudness': loudness}
 
 

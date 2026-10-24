@@ -126,7 +126,8 @@ class CommandsTest(unittest.TestCase):
         self.assertLessEqual(longest * .6 * pixels, 1080 * .88 + 1, 'o texto cabe na largura do quadro vertical')
         self.assertEqual([k['value'] for k in text['animations']['opacity']['keys']], [0, 1])
         for bad in ({'op': 'set_canvas', 'args': {'width': 1081, 'height': 1920}},
-                    {'op': 'animate', 'args': {'element_id': text['id'], 'property': 'mediaId', 'keyframes': [{'at': 0, 'value': 0}, {'at': 1, 'value': 1}]}}):
+                    {'op': 'animate', 'args': {'element_id': text['id'], 'property': 'mediaId', 'keyframes': [{'at': 0, 'value': 0}, {'at': 1, 'value': 1}]}},
+                    {'op': 'animate', 'args': {'element_id': text['id'], 'property': 'opacity', 'keyframes': [{'at': 0, 'value': 0}, 'lixo']}}):
             with self.subTest(op=bad['op']), self.assertRaises(ValueError):
                 editor.apply_commands(result, [bad], self.links)
         self.assertEqual(editor.fit_text('Gestão em qualquer tela', 8, 1920, 1080, True), ('Gestão em qualquer tela', 8.0), 'no horizontal cabe sem mexer')

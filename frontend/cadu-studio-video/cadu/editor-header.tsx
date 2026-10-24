@@ -1,14 +1,14 @@
-// Cabeçalho do editor no Studio: volta ao Studio, nome do projeto, atalhos e exportação.
+// Cabeçalho do editor no Studio: volta ao Studio, nome do projeto, atalhos e exportação no navegador.
+// O render no servidor fica fora da interface: só automação, pela rota …/renders da Editor API.
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, CommandIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import { ShortcutsDialog } from "@/actions/components/shortcuts-dialog";
 import { useEditor } from "@/editor/use-editor";
-import { ExportButton } from "@/components/editor/export-button";
 import { studioExitUrl } from "./config";
 import { SaveStatus } from "./save-status";
-import { ServerRenderButton } from "./server-render";
+import { BrowserExportButton } from "./browser-export";
 import { ExtensionsMenu } from "./extensions";
 
 export function CaduEditorHeader() {
@@ -42,8 +42,7 @@ export function CaduEditorHeader() {
 				<Button variant="ghost" size="icon" aria-label="Atalhos" onClick={() => setShortcutsOpen(true)}>
 					<HugeiconsIcon icon={CommandIcon} className="size-4" />
 				</Button>
-				<ServerRenderButton />
-				<ExportButton />
+				<BrowserExportButton />
 			</nav>
 			<ShortcutsDialog isOpen={shortcutsOpen} onOpenChange={setShortcutsOpen} />
 		</header>

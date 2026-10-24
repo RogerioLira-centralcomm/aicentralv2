@@ -177,6 +177,7 @@ def run_task(root,ident):
                     result['autocut_warning']='Análise automática indisponível. O vídeo original está pronto para edição; confira a transcrição instalada no servidor.'
             elif work.get('autocut',{}).get('enabled'):
                 result['autocut_warning']='Vídeo sem áudio: nenhum corte automático aplicado.'
+            result.update(work.get('origin') or {})  # export do editor de vídeo: projeto e revisão de origem
             _write(root/f'clip-{ident}.json',result)
         elif kind=='opencut_render':
             from .studio_video_editor import render_project

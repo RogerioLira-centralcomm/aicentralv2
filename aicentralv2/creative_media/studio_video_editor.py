@@ -43,6 +43,7 @@ def register(bp):
     bp.add_url_rule(API + '/projects/<ident>/extensions/<ext_id>/run', view_func=run_extension, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/renders', view_func=submit_render, methods=['POST'])
     bp.add_url_rule(API + '/projects/<ident>/transcriptions', view_func=submit_transcription, methods=['POST'])
+    bp.add_url_rule(API + '/projects/<ident>/exports', view_func=upload_export, methods=['POST'])
     bp.add_url_rule(API + '/renders/<ident>/content', view_func=render_content)
     bp.add_url_rule(API + '/library', view_func=library)
     bp.add_url_rule(API + '/commands', view_func=command_catalog)
@@ -416,7 +417,7 @@ def library():
         for path in sorted(root.glob('clip-*.json'), key=lambda p: p.stat().st_mtime, reverse=True):
             row = json.loads(path.read_text())
             items.append({'ref': 'clip:' + path.stem[5:], 'kind': 'video', 'name': row.get('name'), 'poster_url': row.get('poster_url'),
-                          'duration': row.get('duration'), 'source': 'Enviado'})
+                          'duration': row.get('duration'), 'source': 'Exportado do editor' if row.get('source') == 'editor' else 'Enviado'})
         for path in sorted(root.glob('image-*.json'), key=lambda p: p.stat().st_mtime, reverse=True):
             row = json.loads(path.read_text())
             items.append({'ref': 'image:' + row['id'], 'kind': 'image', 'name': row.get('name'), 'source': 'Imagem enviada'})
@@ -734,6 +735,77 @@ def run_extension(ident, ext_id):
         except repository.RevisionConflict as error:
             return jsonify(success=False, error=str(error), code='revision_conflict'), 409
         return ok({'revision': revision, 'summary': summary, 'results': outputs})
+    return execute(run)
+
+
+# ---------------------------------------------------------------- export feito no navegador → biblioteca da marca
+
+_MAX_EXPORT = 1024 * 1024 * 1024
+
+
+def _codecs(path):
+    data = json.loads(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=format_name,duration:stream=codec_type,codec_name',
+                                      '-of', 'json', str(path)], capture_output=True, text=True, check=True, timeout=30).stdout)
+    streams = {row.get('codec_type'): row.get('codec_name') for row in data.get('streams', [])}
+    return str(data.get('format', {}).get('format_name') or ''), float(data.get('format', {}).get('duration') or 0), streams
+
+
+@studio_or_admin_required_api
+@studio_csrf_required
+def upload_export(ident):
+    """O navegador exporta com a GPU de quem edita; o servidor só valida e guarda na biblioteca da marca.
+
+    MP4 H.264 entra direto como clipe. Outro formato (WebM de navegador sem H.264) vira tarefa ``import``,
+    que converte para H.264 no worker. O render no servidor fica para automação (agente, lote).
+    """
+    execute, _, ok, _ = _http()
+
+    def run():
+        client = request.args.get('client_id')
+        root = _scope(client)
+        revision, document = read_project(client, ident)
+        upload = request.files.get('file')
+        if not upload:
+            raise ValueError('Arquivo exportado não enviado.')
+        name = Path(str(request.form.get('name') or 'Vídeo editado')).name[:110]
+        ident_file = uuid.uuid4().hex
+        source = root / f'{ident_file}.upload'
+        size = 0
+        try:
+            with source.open('wb') as handle:
+                while chunk := upload.stream.read(4 * 1024 * 1024):
+                    size += len(chunk)
+                    if size > _MAX_EXPORT:
+                        raise ValueError('O vídeo exportado passa de 1 GB.')
+                    handle.write(chunk)
+            try:
+                container, duration, streams = _codecs(source)
+            except (subprocess.SubprocessError, OSError, ValueError):
+                raise ValueError('O arquivo exportado não é um vídeo válido.')
+            if streams.get('video') is None or not 0 < duration <= 1800:
+                raise ValueError('O arquivo exportado não é um vídeo válido (até 30 minutos).')
+            origin = {'project_id': _project_id(ident), 'revision': revision}
+            if 'mp4' in container and streams.get('video') == 'h264' and streams.get('audio') in (None, 'aac'):
+                dest = root / f'{ident_file}.mp4'
+                source.replace(dest)
+                from .studio_media import inspect_clip
+                meta = inspect_clip(dest, root, client, 'upload:' + ident_file) if duration <= 300 else {
+                    'duration': duration, 'has_audio': 'audio' in streams, 'frames': [{'url': ''}]}
+                row = {'id': 'upload:' + ident_file, 'name': name, 'duration': meta['duration'], 'has_audio': meta['has_audio'],
+                       'video_url': f'{_api_root()}/format-lab/studio/clips/{ident_file}/content?client_id={int(client)}',
+                       'poster_url': meta['frames'][0]['url'], 'created_at': time.time(), 'source': 'editor', **origin}
+                _write(root / f'clip-{ident_file}.json', row)
+                return ok({'status': 'ready', 'clip': row, 'ref': f'clip:{ident_file}'})
+            if duration > 300:
+                raise ValueError('Exporte em MP4 (H.264) para vídeos acima de 5 minutos; a conversão no servidor vai até 5 minutos.')
+            row = {'id': ident_file, 'kind': 'import', 'status': 'queued', 'created_at': time.time(), 'user_id': session.get('user_id'),
+                   'client_id': int(client), 'work': {'source': str(source), 'name': name, 'autocut': {'enabled': False}, 'origin': {'source': 'editor', **origin}}}
+            _enqueue(root, row)
+            source = None  # a tarefa é dona do arquivo agora
+            return ok({'status': 'queued', 'task_id': ident_file})
+        finally:
+            if source is not None:
+                source.unlink(missing_ok=True)
     return execute(run)
 
 

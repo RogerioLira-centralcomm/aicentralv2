@@ -268,6 +268,44 @@ class EditorApiTest(unittest.TestCase):
         status = self.client.get(f'/parametros/api/format-lab/studio/tasks/{task["id"]}?client_id=31').json['data']
         self.assertEqual((status['status'], status['result']['captions'][0]['text']), ('ready', 'oi'))
 
+    def test_browser_export_goes_to_brand_library(self):
+        ident = self.create()
+        url = f'{BASE}/projects/{ident}/exports?client_id=31'
+        webm = self.root / 'export.webm'
+        if not webm.exists():
+            fixtures.subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', str(self.voiced), '-c:v', 'libvpx-vp9', '-b:v', '200k', '-c:a', 'libopus', str(webm)],
+                                    check=True, capture_output=True)
+        from aicentralv2.creative_media import studio
+        ready = self.client.post(url, headers=HEADERS, data={'name': 'Campanha.mp4', 'file': (io.BytesIO(self.voiced.read_bytes()), 'Campanha.mp4')})
+        self.assertEqual((ready.status_code, ready.json['data']['status']), (200, 'ready'), ready.json)
+        clip = ready.json['data']['clip']
+        self.assertEqual((clip['source'], clip['project_id'], clip['revision'], clip['name']), ('editor', ident, 1, 'Campanha.mp4'))
+        library = self.client.get(f'{BASE}/library?client_id=31').json['data']['items']
+        self.assertIn(('clip:' + clip['id'].split(':')[1], 'Exportado do editor'), {(row['ref'], row['source']) for row in library})
+        with self.client.get(clip['video_url']) as content:
+            self.assertEqual(content.status_code, 200)
+        with patch.object(studio._POOL, 'submit') as submit:
+            queued = self.client.post(url, headers=HEADERS, data={'name': 'Campanha.webm', 'file': (io.BytesIO(webm.read_bytes()), 'Campanha.webm')})
+        self.assertEqual((queued.status_code, queued.json['data']['status']), (200, 'queued'), queued.json)
+        submit.assert_called_once()
+        with self.app().test_request_context():
+            root = editor._scope('31')
+            task = json.loads((root / f'task-{queued.json["data"]["task_id"]}.json').read_text())
+        self.assertEqual((task['kind'], task['work']['origin']), ('import', {'source': 'editor', 'project_id': ident, 'revision': 1}))
+        self.assertTrue(Path(task['work']['source']).exists(), 'a tarefa recebe o arquivo para converter')
+        with self.app().app_context():
+            from aicentralv2.creative_media.studio_tasks import run_task
+            run_task(root, task['id'])
+        converted = json.loads((root / f'clip-{task["id"]}.json').read_text())
+        self.assertEqual((converted['source'], converted['project_id']), ('editor', ident))
+        self.assertIn('audio', fixtures.probe(root / f'{task["id"]}.mp4')[1])
+        invalid = self.client.post(url, headers=HEADERS, data={'file': (io.BytesIO(b'nao e video'), 'x.mp4')})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(list(root.glob('*.upload')), [], 'nenhum envio temporário fica para trás')
+        foreign = self.client.post(f'{BASE}/projects/{ident}/exports?client_id=32', headers=HEADERS,
+                                   data={'file': (io.BytesIO(self.voiced.read_bytes()), 'x.mp4')})
+        self.assertEqual(foreign.status_code, 400)
+
 
 if __name__ == '__main__':
     unittest.main()

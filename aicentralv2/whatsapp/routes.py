@@ -1,4 +1,5 @@
 """Rotas da página WhatsApp Comercial (WasenderAPI)."""
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,11 @@ from ..services.wasender_service import (
 from ..db import normalizar_telefone_whatsapp
 from . import bp
 from . import db_whatsapp as wa
+
+
+def _purge_mensagens_permitido():
+    flag = str(os.getenv('WHATSAPP_ALLOW_PURGE', '')).strip().lower()
+    return current_app.debug or flag in ('1', 'true', 'yes', 'on')
 
 
 def _jsonify_rows(rows):
@@ -580,7 +586,7 @@ def _processar_outbound_upsert(message_data, provider_message_id):
 @bp.route('/')
 @login_required
 def index():
-    return render_template('whatsapp/whatsapp.html')
+    return render_template('whatsapp/whatsapp.html', wa_purge_enabled=_purge_mensagens_permitido())
 
 
 @bp.route('/api/conversas')
@@ -628,6 +634,20 @@ def api_listar_mensagens(conversa_id):
         return jsonify({'success': True, 'mensagens': _jsonify_rows(mensagens)})
     except Exception as e:
         current_app.logger.error('Erro api_listar_mensagens whatsapp: %s', e, exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/api/mensagens/purge', methods=['POST'])
+@login_required
+def api_purgar_mensagens():
+    """Remove conversas e mensagens do banco (somente DEBUG ou WHATSAPP_ALLOW_PURGE)."""
+    if not _purge_mensagens_permitido():
+        return jsonify({'success': False, 'error': 'Indisponível neste ambiente.'}), 403
+    try:
+        stats = wa.purgar_conversas_e_mensagens()
+        return jsonify({'success': True, **stats})
+    except Exception as e:
+        current_app.logger.error('Erro api_purgar_mensagens whatsapp: %s', e, exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

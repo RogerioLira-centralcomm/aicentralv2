@@ -505,3 +505,19 @@ def atualizar_mensagem_media_meta(mensagem_id, provider_payload):
     except Exception:
         conn.rollback()
         raise
+
+
+def purgar_conversas_e_mensagens():
+    """Apaga conversas e mensagens locais (mensagens caem em CASCADE). Uso: testes."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) AS n FROM whatsapp_mensagens')
+            mensagens = int((cursor.fetchone() or {}).get('n') or 0)
+            cursor.execute('DELETE FROM whatsapp_conversas')
+            conversas = cursor.rowcount
+        conn.commit()
+        return {'mensagens': mensagens, 'conversas': conversas}
+    except Exception:
+        conn.rollback()
+        raise

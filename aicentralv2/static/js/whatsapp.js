@@ -422,6 +422,20 @@
         }
     }
 
+    function conversaIdValido(id) {
+        if (id == null || id === '') return false;
+        const n = Number(id);
+        return Number.isFinite(n) && n > 0;
+    }
+
+    function limparConversaSelecionada() {
+        conversaSelecionadaId = null;
+        pararPolling();
+        mediaRepairAttempted.clear();
+        atualizarHeaderConversa(null);
+        showEmpty($('#wa-chat-mensagens'), 'Selecione uma conversa para ver as mensagens.');
+    }
+
     function pararPolling() {
         if (pollTimer) {
             clearInterval(pollTimer);
@@ -431,8 +445,12 @@
 
     function iniciarPolling() {
         pararPolling();
-        if (!conversaSelecionadaId) return;
+        if (!conversaIdValido(conversaSelecionadaId)) return;
         pollTimer = setInterval(() => {
+            if (!conversaIdValido(conversaSelecionadaId)) {
+                pararPolling();
+                return;
+            }
             carregarMensagens(conversaSelecionadaId, { silent: true });
             carregarConversas({ silent: true });
         }, POLL_MS);
@@ -500,6 +518,12 @@
             if (chatBusca.trim()) qs.set('busca', chatBusca.trim());
             const data = await api(`/conversas?${qs.toString()}`);
             conversasCache = data.conversas || [];
+            if (
+                conversaSelecionadaId
+                && !conversasCache.some(c => String(c.id) === String(conversaSelecionadaId))
+            ) {
+                limparConversaSelecionada();
+            }
             renderConversas();
         } catch (e) {
             if (!opts.silent && container) showEmpty(container, 'Erro ao carregar conversas.');
@@ -700,6 +724,12 @@
 
     async function carregarMensagens(conversaId, opts = {}) {
         const container = $('#wa-chat-mensagens');
+        if (!conversaIdValido(conversaId)) {
+            if (!opts.silent && container) {
+                showEmpty(container, 'Selecione uma conversa para ver as mensagens.');
+            }
+            return;
+        }
         if (!opts.silent && container) showSpinner(container);
         try {
             const data = await api(`/conversas/${conversaId}/mensagens`);
@@ -712,6 +742,7 @@
 
     function selecionarConversa(conversaId) {
         if (recordingActive) cancelarGravacao();
+        if (!conversaIdValido(conversaId)) return;
         const conversa = conversasCache.find(x => String(x.id) === String(conversaId));
         if (!conversa) return;
         conversaSelecionadaId = conversaId;
@@ -791,6 +822,28 @@
         if (modal?.open) modal.close();
     }
 
+    async function purgarTodasMensagens() {
+        const ok = window.confirm(
+            'Apagar TODAS as conversas e mensagens do WhatsApp no banco?\n\nA lista de contatos fica vazia. (Fase de testes.)'
+        );
+        if (!ok) return;
+        const btn = $('#wa-btn-purge-messages');
+        if (btn) btn.disabled = true;
+        try {
+            const data = await api('/mensagens/purge', { method: 'POST', body: '{}' });
+            limparConversaSelecionada();
+            await carregarConversas();
+            showToast(
+                `${data.conversas ?? 0} conversa(s) e ${data.mensagens ?? 0} mensagem(ns) apagada(s).`,
+                'success'
+            );
+        } catch (e) {
+            showToast(e.message || 'Erro ao limpar mensagens.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
     async function confirmarNovaConversa() {
         const telefone = ($('#wa-nova-telefone')?.value || '').trim();
         const nome = ($('#wa-nova-nome')?.value || '').trim() || null;
@@ -812,6 +865,7 @@
     }
 
     function bindEvents() {
+        $('#wa-btn-purge-messages')?.addEventListener('click', purgarTodasMensagens);
         $('#wa-btn-nova-conversa')?.addEventListener('click', abrirModalNova);
         $('#wa-nova-confirmar')?.addEventListener('click', confirmarNovaConversa);
         $$('[data-close-modal]').forEach(el => el.addEventListener('click', fecharModalNova));

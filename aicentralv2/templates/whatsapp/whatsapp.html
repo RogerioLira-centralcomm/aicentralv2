@@ -18,6 +18,12 @@
             </h1>
             <p class="text-xs opacity-60 mt-1">Envie e receba mensagens via WasenderAPI</p>
         </div>
+        {% if wa_purge_enabled %}
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" id="wa-btn-purge-messages" title="Apaga todas as conversas e mensagens do banco local">
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+            Limpar tudo (teste)
+        </button>
+        {% endif %}
     </div>
 
     <div class="wa-layout">
@@ -110,5 +116,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=17"></script>
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}?v=20"></script>
 {% endblock %}

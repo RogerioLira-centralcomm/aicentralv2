@@ -194,9 +194,12 @@
       {% endif %}
 
       {% set vinculos_cotacao_bloqueados = modo == 'editar' and pi and pi.cotacao_id %}
-      {% set rec = namespace(tipo='', exec='') %}
+      {% set rec = namespace(tipo='', exec='', contrato='Operação própria') %}
       {% for t in tipos_pi %}
         {% if pi and pi.id_pi_tipo == t.id %}{% set rec.tipo = t.descricao %}{% endif %}
+      {% endfor %}
+      {% for slug, label in (tipos_de_contrato or {}).items() %}
+        {% if pi and (pi.tipo_de_contrato or 'operacao_propria') == slug %}{% set rec.contrato = label %}{% endif %}
       {% endfor %}
       {% for v in vendedores %}
         {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}{% set rec.exec = v.nome_completo %}{% endif %}
@@ -245,6 +248,25 @@
                 <option value="">Selecione...</option>
                 {% for t in tipos_pi %}
                   <option value="{{ t.id }}" {% if pi and pi.id_pi_tipo == t.id %}selected{% endif %}>{{ t.descricao }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          {% set tipo_contrato_atual = (pi.tipo_de_contrato if pi and pi.tipo_de_contrato else 'operacao_propria') %}
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="Selecione">
+            <span class="pi-inline__label">Tipo de contrato <i>*</i></span>
+            {% if record_locked %}
+            <p class="pi-inline__static"><strong data-inline-text>{{ rec.contrato or '—' }}</strong></p>
+            {% else %}
+            <button type="button" class="pi-inline__display" data-inline-open>
+              <strong data-inline-text>{{ rec.contrato or 'Operação própria' }}</strong>
+              <i class="fa-solid fa-pen" aria-hidden="true"></i>
+            </button>
+            {% endif %}
+            <div class="pi-inline__edit">
+              <select name="tipo_de_contrato" id="sel_tipo_de_contrato" required {% if record_locked %}disabled{% endif %}>
+                {% for slug, label in (tipos_de_contrato or {}).items() %}
+                  <option value="{{ slug }}" {% if tipo_contrato_atual == slug %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
               </select>
             </div>

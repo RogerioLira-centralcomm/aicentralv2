@@ -333,6 +333,15 @@
             </div>
           </div>
 
+          {% set contrato_atual = cotacao.tipo_de_contrato if cotacao and cotacao.tipo_de_contrato else 'operacao_propria' %}
+          <div>
+            <label class="block text-xs font-medium text-gray-500">Tipo de contrato <span class="text-red-500">*</span></label>
+            <select name="tipo_de_contrato" class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:ring-1 focus:ring-green-100 focus:outline-none" required>
+              <option value="operacao_propria" {% if contrato_atual == 'operacao_propria' %}selected{% endif %}>Operação própria</option>
+              <option value="representacao_comercial" {% if contrato_atual == 'representacao_comercial' %}selected{% endif %}>Representação comercial</option>
+            </select>
+          </div>
+
           <!-- Objetivo da Campanha -->
           <div>
             <label class="block text-xs font-medium text-gray-500">
@@ -461,6 +470,22 @@
               <label><input type="radio" name="tipo_comercial" value="parceiros" {% if tipo_novo == 'parceiros' %}checked{% endif %}><span><i class="fas fa-handshake"></i><strong>Parceiros</strong><small>Entregas, responsabilidades e repasses</small></span></label>
               <label><input type="radio" name="tipo_comercial" value="formatos_interativos" {% if tipo_novo == 'formatos_interativos' %}checked{% endif %}><span><i class="fas fa-layer-group"></i><strong>Formatos interativos</strong><small>Experiências, produção e requisitos</small></span></label>
               <label><input type="radio" name="tipo_comercial" value="dados" {% if tipo_novo == 'dados' %}checked{% endif %}><span><i class="fas fa-database"></i><strong>Dados</strong><small>Segmentos, cobertura e licenciamento</small></span></label>
+            </div>
+          </fieldset>
+        </div>
+        <div class="md:col-span-3">
+          <fieldset>
+            <legend class="block font-medium text-gray-500 mb-1">Tipo de contrato <span class="text-red-500">*</span></legend>
+            {% set contrato_novo = request.form.get('tipo_de_contrato', 'operacao_propria') %}
+            <div class="flex flex-wrap gap-3 text-xs">
+              <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="tipo_de_contrato" value="operacao_propria" {% if contrato_novo == 'operacao_propria' %}checked{% endif %} required>
+                <span>Operação própria</span>
+              </label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="tipo_de_contrato" value="representacao_comercial" {% if contrato_novo == 'representacao_comercial' %}checked{% endif %}>
+                <span>Representação comercial</span>
+              </label>
             </div>
           </fieldset>
         </div>

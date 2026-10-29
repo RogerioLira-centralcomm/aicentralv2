@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from .crm_v3_helpers import filtrar_vinculos_colisao_lookup
+from .contrato_tipos import normalizar_tipo_de_contrato
 from .cotacao_tipos import (
     campos_item_tipo_comercial,
     normalizar_tipo_comercial,
@@ -808,6 +809,20 @@ def init_db(app):
                         ALTER TABLE cadu_pi
                             ADD COLUMN custo_midia_alcancado NUMERIC(14, 2);
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'tipo_de_contrato'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN tipo_de_contrato VARCHAR(32) DEFAULT 'operacao_propria';
+                        UPDATE cadu_pi
+                        SET tipo_de_contrato = 'operacao_propria'
+                        WHERE tipo_de_contrato IS NULL OR BTRIM(tipo_de_contrato) = '';
+                        ALTER TABLE cadu_pi
+                            ALTER COLUMN tipo_de_contrato SET NOT NULL;
+                    END IF;
                 END $$;
             ''')
 
@@ -1146,7 +1161,29 @@ def init_db(app):
                 END $$;
             ''')
 
+            # cadu_cotacoes (tabela principal de cotações — não confundir com cadu_cotacao_*)
+            cursor.execute('''
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacoes'
+                          AND column_name = 'tipo_de_contrato'
+                    ) THEN
+                        ALTER TABLE cadu_cotacoes
+                            ADD COLUMN tipo_de_contrato VARCHAR(32) DEFAULT 'operacao_propria';
+                        UPDATE cadu_cotacoes
+                        SET tipo_de_contrato = 'operacao_propria'
+                        WHERE tipo_de_contrato IS NULL OR BTRIM(tipo_de_contrato) = '';
+                        ALTER TABLE cadu_cotacoes
+                            ALTER COLUMN tipo_de_contrato SET NOT NULL;
+                    END IF;
+                END $$;
+            ''')
+
         conn.commit()
+        criar_tabela_cotacoes()
     app.logger.info("OK Banco de dados inicializado")
 
 
@@ -9077,6 +9114,35 @@ def criar_tabela_cotacoes():
             cursor.execute(
                 "UPDATE cadu_cotacoes SET imposto_percentual = 15.00 WHERE imposto_percentual IS NULL"
             )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS tipo_de_contrato VARCHAR(32) DEFAULT 'operacao_propria'"
+            )
+            cursor.execute(
+                """
+                UPDATE cadu_cotacoes
+                SET tipo_de_contrato = 'operacao_propria'
+                WHERE tipo_de_contrato IS NULL OR BTRIM(tipo_de_contrato) = ''
+                """
+            )
+            cursor.execute(
+                """
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_cotacoes'
+                          AND column_name = 'tipo_de_contrato'
+                          AND is_nullable = 'YES'
+                    ) THEN
+                        ALTER TABLE cadu_cotacoes
+                            ALTER COLUMN tipo_de_contrato SET DEFAULT 'operacao_propria';
+                        ALTER TABLE cadu_cotacoes
+                            ALTER COLUMN tipo_de_contrato SET NOT NULL;
+                    END IF;
+                END $$;
+                """
+            )
             cursor.execute('''
                 DO $$
                 BEGIN
@@ -9448,6 +9514,9 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
     tipo_comercial = normalizar_tipo_comercial(kwargs.get('tipo_comercial'))
     validar_status_tipo_comercial(tipo_comercial, kwargs.get('status'))
     kwargs['tipo_comercial'] = tipo_comercial
+    kwargs['tipo_de_contrato'] = normalizar_tipo_de_contrato(
+        kwargs.get('tipo_de_contrato')
+    )
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -9482,6 +9551,7 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'desconto_total', 'desconto_percentual', 'condicoes_comerciais',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
                 'plataforma_campanha', 'imposto_percentual', 'tipo_comercial',
+                'tipo_de_contrato',
                 'grupo_plano_id', 'eh_principal',
             ]
             
@@ -9527,6 +9597,10 @@ def atualizar_cotacao(cotacao_id, **kwargs):
             validar_status_tipo_comercial(tipo_resultante, status_resultante)
             if 'tipo_comercial' in kwargs:
                 kwargs['tipo_comercial'] = tipo_resultante
+            if 'tipo_de_contrato' in kwargs:
+                kwargs['tipo_de_contrato'] = normalizar_tipo_de_contrato(
+                    kwargs.get('tipo_de_contrato')
+                )
 
             updates = ["updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)"]
             params = []
@@ -9542,7 +9616,7 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'agencia_id', 'agencia_user_id',
                 'id_parceiro', 'parceiro_user_id',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
-                'plataforma_campanha', 'tipo_comercial',
+                'plataforma_campanha', 'tipo_comercial', 'tipo_de_contrato',
             ]
             
             # Campos que podem ser setados para NULL explicitamente
@@ -13822,7 +13896,7 @@ def criar_cadu_pi(data):
                 'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
                 'val_pl_incentivos', 'val_impostos',
                 'meta_baseada_em_cpm', 'custo_base_unitario', 'objetivo_contratado_pi',
-                'plataforma_campanha',
+                'plataforma_campanha', 'tipo_de_contrato',
             ]
             valores = [
                 data.get('id_cliente'),
@@ -13870,6 +13944,7 @@ def criar_cadu_pi(data):
                 data.get('custo_base_unitario'),
                 data.get('objetivo_contratado_pi'),
                 data.get('plataforma_campanha'),
+                normalizar_tipo_de_contrato(data.get('tipo_de_contrato')),
             ]
 
             if data.get('cotacao_id'):
@@ -14741,6 +14816,9 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
         'id_sub_status_pi': 1,
         'obs_financeiro': None,
         'obs_operacao': f'PI gerado automaticamente da cotação #{cotacao_id}',
+        'tipo_de_contrato': normalizar_tipo_de_contrato(
+            cotacao.get('tipo_de_contrato'), estrito=False
+        ),
         'cotacao_id': cotacao_id,
         'perc_margem_cc': perc_margem_cc_pi or None,
         'perc_tech_fee': perc_tech_fee_pi or None,
@@ -14844,6 +14922,7 @@ def atualizar_cadu_pi(id_pi, data):
                     custo_base_unitario = %s,
                     objetivo_contratado_pi = %s,
                     plataforma_campanha = %s,
+                    tipo_de_contrato = %s,
                     updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
@@ -14893,6 +14972,7 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('custo_base_unitario'),
                 data.get('objetivo_contratado_pi'),
                 data.get('plataforma_campanha'),
+                normalizar_tipo_de_contrato(data.get('tipo_de_contrato')),
                 id_pi,
             ))
             conn.commit()

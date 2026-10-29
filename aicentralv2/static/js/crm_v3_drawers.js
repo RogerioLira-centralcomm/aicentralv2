@@ -3853,6 +3853,13 @@
         };
         var tipo = cotacao.tipo_comercial || 'midia';
         var tipoLabel = cotacao.tipo_comercial_label || typeLabels[tipo] || 'Mídia';
+        var contratoLabels = {
+            operacao_propria: 'Operação própria',
+            representacao_comercial: 'Representação comercial'
+        };
+        var contratoLabel = cotacao.tipo_de_contrato_label ||
+            contratoLabels[cotacao.tipo_de_contrato || 'operacao_propria'] ||
+            'Operação própria';
         var status = cotacao.status_label || cotacao.status_canonico || cotacao.status || 'Rascunho';
         var cliente = cotacao.cliente_final_nome || cotacao.cliente_nome || '—';
         var agencia = cotacao.agencia_nome || '—';
@@ -3875,6 +3882,7 @@
             '<dl class="cx-cot-summary-grid">' +
                 '<div><dt>Valor</dt><dd>' + escapeHtml(cotacaoResumoValor(cotacao)) + '</dd></div>' +
                 '<div><dt>Período</dt><dd>' + escapeHtml(periodo) + '</dd></div>' +
+                '<div><dt>Tipo de contrato</dt><dd>' + escapeHtml(contratoLabel) + '</dd></div>' +
                 '<div><dt>Cliente final</dt><dd>' + escapeHtml(cliente) + '</dd></div>' +
                 '<div><dt>Agência</dt><dd>' + escapeHtml(agencia) + '</dd></div>' +
             '</dl>' +
@@ -3914,7 +3922,10 @@
         // ter as <option>s renderizadas para conseguir setar o valor).
         populateResponsaveis(wrapper.querySelector('#cx-cot-responsavel'), cotacao);
 
-        fillForm(form, Object.assign({ tipo_comercial: 'midia' }, cotacao || {}));
+        fillForm(form, Object.assign({
+            tipo_comercial: 'midia',
+            tipo_de_contrato: 'operacao_propria'
+        }, cotacao || {}));
 
         var isEdit = !!(cotacao && cotacao.id);
         var refine = wrapper.querySelector('#cx-cot-refine');

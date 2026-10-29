@@ -25,6 +25,7 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import centralcomm_required, centralcomm_required_api, login_required
+from aicentralv2.contrato_tipos import normalizar_tipo_de_contrato
 from aicentralv2.cotacao_tipos import (
     campos_item_tipo_comercial,
     destino_tipo_comercial,
@@ -940,6 +941,9 @@ def cotacao_nova():
                 'tipo_comercial': normalizar_tipo_comercial(
                     request.form.get('tipo_comercial')
                 ),
+                'tipo_de_contrato': normalizar_tipo_de_contrato(
+                    request.form.get('tipo_de_contrato')
+                ),
                 'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                 'apresentacao_dados': request.form.get('apresentacao_dados', '').strip() or None,
                 'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
@@ -1166,6 +1170,10 @@ def cotacao_editar(cotacao_id):
                 'tipo_comercial': normalizar_tipo_comercial(
                     request.form.get('tipo_comercial')
                     or cotacao.get('tipo_comercial')
+                ),
+                'tipo_de_contrato': normalizar_tipo_de_contrato(
+                    request.form.get('tipo_de_contrato')
+                    or cotacao.get('tipo_de_contrato')
                 ),
                 'periodo_inicio': periodo_inicio,
                 'valor_total_proposta': valor_total,

@@ -1673,6 +1673,7 @@ class CrmV3Repository:
         - `plataformas` (lista) → string CSV em `plataforma_campanha`.
         - Datas: aceita YYYY-MM-DD ou DD/MM/YYYY.
         """
+        from .contrato_tipos import normalizar_tipo_de_contrato
         from .cotacao_tipos import normalizar_tipo_comercial
         from .crm_v3_data import COTACAO_STATUS, COTACAO_STATUS_ALIASES
 
@@ -1740,6 +1741,10 @@ class CrmV3Repository:
         if "tipo_comercial" in data:
             payload["tipo_comercial"] = normalizar_tipo_comercial(
                 data.get("tipo_comercial")
+            )
+        if "tipo_de_contrato" in data:
+            payload["tipo_de_contrato"] = normalizar_tipo_de_contrato(
+                data.get("tipo_de_contrato")
             )
         for frontend_key, db_key in (
             ("agencia_id", "agencia_id"),
@@ -1876,6 +1881,10 @@ class CrmV3Repository:
 
     def _map_cotacao(self, row: Dict[str, Any]) -> Dict[str, Any]:
         """Converte um registro de `cadu_cotacoes` para o shape do v3 UI."""
+        from .contrato_tipos import (
+            normalizar_tipo_de_contrato,
+            rotulo_tipo_de_contrato,
+        )
         from .cotacao_tipos import (
             normalizar_tipo_comercial,
             rotulo_tipo_comercial,
@@ -1913,6 +1922,9 @@ class CrmV3Repository:
         data_display = created.strftime("%d/%m/%Y") if hasattr(created, "strftime") else ""
         tipo_comercial = normalizar_tipo_comercial(
             row.get("tipo_comercial"), estrito=False
+        )
+        tipo_de_contrato = normalizar_tipo_de_contrato(
+            row.get("tipo_de_contrato"), estrito=False
         )
 
         return {
@@ -1960,6 +1972,8 @@ class CrmV3Repository:
             "agencia_logo_url": row.get("agencia_logo_url") or "",
             "tipo_comercial": tipo_comercial,
             "tipo_comercial_label": rotulo_tipo_comercial(tipo_comercial),
+            "tipo_de_contrato": tipo_de_contrato,
+            "tipo_de_contrato_label": rotulo_tipo_de_contrato(tipo_de_contrato),
             "grupo_plano_id": str(row.get("grupo_plano_id") or row.get("id") or ""),
             "eh_principal": bool(row.get("eh_principal") if row.get("eh_principal") is not None else True),
         }

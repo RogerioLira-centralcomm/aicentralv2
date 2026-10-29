@@ -16,6 +16,7 @@ import secrets
 import os
 import re
 from aicentralv2 import db, audit
+from aicentralv2.contrato_tipos import TIPOS_DE_CONTRATO, normalizar_tipo_de_contrato
 from aicentralv2.cotacao_tipos import normalizar_tipo_comercial, rotulo_tipo_comercial
 from aicentralv2.campanhas_pi_list import (
     build_campaign_list_filters,
@@ -6403,6 +6404,9 @@ def init_routes(app):
                 # Coletar todos os campos opcionais
                 kwargs = {
                     'tipo_comercial': request.form.get('tipo_comercial', 'midia').strip(),
+                    'tipo_de_contrato': normalizar_tipo_de_contrato(
+                        request.form.get('tipo_de_contrato')
+                    ),
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
                     'periodo_fim': request.form.get('periodo_fim', '').strip() or None,
                     'status': request.form.get('status', 'Rascunho').strip(),
@@ -6503,6 +6507,10 @@ def init_routes(app):
                         'tipo_comercial',
                         cotacao.get('tipo_comercial') or 'midia',
                     ).strip(),
+                    'tipo_de_contrato': normalizar_tipo_de_contrato(
+                        request.form.get('tipo_de_contrato')
+                        or cotacao.get('tipo_de_contrato')
+                    ),
                     'periodo_inicio': periodo_inicio,
                     'valor_total_proposta': valor_total,
                     'objetivo_campanha': request.form.get('objetivo_campanha', '').strip(),
@@ -12002,6 +12010,9 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_sub_status_pi': request.form.get('id_sub_status_pi', type=int) or 2,
             'obs_financeiro': request.form.get('obs_financeiro', '').strip() or None,
             'obs_operacao': request.form.get('obs_operacao', '').strip() or None,
+            'tipo_de_contrato': normalizar_tipo_de_contrato(
+                request.form.get('tipo_de_contrato')
+            ),
         }
         periodo_inicio = data.get('periodo_inicio')
         data['mes_ref'] = periodo_inicio or None
@@ -12045,6 +12056,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'agencias_opts': db.obter_aux_agencia(),
             'plataformas_campanha': plataformas_campanha,
             'setores': db.obter_setores(),
+            'tipos_de_contrato': TIPOS_DE_CONTRATO,
         }
 
     # ==================== OBJETIVOS CAMPANHA PI - ROTAS ====================

@@ -1,0 +1,93 @@
+{% if pi and (pi.modo_operacao == 'representacao' or (pi.tipo_de_contrato or '') == 'representacao_comercial') %}
+<section class="pi-edit-card mt-3" id="pi-representacao-operacao" data-pi-id="{{ pi.id_pi }}">
+  <div class="pi-edit-card__head">
+    <h2>Operação — representação comercial</h2>
+    <p>Relatórios do parceiro (2–3×/semana), repasse ao cliente e encerramento sem diários de campanha.</p>
+  </div>
+  <div class="pi-edit-card__body space-y-3 text-[11px]">
+    <form id="form_relatorio_rep" class="grid grid-cols-1 md:grid-cols-3 gap-2" enctype="multipart/form-data">
+      <label class="block">
+        <span class="text-gray-600">Tipo</span>
+        <select name="tipo" class="w-full border rounded px-2 py-1">
+          <option value="parcial">Parcial</option>
+          <option value="final">Final</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="text-gray-600">Período início</span>
+        <input type="date" name="periodo_inicio" class="w-full border rounded px-2 py-1">
+      </label>
+      <label class="block">
+        <span class="text-gray-600">Período fim</span>
+        <input type="date" name="periodo_fim" class="w-full border rounded px-2 py-1">
+      </label>
+      <label class="block md:col-span-2">
+        <span class="text-gray-600">Arquivo</span>
+        <input type="file" name="arquivo" class="w-full text-xs">
+      </label>
+      <label class="block md:col-span-3">
+        <span class="text-gray-600">Observações</span>
+        <textarea name="observacoes" rows="2" class="w-full border rounded px-2 py-1"></textarea>
+      </label>
+      <div class="md:col-span-3 flex gap-2">
+        <button type="submit" class="pi-op-btn pi-op-btn--primary text-xs">Registrar relatório</button>
+        <button type="button" id="btn_encerrar_rep" class="pi-op-btn pi-op-btn--secondary text-xs">Encerrar representação</button>
+        <a href="{{ url_for('representacao_comercial.nf_comissao_lista') }}" class="pi-op-btn pi-op-btn--secondary text-xs">NFS-e comissão</a>
+      </div>
+    </form>
+    <div id="lista_relatorios_rep" class="border border-gray-100 rounded p-2 text-gray-600">Carregando relatórios…</div>
+  </div>
+</section>
+<script>
+(function () {
+  var root = document.getElementById('pi-representacao-operacao');
+  if (!root) return;
+  var idPi = root.getAttribute('data-pi-id');
+  var lista = document.getElementById('lista_relatorios_rep');
+  function carregar() {
+    fetch('/representacao/api/cadu_pi/' + idPi + '/relatorios')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var rows = j.relatorios || [];
+        if (!rows.length) {
+          lista.textContent = 'Nenhum relatório registrado.';
+          return;
+        }
+        lista.innerHTML = rows.map(function (rel) {
+          var env = rel.enviado_cliente_em ? ' · repassado ao cliente' : '';
+          return '<div class="py-1 border-b border-gray-50">' + (rel.tipo || 'parcial') + ' — ' +
+            (rel.arquivo_nome || 'sem arquivo') + env + '</div>';
+        }).join('');
+      })
+      .catch(function () { lista.textContent = 'Erro ao carregar relatórios.'; });
+  }
+  carregar();
+  var form = document.getElementById('form_relatorio_rep');
+  if (form) {
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var fd = new FormData(form);
+      fetch('/representacao/api/cadu_pi/' + idPi + '/relatorios', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j.success) { form.reset(); carregar(); }
+        });
+    });
+  }
+  var btnEnc = document.getElementById('btn_encerrar_rep');
+  if (btnEnc) {
+    btnEnc.addEventListener('click', function () {
+      var obs = window.prompt('Observações de encerramento (relatório final / insights do parceiro):');
+      if (obs === null) return;
+      fetch('/representacao/api/cadu_pi/' + idPi + '/encerramento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ observacoes: obs })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.success && window.showToast) showToast('Encerramento registrado.', 'success');
+      });
+    });
+  }
+})();
+</script>
+{% endif %}

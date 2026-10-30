@@ -16,7 +16,11 @@ import secrets
 import os
 import re
 from aicentralv2 import db, audit
-from aicentralv2.contrato_tipos import TIPOS_DE_CONTRATO, normalizar_tipo_de_contrato
+from aicentralv2.contrato_tipos import (
+    TIPOS_DE_CONTRATO,
+    filtrar_plataformas_por_tipo_contrato,
+    normalizar_tipo_de_contrato,
+)
 from aicentralv2.cotacao_tipos import normalizar_tipo_comercial, rotulo_tipo_comercial
 from aicentralv2.campanhas_pi_list import (
     build_campaign_list_filters,
@@ -6711,13 +6715,10 @@ def init_routes(app):
                 if obj.get('status', True) is not False
             ]
 
-            plataformas_campanha = []
-            for p in db.obter_plataformas_campanha():
-                if p.get('status', True) is False:
-                    continue
-                cat = (p.get('categoria') or '').strip()
-                p['categoria'] = cat if cat else 'Sem categoria'
-                plataformas_campanha.append(p)
+            plataformas_campanha = filtrar_plataformas_por_tipo_contrato(
+                db.listar_plataformas_campanha_ativas_ordenadas(),
+                cotacao.get('tipo_de_contrato'),
+            )
 
             return render_template('cadu_cotacoes_detalhes_legado.html', 
                                   modo='editar',
@@ -10670,6 +10671,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 filtros['search'] = request.args.get('busca').strip()
             if request.args.get('id_pi', '').strip().isdigit():
                 filtros['id_pi'] = int(request.args.get('id_pi').strip())
+            if request.args.get('tipo_de_contrato', '').strip():
+                filtros['tipo_de_contrato'] = request.args.get('tipo_de_contrato').strip()
 
             visao_comercial = request.args.get('visao', '')
 
@@ -10969,17 +10972,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato'))
                     return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato'))
                     return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
                 if not data.get('periodo_inicio') or not data.get('periodo_fim'):
                     flash('Data de Início e Término são obrigatórias.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato'))
                     return render_template('cadu_pi_form.html', modo='novo', pi=None, return_url=return_url, **auxiliares)
 
                 id_pi = db.criar_cadu_pi(data)
@@ -11046,26 +11049,26 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
                 if not data.get('resp_comercial'):
                     flash('Executivo de Vendas é obrigatório.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato') or pi.get('tipo_de_contrato'))
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 if not data.get('id_pi_tipo'):
                     flash('Tipo PI é obrigatório.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato') or pi.get('tipo_de_contrato'))
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 if not data.get('periodo_inicio') or not data.get('periodo_fim'):
                     flash('Data de Início e Término são obrigatórias.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato') or pi.get('tipo_de_contrato'))
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
                 sub_status_form = _int_safe(data.get('id_sub_status_pi') or pi.get('id_sub_status_pi'))
                 if sub_status_form in (1, 2) and _pi_valor_monetario_vazio(data.get('valor_bruto')):
                     flash('Preencha os valores financeiros na calculadora antes de salvar.', 'error')
-                    auxiliares = _carregar_auxiliares_pi()
+                    auxiliares = _carregar_auxiliares_pi(data.get('tipo_de_contrato') or pi.get('tipo_de_contrato'))
                     auxiliares.update(_carregar_auxiliares_campanha())
                     return render_template('cadu_pi_form.html', modo='editar', pi=pi, return_url=return_url, somente_leitura=_pi_somente_leitura(pi), **auxiliares)
 
@@ -11091,7 +11094,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return redirect(url_for('cadu_pi_lista', id_sub_status_pi=sub_status))
 
             return_url = _extrair_return_url(request.referrer or '', '/editar')
-            auxiliares = _carregar_auxiliares_pi()
+            auxiliares = _carregar_auxiliares_pi(pi.get('tipo_de_contrato'))
             auxiliares.update(_carregar_auxiliares_campanha())
             return render_template(
                 'cadu_pi_form.html',
@@ -12013,6 +12016,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'tipo_de_contrato': normalizar_tipo_de_contrato(
                 request.form.get('tipo_de_contrato')
             ),
+            'numero_io': request.form.get('numero_io', '').strip() or None,
+            'comissao_prevista_estimada': _parse_real_pi(
+                request.form.get('comissao_prevista_estimada')
+            ),
+            'modo_operacao': (
+                'representacao'
+                if normalizar_tipo_de_contrato(request.form.get('tipo_de_contrato'))
+                == 'representacao_comercial'
+                else request.form.get('modo_operacao') or 'campanha'
+            ),
         }
         periodo_inicio = data.get('periodo_inicio')
         data['mes_ref'] = periodo_inicio or None
@@ -12021,26 +12034,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         app.logger.info(f"PI Form valores salvos: valor_bruto={data['valor_bruto']}, valor_liquido={data['valor_liquido']}, comissao_agencia={data['comissao_agencia']}, comissao_parceiro={data['comissao_parceiro']}, valor_liquido_pr={data['valor_liquido_pr']}, valor_plataformas={data['valor_plataformas']}, perc_ag={data['perc_comissao_agencia']}, perc_parc={data['perc_comissao_parceiro']}")
         return data
 
-    def _carregar_auxiliares_pi():
+    def _carregar_auxiliares_pi(tipo_de_contrato=None):
         """Carrega dados auxiliares para selects do formulário de PI"""
         vendedores = db.obter_vendedores_centralcomm()
         user_id = session.get('user_id')
         is_executivo = any(v['id_contato_cliente'] == user_id for v in (vendedores or []))
 
-        ordem_cat = {nome: i for i, nome in enumerate(db.PLATAFORMA_CATEGORIAS_CANONICAS)}
-        fallback_cat = len(db.PLATAFORMA_CATEGORIAS_CANONICAS)
-        plataformas_campanha = []
-        for p in db.obter_plataformas_campanha():
-            if p.get('status', True) is False:
-                continue
-            cat = (p.get('categoria') or '').strip() or 'Sem categoria'
-            p['categoria'] = cat
-            plataformas_campanha.append(p)
-        plataformas_campanha.sort(key=lambda x: (
-            ordem_cat.get(x['categoria'], fallback_cat),
-            x.get('indice') if x.get('indice') is not None else 10**9,
-            (x.get('descricao') or '').lower(),
-        ))
+        catalogo = db.listar_plataformas_campanha_ativas_ordenadas()
+        tipo_slug = normalizar_tipo_de_contrato(tipo_de_contrato, estrito=False)
+        plataformas_campanha = filtrar_plataformas_por_tipo_contrato(catalogo, tipo_slug)
 
         return {
             'clientes': db.obter_clientes_simples(),
@@ -12055,6 +12057,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'vendedores_cc': vendedores,
             'agencias_opts': db.obter_aux_agencia(),
             'plataformas_campanha': plataformas_campanha,
+            'plataformas_campanha_catalogo': catalogo,
             'setores': db.obter_setores(),
             'tipos_de_contrato': TIPOS_DE_CONTRATO,
         }

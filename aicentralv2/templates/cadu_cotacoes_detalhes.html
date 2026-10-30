@@ -2214,7 +2214,7 @@ function calcularVolumeEdit() {
 {% set _pa = cotacao.agencia_percentual|float if (cotacao and cotacao.agencia_percentual) else 0 %}
 {% set _pp = cotacao.parceiro_percentual|float if (cotacao and cotacao.parceiro_percentual) else 0 %}
 {% set fator_liquido = ((1 - _pa / 100) * (1 - _pp / 100)) if (_pa or _pp) else 1 %}
-<div id="cotacao-operacao-app" class="cot-op-page" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
+<div id="cotacao-operacao-app" class="cot-op-page" data-cotacao-id="{{ cotacao.id if cotacao else '' }}" data-tipo-contrato="{{ cotacao.tipo_de_contrato|default('operacao_propria') }}" data-client-id="{{ cotacao.client_id if cotacao else '' }}" data-qtd-linhas="{{ linhas|length if linhas else 0 }}" data-qtd-audiencias="{{ audiencias|length if audiencias else 0 }}" data-budget-estimado="{{ (cotacao.budget_estimado or 0)|float if cotacao else 0 }}" data-margem-cc-cliente="{{ cliente.margem_cc if cliente and cliente.margem_cc is not none else '' }}" data-plataforma-sugestao="{{ (cotacao.plataforma_campanha|default('', true)) if cotacao and cotacao.plataforma_campanha else ((linhas[0].plataforma|default('', true)) if linhas and linhas|length > 0 else '') }}" data-imposto-percentual="{{ cotacao.imposto_percentual if cotacao and cotacao.imposto_percentual is not none else '' }}">
 
   <style media="not all" data-legacy-cotacao-tabs>
     .tab-nav-item { border-bottom:2px solid transparent; }
@@ -2570,6 +2570,17 @@ function calcularVolumeEdit() {
 
   <!-- ==================== CONTEÚDO (FULL WIDTH) ==================== -->
   <div class="cot-op-sections">
+
+      {% if rep_checklist and rep_checklist.aplicavel %}
+      <div id="anexos" class="mb-2 px-3 py-2 rounded border border-teal-200 bg-teal-50 text-xs text-teal-900" data-section="anexos">
+        <strong>Representação comercial — trilha {{ rep_checklist.trilha_label }}.</strong>
+        Documento esperado: {{ rep_checklist.documento_esperado }}.
+        {% if rep_checklist.documento_ok %}<span class="text-green-700">Anexo OK.</span>{% else %}<span class="text-amber-800">Anexe via upload (planilha ou PDF do parceiro).</span>{% endif %}
+        {% if not rep_checklist.proposta_pronta %}
+        <button type="button" class="ml-2 underline" onclick="typeof marcarPropostaRepresentacaoPronta==='function'&&marcarPropostaRepresentacaoPronta()">Marcar proposta pronta</button>
+        {% endif %}
+      </div>
+      {% endif %}
 
       <!-- ==================== RESUMO COMERCIAL (3 COLUNAS) ==================== -->
       <details data-section="resumo_comercial" class="cot-op-disclosure">

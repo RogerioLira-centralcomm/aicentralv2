@@ -4,7 +4,7 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=25">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=26">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=6">
 {% endblock %}
 
@@ -169,6 +169,14 @@
       </nav>
       {% endif %}
 
+      {% set pi_eh_representacao = (pi and pi.modo_operacao == 'representacao') or ((pi.tipo_de_contrato if pi else request.form.get('tipo_de_contrato')) == 'representacao_comercial') %}
+      {% if pi_eh_representacao %}
+      <div class="mb-3 px-3 py-2 rounded border border-amber-200 bg-amber-50 text-[11px] text-amber-900">
+        <strong>Registro comercial — representação.</strong>
+        Sem faturamento de mídia no CentralX. Informe parceiro, IO, bruto/líquido e comissão prevista; operação via relatórios do parceiro.
+      </div>
+      {% endif %}
+
       {% if modo == 'editar' and pi and pi.cotacao_id %}
       <div class="pi-origin-quote">
         <div class="pi-origin-quote__identity">
@@ -290,6 +298,20 @@
               </select>
             </div>
           </div>
+          {% if pi_eh_representacao|default(false) %}
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="—">
+            <span class="pi-inline__label">Nº IO (parceiro)</span>
+            <div class="pi-inline__edit">
+              <input type="text" name="numero_io" value="{{ pi.numero_io if pi and pi.numero_io else '' }}" placeholder="IO informado pelo parceiro" {% if record_locked %}readonly{% endif %}>
+            </div>
+          </div>
+          <div class="pi-inline{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="—">
+            <span class="pi-inline__label">Comissão prevista (est.)</span>
+            <div class="pi-inline__edit">
+              <input type="text" name="comissao_prevista_estimada" class="tabular-nums" value="{{ pi.comissao_prevista_estimada if pi and pi.comissao_prevista_estimada is not none else '' }}" placeholder="R$ 0,00" {% if record_locked %}readonly{% endif %}>
+            </div>
+          </div>
+          {% endif %}
           <div class="pi-inline pi-inline--title{% if record_locked %} is-locked{% elif record_composer %} is-composer{% endif %}" data-inline data-empty="—">
             <span class="pi-inline__label">Título <i>*</i></span>
             {% if record_locked %}
@@ -497,6 +519,7 @@
         <summary><span class="ml-1">Parâmetros comerciais</span></summary>
         <div class="p-4 space-y-4">
 
+      {% if not pi_eh_representacao|default(false) %}
       <!-- Calculadora / Valores Financeiros -->
       <section class="pi-edit-card pi-edit-finance" id="calculadora_pi_block">
         <div class="pi-edit-card__head pi-finance-head">
@@ -707,6 +730,22 @@
           </div>
         </div>
       </section>
+      {% else %}
+      <section class="pi-edit-card pi-edit-finance" id="calculadora_pi_block">
+        <div class="pi-edit-card__head"><h2>Valores (representação)</h2></div>
+        <div class="pi-edit-card__body grid grid-cols-2 gap-2">
+          <label class="text-[10px]">Valor bruto
+            <input type="text" name="valor_bruto" class="w-full border rounded px-2 py-1 tabular-nums" value="{{ pi.valor_bruto if pi and pi.valor_bruto else '' }}">
+          </label>
+          <label class="text-[10px]">Valor líquido
+            <input type="text" name="valor_liquido" class="w-full border rounded px-2 py-1 tabular-nums" value="{{ pi.valor_liquido if pi and pi.valor_liquido else '' }}">
+          </label>
+          <label class="text-[10px]">Comissão parceiro
+            <input type="text" name="comissao_parceiro" class="w-full border rounded px-2 py-1 tabular-nums" value="{{ pi.comissao_parceiro if pi and pi.comissao_parceiro else '' }}">
+          </label>
+        </div>
+      </section>
+      {% endif %}
         </div>
       </details>
       {% else %}
@@ -737,6 +776,9 @@
       {% endif %}
 
       {% if modo == 'editar' and pi %}
+      {% include 'representacao_comercial/_pi_operacao_rep.html' %}
+
+      {% if not pi_eh_representacao|default(false) %}
       <!-- Dados Campanhas -->
       <section class="pi-edit-card pi-edit-campaigns" id="pi-edit-campaigns">
         <div class="pi-edit-card__head">
@@ -765,6 +807,7 @@
           </div>
         </div>
       </section>
+      {% endif %}
       {% endif %}
 
       <!-- COLLAPSE: Observações -->
@@ -829,6 +872,53 @@
   const PI_VALORES_EDITAVEIS = {{ pi_valores_editaveis|tojson }};
   const PI_VINCULOS_COTACAO = {{ (modo == 'editar' and pi and pi.cotacao_id)|tojson }};
   const PI_SUB_STATUS = {{ (pi.id_sub_status_pi if modo == 'editar' and pi else 2)|tojson }};
+
+  window.__PI_PLATAFORMAS_CATALOGO__ = [
+    {% for p in (plataformas_campanha_catalogo or plataformas_campanha or []) %}
+    { descricao: {{ (p.descricao or '')|tojson }}, categoria: {{ (p.categoria or '')|tojson }} }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  function piPlataformaPermitidaParaTipo(categoria, tipoContrato) {
+    var isDados = String(categoria || '').trim().toLowerCase() === 'dados';
+    return (tipoContrato === 'representacao_comercial') ? isDados : !isDados;
+  }
+
+  function rebuildPiPlataformaCampanhaSelect(tipoContrato, descricaoSelecionada) {
+    var sel = document.getElementById('sel_plataforma_campanha');
+    if (!sel || sel.tagName !== 'SELECT') return;
+    var catalog = window.__PI_PLATAFORMAS_CATALOGO__ || [];
+    var tipo = tipoContrato || 'operacao_propria';
+    var filtered = catalog.filter(function (p) {
+      return piPlataformaPermitidaParaTipo(p.categoria, tipo);
+    });
+    sel.innerHTML = '';
+    var blank = document.createElement('option');
+    blank.value = '';
+    blank.textContent = 'Selecione...';
+    sel.appendChild(blank);
+    var byCat = {};
+    filtered.forEach(function (p) {
+      var cat = p.categoria || 'Sem categoria';
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(p);
+    });
+    Object.keys(byCat).forEach(function (cat) {
+      var og = document.createElement('optgroup');
+      og.label = cat;
+      byCat[cat].forEach(function (p) {
+        var opt = document.createElement('option');
+        opt.value = p.descricao;
+        opt.textContent = p.descricao;
+        if (descricaoSelecionada && descricaoSelecionada === p.descricao) opt.selected = true;
+        og.appendChild(opt);
+      });
+      sel.appendChild(og);
+    });
+    if (descricaoSelecionada && !filtered.some(function (p) { return p.descricao === descricaoSelecionada; })) {
+      sel.value = '';
+    }
+  }
 
   const els = {
     exec: () => document.getElementById('sel_resp_comercial'),
@@ -1906,6 +1996,13 @@
     if (dfimEl && !dfimEl.value) {
       var _hf = new Date(); _hf.setDate(_hf.getDate() + 37);
       dfimEl.value = _hf.toISOString().split('T')[0];
+    }
+    var selTipoContrato = document.getElementById('sel_tipo_de_contrato');
+    var selPlataformaCamp = document.getElementById('sel_plataforma_campanha');
+    if (selTipoContrato && selPlataformaCamp && selPlataformaCamp.tagName === 'SELECT') {
+      selTipoContrato.addEventListener('change', function () {
+        rebuildPiPlataformaCampanhaSelect(selTipoContrato.value, selPlataformaCamp.value);
+      });
     }
     if (typeof window.atualizarOperacaoMidia === 'function') {
       window.atualizarOperacaoMidia(window._piOperacaoCamps || []);

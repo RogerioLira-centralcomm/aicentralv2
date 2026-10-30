@@ -550,4 +550,28 @@
       window.CotacaoComunicacao.reload();
     }
   });
+
+  window.marcarPropostaRepresentacaoPronta = async function () {
+    if (!cotacaoId) return;
+    var response = await fetch('/representacao/api/cotacoes/' + cotacaoId + '/proposta-pronta', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ pronta: true })
+    });
+    var payload = await response.json();
+    if (payload.success) {
+      if (typeof showToast === 'function') showToast('Proposta de representação marcada como pronta.', 'success');
+      scheduleRefresh();
+      document.dispatchEvent(new CustomEvent('cotacao:updated'));
+    }
+  };
+
+  var appRoot = document.getElementById('cotacao-operacao-app');
+  if (appRoot && appRoot.getAttribute('data-tipo-contrato') === 'representacao_comercial') {
+    document.querySelectorAll('#margem_cc_override, #edit_margem_cc_override, #audiencia_margem_cc_override').forEach(function (el) {
+      var wrap = el.closest('.col-span-2') || el.closest('div');
+      if (wrap) wrap.style.display = 'none';
+    });
+  }
 })();

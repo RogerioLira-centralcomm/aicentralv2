@@ -141,7 +141,9 @@
   font-size: 0.9375rem !important;
 }
 
-.cot-nova-page .nova-cotacao-compact button[type="button"]:not(.cot-nova-name-btn):not([data-ia-group] button) {
+/* Ícones compactos (+, limpar) — não aplicar a botões de contato PI */
+.cot-nova-page .nova-cotacao-compact .flex.gap-0\.5 > button[type="button"]:not(.cot-nova-name-btn),
+.cot-nova-page .nova-cotacao-compact button[type="button"].p-0\.5:not(.pi-contatos-party-toolbar__btn):not(.pi-contato-slot__btn) {
   width: 2.5rem;
   height: 2.5rem;
   padding: 0;
@@ -153,7 +155,8 @@
   flex-shrink: 0;
 }
 
-.cot-nova-page .nova-cotacao-compact button[type="button"] i {
+.cot-nova-page .nova-cotacao-compact .flex.gap-0\.5 > button[type="button"]:not(.cot-nova-name-btn) i,
+.cot-nova-page .nova-cotacao-compact button[type="button"].p-0\.5:not(.pi-contatos-party-toolbar__btn):not(.pi-contato-slot__btn) i {
   font-size: 0.8125rem !important;
 }
 
@@ -163,7 +166,8 @@
   color: var(--cn-brand);
 }
 
-.cot-nova-page .nova-cotacao-compact button[type="button"]:hover {
+.cot-nova-page .nova-cotacao-compact .flex.gap-0\.5 > button[type="button"]:not(.cot-nova-name-btn):hover,
+.cot-nova-page .nova-cotacao-compact button[type="button"].p-0\.5:not(.pi-contatos-party-toolbar__btn):not(.pi-contato-slot__btn):hover {
   border-color: var(--cn-brand);
   color: var(--cn-brand);
   background: var(--cn-soft);

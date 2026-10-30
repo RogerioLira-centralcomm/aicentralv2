@@ -823,6 +823,32 @@ def init_db(app):
                         ALTER TABLE cadu_pi
                             ALTER COLUMN tipo_de_contrato SET NOT NULL;
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'numero_io'
+                    ) THEN
+                        ALTER TABLE cadu_pi ADD COLUMN numero_io VARCHAR(80);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'comissao_prevista_estimada'
+                    ) THEN
+                        ALTER TABLE cadu_pi ADD COLUMN comissao_prevista_estimada NUMERIC(14, 2);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'modo_operacao'
+                    ) THEN
+                        ALTER TABLE cadu_pi ADD COLUMN modo_operacao VARCHAR(32) DEFAULT 'campanha';
+                        UPDATE cadu_pi SET modo_operacao = 'campanha'
+                        WHERE modo_operacao IS NULL OR BTRIM(modo_operacao) = '';
+                    END IF;
                 END $$;
             ''')
 
@@ -1184,6 +1210,10 @@ def init_db(app):
 
         conn.commit()
         criar_tabela_cotacoes()
+        try:
+            garantir_schema_representacao_comercial_v1()
+        except Exception as exc:
+            app.logger.warning('Schema representação comercial v1: %s', exc)
     app.logger.info("OK Banco de dados inicializado")
 
 
@@ -9057,6 +9087,24 @@ def atualizar_status_briefing(briefing_id, novo_status, progresso=None):
 ORIGEM_TESTE_CALCULO = 'teste_calculo'
 
 
+def garantir_schema_representacao_comercial_v1():
+    """Garante colunas e tabelas da trilha Representação Comercial (idempotente)."""
+    from pathlib import Path
+
+    sql_path = Path(__file__).resolve().parent.parent / 'migrations' / 'add_representacao_comercial_v1.sql'
+    if not sql_path.is_file():
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(sql_path.read_text(encoding='utf-8'))
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def criar_tabela_cotacoes():
     """Verifica se a tabela cadu_cotacoes existe no banco de dados"""
     conn = get_db()
@@ -9142,6 +9190,15 @@ def criar_tabela_cotacoes():
                     END IF;
                 END $$;
                 """
+            )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS trilha_representacao VARCHAR(32)"
+            )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS fluxo_proposta_representacao VARCHAR(32)"
+            )
+            cursor.execute(
+                "ALTER TABLE cadu_cotacoes ADD COLUMN IF NOT EXISTS proposta_representacao_pronta BOOLEAN DEFAULT FALSE"
             )
             cursor.execute('''
                 DO $$
@@ -9552,6 +9609,8 @@ def criar_cotacao(client_id, nome_campanha, periodo_inicio, **kwargs):
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
                 'plataforma_campanha', 'imposto_percentual', 'tipo_comercial',
                 'tipo_de_contrato',
+                'trilha_representacao', 'fluxo_proposta_representacao',
+                'proposta_representacao_pronta',
                 'grupo_plano_id', 'eh_principal',
             ]
             
@@ -9617,13 +9676,15 @@ def atualizar_cotacao(cotacao_id, **kwargs):
                 'id_parceiro', 'parceiro_user_id',
                 'frequencia_impacto', 'premissas', 'observacoes_gerais',
                 'plataforma_campanha', 'tipo_comercial', 'tipo_de_contrato',
+                'trilha_representacao', 'fluxo_proposta_representacao',
+                'proposta_representacao_pronta',
             ]
             
             # Campos que podem ser setados para NULL explicitamente
             campos_nullable = ['client_id', 'client_user_id', 'responsavel_comercial', 'briefing_id', 'periodo_fim', 'link_publico_expires_at', 'expires_at', 'agencia_id', 'agencia_user_id', 'id_parceiro', 'parceiro_user_id', 'plataforma_campanha']
             
             # Campos booleanos que podem ser False
-            campos_booleanos = ['link_publico_ativo']
+            campos_booleanos = ['link_publico_ativo', 'proposta_representacao_pronta']
             
             for campo in campos_permitidos:
                 if campo in kwargs:
@@ -13529,6 +13590,7 @@ def obter_cadu_pi_lista(filtros=None):
                     camp_sum.campanhas_plataformas,
                     camp_sum.campanhas_nomes
                 FROM cadu_pi p
+                LEFT JOIN cadu_cotacoes c ON c.id = p.cotacao_id
                 LEFT JOIN tbl_cliente cli ON p.id_cliente = cli.id_cliente
                 LEFT JOIN tbl_cliente cli_ag ON p.id_agencia = cli_ag.id_cliente
                 LEFT JOIN tbl_cliente cli_parc ON p."Id_parc_reg" = cli_parc.id_cliente
@@ -13616,6 +13678,11 @@ def obter_cadu_pi_lista(filtros=None):
                 if filtros.get('id_pi'):
                     query += ' AND p.id_pi = %s'
                     params.append(filtros['id_pi'])
+
+                if filtros.get('tipo_de_contrato'):
+                    query += ' AND COALESCE(p.tipo_de_contrato, c.tipo_de_contrato, %s) = %s'
+                    slug = normalizar_tipo_de_contrato(filtros['tipo_de_contrato'])
+                    params.extend(['operacao_propria', slug])
 
                 if filtros.get('tipo_entidade') == 'agencia':
                     query += ' AND p.id_agencia IS NOT NULL AND p.id_agencia > 0'
@@ -13897,6 +13964,7 @@ def criar_cadu_pi(data):
                 'val_pl_incentivos', 'val_impostos',
                 'meta_baseada_em_cpm', 'custo_base_unitario', 'objetivo_contratado_pi',
                 'plataforma_campanha', 'tipo_de_contrato',
+                'numero_io', 'comissao_prevista_estimada', 'modo_operacao',
             ]
             valores = [
                 data.get('id_cliente'),
@@ -13945,6 +14013,9 @@ def criar_cadu_pi(data):
                 data.get('objetivo_contratado_pi'),
                 data.get('plataforma_campanha'),
                 normalizar_tipo_de_contrato(data.get('tipo_de_contrato')),
+                data.get('numero_io'),
+                data.get('comissao_prevista_estimada'),
+                data.get('modo_operacao') or 'campanha',
             ]
 
             if data.get('cotacao_id'):
@@ -14591,6 +14662,113 @@ def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
     }
 
 
+def _gerar_pi_representacao_de_cotacao(cotacao_id, cotacao, codigo_pi_cc=None):
+    """PI registro para representação comercial — sem campanhas de mídia própria."""
+    linhas = obter_linhas_cotacao(cotacao_id)
+    valor_bruto = parse_valor_monetario_para_float(cotacao.get('valor_total_proposta'))
+    if not valor_bruto and linhas:
+        valor_bruto = sum(
+            parse_valor_monetario_para_float(l.get('investimento_bruto') or l.get('valor_total'))
+            for l in linhas
+            if not l.get('is_subtotal') and not l.get('is_header')
+        )
+    perc_parceiro = parse_valor_monetario_para_float(
+        cotacao.get('fee_pr') or cotacao.get('parceiro_percentual')
+    )
+    fee_pr_frac = _percentual_cotacao_para_fracao(perc_parceiro)
+    comissao_prevista = round(valor_bruto * fee_pr_frac, 2) if valor_bruto and fee_pr_frac else 0.0
+    for linha in linhas or []:
+        if linha.get('is_subtotal') or linha.get('is_header'):
+            continue
+        alt = parse_valor_monetario_para_float(
+            linha.get('comissao_parceiro') or linha.get('val_comissao_parceiro')
+        )
+        if alt > 0:
+            comissao_prevista = round(comissao_prevista + alt, 2)
+
+    perc_agencia = parse_valor_monetario_para_float(
+        cotacao.get('fee_ag') or cotacao.get('agencia_percentual')
+    )
+    fee_ag_frac = _percentual_cotacao_para_fracao(perc_agencia)
+    valor_liquido = valor_bruto
+    comissao_agencia = 0.0
+    if valor_bruto > 0 and fee_ag_frac > 0:
+        comissao_agencia = round(valor_bruto * fee_ag_frac, 2)
+        valor_liquido = round(valor_bruto * (1.0 - fee_ag_frac), 2)
+
+    pi_periodo_inicio = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
+    pi_periodo_fim = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_fim'))
+    mes_ref = None
+    mes_ref_comp = None
+    if pi_periodo_inicio:
+        mes_ref = date(pi_periodo_inicio.year, pi_periodo_inicio.month, 1)
+        mes_ref_comp = formatar_mes_ref_comp(pi_periodo_inicio)
+
+    data = {
+        'id_cliente': cotacao.get('client_id'),
+        'titulo_pi': cotacao.get('nome_campanha'),
+        'codigo_pi_cc': (str(codigo_pi_cc).strip() or None) if codigo_pi_cc else None,
+        'id_pi_tipo': None,
+        'tem_agencia': bool(cotacao.get('agencia_id')),
+        'id_agencia': cotacao.get('agencia_id'),
+        'perc_comissao_agencia': perc_agencia,
+        'id_parceiro': cotacao.get('id_parceiro'),
+        'perc_comissao_parceiro': perc_parceiro,
+        'valor_bruto': formatar_real_br(valor_bruto),
+        'valor_liquido': formatar_real_br(valor_liquido),
+        'comissao_agencia': formatar_real_br(comissao_agencia) if comissao_agencia else None,
+        'comissao_parceiro': formatar_real_br(comissao_prevista) if comissao_prevista else None,
+        'valor_liquido_pr': formatar_real_br(valor_liquido),
+        'valor_plataformas': None,
+        'total_plataformas': None,
+        'periodo_inicio': pi_periodo_inicio,
+        'periodo_fim': pi_periodo_fim,
+        'mes_ref': mes_ref,
+        'mes_ref_comp': mes_ref_comp,
+        'resp_comercial': cotacao.get('responsavel_comercial'),
+        'contato_midia_cliente': resolver_contato_responsavel_setor(
+            cotacao.get('client_id'), 'Operações', somente_responsavel_setor=True),
+        'contato_fin_cliente': resolver_contato_responsavel_setor(
+            cotacao.get('client_id'), 'Financeiro', somente_responsavel_setor=True),
+        'id_status_pi': 1,
+        'id_sub_status_pi': 2,
+        'obs_financeiro': None,
+        'obs_operacao': (
+            f'PI registro (representação comercial) gerado da cotação #{cotacao_id}. '
+            'Veiculação operada pelo parceiro.'
+        ),
+        'tipo_de_contrato': normalizar_tipo_de_contrato(
+            cotacao.get('tipo_de_contrato'), estrito=False
+        ),
+        'modo_operacao': 'representacao',
+        'comissao_prevista_estimada': comissao_prevista,
+        'numero_io': None,
+        'cotacao_id': cotacao_id,
+        'perc_margem_cc': None,
+        'perc_tech_fee': None,
+        'perc_com_vendas': None,
+        'perc_pl_incentivos': None,
+        'perc_impostos': None,
+        'val_margem_cc': None,
+        'val_tech_fee': None,
+        'val_com_vendas': None,
+        'val_pl_incentivos': None,
+        'val_impostos': None,
+    }
+    id_pi = criar_cadu_pi(data)
+    if id_pi:
+        try:
+            from .pi_operacao_service import sincronizar_operacao_pi
+            sincronizar_operacao_pi(id_pi)
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "PI representação %s: checklist operacional não sincronizado: %s",
+                id_pi,
+                exc,
+            )
+    return id_pi
+
+
 def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     """Gera um PI automaticamente a partir de uma cotação aprovada.
     Retorna o id_pi gerado ou None se já existir PI vinculado."""
@@ -14606,6 +14784,14 @@ def gerar_pi_de_cotacao(cotacao_id, codigo_pi_cc=None):
     cotacao = obter_cotacao_por_id(cotacao_id)
     if not cotacao:
         raise ValueError(f'Cotação {cotacao_id} não encontrada')
+
+    from .representacao_comercial.domain import eh_representacao_comercial
+
+    if eh_representacao_comercial(cotacao):
+        return _gerar_pi_representacao_de_cotacao(
+            cotacao_id, cotacao, codigo_pi_cc=codigo_pi_cc
+        )
+
     tipo_comercial = normalizar_tipo_comercial(cotacao.get('tipo_comercial'))
     if tipo_comercial != 'midia':
         raise ValueError(
@@ -14923,6 +15109,9 @@ def atualizar_cadu_pi(id_pi, data):
                     objetivo_contratado_pi = %s,
                     plataforma_campanha = %s,
                     tipo_de_contrato = %s,
+                    numero_io = %s,
+                    comissao_prevista_estimada = %s,
+                    modo_operacao = %s,
                     updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
                 WHERE id_pi = %s
                 RETURNING id_pi
@@ -14973,6 +15162,9 @@ def atualizar_cadu_pi(id_pi, data):
                 data.get('objetivo_contratado_pi'),
                 data.get('plataforma_campanha'),
                 normalizar_tipo_de_contrato(data.get('tipo_de_contrato')),
+                data.get('numero_io'),
+                data.get('comissao_prevista_estimada'),
+                data.get('modo_operacao') or 'campanha',
                 id_pi,
             ))
             conn.commit()
@@ -15232,6 +15424,26 @@ def obter_plataformas_campanha():
     except Exception as e:
         conn.rollback()
         raise e
+
+
+def listar_plataformas_campanha_ativas_ordenadas():
+    """Plataformas ativas, categoria normalizada, ordem canônica de categoria + índice."""
+    ordem_cat = {nome: i for i, nome in enumerate(PLATAFORMA_CATEGORIAS_CANONICAS)}
+    fallback_cat = len(PLATAFORMA_CATEGORIAS_CANONICAS)
+    plataformas = []
+    for p in obter_plataformas_campanha():
+        if p.get('status', True) is False:
+            continue
+        row = dict(p)
+        cat = (row.get('categoria') or '').strip() or 'Sem categoria'
+        row['categoria'] = cat
+        plataformas.append(row)
+    plataformas.sort(key=lambda x: (
+        ordem_cat.get(x['categoria'], fallback_cat),
+        x.get('indice') if x.get('indice') is not None else 10**9,
+        (x.get('descricao') or '').lower(),
+    ))
+    return plataformas
 
 
 def obter_id_plataforma_dv360():
@@ -16062,10 +16274,25 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
     Centraliza investimento bruto/líquido, percentuais e valores derivados para
     evitar que rotas diferentes persistam campos financeiros vazios.
     """
-    if imposto_percentual is None:
-        imposto_percentual = resolver_imposto_percentual_cotacao(cotacao, linha=data)
+    from .representacao_comercial.domain import eh_representacao_comercial
+    from .representacao_comercial.precificacao import calcular_breakdown_representacao_linha
+
     if not cotacao:
         raise ValueError('Cotação não encontrada')
+    if eh_representacao_comercial(cotacao):
+        if not isinstance(data, dict):
+            raise ValueError('Dados da linha inválidos')
+        return calcular_breakdown_representacao_linha(
+            cotacao,
+            data,
+            parse_valor=parse_valor_monetario_para_float,
+            derivar_investimento_de_liquido_informado=derivar_investimento_de_liquido_informado,
+            derivar_investimento_de_preco=derivar_investimento_de_preco,
+            derivar_investimento_liquido_de_bruto=derivar_investimento_liquido_de_bruto,
+            obter_com_vendas_fracao=obter_com_vendas_fracao_por_resp_comercial,
+        )
+    if imposto_percentual is None:
+        imposto_percentual = resolver_imposto_percentual_cotacao(cotacao, linha=data)
     if not isinstance(data, dict):
         raise ValueError('Dados da linha inválidos')
 

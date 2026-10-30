@@ -25,7 +25,7 @@ from werkzeug.utils import secure_filename
 
 from aicentralv2 import db
 from aicentralv2.auth import centralcomm_required, centralcomm_required_api, login_required
-from aicentralv2.contrato_tipos import normalizar_tipo_de_contrato
+from aicentralv2.contrato_tipos import normalizar_tipo_de_contrato, rotulo_tipo_de_contrato
 from aicentralv2.cotacao_tipos import (
     campos_item_tipo_comercial,
     destino_tipo_comercial,
@@ -34,6 +34,7 @@ from aicentralv2.cotacao_tipos import (
     workspace_tipo_comercial,
 )
 
+from aicentralv2.contrato_tipos import filtrar_plataformas_por_tipo_contrato
 from aicentralv2.db import PLATAFORMA_CATEGORIAS_CANONICAS as _ORDEM_CATEGORIA_PLATAFORMA
 
 
@@ -81,6 +82,20 @@ OBSERVACOES_GERAIS_DEFAULT = (
 
 DESCRICAO_ANEXO_PROPOSTA_PDF = 'Proposta CentralComm Programmatic (PDF)'
 DESCRICAO_ANEXO_BRIEFING = 'Briefing da campanha'
+
+from aicentralv2.representacao_comercial.domain import (  # noqa: E402
+    DESCRICAO_ANEXO_PLANILHA_PARCEIRO,
+    DESCRICAO_ANEXO_PROPOSTA_PDF_PARCEIRO,
+    eh_representacao_comercial,
+)
+from aicentralv2.representacao_comercial.parceiros import (  # noqa: E402
+    FLUXO_PDF_REPASSA,
+    metadados_trilha,
+    resolver_trilha_parceiro,
+)
+from aicentralv2.representacao_comercial.routes import (  # noqa: E402
+    sincronizar_trilha_apos_salvar_cotacao,
+)
 BRIEFING_EXTENSOES_PERMITIDAS = {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png'}
 BRIEFING_MAX_BYTES = 10 * 1024 * 1024
 
@@ -208,9 +223,93 @@ def _json_forbid():
     ), 403
 
 
+def _montar_estado_comercial_representacao(cotacao, linhas=None, anexos=None):
+    cotacao = cotacao or {}
+    linhas = linhas or []
+    anexos = anexos or []
+    trilha = cotacao.get('trilha_representacao') or resolver_trilha_parceiro(
+        cotacao.get('id_parceiro'), cotacao.get('parceiro_nome')
+    )
+    meta = metadados_trilha(trilha)
+    descricoes = {
+        (a.get('descricao') or '').strip()
+        for a in anexos
+        if not a.get('deleted_at')
+    }
+    if meta['fluxo_proposta'] == FLUXO_PDF_REPASSA:
+        doc_ok = DESCRICAO_ANEXO_PROPOSTA_PDF_PARCEIRO in descricoes
+        doc_titulo = 'PDF do parceiro anexado'
+    else:
+        doc_ok = DESCRICAO_ANEXO_PLANILHA_PARCEIRO in descricoes
+        doc_titulo = 'Planilha do parceiro anexada'
+    itens_reais = [
+        linha for linha in linhas
+        if not linha.get('is_header') and not linha.get('is_subtotal')
+    ]
+    itens_ok = bool(itens_reais) and all(
+        _to_float(l.get('investimento_bruto') or l.get('investimento_liquido')) > 0
+        for l in itens_reais
+    )
+    parceiro_ok = bool(cotacao.get('id_parceiro'))
+    proposta_pronta = bool(cotacao.get('proposta_representacao_pronta'))
+    status = (cotacao.get('status') or 'Rascunho').strip()
+    checklist = [
+        {
+            'codigo': 'parceiro',
+            'titulo': 'Parceiro comercial definido',
+            'concluido': parceiro_ok,
+            'evidencia': meta['rotulo'] if parceiro_ok else 'Selecione o parceiro (Logan/Serasa).',
+            'acao': {'tipo': 'hash', 'alvo': 'resumo'},
+        },
+        {
+            'codigo': 'documento_parceiro',
+            'titulo': doc_titulo,
+            'concluido': doc_ok,
+            'evidencia': meta['fluxo_proposta'],
+            'acao': {'tipo': 'hash', 'alvo': 'anexos'},
+        },
+        {
+            'codigo': 'itens_rep',
+            'titulo': 'Valores de tabela conferidos',
+            'concluido': itens_ok,
+            'evidencia': f'{len(itens_reais)} item(ns) com investimento.' if itens_ok else 'Informe itens com valor de tabela.',
+            'acao': {'tipo': 'hash', 'alvo': 'itens'},
+        },
+        {
+            'codigo': 'proposta_rep_pronta',
+            'titulo': 'Proposta representação pronta',
+            'concluido': proposta_pronta,
+            'evidencia': 'Checklist comercial da trilha concluído.' if proposta_pronta else 'Marque quando a proposta estiver pronta.',
+            'acao': {'tipo': 'funcao', 'alvo': 'marcarPropostaRepresentacaoPronta'},
+        },
+    ]
+    obrigatorios = [item for item in checklist if not item.get('opcional')]
+    concluidos = sum(1 for item in obrigatorios if item['concluido'])
+    total = len(obrigatorios)
+    proxima = next((item for item in checklist if not item['concluido']), None)
+    recomendacao = proxima['titulo'] if proxima else 'Proposta pronta para envio.'
+    if status == 'Aprovada':
+        recomendacao = 'Cotação aprovada — PI de registro comercial.'
+        proxima = None
+    return {
+        'status': status,
+        'recomendacao': recomendacao,
+        'proxima_pendencia': proxima,
+        'checklist': checklist,
+        'trilha_representacao': trilha,
+        'progresso': {
+            'concluidos': concluidos,
+            'total': total,
+            'percentual': round((concluidos / total) * 100) if total else 100,
+        },
+    }
+
+
 def montar_estado_comercial_cotacao(cotacao, linhas=None, audiencias=None, anexos=None):
     """Monta pendências comerciais somente a partir do estado atual da cotação."""
     cotacao = cotacao or {}
+    if eh_representacao_comercial(cotacao):
+        return _montar_estado_comercial_representacao(cotacao, linhas=linhas, anexos=anexos)
     linhas = linhas or []
     audiencias = audiencias or []
     anexos = anexos or []
@@ -986,6 +1085,7 @@ def cotacao_nova():
             )
 
             cotacao_id = resultado['id']
+            sincronizar_trilha_apos_salvar_cotacao(cotacao_id)
             briefing_arquivo = request.files.get('briefing_arquivo')
             if briefing_arquivo and briefing_arquivo.filename:
                 nome_original = secure_filename(briefing_arquivo.filename)
@@ -1022,7 +1122,12 @@ def cotacao_nova():
                 dados_novos={'nome_campanha': nome_campanha, 'origem': request.form.get('origem', '').strip()},
             )
 
-            flash(f'Cotação {resultado["numero_cotacao"]} criada com sucesso!', 'success')
+            rotulo_contrato = rotulo_tipo_de_contrato(kwargs.get('tipo_de_contrato'))
+            flash(
+                f'Cotação {resultado["numero_cotacao"]} criada com sucesso! '
+                f'Tipo de contrato: {rotulo_contrato} (será herdado pelo PI na aprovação).',
+                'success',
+            )
             destino, _ = destino_tipo_comercial(kwargs['tipo_comercial'])
             return redirect(url_for(destino, cotacao_id=resultado['id']))
 
@@ -1231,11 +1336,19 @@ def cotacao_editar(cotacao_id):
 
             # Status não é alterável pelo formulário de edição (somente na tela de detalhes).
             db.atualizar_cotacao(cotacao_id=cotacao_id, **update_kwargs)
+            sincronizar_trilha_apos_salvar_cotacao(cotacao_id)
 
             if intermediario_mudou:
                 _recalcular_itens_cotacao_intermediario(cotacao_id)
 
-            flash('Cotação atualizada com sucesso!', 'success')
+            rotulo_contrato = rotulo_tipo_de_contrato(
+                update_kwargs.get('tipo_de_contrato')
+            )
+            flash(
+                f'Cotação atualizada com sucesso! Tipo de contrato: {rotulo_contrato} '
+                f'(herdado pelo PI na aprovação).',
+                'success',
+            )
 
             _audit(
                 acao='UPDATE',
@@ -1505,20 +1618,19 @@ def cotacao_detalhes(cotacao_id):
             ]
         audiencias = db.obter_audiencias_cotacao(cotacao_id)
         comentarios = db.obter_comentarios_cotacao(cotacao_id)
-        plataformas_campanha = []
-        for p in db.obter_plataformas_campanha():
-            if p.get('status', True) is False:
-                continue
-            cat = (p.get('categoria') or '').strip()
-            p['categoria'] = cat if cat else 'Sem categoria'
-            plataformas_campanha.append(p)
-        plataformas_campanha = _ordenar_plataformas_campanha_para_select(plataformas_campanha)
+        plataformas_campanha = filtrar_plataformas_por_tipo_contrato(
+            db.listar_plataformas_campanha_ativas_ordenadas(),
+            cotacao.get('tipo_de_contrato'),
+        )
 
         objetivos_campanha = [
             obj for obj in db.obter_objetivos_campanha()
             if obj.get('status', True) is not False
         ]
         totais_financeiros = db.calcular_totais_financeiros_cotacao(linhas=linhas, audiencias=audiencias)
+        from aicentralv2.representacao_comercial.repository import checklist_cotacao_representacao
+
+        rep_checklist = checklist_cotacao_representacao(cotacao_id)
 
         return render_template(
             'cadu_cotacoes_detalhes.html',
@@ -1539,6 +1651,7 @@ def cotacao_detalhes(cotacao_id):
             plataformas_campanha=plataformas_campanha,
             objetivos_campanha=objetivos_campanha,
             totais_financeiros=totais_financeiros,
+            rep_checklist=rep_checklist,
         )
 
     except Exception as e:
@@ -1722,6 +1835,21 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         if not cotacao:
             return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
 
+        if eh_representacao_comercial(cotacao):
+            kpi = (request.args.get('objetivo_kpi') or request.args.get('audiencia_calculo_kpi') or '').strip()
+            payload = {
+                'plataforma': plat,
+                'objetivo_kpi': kpi,
+                'valor_unitario_tabela': val_tab,
+                'volume_contratado': vol,
+                'investimento_bruto': _parse_float_br(request.args.get('investimento_bruto')),
+                'investimento_liquido': _parse_float_br(request.args.get('investimento_liquido')),
+                'fator_desconto': _parse_float_br(request.args.get('fator_desconto')) or 1.0,
+            }
+            breakdown = db.calcular_breakdown_linha_cotacao(cotacao, payload)
+            body = {'success': True, 'representacao_comercial': True, **_serializar(breakdown)}
+            return jsonify(body)
+
         imp = db.resolver_imposto_percentual_cotacao(cotacao)
 
         mcc_arg = request.args.get('margem_cc')
@@ -1875,6 +2003,7 @@ def api_atualizar_cotacao_teste(cotacao_id):
                 }), 400
 
         db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
+        sincronizar_trilha_apos_salvar_cotacao(cotacao_id)
 
         itens_recalculados = 0
         if intermediario_mudou:
@@ -2728,7 +2857,13 @@ def adicionar_anexo_cotacao_teste(cotacao_id):
         if arquivo.filename == '':
             return jsonify({'success': False, 'message': 'Arquivo sem nome'}), 400
 
-        descricao = request.form.get('descricao', '')
+        descricao = (request.form.get('descricao') or '').strip()
+        tipo_doc = (request.form.get('tipo_documento_representacao') or '').strip()
+        if not descricao and tipo_doc:
+            if tipo_doc == 'planilha_parceiro':
+                descricao = DESCRICAO_ANEXO_PLANILHA_PARCEIRO
+            elif tipo_doc == 'pdf_parceiro':
+                descricao = DESCRICAO_ANEXO_PROPOSTA_PDF_PARCEIRO
         nome_original = secure_filename(arquivo.filename)
         extensao = os.path.splitext(nome_original)[1]
         nome_arquivo = f"{uuid.uuid4().hex}{extensao}"

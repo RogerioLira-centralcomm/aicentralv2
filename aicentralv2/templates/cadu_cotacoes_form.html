@@ -5,9 +5,9 @@
 {% block page_subtitle %}Cotações{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=8">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=26">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=6">
 <style>
   .tab-nav-item { border-bottom: 2px solid transparent; }
@@ -171,7 +171,7 @@
   {% endif %}
 
   {% if modo == 'editar' %}<div class="cot-editar-com-plano">{% endif %}
-  <form id="cotacao_form" method="POST" enctype="multipart/form-data"{% if modo == 'editar' %} data-modo="editar" data-qtd-linhas="{{ resumo_metricas.qtd_linhas if resumo_metricas else 0 }}" data-qtd-audiencias="{{ resumo_metricas.qtd_audiencias if resumo_metricas else 0 }}" data-agencia-inicial="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}" data-parceiro-inicial="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}"{% endif %}>
+  <form id="cotacao_form" method="POST" enctype="multipart/form-data"{% if modo == 'editar' %} data-modo="editar" data-qtd-linhas="{{ resumo_metricas.qtd_linhas if resumo_metricas else 0 }}" data-qtd-audiencias="{{ resumo_metricas.qtd_audiencias if resumo_metricas else 0 }}" data-agencia-inicial="{{ cotacao.agencia_id if cotacao and cotacao.agencia_id else '' }}" data-parceiro-inicial="{{ cotacao.id_parceiro if cotacao and cotacao.id_parceiro else '' }}" data-tipo-contrato-inicial="{{ cotacao.tipo_de_contrato if cotacao and cotacao.tipo_de_contrato else 'operacao_propria' }}"{% endif %}>
 
     <!-- Hidden inputs -->
     <input type="hidden" name="client_id" id="client_id" value="{% if modo == 'editar' and cotacao %}{{ cotacao.client_id }}{% elif cliente_selecionado %}{{ cliente_selecionado }}{% endif %}" required>
@@ -340,6 +340,7 @@
               <option value="operacao_propria" {% if contrato_atual == 'operacao_propria' %}selected{% endif %}>Operação própria</option>
               <option value="representacao_comercial" {% if contrato_atual == 'representacao_comercial' %}selected{% endif %}>Representação comercial</option>
             </select>
+            <p id="cot-tipo-contrato-pi-hint" class="text-[10px] text-gray-500 mt-1 leading-snug" role="note"></p>
           </div>
 
           <!-- Objetivo da Campanha -->
@@ -487,6 +488,7 @@
                 <span>Representação comercial</span>
               </label>
             </div>
+            <p id="cot-tipo-contrato-pi-hint" class="text-[10px] text-gray-500 mt-1.5 leading-snug" role="note"></p>
           </fieldset>
         </div>
         <div>
@@ -1213,11 +1215,65 @@ async function melhorarCampoIABriefing(elId, acao) {
 }
 
 // ============================================
+// TIPO DE CONTRATO — confirmação ao salvar
+// ============================================
+
+var COT_TIPO_CONTRATO_LABELS = {
+  operacao_propria: 'Operação própria',
+  representacao_comercial: 'Representação comercial'
+};
+
+function lerSlugTipoContratoForm() {
+  var radio = document.querySelector('input[name="tipo_de_contrato"]:checked');
+  if (radio) return radio.value;
+  var select = document.querySelector('select[name="tipo_de_contrato"]');
+  return (select && select.value) ? select.value : 'operacao_propria';
+}
+
+function labelTipoContratoCotacao(slug) {
+  return COT_TIPO_CONTRATO_LABELS[slug] || slug || 'Operação própria';
+}
+
+function montarMensagemConfirmTipoContrato(acaoSalvar) {
+  var slug = lerSlugTipoContratoForm();
+  var label = labelTipoContratoCotacao(slug);
+  var acao = acaoSalvar === 'rascunho' ? 'salvar rascunho' : 'criar cotação';
+  var msg = 'Tipo de contrato: ' + label + '.\n\n'
+    + 'Este valor será gravado na cotação e herdado pelo PI na aprovação.\n\n';
+  if (slug === 'representacao_comercial') {
+    msg += 'Trilha de representação comercial (parceiro, relatórios, comissão) — sem fechamento de mídia CC.\n\n';
+  } else {
+    msg += 'Fluxo padrão de campanha, operação e fechamento de mídia.\n\n';
+  }
+  msg += 'Deseja ' + acao + '?';
+  return msg;
+}
+
+function confirmarTipoContratoAntesSalvar(acaoSalvar) {
+  return confirm(montarMensagemConfirmTipoContrato(acaoSalvar));
+}
+
+function deveConfirmarTipoContratoNoSubmit(form) {
+  if (form.dataset.modo === 'editar') {
+    var inicial = form.dataset.tipoContratoInicial || 'operacao_propria';
+    return lerSlugTipoContratoForm() !== inicial;
+  }
+  return true;
+}
+
+function acaoSalvarFromSubmitter(submitter) {
+  return submitter && submitter.name === 'salvar_rascunho' ? 'rascunho' : 'criar';
+}
+
+// ============================================
 // SALVAR RASCUNHO
 // ============================================
 
 function salvarRascunho() {
   const form = document.getElementById('cotacao_form');
+  if (!form) return;
+  if (!confirmarTipoContratoAntesSalvar('rascunho')) return;
+  const label = labelTipoContratoCotacao(lerSlugTipoContratoForm());
   const formData = new FormData(form);
   formData.append('salvar_rascunho', '1');
 
@@ -1227,7 +1283,10 @@ function salvarRascunho() {
   })
   .then(response => {
     if (response.ok) {
-      showToast('Rascunho salvo com sucesso!', 'success');
+      showToast(
+        'Rascunho salvo! Tipo de contrato: ' + label + ' (herdado pelo PI na aprovação).',
+        'success'
+      );
     } else {
       showToast('Erro ao salvar rascunho', 'error');
     }
@@ -1558,6 +1617,16 @@ document.getElementById('cotacao_form').addEventListener('submit', function(e) {
   });
 
   const form = e.target;
+  const submitter = e.submitter;
+  const acaoSalvar = acaoSalvarFromSubmitter(submitter);
+
+  if (deveConfirmarTipoContratoNoSubmit(form)) {
+    if (!confirmarTipoContratoAntesSalvar(acaoSalvar)) {
+      e.preventDefault();
+      return;
+    }
+  }
+
   if (form.dataset.modo === 'editar') {
     const qtdLinhas = parseInt(form.dataset.qtdLinhas || '0', 10);
     const qtdAudiencias = parseInt(form.dataset.qtdAudiencias || '0', 10);
@@ -2302,6 +2371,36 @@ document.getElementById('nc_form').addEventListener('submit', async function(e) 
     showToast('Erro ao cadastrar cliente.', 'error');
   }
 });
+
+(function initTipoContratoPiHint() {
+  var labels = {
+    operacao_propria: 'Operação própria',
+    representacao_comercial: 'Representação comercial'
+  };
+  function slugAtual() {
+    var radio = document.querySelector('input[name="tipo_de_contrato"]:checked');
+    if (radio) return radio.value;
+    var select = document.querySelector('select[name="tipo_de_contrato"]');
+    return select ? select.value : 'operacao_propria';
+  }
+  function atualizarHint() {
+    var el = document.getElementById('cot-tipo-contrato-pi-hint');
+    if (!el) return;
+    var slug = slugAtual();
+    var label = labels[slug] || slug;
+    var html = 'Ao aprovar a cotação e gerar o <strong>PI</strong>, o novo PI herdará este tipo de contrato: <strong>' + label + '</strong>.';
+    if (slug === 'representacao_comercial') {
+      html += ' Fluxo de registro comercial (parceiro, relatórios, comissão) — sem fechamento de mídia CC.';
+    } else {
+      html += ' Fluxo padrão de campanha, operação e fechamento de mídia.';
+    }
+    el.innerHTML = html;
+  }
+  document.querySelectorAll('input[name="tipo_de_contrato"], select[name="tipo_de_contrato"]').forEach(function (node) {
+    node.addEventListener('change', atualizarHint);
+  });
+  atualizarHint();
+})();
 
 </script>
 <script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2"></script>

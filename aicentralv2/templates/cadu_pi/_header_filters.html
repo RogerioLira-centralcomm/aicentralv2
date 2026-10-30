@@ -124,6 +124,15 @@
     </div>
 
     <div class="camp-filter-field cx-field">
+      <label for="filtro_tipo_contrato" class="cx-label">Tipo contrato</label>
+      <select name="tipo_de_contrato" id="filtro_tipo_contrato" class="cx-select cx-select-sm w-full">
+        <option value="">Todos</option>
+        <option value="operacao_propria" {% if filtros.get('tipo_de_contrato') == 'operacao_propria' %}selected{% endif %}>Operação própria</option>
+        <option value="representacao_comercial" {% if filtros.get('tipo_de_contrato') == 'representacao_comercial' %}selected{% endif %}>Representação comercial</option>
+      </select>
+    </div>
+
+    <div class="camp-filter-field cx-field">
       <label for="filtro_executivo" class="cx-label">Executivo</label>
       <select name="resp_comercial" id="filtro_executivo" class="cx-select cx-select-sm w-full">
         <option value="">Todos os executivos</option>

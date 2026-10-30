@@ -115,6 +115,21 @@
         <span class="cx-badge cx-badge-muted">Operação: <strong class="ml-0.5" id="base-meses">--</strong> meses</span>
     </div>
 
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs" id="rep-gestao-cards">
+        <div class="bg-white rounded-lg p-3 border border-slate-200">
+            <div class="text-slate-500 uppercase tracking-wide mb-1">Receita margem (mídia própria)</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="rep-margem-propria">—</div>
+        </div>
+        <div class="bg-white rounded-lg p-3 border border-slate-200">
+            <div class="text-slate-500 uppercase tracking-wide mb-1">Receita comissão (representação)</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="rep-comissao">—</div>
+        </div>
+        <div class="bg-white rounded-lg p-3 border border-slate-200">
+            <div class="text-slate-500 uppercase tracking-wide mb-1">Volume intermediado (parceiros)</div>
+            <div class="text-lg font-bold text-primary kpi-value" id="rep-volume">—</div>
+        </div>
+    </div>
+
     <!-- ==================== SEÇÃO 2: KPI CARDS ==================== -->
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
         <div class="bg-white rounded-lg p-2 border border-slate-300">
@@ -401,6 +416,17 @@ function getCookie(n) { const m = document.cookie.match(new RegExp('(?:^|; )'+n.
 function setCookie(n, v, d) { const e = new Date(); e.setDate(e.getDate()+d); document.cookie = n+'='+encodeURIComponent(v)+'; expires='+e.toUTCString()+'; path=/'; }
 
 // ==================== CARREGAR BASE TOTAL ====================
+async function carregarRepresentacaoGestao() {
+    try {
+        const r = await fetch('/representacao/api/gestao/metricas');
+        const j = await r.json();
+        const fmt = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('rep-margem-propria').textContent = fmt(j.receita_margem_propria);
+        document.getElementById('rep-comissao').textContent = fmt(j.receita_comissao_representacao);
+        document.getElementById('rep-volume').textContent = fmt(j.volume_intermediado_parceiros);
+    } catch (e) { console.error('Erro métricas representação:', e); }
+}
+
 async function carregarBaseTotal() {
     try {
         const r = await fetch('/api/metricas/semanais/kpis-base-total');
@@ -903,6 +929,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    carregarRepresentacaoGestao();
     carregarBaseTotal().then(() => carregarDados());
 
     document.getElementById('filtroMes').addEventListener('change', carregarDados);

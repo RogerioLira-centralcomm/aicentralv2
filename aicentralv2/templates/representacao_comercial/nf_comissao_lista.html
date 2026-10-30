@@ -1,0 +1,45 @@
+{% extends 'base_erp.html' %}
+{% block title %}NFS-e comissão — Representação{% endblock %}
+{% block page_label %}Financeiro{% endblock %}
+{% block page_subtitle %}Comissão de representação comercial (17.06.01){% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4 space-y-4">
+  <div class="flex items-center justify-between gap-2">
+    <h1 class="text-sm font-bold text-slate-900">NFS-e de comissão por parceiro</h1>
+    <a href="{{ url_for('cadu_pi_lista') }}" class="text-xs text-teal-800 hover:underline">Voltar aos PIs</a>
+  </div>
+  <p class="text-xs text-slate-600">Agrupamento mensal por parceiro. Concilie o valor recebido com a soma das comissões dos PIs vinculados.</p>
+
+  <div class="overflow-x-auto border border-slate-200 rounded-lg bg-white">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left p-2">Parceiro</th>
+          <th class="text-left p-2">Competência</th>
+          <th class="text-right p-2">Comissão</th>
+          <th class="text-left p-2">Vencimento</th>
+          <th class="text-left p-2">Status</th>
+          <th class="text-right p-2">Recebido</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in notas %}
+        <tr class="border-t border-slate-100">
+          <td class="p-2">{{ n.parceiro_nome or n.id_parceiro }}</td>
+          <td class="p-2">{{ n.competencia.strftime('%m/%Y') if n.competencia else '—' }}</td>
+          <td class="p-2 text-right tabular-nums">R$ {{ '%.2f'|format(n.valor_comissao|float)|replace('.', ',') }}</td>
+          <td class="p-2">{{ n.vencimento.strftime('%d/%m/%Y') if n.vencimento else '—' }}</td>
+          <td class="p-2">{{ n.status or '—' }}</td>
+          <td class="p-2 text-right tabular-nums">
+            {% if n.valor_recebido is not none %}R$ {{ '%.2f'|format(n.valor_recebido|float)|replace('.', ',') }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="p-4 text-center text-slate-400">Nenhuma nota de comissão registrada.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

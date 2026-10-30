@@ -247,3 +247,5 @@ migrations/run_sql_migration.py add_cadu_leads_v3_celulares.sql
 migrations/run_sql_migration.py add_cadu_leads_v3_apollo_chamadas.sql
 # PI e cotação: tipo de contrato (operação própria vs representação comercial).
 migrations/run_add_tipo_de_contrato_pi_cotacao.py
+# Trilha representação comercial: trilha Logan/Serasa, relatórios PI, NF comissão.
+migrations/run_add_representacao_comercial_v1.py

@@ -888,6 +888,18 @@ class PiFechamentoService:
         return {}
 
     def _pendencias(self, pi, campanhas, estado, snapshot):
+        from aicentralv2.representacao_comercial.domain import eh_representacao_comercial
+
+        if pi.get("modo_operacao") == "representacao" or eh_representacao_comercial(pi):
+            return [
+                {
+                    "codigo": "representacao_sem_fechamento_midia",
+                    "mensagem": (
+                        "PI de representação comercial: não use fechamento de mídia. "
+                        "Encerre pela trilha do parceiro (relatórios e NFS-e de comissão)."
+                    ),
+                }
+            ]
         pendencias = []
         itens = (estado.get("checklist_operacional") or {}).get("itens_pi") or estado.get("checklist") or []
         relatorio = next(

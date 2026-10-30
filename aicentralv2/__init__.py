@@ -523,6 +523,9 @@ def create_app(config_class=Config):
         from .pi_financeiro_routes import bp as pi_financeiro_bp
         app.register_blueprint(pi_financeiro_bp)
 
+        from .representacao_comercial.routes import bp as representacao_comercial_bp
+        app.register_blueprint(representacao_comercial_bp)
+
         from .assinaturas.routes import bp as assinaturas_bp
         app.register_blueprint(assinaturas_bp)
 

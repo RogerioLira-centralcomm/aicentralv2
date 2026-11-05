@@ -1,0 +1,39 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}Descobrir{% endblock %}
+{% block content %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">Descobrir</h1>
+    <p class="ac-lead">Explore canais, formatos, audiências e portais com que a Centralcomm trabalha. Separe o que interessar e mande junto com o seu briefing.</p>
+  </div>
+  {% if itens %}<a class="ac-btn ac-btn--primary" href="{{ area_url('briefing') }}">{{ icon('send', 18) }}Ir para o briefing ({{ itens|length }})</a>{% endif %}
+</div>
+
+<div class="ac-discover-grid ac-enter">
+  {% for s in secoes %}
+  <a class="ac-discover-card" href="{{ area_url('descobrir_secao', secao=s.id) }}">
+    <span class="ac-discover-card__icon">{{ icon(s.icone, 24) }}</span>
+    <span class="ac-discover-card__body">
+      <b>{{ s.titulo }}</b>
+      <span>{{ s.texto }}</span>
+    </span>
+    <span class="ac-discover-card__foot">{% if s.total is not none %}{{ '{:,}'.format(s.total).replace(',', '.') }} {{ 'item' if s.total == 1 else 'itens' }}{% endif %}{{ icon('chevron-right', 16) }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if itens %}
+<section class="ac-card ac-section ac-enter" aria-labelledby="sel-titulo">
+  <header class="ac-card__head">
+    <div>
+      <h2 class="ac-h2" id="sel-titulo">Separados para o briefing</h2>
+      <p class="ac-card__sub">Vão junto quando você enviar o próximo briefing.</p>
+    </div>
+  </header>
+  <ul class="ac-tags">
+    {% for i in itens %}<li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

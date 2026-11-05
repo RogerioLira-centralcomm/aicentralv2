@@ -16,7 +16,7 @@ from flask import abort, current_app, redirect, render_template, request, sessio
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, dados
+from . import acesso, briefing, dados, descobrir
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -24,7 +24,11 @@ ROTAS = Map([
     Rule("/projetos", endpoint="projetos"),
     Rule("/projetos/<int:id_pi>", endpoint="projeto"),
     Rule("/campanhas", endpoint="campanhas"),
-    Rule("/planejamento", endpoint="planejamento"),
+    Rule("/descobrir", endpoint="descobrir"),
+    Rule("/descobrir/selecao", endpoint="descobrir_selecao", methods=["POST"]),
+    Rule("/descobrir/<secao>", endpoint="descobrir_secao"),
+    Rule("/descobrir/<secao>/<int:item_id>", endpoint="descobrir_item"),
+    Rule("/planejamento", endpoint="planejamento_antigo"),
     Rule("/midia", endpoint="midia"),
     Rule("/relatorios", endpoint="relatorios"),
     Rule("/arquivos", endpoint="arquivos"),
@@ -38,11 +42,11 @@ PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico",
                   "/forgot-password", "/signup", "/bem-vindo"}
 PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/")
 
-# Jornada do cliente: Briefing → Planejamento → Projeto (PI fechado) → Campanhas.
+# Jornada do cliente: Descobrir → Briefing → Projeto (PI fechado) → Campanhas.
 NAV_PRINCIPAL = (
     ("inicio", "Início", "home"),
+    ("descobrir", "Descobrir", "compass"),
     ("briefing", "Briefing", "send"),
-    ("planejamento", "Planejamento", "compass"),
     ("projetos", "Projetos", "folder"),
     ("campanhas", "Campanhas", "megaphone"),
     ("midia", "Mídia e Veiculação", "broadcast"),
@@ -53,7 +57,6 @@ NAV_PRINCIPAL = (
 
 EM_PREPARACAO = {
     "campanhas": ("Campanhas", "megaphone", "Todas as campanhas dos seus projetos em um só lugar, com meta, entregue e ritmo de cada uma, sem valores de custo."),
-    "planejamento": ("Planejamento", "compass", "Depois do seu briefing, a Centralcomm monta o plano de mídia e ele aparece aqui para você revisar e aprovar. Em breve, um guia com os recursos do Cadu Planner para pensar o próximo plano junto com a gente."),
     "midia": ("Mídia e Veiculação", "broadcast", "Canais, plataformas, formatos e períodos de veiculação de cada campanha, em um só lugar."),
     "relatorios": ("Relatórios", "chart", "Dashboards de entrega atualizados diariamente e as prestações de contas de cada projeto."),
     "arquivos": ("Arquivos", "file", "PIs, planos de mídia, peças e documentos assinados, organizados por projeto."),
@@ -85,6 +88,7 @@ def _cadu_links():
 
 
 def _render(template, usuario, ativo, **ctx):
+    ativo = "descobrir" if ativo.startswith("descobrir") else ativo
     nav = [
         {"id": e, "rotulo": r, "icone": i, "url": area_url(e), "ativo": e == ativo}
         for e, r, i in NAV_PRINCIPAL
@@ -92,7 +96,8 @@ def _render(template, usuario, ativo, **ctx):
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
         usuario=usuario, nav=nav, cadu=_cadu_links(), area_url=area_url,
-        pagina_ativa=ativo, busca=request.args.get("q", ""), **ctx,
+        pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "projetos" else "",
+        n_selecao=len(descobrir.selecao(session)), **ctx,
     ))
     resp.headers["Cache-Control"] = "no-store"
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -147,26 +152,70 @@ def _csrf_token() -> str:
     return token
 
 
+def _checar_csrf():
+    enviado = (request.form.get("csrf") or "").encode()
+    esperado = (session.get("area_cliente_csrf") or "").encode()
+    if not esperado or not secrets.compare_digest(enviado, esperado):
+        abort(400)
+
+
 def view_briefing(usuario):
     valores, erros = {}, {}
     if request.method == "POST":
-        enviado = (request.form.get("csrf") or "").encode()
-        esperado = (session.get("area_cliente_csrf") or "").encode()
-        if not esperado or not secrets.compare_digest(enviado, esperado):
-            abort(400)
+        _checar_csrf()
+        if request.form.get("remover_item"):
+            secao, _, item_id = request.form["remover_item"].partition(":")
+            descobrir.alternar(session, secao, item_id, "")
+            return redirect(area_url("briefing"), code=303)
         valores, erros = briefing.validar(request.form)
         if not erros:
+            valores["descobrir"] = descobrir.texto_selecao(descobrir.selecao(session))
             novo_id = briefing.enviar(usuario, valores)
+            session.pop("area_cliente_descobrir", None)
             return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
     status = 422 if erros else 200
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
+        itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),
         enviado_id=request.args.get("enviado", type=int),
     )
     resp.status_code = status
     return resp
+
+
+def view_descobrir(usuario):
+    return _render("descobrir.html", usuario, "descobrir", secoes=descobrir.resumo_secoes(),
+                   itens=descobrir.selecao(session))
+
+
+def view_descobrir_secao(usuario, secao):
+    if secao not in descobrir.SECOES:
+        abort(404)
+    pagina = request.args.get("pagina", 1, type=int) or 1
+    lista = descobrir.listar(secao, request.args.get("q", ""), request.args.get("categoria", ""), pagina)
+    titulo, icone, texto = descobrir.SECOES[secao]
+    return _render("descobrir_secao.html", usuario, "descobrir", secao=secao, titulo=titulo, icone=icone,
+                   texto=texto, lista=lista, secoes=descobrir.SECOES, csrf=_csrf_token(),
+                   marcados=descobrir.selecionados(session))
+
+
+def view_descobrir_item(usuario, secao, item_id):
+    item = descobrir.detalhe(secao, item_id)
+    titulo, _icone, _texto = descobrir.SECOES[secao]
+    return _render("descobrir_item.html", usuario, "descobrir", secao=secao, secao_titulo=titulo, item=item,
+                   tipo=descobrir.TIPO_ROTULO[secao], csrf=_csrf_token(),
+                   marcado=(secao, item_id) in descobrir.selecionados(session))
+
+
+def view_descobrir_selecao():
+    _checar_csrf()
+    descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), request.form.get("nome", ""))
+    destino = request.form.get("voltar") or area_url("descobrir")
+    if not destino.startswith("/") or destino.startswith("//"):
+        destino = area_url("descobrir")
+    return redirect(destino, code=303)
 
 
 def view_em_preparacao(usuario, endpoint):
@@ -190,7 +239,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint != "briefing":
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -201,6 +250,16 @@ def despachar():
         return view_inicio(usuario)
     if endpoint == "briefing":
         return view_briefing(usuario)
+    if endpoint == "planejamento_antigo":
+        return redirect(area_url("descobrir"), code=301)
+    if endpoint == "descobrir":
+        return view_descobrir(usuario)
+    if endpoint == "descobrir_secao":
+        return view_descobrir_secao(usuario, **args)
+    if endpoint == "descobrir_item":
+        return view_descobrir_item(usuario, **args)
+    if endpoint == "descobrir_selecao":
+        return view_descobrir_selecao()
     if endpoint == "projetos":
         return view_projetos(usuario)
     if endpoint == "projeto":

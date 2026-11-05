@@ -1,0 +1,69 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}{{ titulo }} · Descobrir{% endblock %}
+{% block content %}
+{% set voltar = request.full_path.rstrip('?') %}
+<a class="ac-back" href="{{ area_url('descobrir') }}">{{ icon('arrow-left', 16) }}Descobrir</a>
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">{{ titulo }}</h1>
+    <p class="ac-lead">{{ texto }}</p>
+  </div>
+</div>
+
+<nav class="ac-tabs ac-enter" aria-label="Vitrines do Descobrir">
+  {% for id, s in secoes.items() %}
+  <a class="ac-tabs__item{% if id == secao %} is-active{% endif %}" href="{{ area_url('descobrir_secao', secao=id) }}"{% if id == secao %} aria-current="page"{% endif %}>{{ s[0] }}</a>
+  {% endfor %}
+</nav>
+
+<form class="ac-filters ac-enter" method="get" action="{{ area_url('descobrir_secao', secao=secao) }}" role="search">
+  <div class="ac-search ac-search--inline">
+    {{ icon('search', 18) }}
+    <label class="ac-sr" for="d-busca">Buscar em {{ titulo }}</label>
+    <input id="d-busca" name="q" type="search" value="{{ lista.busca }}" placeholder="Buscar em {{ titulo|lower }}">
+  </div>
+  {% if lista.categorias %}
+  <label class="ac-sr" for="d-cat">Filtrar</label>
+  <select id="d-cat" name="categoria" class="ac-select" onchange="this.form.submit()">
+    <option value="">{{ 'Todas as plataformas' if secao in ('formatos', 'interativos') else 'Todas as categorias' }}</option>
+    {% for c in lista.categorias %}<option value="{{ c }}"{% if c == lista.categoria %} selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button type="submit" class="ac-btn ac-btn--secondary">Buscar</button>
+  <p class="ac-filters__count">{{ '{:,}'.format(lista.total).replace(',', '.') }} {{ 'resultado' if lista.total == 1 else 'resultados' }}</p>
+</form>
+
+{% if lista.cartoes %}
+<div class="ac-catalog ac-enter">
+  {% for c in lista.cartoes %}
+  <article class="ac-item">
+    <a class="ac-item__media{% if not c.imagem %} is-empty{% endif %}" href="{{ area_url('descobrir_item', secao=secao, item_id=c.id) }}" tabindex="-1" aria-hidden="true">
+      {% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy">{% elif c.logo %}<img class="ac-item__logo-big" src="{{ c.logo }}" alt="" loading="lazy">{% else %}{{ icon('layout', 28) }}{% endif %}
+    </a>
+    <div class="ac-item__body">
+      <h2 class="ac-item__title"><a href="{{ area_url('descobrir_item', secao=secao, item_id=c.id) }}">{{ c.nome }}</a></h2>
+      {% if c.meta %}<p class="ac-item__meta">{{ c.meta|join(' · ') }}</p>{% endif %}
+      {% if c.descricao %}<p class="ac-item__text">{{ c.descricao }}</p>{% endif %}
+    </div>
+    <div class="ac-item__foot">
+      {% with item_id=c.id, nome=c.nome, marcado=(secao, c.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+
+{% if lista.paginas > 1 %}
+<nav class="ac-pager" aria-label="Páginas">
+  {% set base = area_url('descobrir_secao', secao=secao) ~ '?q=' ~ (lista.busca|urlencode) ~ '&categoria=' ~ (lista.categoria|urlencode) %}
+  {% if lista.pagina > 1 %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ base }}&pagina={{ lista.pagina - 1 }}">{{ icon('arrow-left', 16) }}Anterior</a>{% endif %}
+  <span>Página {{ lista.pagina }} de {{ lista.paginas }}</span>
+  {% if lista.pagina < lista.paginas %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ base }}&pagina={{ lista.pagina + 1 }}">Próxima{{ icon('chevron-right', 16) }}</a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="ac-card ac-enter">
+  {{ vazio('search', 'Nada encontrado', 'Tente outra palavra ou tire o filtro.') }}
+</div>
+{% endif %}
+{% endblock %}

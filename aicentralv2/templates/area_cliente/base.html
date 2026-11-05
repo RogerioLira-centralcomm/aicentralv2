@@ -30,7 +30,7 @@
     <nav class="ac-nav" aria-label="Seções">
       <ul>
         {% for item in nav %}
-        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span></a></li>
+        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}</a></li>
         {% endfor %}
       </ul>
     </nav>

@@ -19,6 +19,13 @@ Decidido com o usuário em 2026-11-05:
   executivo da conta; a equipe recebe em /briefings). Sai **Integrações**.
   Sidebar abre recolhida em ícones (lembra a escolha). Nome do cliente vai
   para o topo, sob o nome do usuário.
+- 2026-11-05: **Planejamento vira Descobrir**, com as vitrines do Cadu
+  Planner em páginas próprias da área: canais, formatos, formatos
+  interativos, audiências e portais (busca, filtro, paginação e detalhe).
+  Places e Radar ficam de fora (Radar é do Cadu, por marca e projeto). Sem
+  preço, investimento mínimo, CPA ou valor de mercado. "Incluir no briefing"
+  separa itens na sessão (até 30); eles vão no texto do próximo briefing.
+  Jornada: Descobrir → Briefing → Projeto (PI fechado) → Campanhas.
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

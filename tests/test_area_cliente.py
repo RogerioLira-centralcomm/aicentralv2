@@ -156,9 +156,11 @@ def test_projeto_360_sem_custos(app, monkeypatch):
 
 def test_pagina_em_preparacao(app, monkeypatch):
     _logado(monkeypatch, _usuario())
-    resp = _client(app, {"user_id": 501}).get("/planejamento", base_url=HOST)
-    assert resp.status_code == 200
-    assert "Cadu Planner" in resp.get_data(as_text=True)
+    client = _client(app, {"user_id": 501})
+    resp = client.get("/relatorios", base_url=HOST)
+    assert resp.status_code == 200 and "Em preparação" in resp.get_data(as_text=True)
+    antigo = client.get("/planejamento", base_url=HOST)
+    assert antigo.status_code == 301 and antigo.headers["Location"] == "/descobrir"
 
 
 def test_sair_limpa_a_sessao(app):
@@ -262,3 +264,69 @@ def test_texto_do_briefing_reune_os_campos():
     assert "Período desejado: 01/12/2026 a a definir" in texto
     assert "Canais de interesse: OOH e DOOH" in texto
     assert texto.endswith("Detalhes")
+
+
+def _lista_fake(secao, busca="", categoria="", pagina=1):
+    return {"cartoes": [{"id": 5, "nome": "Uber Ads", "descricao": "App de mobilidade", "imagem": "", "logo": "",
+                         "meta": ["Mobilidade"]}],
+            "total": 1, "pagina": 1, "paginas": 1, "categorias": ["Mobilidade"], "busca": busca, "categoria": categoria}
+
+
+def test_descobrir_secao_lista_e_inclui_no_briefing(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import briefing, descobrir
+    monkeypatch.setattr(descobrir, "listar", _lista_fake)
+    monkeypatch.setattr(briefing, "listar", lambda cliente_id: [])
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    html = client.get("/descobrir/canais", base_url=HOST).get_data(as_text=True)
+    assert "Uber Ads" in html and "Incluir no briefing" in html and "Places" not in html and "Radar" not in html
+    resp = client.post("/descobrir/selecao", base_url=HOST, data={
+        "csrf": "tok", "secao": "canais", "id": "5", "nome": "Uber Ads", "voltar": "/descobrir/canais"})
+    assert resp.status_code == 303 and resp.headers["Location"] == "/descobrir/canais"
+    assert "No briefing" in client.get("/descobrir/canais", base_url=HOST).get_data(as_text=True)
+    form = client.get("/briefing", base_url=HOST).get_data(as_text=True)
+    assert "Uber Ads" in form and "Tirar Uber Ads do briefing" in form
+
+    gravados = []
+    monkeypatch.setattr(briefing, "enviar", lambda usuario, d: gravados.append(d) or 9)
+    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Verão", "objetivo": "Gerar visitas às lojas"})
+    assert gravados[0]["descobrir"] == "Itens escolhidos no Descobrir:\n- Canal: Uber Ads"
+    with client.session_transaction(base_url=HOST) as sess:
+        assert "area_cliente_descobrir" not in sess
+
+
+def test_descobrir_selecao_exige_token_e_voltar_local(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    assert client.post("/descobrir/selecao", base_url=HOST, data={"secao": "canais", "id": "5"}).status_code == 400
+    resp = client.post("/descobrir/selecao", base_url=HOST, data={
+        "csrf": "tok", "secao": "canais", "id": "5", "nome": "X", "voltar": "//evil.test/x"})
+    assert resp.headers["Location"] == "/descobrir"
+    assert client.post("/descobrir/selecao", base_url=HOST, data={"csrf": "tok", "secao": "places", "id": "1"}).status_code == 404
+    assert client.get("/descobrir/places", base_url=HOST).status_code == 404
+
+
+def test_alternar_tira_e_respeita_limite():
+    from aicentralv2.area_cliente import descobrir
+    sess = {}
+    assert descobrir.alternar(sess, "portais", 1, "G1") is True
+    assert descobrir.alternar(sess, "portais", 1, "G1") is False
+    assert descobrir.selecao(sess) == []
+    for i in range(descobrir.LIMITE_SELECAO):
+        descobrir.alternar(sess, "audiencias", i + 1, f"A{i}")
+    assert descobrir.alternar(sess, "canais", 999, "Excedente") is False
+    assert len(descobrir.selecao(sess)) == descobrir.LIMITE_SELECAO
+
+
+def test_detalhe_de_audiencia_sem_custos(monkeypatch):
+    from aicentralv2.cadu_planner import catalog
+    from aicentralv2.area_cliente import descobrir
+    monkeypatch.setattr(catalog, "client_detail", lambda kind, value: {
+        "name": "Executivos", "description": "Líderes", "audience": "992K", "channel": "LinkedIn", "category": "B2B",
+        "data_groups": [
+            {"title": "Público, perfil e comportamento", "fields": [{"label": "Idade", "value": "30-50", "variable": "idade"}]},
+            {"title": "Indicadores estimados", "fields": [{"label": "CPA mínimo", "value": "R$ 10", "variable": "cpa_estimado_min"}]},
+        ]})
+    item = descobrir.detalhe("audiencias", 3)
+    assert [g["titulo"] for g in item["grupos"]] == ["Público, perfil e comportamento"]
+    assert "R$" not in str(item)

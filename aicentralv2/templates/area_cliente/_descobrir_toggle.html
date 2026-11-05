@@ -1,0 +1,14 @@
+{# Botão "Incluir no briefing" (form simples, funciona sem JS). Precisa de: secao, item_id, nome, marcado, voltar. #}
+{% from 'area_cliente/_macros.html' import icon %}
+<form class="ac-pick" method="post" action="{{ area_url('descobrir_selecao') }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <input type="hidden" name="secao" value="{{ secao }}">
+  <input type="hidden" name="id" value="{{ item_id }}">
+  <input type="hidden" name="nome" value="{{ nome }}">
+  <input type="hidden" name="voltar" value="{{ voltar }}">
+  {% if marcado %}
+  <button type="submit" class="ac-btn ac-btn--sm ac-pick--on" aria-pressed="true">{{ icon('check', 16) }}No briefing</button>
+  {% else %}
+  <button type="submit" class="ac-btn ac-btn--sm ac-btn--secondary" aria-pressed="false">{{ icon('plus', 16) }}Incluir no briefing</button>
+  {% endif %}
+</form>

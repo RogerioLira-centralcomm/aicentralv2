@@ -1,0 +1,44 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}{{ item.nome }} · {{ secao_titulo }}{% endblock %}
+{% block content %}
+{% set voltar = request.path %}
+<a class="ac-back" href="{{ area_url('descobrir_secao', secao=secao) }}">{{ icon('arrow-left', 16) }}{{ secao_titulo }}</a>
+
+<header class="ac-hero ac-enter">
+  <div class="ac-hero__main ac-hero__main--logo">
+    {% if item.logo %}<img class="ac-hero__logo" src="{{ item.logo }}" alt="" width="48" height="48">{% endif %}
+    <div>
+      <p class="ac-eyebrow">{{ tipo }}{% if item.subtitulo %} · {{ item.subtitulo }}{% endif %}</p>
+      <h1 class="ac-h1">{{ item.nome }}</h1>
+    </div>
+  </div>
+  {% with item_id=item.id, nome=item.nome %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+</header>
+
+<div class="ac-grid-2 ac-grid-2--top">
+  <section class="ac-card ac-enter" aria-labelledby="sobre-titulo">
+    {% if item.imagem %}<img class="ac-detail__image" src="{{ item.imagem }}" alt="">{% endif %}
+    <h2 class="ac-h2" id="sobre-titulo">Sobre</h2>
+    <p class="ac-detail__text">{{ item.descricao or 'Sem descrição por enquanto.' }}</p>
+    {% for g in item.grupos %}
+    <h3 class="ac-h3 ac-detail__group">{{ g.titulo }}</h3>
+    {% if g.itens and not g.itens[0].rotulo %}
+    <ul class="ac-detail__list">{% for i in g.itens %}<li>{{ i.valor }}</li>{% endfor %}</ul>
+    {% else %}
+    <dl class="ac-defs">{% for i in g.itens %}<div><dt>{{ i.rotulo }}</dt><dd>{{ i.valor }}</dd></div>{% endfor %}</dl>
+    {% endif %}
+    {% endfor %}
+  </section>
+
+  <aside class="ac-card ac-enter" aria-labelledby="fatos-titulo">
+    <h2 class="ac-h2" id="fatos-titulo">Em resumo</h2>
+    {% if item.fatos %}
+    <dl class="ac-defs ac-defs--stack">{% for f in item.fatos %}<div><dt>{{ f.rotulo }}</dt><dd>{{ f.valor }}</dd></div>{% endfor %}</dl>
+    {% else %}
+    <p class="ac-detail__text">A Centralcomm detalha este item no planejamento.</p>
+    {% endif %}
+    <p class="ac-form__hint ac-detail__hint">Gostou? Inclua no briefing e a Centralcomm considera no seu planejamento.</p>
+  </aside>
+</div>
+{% endblock %}

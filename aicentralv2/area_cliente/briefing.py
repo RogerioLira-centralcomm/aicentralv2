@@ -75,6 +75,9 @@ def _texto_briefing(d: dict) -> str:
     if d["descricao"]:
         linhas.append("")
         linhas.append(d["descricao"])
+    if d.get("descobrir"):
+        linhas.append("")
+        linhas.append(d["descobrir"])
     return "\n".join(linhas)
 
 

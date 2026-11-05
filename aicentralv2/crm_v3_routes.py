@@ -468,6 +468,8 @@ def api_area_cliente_contato(contato_id):
     """Libera ou revoga a Área do Cliente (clientes.centralcomm.media) do contato."""
     if not session.get("is_centralcomm"):
         return _err("Só a equipe CentralComm libera a Área do Cliente.", 403)
+    if not str(contato_id).isdigit():
+        return _err("Contato não encontrado", 404)
     data = request.get_json(silent=True) or {}
     if not isinstance(data.get("ativo"), bool):
         return _err("Informe ativo como verdadeiro ou falso.")

@@ -31,9 +31,11 @@ ROTAS = Map([
     Rule("/sair", endpoint="sair"),
 ], strict_slashes=False)
 
-# Rotas do app que continuam valendo no host de clientes.
-PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico"}
-PASSAGEM_PREFIXO = ("/static/",)
+# Rotas do app que continuam valendo no host de clientes: login e seus links
+# (senha, cadastro, Google), estáticos. O resto dá 404.
+PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico",
+                  "/forgot-password", "/signup", "/bem-vindo"}
+PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/")
 
 NAV_PRINCIPAL = (
     ("inicio", "Início", "home"),
@@ -133,7 +135,7 @@ def view_projeto(usuario, id_pi):
     projeto = dados.projeto_do_cliente(usuario["cliente_id"], id_pi)
     if projeto is None:
         abort(404)
-    resumo = next((p for p in dados.listar_projetos(usuario["cliente_id"]) if p["id"] == id_pi), None)
+    resumo = dados.resumo_projeto(usuario["cliente_id"], id_pi)
     return _render("projeto.html", usuario, "projetos", projeto=projeto, resumo=resumo)
 
 

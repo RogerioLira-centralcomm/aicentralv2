@@ -52,13 +52,16 @@ def _pi_label(row):
     return row.get("codigo_pi_cc") or row.get("codigo_pi_ag") or f"PI #{row['id_pi']}"
 
 
-def listar_projetos(cliente_id, busca: str = "") -> list[dict]:
+def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
     """PIs do cliente (como cliente final ou como agência), sem os cancelados."""
     params: list = [cliente_id, cliente_id, SUB_STATUS_CANCELADO]
     filtro = ""
+    if id_pi is not None:
+        filtro += " AND pi.id_pi = %s"
+        params.append(int(id_pi))
     termo = (busca or "").strip()
     if termo:
-        filtro = "AND (pi.titulo_pi ILIKE %s OR pi.codigo_pi_cc ILIKE %s OR pi.codigo_pi_ag ILIKE %s)"
+        filtro += " AND (pi.titulo_pi ILIKE %s OR pi.codigo_pi_cc ILIKE %s OR pi.codigo_pi_ag ILIKE %s)"
         params += [f"%{termo}%"] * 3
     rows = _fetch(
         f"""
@@ -160,6 +163,12 @@ def atividades_recentes(ids_pi, projetos_por_id, limite=8) -> list[dict]:
             "em": row["concluida_em"],
         })
     return saida
+
+
+def resumo_projeto(cliente_id, id_pi) -> dict | None:
+    """Cartão-resumo de um PI do cliente (mesmo formato da lista)."""
+    projetos = listar_projetos(cliente_id, id_pi=id_pi)
+    return projetos[0] if projetos else None
 
 
 def resumo_inicio(cliente_id) -> dict:

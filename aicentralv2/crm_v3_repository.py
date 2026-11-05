@@ -872,7 +872,7 @@ class CrmV3Repository:
         # Área do Cliente: flag por contato + última liberação (tolera banco sem migração).
         from .area_cliente.acesso import flags_por_cliente, liberacoes_por_cliente
         flags = flags_por_cliente(cliente_id)
-        liberacoes = liberacoes_por_cliente(cliente_id) if flags else {}
+        liberacoes = liberacoes_por_cliente(cliente_id) if any(flags.values()) else {}
         for contato in contatos:
             contato["area_cliente_acesso"] = bool(flags.get(contato["id"]))
             contato["area_cliente_liberacao"] = liberacoes.get(contato["id"])

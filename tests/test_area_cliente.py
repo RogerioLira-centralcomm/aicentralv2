@@ -112,7 +112,8 @@ def test_rotas_internas_nao_existem_no_host_de_clientes(app, monkeypatch):
 
 def test_login_e_estaticos_continuam_no_host_de_clientes(app):
     from aicentralv2.area_cliente.routes import despachar
-    for path in ("/login", "/logout", "/acesso-confirmado", "/static/css/area_cliente.css"):
+    for path in ("/login", "/logout", "/acesso-confirmado", "/static/css/area_cliente.css",
+                 "/forgot-password", "/reset-password/abc", "/signup", "/auth/google"):
         with app.test_request_context(path, base_url=HOST):
             assert despachar() is None, path
 
@@ -141,10 +142,10 @@ def test_projeto_360_sem_custos(app, monkeypatch):
     from aicentralv2.campanha_acompanhamento_publico import contexto_pagina
     payload = _payload()
     monkeypatch.setattr(dados, "projeto_do_cliente", lambda c, i: {"vazio": False, "payload": payload, "ctx": contexto_pagina(payload)})
-    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="": [{
+    monkeypatch.setattr(dados, "resumo_projeto", lambda c, i: {
         "id": 12, "titulo": "PI Verão", "pi": "CC-123", "status": "Em andamento", "ativo": True,
         "periodo": payload["periodo"], "pct": 50, "n_campanhas": 1, "plataformas": ["Meta Ads"], "campanhas": [],
-    }])
+    })
     resp = _client(app, {"user_id": 501}).get("/projetos/12", base_url=HOST)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
@@ -189,6 +190,7 @@ def test_crm_libera_so_para_equipe_centralcomm(app, monkeypatch):
     with equipe.session_transaction() as sess:
         sess.update({"user_id": 7, "is_centralcomm": True})
     assert equipe.put("/crm-v3/api/contatos/42/area-cliente", json={"ativo": "sim"}).status_code == 400
+    assert equipe.put("/crm-v3/api/contatos/abc/area-cliente", json={"ativo": True}).status_code == 404
     resp = equipe.put("/crm-v3/api/contatos/42/area-cliente", json={"ativo": True})
     assert resp.status_code == 200
     assert resp.get_json()["liberacao"]["autor"] == "Equipe"

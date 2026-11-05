@@ -387,7 +387,7 @@ def test_pi_mostra_valores_de_venda_e_notas(app, monkeypatch):
     monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
     client = _client(app, {"user_id": 501})
     html = client.get("/pis/12", base_url=HOST).get_data(as_text=True)
-    for trecho in ("R$ 10.000,00", "R$ 2.000,00", "R$ 8.000,00", "R$ 7.500,00", "NF Emitida", "Previsto 03/12/2026", "Em faturamento"):
+    for trecho in ("R$ 10.000,00", "R$ 2.000,00", "R$ 8.000,00", "R$ 7.500,00", "NF 123", "Previsto 03/12", "Em faturamento"):
         assert trecho in html, trecho
     assert "lucratividade" not in html.lower() and "Gasto" not in html
     assert client.get("/pis/99", base_url=HOST).status_code == 404
@@ -451,3 +451,21 @@ def test_quem_nao_e_admin_cc_nao_troca(app, monkeypatch):
     assert client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "80"}).status_code == 403
     assert acesso.aplicar_ver_como(dict(_usuario(), pode_ver_como=True), "80abc", 2026, OPCOES) is None
     assert acesso.aplicar_ver_como(dict(_usuario(), pode_ver_como=True), 81, 2026, OPCOES) is None
+
+
+def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    camp = {"id": 1, "nome": "Verão </script> Meta", "plataforma": "Meta Ads", "objetivo": "Alcance", "status": "Ativa",
+            "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "meta": 1000.0, "meta_label": "1.000",
+            "atingido": 500.0, "atingido_label": "500", "pct": 50, "tempo_pct": 40, "dias_restantes": 18, "ritmo": "no_ritmo",
+            "dash_embed": "", "dash_abrir": "https://lookerstudio.google.com/x", "atual": False, "id_pi": 12, "no_ar": True,
+            "responsavel": "Ana Op"}
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [camp]}])
+    html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
+    assert 'id="camp-drawer"' in html and "18 d" in html and "Meta Ads" in html
+    dados_json = html.split('id="camp-dados">', 1)[1].split("</script>", 1)[0]
+    assert "</script>" not in dados_json and "\\u003c/script\\u003e" in dados_json  # nome escapado no JSON
+    import json
+    d = json.loads(dados_json)[0]
+    assert d["tempo"] == "40% · 18 dias restantes" and d["pi_url"] == "/pis/12" and d["pi_360"] == "/projetos/12"

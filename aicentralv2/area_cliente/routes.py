@@ -267,8 +267,31 @@ def view_campanhas(usuario):
     if filtro not in dados.GRUPOS_CAMPANHA:
         filtro = "andamento"
     ritmo = dados.ritmo_campanhas(usuario["cliente_id"])
-    return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro,
-                   grupos_rotulo={k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()})
+    rotulos = {k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()}
+    return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro, grupos_rotulo=rotulos,
+                   drawer_dados=[_drawer_campanha(c, rotulos[filtro]) for c in ritmo["grupos"][filtro]])
+
+
+def _drawer_campanha(c, status) -> dict:
+    """Campos do painel lateral de uma campanha (sem custo), já formatados."""
+    def br(iso):
+        return f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}" if iso else "—"
+    ritmos = {"adiantado": "Adiantada", "no_ritmo": "No ritmo", "atencao": "Atenção"}
+    tempo = "—"
+    if c.get("tempo_pct") is not None:
+        tempo = f"{c['tempo_pct']}%"
+        if c.get("dias_restantes") is not None and c["dias_restantes"] >= 0 and c["tempo_pct"] < 100:
+            tempo += f" · {c['dias_restantes']} dias restantes"
+    return {
+        "nome": c["nome"], "status": status, "objetivo": c.get("objetivo") or "—",
+        "plataforma": c.get("plataforma") or "—", "responsavel": c.get("responsavel") or "Centralcomm",
+        "pct": f"{c['pct']}%" if c.get("pct") is not None else "—", "pct_num": c.get("pct") or 0,
+        "atingido": c.get("atingido_label") or "—", "meta": c.get("meta_label") or "—",
+        "ritmo": ritmos.get(c.get("ritmo"), "—"), "tempo": tempo,
+        "periodo": f"{br(c['periodo']['inicio'])} a {br(c['periodo']['fim'])}",
+        "pi": c.get("pi") or "—", "pi_url": area_url("pi", id_pi=c["projeto_id"]),
+        "pi_360": area_url("projeto", id_pi=c["projeto_id"]), "dash": c.get("dash_abrir") or "",
+    }
 
 
 def view_pis(usuario):

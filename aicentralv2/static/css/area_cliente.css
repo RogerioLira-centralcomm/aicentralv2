@@ -767,3 +767,4 @@ body { font-size: 14px; }
 .ac-track { padding: 8px 12px; }
 .ac-drawer__bar .ac-progress { display: block; }
 .ac-panels .ac-rows { max-height: 312px; overflow-y: auto; }
+.ac-muted { color: var(--muted); }

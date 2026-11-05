@@ -66,7 +66,7 @@
         <td class="ac-num">{{ c.atingido_label }}</td>
         <td class="ac-num">{{ c.meta_label }}</td>
         <td class="ac-grid__pct"><span class="ac-grid__pctrow"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ barra(c.pct, 'Entrega de ' ~ c.nome) }}</span></td>
-        <td>{{ ritmo_badge(c.ritmo) or '—' }}</td>
+        <td>{% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% else %}<span class="ac-muted">—</span>{% endif %}</td>
         <td class="ac-num">{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</td>
         <td>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</td>
         <td><a class="ac-link" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a></td>

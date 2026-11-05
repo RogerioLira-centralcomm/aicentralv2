@@ -50,7 +50,7 @@
       <span>Prévia da operação · ver como fase:</span>
       <div class="tabs">
         {% for f in demo_fases %}
-        <a href="{{ purl(pagina, {'fase': loop.index0|string}) }}"{% if fase_atual == loop.index0|string %} aria-current="true"{% endif %}>{{ f.rotulo }}</a>
+        <a href="{{ purl(pagina, {'fase': loop.index0|string, 'c': (dash_id|string if dash_id else none)}) }}"{% if fase_atual == loop.index0|string %} aria-current="true"{% endif %}>{{ f.rotulo }}</a>
         {% endfor %}
       </div>
     </div></div>

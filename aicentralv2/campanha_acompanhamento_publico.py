@@ -264,6 +264,9 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
     )
     campanhas_pi = operacao.get("campanhas_relacionadas") or []
     timeline = _timeline_map(operacao.get("timeline"))
+    if linhas_campanhas is None:
+        linhas_campanhas = db.obter_campanhas_pi({"id_pi": id_pi}) or []
+    linhas_campanhas = list(linhas_campanhas)
 
     inicio = campanha.get("periodo_inicio") or pi.get("periodo_inicio")
     fim = campanha.get("periodo_fim") or pi.get("periodo_fim")
@@ -314,11 +317,10 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
             None,
         )
         if not full and int(item.get("id_campanha") or 0) != int(id_campanha):
-            all_camps = db.obter_campanhas_pi({"id_pi": id_pi}) or []
             full = next(
                 (
                     c
-                    for c in all_camps
+                    for c in linhas_campanhas
                     if int(c.get("id_campanha") or 0) == int(item.get("id_campanha") or 0)
                 ),
                 None,
@@ -497,8 +499,6 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
             }
         )
 
-    if linhas_campanhas is None:
-        linhas_campanhas = db.obter_campanhas_pi({"id_pi": id_pi}) or []
     linhas = list(linhas_campanhas) or [{**campanha_row, **campanha}]
     if not any(int(r.get("id_campanha") or 0) == int(id_campanha) for r in linhas):
         linhas.insert(0, {**campanha_row, **campanha})

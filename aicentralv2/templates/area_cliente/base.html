@@ -63,6 +63,7 @@
         <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar PIs por código ou título" autocomplete="off">
       </form>
       <div class="ac-top__actions">
+        {% if pagina_ativa != 'briefing' %}<a class="ac-btn ac-btn--primary ac-btn--sm ac-top__cta" href="{{ area_url('briefing') }}">{{ icon('send', 16) }}<span>Enviar briefing</span>{% if n_selecao %}<span class="ac-top__cta-count">{{ n_selecao }}</span>{% endif %}</a>{% endif %}
         {% if usuario.ver_como %}
         <form class="ac-viewas" method="post" action="{{ area_url('ver_como_sair') }}" role="status" title="Só leitura: envios ficam desativados">
           <input type="hidden" name="csrf" value="{{ csrf_global }}">

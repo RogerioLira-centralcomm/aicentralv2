@@ -48,8 +48,18 @@ def _iso(value):
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
+def _limpo(valor):
+    """Texto do cadastro sem lixo: vazio, "None" ou "null" gravados como texto viram None."""
+    texto = str(valor).strip() if valor is not None else ""
+    return None if texto.lower() in ("", "none", "null") else texto
+
+
 def _pi_label(row):
-    return row.get("codigo_pi_cc") or row.get("codigo_pi_ag") or f"PI #{row['id_pi']}"
+    return _limpo(row.get("codigo_pi_cc")) or _limpo(row.get("codigo_pi_ag")) or f"PI #{row['id_pi']}"
+
+
+def _pi_titulo(row):
+    return _limpo(row.get("titulo_pi")) or _pi_label(row)
 
 
 def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
@@ -86,7 +96,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
         pcts = [c["pct"] for c in das_campanhas if c["pct"] is not None]
         projetos.append({
             "id": row["id_pi"],
-            "titulo": row["titulo_pi"] or _pi_label(row),
+            "titulo": _pi_titulo(row),
             "pi": _pi_label(row),
             "cliente": row["cliente_nome"] or "",
             "status": row["sub_status"] or "Em preparação",
@@ -182,7 +192,8 @@ def resumo_inicio(cliente_id) -> dict:
         (c for c in campanhas if c["meta"]),
         key=lambda c: (not c["no_ar"], c["periodo"]["fim"] or ""),
     )[:6]
-    destaque = sorted(projetos, key=lambda p: (not p["ativo"], p["periodo"]["fim"] or ""))[:4]
+    ativos = [p for p in projetos if p["ativo"]]
+    destaque = (ativos or projetos)[:4]
     return {
         "kpis": {
             "projetos_ativos": sum(1 for p in projetos if p["ativo"]),
@@ -195,6 +206,7 @@ def resumo_inicio(cliente_id) -> dict:
         "performance": performance,
         "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}),
         "destaque": destaque,
+        "destaque_ativos": bool(ativos),
         "hoje": date.today(),
     }
 
@@ -268,7 +280,7 @@ def _pi_resumo(r) -> dict:
     return {
         "id": r["id_pi"],
         "pi": _pi_label(r),
-        "titulo": r["titulo_pi"] or _pi_label(r),
+        "titulo": _pi_titulo(r),
         "status": r["sub_status"] or "Em preparação",
         "status_id": r["id_sub_status_pi"],
         "periodo": {"inicio": _iso(r["periodo_inicio"]), "fim": _iso(r["periodo_fim"])},

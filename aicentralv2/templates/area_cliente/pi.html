@@ -13,7 +13,7 @@
       <span>{{ icon('calendar', 16) }}{{ periodo(pi.periodo) }}</span>
     </div>
   </div>
-  <a class="ac-btn ac-btn--secondary" href="{{ area_url('projeto', id_pi=pi.id) }}">{{ icon('layout', 18) }}Visão 360°</a>
+  <a class="ac-link" href="{{ area_url('projeto', id_pi=pi.id) }}">Visão 360°{{ icon('chevron-right', 14) }}</a>
 </header>
 
 {% if pi.etapas %}

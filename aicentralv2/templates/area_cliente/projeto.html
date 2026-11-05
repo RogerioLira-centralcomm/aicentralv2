@@ -17,7 +17,7 @@
   </div>
   {% if pl %}
   {% set dash = (pl.resultados|selectattr('dash_abrir')|first) %}
-  {% if dash %}<a class="ac-btn ac-btn--primary" href="{{ dash.dash_abrir }}" target="_blank" rel="noopener">{{ icon('chart', 18) }}Abrir dashboard</a>{% endif %}
+  {% if dash %}<a class="ac-link" href="{{ dash.dash_abrir }}" target="_blank" rel="noopener">Abrir dashboard{{ icon('external', 14) }}</a>{% endif %}
   {% endif %}
 </header>
 

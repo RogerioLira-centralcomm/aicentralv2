@@ -3,11 +3,9 @@
 {% block title %}{{ titulo }} · Descobrir{% endblock %}
 {% block content %}
 {% set voltar = request.full_path.rstrip('?') %}
-<a class="ac-back" href="{{ area_url('descobrir') }}">{{ icon('arrow-left', 16) }}Descobrir</a>
 <div class="ac-page-head ac-enter">
   <div>
     <h1 class="ac-h1">{{ titulo }}</h1>
-    <p class="ac-lead">{{ texto }}</p>
   </div>
 </div>
 

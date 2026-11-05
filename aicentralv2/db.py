@@ -871,7 +871,24 @@ def init_db(app):
                     ) THEN
                         ALTER TABLE cadu_pi_campanha ADD COLUMN preco_unitario_orcado VARCHAR(30);
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi_campanha'
+                          AND column_name = 'link_publico_token'
+                    ) THEN
+                        ALTER TABLE cadu_pi_campanha
+                            ADD COLUMN link_publico_token VARCHAR(64),
+                            ADD COLUMN link_publico_ativo BOOLEAN NOT NULL DEFAULT FALSE,
+                            ADD COLUMN link_publico_expires_at TIMESTAMP WITHOUT TIME ZONE;
+                    END IF;
                 END $$;
+            ''')
+
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_pi_campanha_link_publico_token
+                    ON cadu_pi_campanha(link_publico_token)
+                    WHERE link_publico_token IS NOT NULL
             ''')
 
             # Criar índices para cadu_cotacao_audiencias
@@ -10518,6 +10535,101 @@ def gerar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
         raise e
 
 
+def gerar_link_publico_campanha(id_campanha, dias_validade=None):
+    """Gera ou reativa token público da página de acompanhamento da campanha."""
+    import secrets
+
+    conn = get_db()
+    try:
+        token = secrets.token_urlsafe(16)
+        with conn.cursor() as cursor:
+            if dias_validade:
+                from datetime import datetime, timedelta
+
+                expires = datetime.now() + timedelta(days=int(dias_validade))
+                cursor.execute(
+                    '''
+                    UPDATE cadu_pi_campanha
+                       SET link_publico_token = %s,
+                           link_publico_ativo = TRUE,
+                           link_publico_expires_at = %s,
+                           updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                     WHERE id_campanha = %s
+                    ''',
+                    (token, expires, id_campanha),
+                )
+            else:
+                cursor.execute(
+                    '''
+                    UPDATE cadu_pi_campanha
+                       SET link_publico_token = %s,
+                           link_publico_ativo = TRUE,
+                           link_publico_expires_at = NULL,
+                           updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                     WHERE id_campanha = %s
+                    ''',
+                    (token, id_campanha),
+                )
+            conn.commit()
+            return token if cursor.rowcount > 0 else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_link_publico_campanha(id_campanha, updates):
+    """Atualiza flags/campos do link público da campanha."""
+    allowed = {
+        'link_publico_token': 'link_publico_token',
+        'link_publico_ativo': 'link_publico_ativo',
+        'link_publico_expires_at': 'link_publico_expires_at',
+    }
+    sets = []
+    params = []
+    for key, column in allowed.items():
+        if key not in updates:
+            continue
+        sets.append(f"{column} = %s")
+        params.append(updates[key])
+    if not sets:
+        return False
+    sets.append("updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)")
+    params.append(id_campanha)
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE cadu_pi_campanha SET {', '.join(sets)} WHERE id_campanha = %s",
+                params,
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_campanha_pi_por_link_publico(token):
+    """Campanha ativa pelo token público."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT c.*, pi.codigo_pi_cc AS codigo_pi, pi.titulo_pi
+                  FROM cadu_pi_campanha c
+                  JOIN cadu_pi pi ON pi.id_pi = c.id_pi
+                 WHERE c.link_publico_token = %s
+                   AND c.link_publico_ativo = TRUE
+                ''',
+                (token,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def renovar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
     """Renova a validade de um link público existente"""
     from datetime import datetime, timedelta
@@ -16957,6 +17069,9 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     c.preco_unitario_orcado,
                     c.id_plataforma,
                     c.id_responsavel_operacao,
+                    c.link_publico_token,
+                    c.link_publico_ativo,
+                    c.link_publico_expires_at,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,
@@ -17329,6 +17444,9 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.preco_unitario_orcado,
                     c.id_plataforma,
                     c.id_responsavel_operacao,
+                    c.link_publico_token,
+                    c.link_publico_ativo,
+                    c.link_publico_expires_at,
                     c.perc_margem_cc,
                     c.perc_tech_fee,
                     c.perc_com_vendas,

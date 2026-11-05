@@ -113,6 +113,11 @@ class CampanhasPiContractTest(unittest.TestCase):
         self.assertIn("abrirModalEditar(JSON.parse(row.dataset.camp))", script)
         self.assertIn("campanhas_pi/_form_fields.html", source)
         self.assertIn("campaign-flight-deck", detail_source)
+        self.assertIn("preco_unitario_orcado_brl", detail_source)
+        self.assertIn("sigla_metrica_preco", detail_source)
+        self.assertIn("campaign-flight-metric--unit-price", detail_source)
+        for price_label in ("Orçado", "Realizado"):
+            self.assertIn(price_label, detail_source)
         self.assertIn("data-campanha-id", detail_source)
         self.assertIn("pi_operacao/_sidebar.html", detail_source)
         self.assertIn('name="campanhas_retorno" value="detalhe"', detail_source)

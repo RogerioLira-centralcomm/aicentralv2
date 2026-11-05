@@ -132,6 +132,20 @@
         <i class="fas fa-chart-line" aria-hidden="true"></i>
       </a>
     {% endif %}
+    {% if c.link_publico_token and c.link_publico_ativo %}
+      <a href="{{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token) }}" target="_blank" rel="noopener" class="camp-action-btn" title="Página do cliente" aria-label="Abrir página pública da campanha">
+        <i class="fas fa-link" aria-hidden="true"></i>
+      </a>
+      <button type="button" class="camp-action-btn" title="Copiar link da campanha" aria-label="Copiar link público"
+              onclick="copiarLinkCampanhaPublica({{ c.id_campanha }}, {{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token, _external=True)|tojson }})">
+        <i class="far fa-copy" aria-hidden="true"></i>
+      </button>
+    {% else %}
+      <button type="button" class="camp-action-btn" title="Gerar link para o cliente" aria-label="Gerar link público"
+              onclick="copiarLinkCampanhaPublica({{ c.id_campanha }}, null)">
+        <i class="fas fa-share-alt" aria-hidden="true"></i>
+      </button>
+    {% endif %}
     <button type="button" class="camp-action-btn" data-open-diarios
             data-id="{{ c.id_campanha }}" data-codigo="{{ c.codigo_pi|e }}"
             data-titulo="{{ c.titulo_pi|e }}" data-nome="{{ c.nome_campanha|e }}"

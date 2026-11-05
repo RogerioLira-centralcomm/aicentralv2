@@ -3,7 +3,7 @@
 {% block title %}{{ campanha.nome_campanha or 'Campanha' }} - Operação{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=16">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=17">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/campanhas-ui.css') }}?v=2">
 {% endblock %}
 
@@ -17,6 +17,9 @@
 {% set pct_periodo = campanha.periodo_pct_elapsed if campanha.periodo_pct_elapsed is not none else 0 %}
 {% set dias_restantes = (campanha.periodo_fim - agora).days if campanha.periodo_fim else none %}
 {% set restante_obj = [obj_val - ating_val, 0]|max %}
+{% set preco_orc = campanha.preco_unitario_orcado_brl %}
+{% set preco_real = campanha.preco_unitario_realizado_brl %}
+{% set sigla_kpi = sigla_metrica_preco(campanha.objetivo_nome, campanha.preco_metrica_modalidade, campanha.kpi_nome) %}
 
 <div id="pi-operacao-app"
      class="pi-operation pi-has-mobile-tabs campaign-detail-page"
@@ -117,6 +120,28 @@
             <span style="width: {{ [pct_inv, 100]|min if pct_inv > 0 else 0 }}%"></span>
           </div>
           <small>Previsto {{ previsto_val|format_brl_ptbr }}</small>
+        </article>
+
+        <article class="campaign-flight-metric campaign-flight-metric--unit-price"
+                 {% if preco_orc is not none or preco_real is not none %}
+                 aria-label="{{ sigla_kpi }} orçado {{ (preco_orc|format_brl_ptbr) if preco_orc is not none else 'não informado' }}, realizado {{ (preco_real|format_brl_ptbr) if preco_real is not none else 'não informado' }}"
+                 {% endif %}>
+          <div class="campaign-flight-label"><i class="fa-solid fa-tag" aria-hidden="true"></i> {{ sigla_kpi }}</div>
+          {% if preco_orc is not none or preco_real is not none %}
+          <div class="campaign-flight-value">
+            <strong class="{% if preco_orc is not none and preco_real is not none and preco_real > preco_orc %}is-over{% endif %}">
+              {% if preco_real is not none %}{{ preco_real|format_brl_ptbr }}{% else %}—{% endif %}
+            </strong>
+            <span>Realizado</span>
+          </div>
+          <small>Orçado {% if preco_orc is not none %}{{ preco_orc|format_brl_ptbr }}{% else %}—{% endif %}</small>
+          {% else %}
+          <div class="campaign-flight-value">
+            <strong>—</strong>
+            <span>Orçado —</span>
+          </div>
+          <small>Informe meta, custo de mídia e entrega para calcular</small>
+          {% endif %}
         </article>
       </section>
 

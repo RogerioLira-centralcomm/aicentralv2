@@ -828,7 +828,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script type="application/json" id="campanhas-lista-config">{{ {
   'isDiariosView': request.args.get('view') == 'diarios',

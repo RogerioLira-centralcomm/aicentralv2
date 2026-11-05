@@ -1,0 +1,394 @@
+"""Monta o objeto CAMPANHA da página pública de acompanhamento (template operacional)."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+
+from .campanha_pi_metrics import parse_volume_float
+from .pi_operacao_service import PiOperacaoService
+
+
+def _as_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _iso(value):
+    parsed = _as_date(value)
+    return parsed.isoformat() if parsed else ""
+
+
+def _fmt_periodo_br(inicio, fim):
+    ini = _as_date(inicio)
+    f = _as_date(fim)
+    if not ini and not f:
+        return "—"
+    fmt = lambda d: d.strftime("%d/%m/%Y")
+    if ini and f:
+        return f"{fmt(ini)} a {fmt(f)}"
+    if ini:
+        return f"A partir de {fmt(ini)}"
+    return f"Até {fmt(f)}"
+
+
+def _shift(base, days):
+    parsed = _as_date(base)
+    if not parsed:
+        return None
+    return parsed + timedelta(days=days)
+
+
+def _timeline_map(timeline):
+    mapped = {}
+    for item in timeline or []:
+        etapa = item.get("etapa")
+        if not etapa:
+            continue
+        mapped[etapa] = item
+    return mapped
+
+
+def _realizado_etapa(timeline_by_etapa, *etapas):
+    for etapa in etapas:
+        row = timeline_by_etapa.get(etapa) or {}
+        if not row.get("concluida"):
+            continue
+        when = row.get("concluida_em")
+        if when:
+            return _iso(when)
+        return date.today().isoformat()
+    return ""
+
+
+def _volume_label(value):
+    if value is None or str(value).strip() == "":
+        return "—"
+    parsed = parse_volume_float(value)
+    if parsed is None:
+        return str(value).strip()
+    if parsed == int(parsed):
+        return f"{int(parsed):,}".replace(",", ".")
+    return f"{parsed:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _contato_cc(nome, papel, email):
+    if not (nome or email):
+        return None
+    return {
+        "nome": nome or "Centralcomm",
+        "papel": papel or "Operações",
+        "email": email or "",
+    }
+
+
+def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
+    """Retorna dict no formato do template HTML (const CAMPANHA)."""
+    from . import db
+
+    campanha_row = db.obter_campanha_pi_por_id(id_campanha)
+    if not campanha_row:
+        raise LookupError("Campanha não encontrada.")
+
+    id_pi = campanha_row["id_pi"]
+    operacao = (service or PiOperacaoService()).estado_campanha(id_pi, id_campanha)
+    pi = operacao.get("pi") or {}
+    campanha = operacao.get("campanha") or dict(campanha_row)
+    campanhas_pi = operacao.get("campanhas_relacionadas") or []
+    timeline = _timeline_map(operacao.get("timeline"))
+
+    inicio = campanha.get("periodo_inicio") or pi.get("periodo_inicio")
+    fim = campanha.get("periodo_fim") or pi.get("periodo_fim")
+
+    codigo_pi = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or ""
+    pi_label = codigo_pi or f"PI #{id_pi}"
+
+    cotacao = None
+    if pi.get("cotacao_id"):
+        cotacao = db.obter_cotacao_por_id(pi["cotacao_id"])
+
+    pracas = []
+    if cotacao and cotacao.get("praca"):
+        pracas.append(str(cotacao["praca"]).strip())
+
+    combinados_pi = [
+        {"rotulo": "Período", "valor": _fmt_periodo_br(inicio, fim)},
+        {
+            "rotulo": "Praças",
+            "valor": ", ".join(pracas) if pracas else "Conforme PI",
+        },
+        {
+            "rotulo": "Prazo dos materiais",
+            "valor": "5 dias úteis antes do início",
+        },
+        {
+            "rotulo": "Aprovação de criativos",
+            "valor": "Até 2 dias úteis após o envio",
+        },
+        {
+            "rotulo": "Acompanhamento",
+            "valor": "Dashboard de entregas, atualização diária",
+        },
+        {
+            "rotulo": "Canal oficial",
+            "valor": "E-mail do grupo da campanha",
+        },
+    ]
+
+    combinados_campanhas = []
+    for item in campanhas_pi:
+        full = next(
+            (
+                c
+                for c in operacao.get("campanhas") or []
+                if int(c.get("id_campanha") or 0) == int(item.get("id_campanha") or 0)
+            ),
+            None,
+        )
+        if not full and int(item.get("id_campanha") or 0) != int(id_campanha):
+            all_camps = db.obter_campanhas_pi({"id_pi": id_pi}) or []
+            full = next(
+                (
+                    c
+                    for c in all_camps
+                    if int(c.get("id_campanha") or 0) == int(item.get("id_campanha") or 0)
+                ),
+                None,
+            )
+        nome = item.get("nome") or (full or {}).get("nome_campanha") or "Campanha"
+        plataforma = item.get("plataforma") or (full or {}).get("plataforma_nome") or ""
+        titulo = nome if not plataforma else f"{nome} · {plataforma}"
+        combinados_campanhas.append(
+            {
+                "nome": titulo,
+                "itens": [
+                    {
+                        "rotulo": "Objetivo",
+                        "valor": (full or {}).get("objetivo_nome") or "—",
+                    },
+                    {
+                        "rotulo": "KPI",
+                        "valor": (full or {}).get("objetivo_nome") or "Conforme PI",
+                    },
+                    {
+                        "rotulo": "Volume contratado",
+                        "valor": _volume_label((full or {}).get("obj_contratados")),
+                    },
+                    {
+                        "rotulo": "Formato",
+                        "valor": plataforma or "—",
+                    },
+                ],
+            }
+        )
+
+    marcos = [
+        {
+            "id": "pi",
+            "titulo": "PI aprovado",
+            "previsto": _iso(_shift(inicio, -14) or pi.get("periodo_inicio")),
+            "realizado": _realizado_etapa(timeline, "dados_validados"),
+            "responsavel": "cliente",
+            "nota": "Combinados extraídos do PI",
+        },
+        {
+            "id": "materiais",
+            "titulo": "Recebimento dos materiais",
+            "previsto": _iso(_shift(inicio, -10)),
+            "realizado": _realizado_etapa(timeline, "materiais_recebidos"),
+            "responsavel": "cliente",
+            "nota": "Criativos e URLs",
+        },
+        {
+            "id": "setup",
+            "titulo": "Planejamento e setup",
+            "previsto": _iso(_shift(inicio, -7)),
+            "realizado": _realizado_etapa(timeline, "campanhas_configuradas"),
+            "responsavel": "cc",
+            "nota": "Configuração nas plataformas",
+        },
+        {
+            "id": "dashboard",
+            "titulo": "Dashboard de entregas publicado",
+            "previsto": _iso(_shift(inicio, -3)),
+            "realizado": _iso(campanha.get("updated_at"))
+            if campanha.get("link_dash")
+            else "",
+            "responsavel": "cc",
+            "nota": "Acompanhamento diário",
+        },
+        {
+            "id": "no_ar",
+            "titulo": "Campanhas no ar",
+            "previsto": _iso(inicio),
+            "realizado": _realizado_etapa(timeline, "campanha_iniciada"),
+            "responsavel": "cc",
+            "nota": "Em operação",
+        },
+        {
+            "id": "fim",
+            "titulo": "Fim do período de veiculação",
+            "previsto": _iso(fim),
+            "realizado": _realizado_etapa(timeline, "fechamento_comunicado")
+            if _as_date(fim) and _as_date(fim) <= date.today()
+            else "",
+            "responsavel": "cc",
+            "nota": "Encerramento das campanhas",
+        },
+        {
+            "id": "prestacao",
+            "titulo": "Prestação de contas",
+            "previsto": _iso(_shift(fim, 10)),
+            "realizado": _realizado_etapa(timeline, "fechamento_comunicado"),
+            "responsavel": "cc",
+            "nota": "Resultados e entregas",
+        },
+        {
+            "id": "faturamento",
+            "titulo": "Faturamento",
+            "previsto": _iso(_shift(fim, 15)),
+            "realizado": _realizado_etapa(timeline, "enviado_financeiro"),
+            "responsavel": "cc",
+            "nota": "Emissão da nota fiscal",
+        },
+    ]
+
+    resp_comercial = None
+    if pi.get("id_resp_comercial"):
+        resp_comercial = db.obter_contato_por_id(pi["id_resp_comercial"])
+    resp_operacao = None
+    if campanha.get("id_responsavel_operacao"):
+        resp_operacao = db.obter_contato_por_id(campanha["id_responsavel_operacao"])
+
+    centralcomm = []
+    cc_vendas = _contato_cc(
+        pi.get("responsavel_comercial_nome")
+        or (resp_comercial or {}).get("nome_completo"),
+        "Atendimento",
+        (resp_comercial or {}).get("email"),
+    )
+    if cc_vendas:
+        centralcomm.append(cc_vendas)
+    resp_op = (
+        campanha.get("responsavel_operacao_nome")
+        or (resp_operacao or {}).get("nome_completo")
+        or operacao.get("resumo", {}).get("executivo_vendas")
+    )
+    cc_ops = _contato_cc(resp_op, "Operações", (resp_operacao or {}).get("email"))
+    if cc_ops:
+        centralcomm.append(cc_ops)
+    if not centralcomm:
+        centralcomm.append(
+            {"nome": "Centralcomm", "papel": "Operações", "email": "operacao@centralcomm.media"}
+        )
+
+    clientes = []
+    for dest in operacao.get("destinatarios") or []:
+        email = (dest.get("email") or "").strip()
+        if not email:
+            continue
+        papel = dest.get("papel") or "cliente_final"
+        label = {
+            "agencia": "Agência",
+            "parceiro": "Parceiro",
+            "cliente_final": "Cliente",
+        }.get(papel, "Cliente")
+        clientes.append(
+            {
+                "nome": dest.get("nome_completo") or label,
+                "papel": label,
+                "email": email,
+            }
+        )
+
+    documentos = []
+    drive_docs = [
+        ("PI assinado / pasta principal", pi.get("googled_pi_princ")),
+        ("Plano de mídia / peças", pi.get("googled_pi_pecas")),
+        ("Documentos assinados", pi.get("googled_pi_arq_ass")),
+    ]
+    for titulo, url in drive_docs:
+        if not url:
+            continue
+        documentos.append(
+            {
+                "titulo": titulo,
+                "url": url,
+                "data": _iso(pi.get("updated_at") or campanha.get("updated_at")),
+            }
+        )
+
+    relatorios = []
+    if pi.get("googled_pi_financ"):
+        relatorios.append(
+            {
+                "titulo": "Relatório de prestação de contas",
+                "url": pi.get("googled_pi_financ"),
+                "data": _iso(_shift(fim, 10)),
+                "marco": "prestacao",
+            }
+        )
+
+    atualizado = operacao.get("resumo", {}).get("ultima_atualizacao") or campanha.get(
+        "updated_at"
+    ) or pi.get("updated_at")
+    if isinstance(atualizado, datetime):
+        atualizado = atualizado.date()
+
+    return {
+        "demo": False,
+        "cliente": pi.get("cliente_nome") or campanha.get("cliente_nome") or "Cliente",
+        "campanha": campanha.get("nome_campanha") or "Campanha",
+        "pi": pi_label,
+        "periodo": {"inicio": _iso(inicio), "fim": _iso(fim)},
+        "atualizado_em": _iso(atualizado) or date.today().isoformat(),
+        "marcos": marcos,
+        "modulos": {
+            "dashboard": {
+                "aparece_apos": "dashboard",
+                "titulo": "Dashboard de entregas",
+                "descricao": "Atualizado diariamente pela operação Centralcomm.",
+                "url_embed": campanha.get("link_dash") or "",
+            },
+            "relatorios": {
+                "aparece_apos": "prestacao",
+                "titulo": "Prestação de contas",
+                "itens": relatorios,
+            },
+            "combinados": {
+                "aparece_apos": "pi",
+                "titulo": "Combinados",
+                "pi": combinados_pi,
+                "campanhas": combinados_campanhas,
+            },
+            "contatos": {
+                "aparece_apos": "pi",
+                "titulo": "Contatos",
+                "centralcomm": centralcomm,
+                "cliente": clientes,
+            },
+            "documentos": {
+                "aparece_apos": "pi",
+                "titulo": "Documentos",
+                "itens": documentos,
+            },
+            "assistente": {
+                "ativo": False,
+                "aparece_apos": "no_ar",
+                "titulo": "Pergunte sobre a campanha",
+                "descricao": "Assistente com acesso aos dados da campanha. Em breve.",
+            },
+        },
+    }

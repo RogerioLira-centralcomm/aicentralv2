@@ -37,10 +37,15 @@
       '1': 'NF emitida',
       '3': 'Pagamento realizado',
     };
+    const tipoContratoLabels = {
+      operacao_propria: 'Operação própria',
+      representacao_comercial: 'Representação comercial',
+    };
     const labels = {
       resp_comercial: 'Executivo',
       id_cliente: 'Cliente',
       tipo_entidade: 'Entidade',
+      tipo_de_contrato: 'Tipo contrato',
       mes_ref_comp: 'Mês',
       ano_ref_comp: 'Ano',
       busca: 'Busca',
@@ -50,7 +55,11 @@
       .filter(function (key) { return params.get(key); })
       .map(function (key) {
         var raw = params.get(key);
-        var value = key === 'nf_status' ? (nfStatusLabels[raw] || raw) : raw;
+        var value = key === 'nf_status'
+          ? (nfStatusLabels[raw] || raw)
+          : key === 'tipo_de_contrato'
+            ? (tipoContratoLabels[raw] || raw)
+            : raw;
         return { key: key, label: labels[key], value: value };
       });
   }
@@ -85,6 +94,7 @@
     const ano = (document.getElementById('filtro_ano_ref') || {}).value || '';
     const tipoEntidade = (document.getElementById('filtro_tipo_entidade') || {}).value || '';
     const clienteId = (document.getElementById('filtro_cliente_id') || {}).value || '';
+    const tipoContrato = (document.getElementById('filtro_tipo_contrato') || {}).value || '';
 
     setCookie('cc_filtro_exec', exec, 30);
     var origem = origemEfetiva();
@@ -99,6 +109,9 @@
     }
 
     if (exec) params.set('resp_comercial', exec);
+    if (tipoContrato === 'operacao_propria' || tipoContrato === 'representacao_comercial') {
+      params.set('tipo_de_contrato', tipoContrato);
+    }
     if (tipoEntidade) params.set('tipo_entidade', tipoEntidade);
     else if (clienteId) params.set('id_cliente', clienteId);
     if (subStatusAtual) params.set('id_sub_status_pi', subStatusAtual);
@@ -370,9 +383,15 @@
       '<td data-label="Veiculação" class="pi-inner-flight-cell">' + celPeriodo + '</td>' +
       '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
       '<td data-label="Investimento" class="pi-campaign-detail-money pi-inner-investment">' + celMidia + '</td>' +
-      '<td data-label="Ações" class="pi-commercial-actions">' +
-      '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" aria-label="Abrir campanha">' +
-      '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></button></td>' +
+      '<td data-label="Ações" class="pi-commercial-actions" onclick="event.stopPropagation();">' +
+      (c.link_publico_url
+        ? '<a href="' + escapeHtml(c.link_publico_url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Abrir página do cliente" aria-label="Abrir página pública da campanha" onclick="event.stopPropagation();">' +
+          '<i class="fa-solid fa-link" aria-hidden="true"></i></a>' +
+          '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Copiar link da campanha" aria-label="Copiar link público" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', ' + JSON.stringify(c.link_publico_url) + ', event)">' +
+          '<i class="fa-regular fa-copy" aria-hidden="true"></i></button>'
+        : '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Gerar link para o cliente" aria-label="Gerar link público" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', null, event)">' +
+          '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i></button>') +
+      '</td>' +
       '</tr>';
   }
 
@@ -1016,7 +1035,7 @@
     });
     const search = document.getElementById('filtro_busca');
     if (search) search.addEventListener('input', window.debounceAplicarFiltros);
-    ['filtro_executivo', 'filtro_tipo_entidade', 'filtro_mes_ref'].forEach(function (id) {
+    ['filtro_executivo', 'filtro_tipo_contrato', 'filtro_tipo_entidade', 'filtro_mes_ref'].forEach(function (id) {
       const field = document.getElementById(id);
       if (field) field.addEventListener('change', window.aplicarFiltros);
     });

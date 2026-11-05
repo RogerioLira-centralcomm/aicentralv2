@@ -234,4 +234,52 @@
   global.applyPlatformIcons = function (root) { applyPlatformIcons(root || document); };
   global.getCampFlag = getCampFlag;
   global.loadCampFlags = loadCampFlags;
+
+  function toastLinkCampanha(message, kind) {
+    if (typeof global.showToast === 'function') {
+      global.showToast(message, kind || 'success');
+      return;
+    }
+    window.alert(message);
+  }
+
+  function copiarLinkCampanhaPublica(idCampanha, url, ev) {
+    if (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+    }
+    const copy = function (link) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function () {
+          toastLinkCampanha('Link da campanha copiado.', 'success');
+        }).catch(function () {
+          toastLinkCampanha(link, 'info');
+        });
+      } else {
+        toastLinkCampanha(link, 'info');
+      }
+    };
+    if (url) {
+      copy(url);
+      return;
+    }
+    fetch('/api/campanha/' + idCampanha + '/link-publico', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.success || !j.link) {
+          toastLinkCampanha(j.error || 'Não foi possível gerar o link.', 'error');
+          return;
+        }
+        copy(j.link);
+      })
+      .catch(function () {
+        toastLinkCampanha('Erro ao gerar link público.', 'error');
+      });
+  }
+
+  global.copiarLinkCampanhaPublica = copiarLinkCampanhaPublica;
+  global.abrirLinkCampanhaPublica = function (url, ev) {
+    if (ev) ev.stopPropagation();
+    if (url) window.open(url, '_blank', 'noopener');
+  };
 })(typeof window !== 'undefined' ? window : this);

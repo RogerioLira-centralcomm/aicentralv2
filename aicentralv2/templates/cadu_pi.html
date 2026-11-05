@@ -356,7 +356,7 @@
           Não há PIs para esta situação e combinação de filtros.
         </p>
         {% endif %}
-        {% if filtros.get('id_cliente') or filtros.get('tipo_entidade') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('ano_ref_comp') or filtros.get('search') %}
+        {% if filtros.get('id_cliente') or filtros.get('tipo_entidade') or filtros.get('tipo_de_contrato') or filtros.get('resp_comercial') or filtros.get('mes_ref_comp') or filtros.get('ano_ref_comp') or filtros.get('search') %}
         <a href="{{ url_for('cadu_pi_lista', id_sub_status_pi=menu_sub_status or none, origem=origem_lista or none, visao=visao_comercial or none) }}" class="cx-btn cx-btn-sm cx-btn-outline">
           <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Limpar filtros
         </a>
@@ -1127,9 +1127,9 @@
 </dialog>
 
 
-<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/campanhas-ui.js') }}?v=4"></script>
 <script>window.PI_LISTA_SOMENTE_LEITURA = {{ 'true' if lista_somente_leitura else 'false' }};</script>
-<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=10"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_list.js') }}?v=11"></script>
 <script>
 function showConfirm(title, msg, onConfirm) {
   document.getElementById('modal_confirm_title').textContent = title;

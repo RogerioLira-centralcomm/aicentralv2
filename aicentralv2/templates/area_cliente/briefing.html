@@ -136,7 +136,7 @@ document.querySelectorAll('.ac-tag__remove').forEach(function (btn) {
     dados.append('secao', btn.dataset.secao);
     dados.append('id', btn.dataset.id);
     btn.disabled = true;
-    fetch({{ area_url('descobrir_selecao')|tojson }}, { method: 'POST', body: dados, credentials: 'same-origin' })
+    fetch({{ area_url('descobrir_selecao')|tojson }}, { method: 'POST', body: dados, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
       .then(function (r) {
         if (!r.ok) throw new Error();
         var li = btn.closest('li'), lista = li.parentNode;

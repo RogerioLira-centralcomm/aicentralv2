@@ -8,6 +8,8 @@ O cliente pode separar itens para mandar junto com o briefing.
 
 from __future__ import annotations
 
+import time
+
 from werkzeug.exceptions import BadRequest, NotFound
 
 SECOES = {
@@ -20,7 +22,9 @@ SECOES = {
 TIPO_ROTULO = {"canais": "Canal", "formatos": "Formato", "interativos": "Formato interativo",
                "audiencias": "Audiência", "portais": "Portal"}
 POR_PAGINA = 24
-LIMITE_SELECAO = 30
+LIMITE_SELECAO = 20  # a seleção fica no cookie de sessão (limite de ~4 KB)
+NOME_MAX = 60
+_CACHE_RESUMO = {"em": 0.0, "dados": None}
 
 # Fatias de audiência que não aparecem para o cliente (custos e preços).
 _AUDIENCIA_GRUPOS_FORA = {"Indicadores estimados"}
@@ -95,6 +99,8 @@ def listar(secao: str, busca: str = "", categoria: str = "", pagina: int = 1) ->
         total = len(todos)
         registros = todos[offset: offset + POR_PAGINA]
     paginas = max(1, -(-total // POR_PAGINA))
+    if pagina > paginas and total:
+        return listar(secao, busca, categoria, paginas)
     return {
         "cartoes": [_cartao(secao, r) for r in registros],
         "total": total, "pagina": min(pagina, paginas), "paginas": paginas,
@@ -103,7 +109,9 @@ def listar(secao: str, busca: str = "", categoria: str = "", pagina: int = 1) ->
 
 
 def resumo_secoes() -> list[dict]:
-    """Contagem por vitrine para a página inicial do Descobrir."""
+    """Contagem por vitrine para a página inicial do Descobrir (cache de 10 minutos)."""
+    if _CACHE_RESUMO["dados"] is not None and time.time() - _CACHE_RESUMO["em"] < 600:
+        return _CACHE_RESUMO["dados"]
     saida = []
     for secao, (titulo, icone, texto) in SECOES.items():
         try:
@@ -111,6 +119,8 @@ def resumo_secoes() -> list[dict]:
         except Exception:
             total = None
         saida.append({"id": secao, "titulo": titulo, "icone": icone, "texto": texto, "total": total})
+    if all(s["total"] is not None for s in saida):
+        _CACHE_RESUMO.update(em=time.time(), dados=saida)
     return saida
 
 
@@ -190,8 +200,12 @@ def detalhe(secao: str, item_id) -> dict:
 # ---------- Seleção para o briefing (fica na sessão) ----------
 
 def selecao(sess) -> list[dict]:
-    itens = sess.get("area_cliente_descobrir") or []
-    return [i for i in itens if isinstance(i, dict) and i.get("secao") in SECOES][:LIMITE_SELECAO]
+    """Itens separados, guardados compactos na sessão como [secao, id, nome]."""
+    saida = []
+    for i in sess.get("area_cliente_descobrir") or []:
+        if isinstance(i, (list, tuple)) and len(i) == 3 and i[0] in SECOES:
+            saida.append({"secao": i[0], "id": int(i[1]), "nome": i[2], "tipo": TIPO_ROTULO[i[0]]})
+    return saida[:LIMITE_SELECAO]
 
 
 def alternar(sess, secao: str, item_id, nome: str) -> bool:
@@ -209,9 +223,8 @@ def alternar(sess, secao: str, item_id, nome: str) -> bool:
     if incluido:
         if len(restantes) >= LIMITE_SELECAO:
             return False
-        restantes.append({"secao": secao, "id": item_id, "nome": _texto(nome, 120) or TIPO_ROTULO[secao],
-                          "tipo": TIPO_ROTULO[secao]})
-    sess["area_cliente_descobrir"] = restantes
+        restantes.append({"secao": secao, "id": item_id, "nome": _texto(nome, NOME_MAX) or TIPO_ROTULO[secao]})
+    sess["area_cliente_descobrir"] = [[i["secao"], i["id"], i["nome"]] for i in restantes]
     return incluido
 
 

@@ -212,6 +212,8 @@ def view_descobrir_item(usuario, secao, item_id):
 def view_descobrir_selecao():
     _checar_csrf()
     descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), request.form.get("nome", ""))
+    if request.headers.get("X-Requested-With") == "fetch":
+        return current_app.response_class(status=204)
     destino = request.form.get("voltar") or area_url("descobrir")
     if not destino.startswith("/") or destino.startswith("//"):
         destino = area_url("descobrir")

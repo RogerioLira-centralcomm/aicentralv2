@@ -330,3 +330,23 @@ def test_detalhe_de_audiencia_sem_custos(monkeypatch):
     item = descobrir.detalhe("audiencias", 3)
     assert [g["titulo"] for g in item["grupos"]] == ["Público, perfil e comportamento"]
     assert "R$" not in str(item)
+
+
+def test_tirar_item_por_fetch_responde_204(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok",
+                           "area_cliente_descobrir": [["canais", 5, "Uber Ads"]]})
+    resp = client.post("/descobrir/selecao", base_url=HOST, headers={"X-Requested-With": "fetch"},
+                       data={"csrf": "tok", "secao": "canais", "id": "5"})
+    assert resp.status_code == 204
+    with client.session_transaction(base_url=HOST) as sess:
+        assert sess["area_cliente_descobrir"] == []
+
+
+def test_selecao_cabe_no_cookie():
+    from aicentralv2.area_cliente import descobrir
+    sess = {}
+    for i in range(descobrir.LIMITE_SELECAO):
+        descobrir.alternar(sess, "audiencias", 10000 + i, "Audiência com um nome bem comprido " * 4)
+    import json
+    assert len(json.dumps(sess["area_cliente_descobrir"], ensure_ascii=False).encode()) < 2000

@@ -580,7 +580,7 @@ body { font-size: 14px; }
 .ac-hero__meta { margin-top: 6px; gap: 12px; font-size: 13px; }
 .ac-eyebrow { font-size: 12px; margin-bottom: 2px; }
 .ac-back { font-size: 13px; margin-bottom: 10px; }
-.ac-card__sub { display: none; }
+.ac-card__head .ac-card__sub { display: none; }
 
 /* Botões, selos, filtros */
 .ac-btn { min-height: 34px; padding: 6px 12px; font-size: 13px; gap: 6px; }
@@ -768,3 +768,36 @@ body { font-size: 14px; }
 .ac-drawer__bar .ac-progress { display: block; }
 .ac-panels .ac-rows { max-height: 312px; overflow-y: auto; }
 .ac-muted { color: var(--muted); }
+
+/* ---------- Logos de plataforma ---------- */
+.ac-plat { flex: none; display: inline-block; object-fit: contain; border-radius: 6px; background: #fff; border: 1px solid var(--line); padding: 2px; vertical-align: middle; }
+.ac-plat--lg { width: 36px; height: 36px; padding: 4px; border-radius: 8px; }
+.ac-plat--txt { display: inline-grid; place-items: center; padding: 0; font-size: 10px; font-weight: 700; color: var(--ink-2); background: var(--colors-gray-100); }
+.ac-platname { display: inline-flex; align-items: center; gap: 6px; }
+.ac-grid__namecell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ac-grid__namewrap { display: flex; flex-direction: column; min-width: 0; }
+.ac-row:has(.ac-row__icon) { grid-template-columns: 24px minmax(0, 1fr) minmax(80px, 140px) auto; }
+.ac-row__icon { display: grid; place-items: center; }
+.ac-platstack { display: inline-flex; align-items: center; }
+.ac-platstack .ac-plat { width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+.ac-platstack .ac-plat + .ac-plat { margin-left: -6px; }
+.ac-platstack__more { margin-left: 4px; font-size: 12px; color: var(--muted); }
+.ac-drawer__title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ac-campaign__title { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.ac-campaign__title .ac-card__sub { font-size: 12px; margin-top: 2px; }
+
+/* Faixa "Plataformas" (PI e Visão 360°) */
+.ac-platstrip { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.ac-platcard { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+.ac-platcard .ac-plat { width: 32px; height: 32px; padding: 4px; border-radius: 8px; }
+.ac-platcard__text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.ac-platcard__text b { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-platcard__text small { font-size: 12px; color: var(--muted); }
+.ac-platcard__pct { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .ac-row:has(.ac-row__icon) { grid-template-columns: 24px minmax(0, 1fr) auto; } }
+/* Meta / Entregue / Entrega dentro do card de campanha (Visão 360°) */
+.ac-cstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.ac-cstats dt { color: var(--muted); font-size: 12px; }
+.ac-cstats dd { margin: 0; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ac-campaign { gap: 10px; }
+section.ac-stats { gap: 0; margin: 0; }

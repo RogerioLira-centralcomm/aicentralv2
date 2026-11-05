@@ -1,5 +1,5 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, barra %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, barra, plat, faixa_plataformas %}
 {% block title %}{{ pi.pi }}{% endblock %}
 {% block content %}
 <a class="ac-back" href="{{ area_url('pis') }}">{{ icon('arrow-left', 14) }}PIs</a>
@@ -27,6 +27,8 @@
   <div class="ac-stat"><span class="ac-stat__label">Faturado</span><b class="ac-stat__value ac-stat__value--money">{{ pi.faturado|format_brl if pi.faturado else '—' }}</b><span class="ac-stat__hint">{% if pi.pago %}{{ pi.pago|format_brl }} pago{% else %}sem pagamento{% endif %}</span></div>
 </section>
 
+{{ faixa_plataformas(plats) }}
+
 <div class="ac-panels">
   <section class="ac-panel" aria-labelledby="res-titulo">
     <header class="ac-panel__head"><h2 class="ac-h2" id="res-titulo">Resultado por campanha</h2><span class="ac-panel__count">{{ campanhas|length }}</span></header>
@@ -34,6 +36,7 @@
     <ul class="ac-rows">
       {% for c in campanhas %}
       <li class="ac-row">
+        <span class="ac-row__icon">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
         <div class="ac-row__main"><b>{{ c.nome }}</b><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small></div>
         <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome) }}</div>
         <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b><small>{{ c.status or '—' }}</small></div>

@@ -18,7 +18,7 @@ from flask import abort, current_app, redirect, render_template, request, sessio
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, dados, descobrir
+from . import acesso, briefing, dados, descobrir, plataformas
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -155,7 +155,9 @@ def view_projeto(usuario, id_pi):
     if projeto is None:
         abort(404)
     resumo = dados.resumo_projeto(usuario["cliente_id"], id_pi)
-    return _render("projeto.html", usuario, "projetos", projeto=projeto, resumo=resumo)
+    plats = plataformas.resumo(dados.campanhas_dos_pis([id_pi]))
+    return _render("projeto.html", usuario, "projetos", projeto=projeto, resumo=resumo, plats=plats,
+                   logos={p["nome"]: p for p in plats})
 
 
 def _csrf_token() -> str:
@@ -283,7 +285,7 @@ def _drawer_campanha(c, status) -> dict:
         if c.get("dias_restantes") is not None and c["dias_restantes"] >= 0 and c["tempo_pct"] < 100:
             tempo += f" · {c['dias_restantes']} dias restantes"
     return {
-        "nome": c["nome"], "status": status, "objetivo": c.get("objetivo") or "—",
+        "nome": c["nome"], "status": status, "objetivo": c.get("objetivo") or "—", "logo": c.get("plataforma_logo") or "",
         "plataforma": c.get("plataforma") or "—", "responsavel": c.get("responsavel") or "Centralcomm",
         "pct": f"{c['pct']}%" if c.get("pct") is not None else "—", "pct_num": c.get("pct") or 0,
         "atingido": c.get("atingido_label") or "—", "meta": c.get("meta_label") or "—",
@@ -300,6 +302,11 @@ def view_pis(usuario):
     if termo:
         t = termo.lower()
         pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()]
+    por_pi: dict = {}
+    for c in dados.campanhas_dos_pis([p["id"] for p in pis]):
+        por_pi.setdefault(c["id_pi"], []).append(c)
+    for p in pis:
+        p["plataformas"] = plataformas.resumo(por_pi.get(p["id"], []))
     return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo)
 
 
@@ -308,7 +315,7 @@ def view_pi(usuario, id_pi):
     if pi is None:
         abort(404)
     campanhas = dados.campanhas_dos_pis([id_pi])
-    return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas)
+    return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas, plats=plataformas.resumo(campanhas))
 
 
 def view_em_preparacao(usuario, endpoint):

@@ -1,5 +1,5 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, ritmo_badge, barra, vazio %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, ritmo_badge, barra, vazio, plat, faixa_plataformas %}
 {% block title %}{{ (resumo.titulo if resumo else 'Projeto') }}{% endblock %}
 {% block content %}
 {% set pl = projeto.payload if not projeto.vazio else None %}
@@ -75,19 +75,25 @@
   </ol>
 </section>
 
+{{ faixa_plataformas(plats) }}
+
 <section id="campanhas" class="ac-section ac-enter" aria-labelledby="camp-titulo">
   <div class="ac-section__head"><h2 class="ac-h2" id="camp-titulo">Campanhas</h2></div>
   <div class="ac-campaigns">
     {% for c in pl.resultados %}
     <article class="ac-card ac-campaign">
       <div class="ac-campaign__head">
-        <div>
-          <h3 class="ac-h3">{{ c.nome }}</h3>
-          <p class="ac-card__sub">{{ c.plataforma or '—' }} · {{ c.objetivo }} · {{ periodo(c.periodo) }}</p>
+        {% set lp = logos.get(c.plataforma) %}
+        <div class="ac-campaign__title">
+          {{ plat(c.plataforma, lp.logo if lp else '', lp.iniciais if lp else '', 28) }}
+          <div>
+            <h3 class="ac-h3">{{ c.nome }}</h3>
+            <p class="ac-card__sub">{{ c.plataforma or '—' }} · {{ c.objetivo }} · {{ periodo(c.periodo) }}</p>
+          </div>
         </div>
         <div class="ac-campaign__badges">{% if c.status %}{{ status_badge(c.status) }}{% endif %}{{ ritmo_badge(c.ritmo) }}</div>
       </div>
-      <dl class="ac-stats">
+      <dl class="ac-cstats">
         <div><dt>Meta</dt><dd>{{ c.meta_label }}</dd></div>
         <div><dt>Entregue</dt><dd>{{ c.atingido_label }}</dd></div>
         <div><dt>Entrega</dt><dd>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</dd></div>

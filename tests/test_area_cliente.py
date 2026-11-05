@@ -150,6 +150,8 @@ def test_projeto_360_sem_custos(app, monkeypatch):
         "id": 12, "titulo": "PI Verão", "pi": "CC-123", "status": "Em andamento", "ativo": True,
         "periodo": payload["periodo"], "pct": 50, "n_campanhas": 1, "plataformas": ["Meta Ads"], "campanhas": [],
     })
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [
+        {"nome": "Campanha Verão", "plataforma": "Meta Ads", "pct": 50, "no_ar": True}])
     resp = _client(app, {"user_id": 501}).get("/projetos/12", base_url=HOST)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
@@ -469,3 +471,13 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
     import json
     d = json.loads(dados_json)[0]
     assert d["tempo"] == "40% · 18 dias restantes" and d["pi_url"] == "/pis/12" and d["pi_360"] == "/projetos/12"
+
+
+def test_logos_e_resumo_de_plataformas():
+    from aicentralv2.area_cliente import plataformas
+    assert plataformas.logo("Meta Ads").endswith("facebook.svg")
+    assert plataformas.logo("Plataforma Nova") == "" and plataformas.iniciais("Plataforma Nova") == "PN"
+    r = plataformas.resumo([
+        {"plataforma": "DV360", "pct": 40, "no_ar": True}, {"plataforma": "DV360", "pct": 60, "no_ar": False},
+        {"plataforma": "Spotify", "pct": None, "no_ar": True}])
+    assert [(p["nome"], p["n"], p["no_ar"], p["pct"]) for p in r] == [("DV360", 2, 1, 50), ("Spotify", 1, 1, None)]

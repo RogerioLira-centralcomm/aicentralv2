@@ -1,5 +1,5 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, barra %}
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, barra, plat %}
 {% block title %}Início{% endblock %}
 {% block content %}
 {% set k = resumo.kpis %}
@@ -23,6 +23,7 @@
     <ul class="ac-rows">
       {% for c in resumo.performance[:5] %}
       <li class="ac-row">
+        <span class="ac-row__icon">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
         <div class="ac-row__main">
           <b>{{ c.nome }}</b>
           <small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small>

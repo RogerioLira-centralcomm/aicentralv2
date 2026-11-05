@@ -40,6 +40,12 @@
 </svg>
 {%- endmacro %}
 
+{# Logo da plataforma; sem logo, um selo com as iniciais. #}
+{% macro plat(nome, logo, iniciais='', size=20) -%}
+{%- if logo -%}<img class="ac-plat" src="{{ logo }}" alt="" width="{{ size }}" height="{{ size }}" loading="lazy" title="{{ nome }}">
+{%- else -%}<span class="ac-plat ac-plat--txt" style="width:{{ size }}px;height:{{ size }}px" title="{{ nome }}" aria-hidden="true">{{ iniciais or (nome or '?')[:1]|upper }}</span>{%- endif -%}
+{%- endmacro %}
+
 {% macro data_br(valor) -%}
 {%- if valor -%}{% set v = valor|string %}{{ v[8:10] }}/{{ v[5:7] }}/{{ v[0:4] }}{%- else -%}—{%- endif -%}
 {%- endmacro %}
@@ -77,4 +83,22 @@
   <a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ usuario.executivo.whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}Falar com {{ usuario.executivo.nome.split()[0] }}</a>
   {% endif %}
 </div>
+{%- endmacro %}
+
+{# Faixa "Plataformas": uma peça por plataforma, com campanhas e entrega média. #}
+{% macro faixa_plataformas(plats) -%}
+{% if plats %}
+<section class="ac-platstrip" aria-label="Plataformas">
+  {% for p in plats %}
+  <div class="ac-platcard">
+    {{ plat(p.nome, p.logo, p.iniciais, 32) }}
+    <div class="ac-platcard__text">
+      <b>{{ p.nome }}</b>
+      <small>{{ p.n }} {{ 'campanha' if p.n == 1 else 'campanhas' }}{% if p.no_ar %} · {{ p.no_ar }} no ar{% endif %}</small>
+    </div>
+    <span class="ac-platcard__pct">{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</span>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
 {%- endmacro %}

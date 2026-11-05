@@ -142,6 +142,9 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
         resultado["id_pi"] = row["id_pi"]
         resultado["no_ar"] = (resultado["status"] or "").strip().lower() in STATUS_CAMPANHA_NO_AR
         resultado["responsavel"] = row.get("responsavel_nome") or ""
+        from .plataformas import iniciais, logo
+        resultado["plataforma_logo"] = logo(resultado["plataforma"])
+        resultado["plataforma_iniciais"] = iniciais(resultado["plataforma"])
         saida.append(resultado)
     return saida
 

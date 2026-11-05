@@ -1,5 +1,5 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat %}
 {% block title %}Campanhas{% endblock %}
 {% block content %}
 {% set k = ritmo.kpis %}
@@ -58,11 +58,10 @@
       {% for c in lista %}
       <tr data-camp="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto)|lower }}">
         <th scope="row" class="ac-grid__sticky">
-          <button type="button" class="ac-grid__name" data-camp-abrir="{{ loop.index0 }}">{{ c.nome }}</button>
-          <small>{{ c.objetivo }}</small>
+          <span class="ac-grid__namecell">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span class="ac-grid__namewrap"><button type="button" class="ac-grid__name" data-camp-abrir="{{ loop.index0 }}">{{ c.nome }}</button><small>{{ c.objetivo }}</small></span></span>
         </th>
         <td><span class="ac-dot ac-dot--{{ filtro }}"></span>{{ grupos_rotulo[filtro] }}</td>
-        <td>{{ c.plataforma or '—' }}</td>
+        <td><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 16) }}{{ c.plataforma or '—' }}</span></td>
         <td class="ac-num">{{ c.atingido_label }}</td>
         <td class="ac-num">{{ c.meta_label }}</td>
         <td class="ac-grid__pct"><span class="ac-grid__pctrow"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ barra(c.pct, 'Entrega de ' ~ c.nome) }}</span></td>
@@ -87,9 +86,12 @@
 
 <aside class="ac-drawer" id="camp-drawer" aria-labelledby="drawer-titulo" hidden>
   <header class="ac-drawer__head">
-    <div>
-      <p class="ac-eyebrow" data-d="status"></p>
-      <h2 class="ac-h2" id="drawer-titulo" data-d="nome"></h2>
+    <div class="ac-drawer__title">
+      <img class="ac-plat ac-plat--lg" data-d-src="logo" alt="" width="36" height="36" hidden>
+      <div>
+        <p class="ac-eyebrow" data-d="status"></p>
+        <h2 class="ac-h2" id="drawer-titulo" data-d="nome"></h2>
+      </div>
     </div>
     <button type="button" class="ac-icon-btn" data-drawer-fechar aria-label="Fechar detalhes">{{ icon('close', 18) }}</button>
   </header>
@@ -128,6 +130,10 @@
     drawer.querySelectorAll('[data-d-href]').forEach(function (el) {
       var url = d[el.getAttribute('data-d-href')];
       el.hidden = !url; if (url) el.setAttribute('href', url);
+    });
+    drawer.querySelectorAll('[data-d-src]').forEach(function (el) {
+      var url = d[el.getAttribute('data-d-src')];
+      el.hidden = !url; if (url) el.setAttribute('src', url);
     });
     var fill = drawer.querySelector('[data-d-bar]');
     fill.style.width = Math.max(0, Math.min(100, d.pct_num || 0)) + '%';

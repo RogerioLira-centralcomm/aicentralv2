@@ -123,8 +123,10 @@ stop_service_for_deploy() {
     echo "  > OK"
 }
 
-# Build do frontend. Não depende do Python, então roda antes da parada do serviço
-# quando o requirements.txt muda (ver passo 2); no passo 4 ele só repete se faltou.
+# Build do frontend. Não depende do Python, então roda antes da parada do serviço.
+# A Área do Cliente (templates/area_cliente, css/area_cliente.css) não usa Tailwind
+# nem Vite: mudar só ela não dispara o build, que leva 15-30 min na VPS.
+# Roda antes da parada quando o requirements.txt muda (ver passo 2); no passo 4 só repete se faltou.
 frontend_build_step() {
     FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
     if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
@@ -136,6 +138,7 @@ frontend_build_step() {
            vite.auth.config.mjs vite.conversations.config.mjs \
            vite.reports.config.mjs vite.planner.config.mjs \
            vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs vite.studio-home.config.mjs \
+           ':(exclude)aicentralv2/templates/area_cliente' ':(exclude)aicentralv2/static/css/area_cliente.css' \
        || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
         if [ -x "./build_frontend_fast.sh" ]; then
             FRONTEND_BUILD_SCRIPT="./build_frontend_fast.sh"

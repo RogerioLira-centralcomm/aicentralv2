@@ -219,6 +219,9 @@ def test_briefing_sem_token_e_recusado(app, monkeypatch):
     client = _briefing_client(app, monkeypatch)
     resp = client.post("/briefing", base_url=HOST, data={"titulo": "Verão", "objetivo": "Vender mais no verão"})
     assert resp.status_code == 400
+    assert client.post("/briefing", base_url=HOST, data={"csrf": "ç"}).status_code == 400
+    sem_token = _client(app, {"user_id": 501})
+    assert sem_token.post("/briefing", base_url=HOST, data={"csrf": "-"}).status_code == 400
 
 
 def test_briefing_invalido_volta_com_erros(app, monkeypatch):

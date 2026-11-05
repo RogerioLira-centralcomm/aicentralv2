@@ -15,7 +15,7 @@
   <span class="ac-notice__icon">{{ icon('check', 18) }}</span>
   <div>
     <p class="ac-notice__title">Briefing enviado</p>
-    <p>{% if usuario.executivo %}{{ usuario.executivo.nome }} recebeu{% else %}A Centralcomm recebeu{% endif %} o seu briefing e volta com o planejamento. Você acompanha o andamento aqui embaixo.</p>
+    <p>O briefing está com a equipe da Centralcomm{% if usuario.executivo %}, aos cuidados de {{ usuario.executivo.nome }}{% endif %}. Você acompanha o andamento aqui embaixo.</p>
   </div>
 </div>
 {% endif %}

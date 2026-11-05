@@ -150,8 +150,9 @@ def _csrf_token() -> str:
 def view_briefing(usuario):
     valores, erros = {}, {}
     if request.method == "POST":
-        enviado = request.form.get("csrf") or ""
-        if not secrets.compare_digest(enviado, session.get("area_cliente_csrf") or "-"):
+        enviado = (request.form.get("csrf") or "").encode()
+        esperado = (session.get("area_cliente_csrf") or "").encode()
+        if not esperado or not secrets.compare_digest(enviado, esperado):
             abort(400)
         valores, erros = briefing.validar(request.form)
         if not erros:

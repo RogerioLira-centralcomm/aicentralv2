@@ -125,7 +125,8 @@
   document.querySelectorAll('[data-ac-close]').forEach(function (el) {
     el.addEventListener('click', function () { setDrawer(false); });
   });
-  mobile.addEventListener('change', function () { if (!mobile.matches) setDrawer(false); syncExpanded(); });
+  var aoMudar = function () { if (!mobile.matches && document.body.classList.contains('ac-side-open')) setDrawer(false); syncExpanded(); };
+  if (mobile.addEventListener) mobile.addEventListener('change', aoMudar); else if (mobile.addListener) mobile.addListener(aoMudar);
   syncExpanded();
 
   var menus = Array.prototype.slice.call(document.querySelectorAll('[data-ac-menu]'));

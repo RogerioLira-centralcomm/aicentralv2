@@ -1,22 +1,33 @@
 {% extends 'campanha_publica/base.html' %}
 {% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block cabecalho %}
+<div class="page-head"><div class="ph-id"><h1>Documentos do PI</h1><div class="ph-meta"><span>Acordos, arquivos e prestação de contas</span></div></div></div>
+{% endblock %}
 {% block main %}
-{% set docs = campanha.modulos.documentos.itens %}
-{% set rels = ctx.relatorios_liberados %}
-<section class="card" data-in style="--i:0">
-  <div class="card-head"><h2>Documentos do PI</h2></div>
-  {% if docs %}
-  <ul class="list">{% for r in docs %}
-    <li><span class="ic">{{ icon('documentos') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>Google Drive{% if r.data %} · {{ dcurta(r.data) }}{% endif %}</span></span><span class="go">{{ icon('ext') }}</span></li>
-  {% endfor %}</ul>
-  {% else %}<p class="empty">Os documentos aparecem aqui assim que forem anexados ao PI.</p>{% endif %}
-</section>
-<section class="card" data-in style="--i:1">
-  <div class="card-head"><h2>Prestação de contas</h2></div>
-  {% if rels %}
-  <ul class="list">{% for r in rels %}
-    <li><span class="ic">{{ icon('resultados') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>{{ dcurta(r.data) }}</span></span><span class="go">{{ icon('ext') }}</span></li>
-  {% endfor %}</ul>
-  {% else %}<p class="empty">Publicada até 10 dias após o fim da veiculação.</p>{% endif %}
-</section>
+{%- set docs = campanha.modulos.documentos.itens -%}
+{%- set rels = ctx.relatorios_liberados -%}
+<div class="cols">
+  <section class="card" data-in style="--i:0" aria-labelledby="ac">
+    <div class="card-head"><h2 id="ac">Acordos do PI</h2></div>
+    <dl class="dl">{% for c in campanha.modulos.combinados.pi %}<div><dt>{{ c.rotulo }}</dt><dd>{{ c.valor }}</dd></div>{% endfor %}</dl>
+  </section>
+  <div class="stack">
+    <section class="card" data-in style="--i:1" aria-labelledby="dc">
+      <div class="card-head"><h2 id="dc">Arquivos</h2></div>
+      {% if docs %}
+      <ul class="list">{% for r in docs %}
+        <li><span class="ic">{{ icon('documentos') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>Google Drive</span></span><span class="go">{{ icon('ext') }}</span></li>
+      {% endfor %}</ul>
+      {% else %}<p class="empty">Os arquivos aparecem aqui assim que forem anexados ao PI.</p>{% endif %}
+    </section>
+    <section class="card" data-in style="--i:2" aria-labelledby="pc">
+      <div class="card-head"><h2 id="pc">Prestação de contas</h2></div>
+      {% if rels %}
+      <ul class="list">{% for r in rels %}
+        <li><span class="ic">{{ icon('relatorios') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>{{ dcurta(r.data) }}</span></span><span class="go">{{ icon('ext') }}</span></li>
+      {% endfor %}</ul>
+      {% else %}<p class="empty">Publicada até 10 dias após o fim da veiculação.</p>{% endif %}
+    </section>
+  </div>
+</div>
 {% endblock %}

@@ -1,128 +1,118 @@
-{#- Página pública da campanha · Centralcomm
-    Layout: navegação lateral (páginas internas) · conteúdo · coluna de contexto.
-    Dados: campanha_acompanhamento_publico.montar_payload_acompanhamento_campanha + contexto_pagina.
-    Prévia da operação: ?fases=1&fase=N simula os marcos concluídos. -#}
+{#- Página pública do PI · Centralcomm
+    Estrutura de gerenciador de mídia: barra de conta (cliente, PI, seletor de campanha),
+    abas, conteúdo em largura total. Escopo de campanha em ?c=<id_campanha>.
+    Dados: campanha_acompanhamento_publico.montar_payload_acompanhamento_pi + contexto_pagina. -#}
 {% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{%- set sel = ctx.sel -%}
+{%- set rs = campanha.resultados or [] -%}
 <!doctype html>
 <html lang="pt-BR" data-cadu-skin="workspace" data-cadu-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
-<meta name="theme-color" content="#0E1915">
+<meta name="theme-color" content="#0d171a">
 <meta name="robots" content="noindex, nofollow">
-<title>{% if pagina_info and pagina != 'geral' %}{{ pagina_info.rotulo }} · {% endif %}{{ campanha.campanha }} · Centralcomm</title>
+<title>{% if pagina != 'geral' %}{{ pagina_info.rotulo }} · {% endif %}PI {{ campanha.pi }} · Centralcomm</title>
 <link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<script>
+  /* Animação de entrada só na primeira página aberta da sessão; trocar de aba não reanima. */
+  try {
+    if (!sessionStorage.getItem("ccpi-entrada")) {
+      document.documentElement.classList.add("anim");
+      sessionStorage.setItem("ccpi-entrada", "1");
+    }
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanha_publica.css') }}?v=7">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanha_publica.css') }}?v=12">
 </head>
 <body>
-<div class="app">
-  <nav class="side" aria-label="Páginas da campanha">
-   <div class="wrap side-in">
+<header class="top">
+  <div class="wrap top-row">
     <a class="brand" href="https://centralcomm.media" target="_blank" rel="noopener" aria-label="Centralcomm (abre o site)">
-      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="32" height="23">
-      <span><b>Centralcomm</b><small>Acompanhamento</small></span>
+      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="30" height="21">
+      <b>Centralcomm</b>
     </a>
-    <ul class="nav">
-      {% for p in ctx.paginas %}
-      <li style="--i:{{ loop.index0 }}">
-        {% if p.ok %}
-        <a href="{{ purl(p.id) }}"{% if p.id == pagina %} aria-current="page"{% endif %}>{{ icon(p.id) }}<span>{{ p.rotulo }}</span></a>
-        {% else %}
-        <span class="off" title="Disponível após: {{ p.bloqueio }}">{{ icon(p.id) }}<span>{{ p.rotulo }}</span><span class="soon">em breve</span></span>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    <div class="side-foot">
-      Atualizado em<br><b>{{ dlonga(campanha.atualizado_em) }}</b>
+    <span class="top-sep" aria-hidden="true"></span>
+    <div class="acct">
+      <span class="acct-cli">{{ campanha.cliente }}</span>
+      <span class="acct-pi"><span class="acct-num">PI {{ campanha.pi }}</span>{% if campanha.pi_titulo %}<span class="acct-tit">{{ campanha.pi_titulo }}</span>{% endif %}</span>
     </div>
-   </div>
-  </nav>
-
-  <div class="content">
-    {% if previa %}
-    <div class="wrap"><div class="previa" role="note">
-      <span>Prévia da operação · ver como fase:</span>
-      <div class="tabs">
-        {% for f in demo_fases %}
-        <a href="{{ purl(pagina, {'fase': loop.index0|string, 'c': (dash_id|string if dash_id else none)}) }}"{% if fase_atual == loop.index0|string %} aria-current="true"{% endif %}>{{ f.rotulo }}</a>
+    {% if campanha.grupo %}
+    <details class="sel" id="seletor">
+      <summary>
+        <span class="sel-lbl">Campanha</span>
+        <span class="sel-val">{{ sel.nome if sel else 'Todas (' ~ rs|length ~ ')' }}</span>
+        {{ icon('chev') }}
+      </summary>
+      <ul class="sel-menu">
+        <li><a href="{{ purl(pagina, {'c': none}) }}"{% if not sel %} aria-current="true"{% endif %}><b>Todas as campanhas</b><span>{{ rs|length }} no PI</span></a></li>
+        {% for r in rs %}
+        <li><a href="{{ purl(pagina, {'c': r.id|string}) }}"{% if sel and sel.id == r.id %} aria-current="true"{% endif %}><b>{{ r.nome }}</b><span>{{ r.plataforma or r.objetivo }}</span></a></li>
         {% endfor %}
-      </div>
-    </div></div>
+      </ul>
+    </details>
     {% endif %}
-
-    <header class="head wrap">
-      <div class="id">
-        <span class="crumb">{{ pagina_info.rotulo if pagina_info else 'Campanha' }}</span>
-        <h1>{{ campanha.campanha }}</h1>
-        <div class="meta">
-          <span><b>{{ campanha.cliente }}</b></span>
-          <span class="mono">{{ campanha.pi }}</span>
-          {% if campanha.grupo %}<span>{{ campanha.resultados|length }} campanhas</span>{% endif %}
-          <span>{{ dlonga(campanha.periodo.inicio) }} – {{ dlonga(campanha.periodo.fim) }}</span>
-        </div>
-      </div>
-      {% block head_cta %}
-      {% if pagina != 'contato' and campanha.executivo %}
-      <div class="head-cta">
-        <a class="ut-btn ut-btn-secondary" href="{{ purl('contato') }}">{{ icon('contato') }}Falar com o executivo</a>
-      </div>
+    <div class="top-end">
+      <span class="upd">Atualizado {{ dcurta(campanha.atualizado_em) }}</span>
+      {% if pagina != 'contato' %}
+      <a class="ut-btn ut-btn-sm ut-btn-dark" href="{{ purl('contato') }}">{{ icon('contato') }}<span>Falar com o executivo</span></a>
       {% endif %}
-      {% endblock %}
-    </header>
-
-    <div class="body wrap{% block body_class %}{% endblock %}">
-      <main class="main" id="conteudo">
-        {% block main %}{% endblock %}
-      </main>
-      {% block aside %}
-      <aside class="aside" aria-label="Contexto">
-        {% set atual = ctx.atual %}
-        <section class="card next" data-in style="--i:2">
-          <span class="label">{{ 'Próximo passo' if atual else 'Status' }}</span>
-          {% if atual %}
-          <b>{{ atual.titulo }}</b>
-          <span class="s">
-            <span class="mono">prev. {{ dcurta(atual.previsto) }}</span>
-            <span class="ut-badge {{ 'ut-badge-brand' if atual.responsavel == 'cc' else 'ut-badge-warning' }}">{{ 'Centralcomm' if atual.responsavel == 'cc' else 'Cliente' }}</span>
-            {% if atual.atrasado %}<span class="ut-badge ut-badge-error">atrasado</span>{% endif %}
-          </span>
-          {% else %}
-          <b>Campanha concluída</b>
-          {% endif %}
-        </section>
-        {% if pagina != 'contato' and campanha.executivo %}
-        <section class="card" data-in style="--i:3">
-          <span class="label" style="display:block;margin-bottom:10px">Seu contato</span>
-          {{ pessoa_card(campanha.executivo) }}
-        </section>
-        {% endif %}
-        {% block aside_extra %}{% endblock %}
-      </aside>
-      {% endblock %}
     </div>
   </div>
-</div>
+  <nav class="wrap tabs-top" aria-label="Páginas do PI">
+    {% for p in ctx.paginas %}
+      {% if p.ok %}
+      <a href="{{ purl(p.id) }}"{% if p.id == pagina %} aria-current="page"{% endif %}>{{ icon(p.id) }}{{ p.rotulo }}</a>
+      {% else %}
+      <span class="off" title="Disponível quando a operação publicar o relatório">{{ icon(p.id) }}{{ p.rotulo }}</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+</header>
+
+<main class="wrap page" id="conteudo">
+  {% block cabecalho %}
+  <div class="page-head">
+    <div class="ph-id">
+      <h1>{{ sel.nome if sel else ('Todas as campanhas' if campanha.grupo else campanha.campanha) }}</h1>
+      <div class="ph-meta">
+        {% if sel %}
+          {% if sel.plataforma %}<span>{{ sel.plataforma }}</span>{% endif %}
+          <span>{{ sel.objetivo }}</span>
+          <span>{{ icon('cal') }}{{ dcurta(sel.periodo.inicio) }} – {{ dcurta(sel.periodo.fim) }}</span>
+          {% if sel.status %}<span class="ut-badge ut-badge-brand">{{ sel.status }}</span>{% endif %}
+        {% else %}
+          <span>{{ rs|length }} campanhas</span>
+          <span>{{ icon('cal') }}{{ dcurta(campanha.periodo.inicio) }} – {{ dcurta(campanha.periodo.fim) }}</span>
+        {% endif %}
+      </div>
+    </div>
+    {% block head_extra %}{% endblock %}
+  </div>
+  {% endblock %}
+  {% block main %}{% endblock %}
+</main>
+
 <script>
-/* Mobile: mantém a aba ativa visível na barra rolável. */
 (() => {
-  const a = document.querySelector('.nav a[aria-current="page"]');
-  const nav = document.querySelector(".nav");
-  if (a && nav && nav.scrollWidth > nav.clientWidth) {
-    nav.scrollLeft += a.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12;
+  /* Seletor de campanha: fecha ao clicar fora ou com Esc. */
+  const s = document.getElementById("seletor");
+  if (s) {
+    document.addEventListener("click", e => { if (s.open && !s.contains(e.target)) s.open = false; });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && s.open) { s.open = false; s.querySelector("summary").focus(); } });
   }
-  if (!nav) return;
-  const fim = () => {
-    nav.classList.toggle("overflow", nav.scrollWidth > nav.clientWidth + 1);
-    nav.classList.toggle("at-end", nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 2);
-  };
-  fim();
-  nav.addEventListener("scroll", fim, { passive: true });
-  addEventListener("resize", fim);
+  /* Abas roláveis no celular: aba ativa visível e esmaecimento quando há mais à direita. */
+  const nav = document.querySelector(".tabs-top");
+  const a = nav && nav.querySelector('[aria-current="page"]');
+  if (a && nav.scrollWidth > nav.clientWidth) nav.scrollLeft += a.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12;
+  if (nav) {
+    const fim = () => nav.classList.toggle("more", nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 2);
+    fim(); nav.addEventListener("scroll", fim, { passive: true }); addEventListener("resize", fim);
+  }
 })();
 </script>
 {% block scripts %}{% endblock %}

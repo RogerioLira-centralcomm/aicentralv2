@@ -9,8 +9,9 @@ from aicentralv2.campanha_acompanhamento_publico import (
     montar_payload_acompanhamento_campanha,
     montar_payload_acompanhamento_pi,
     normalizar_url_embed_looker_studio,
+    anexar_series_entrega,
+    grafico_ritmo,
     normalizar_url_visualizacao_looker_studio,
-    simular_fase,
     token_amigavel,
 )
 
@@ -183,30 +184,41 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         self.assertEqual(payload["executivo"]["whatsapp"], "https://wa.me/5511988887777")
 
         ctx = contexto_pagina(payload)
-        ids = [p["id"] for p in ctx["paginas"]]
-        self.assertEqual(ids, ["geral", "resultados", "dashboard", "combinados", "documentos", "contato"])
+        self.assertEqual([p["id"] for p in ctx["paginas"]], ["geral", "relatorios", "documentos"])
         self.assertTrue(all(p["ok"] for p in ctx["paginas"]))
         self.assertEqual(ctx["atual"]["id"], "materiais")
+        self.assertEqual(ctx["atual"]["curto"], "Materiais")
+        # Sem ?c= num PI de 2 campanhas: escopo "todas", média só das que têm meta.
+        self.assertIsNone(ctx["sel"])
+        self.assertEqual(ctx["metricas"]["pct"], 25)
+        self.assertEqual(ctx["metricas"]["n_com_meta"], 1)
+        # Com ?c=30: métricas da campanha e gráfico de ritmo.
+        ctx30 = contexto_pagina(payload, campanha_id=30)
+        self.assertEqual(ctx30["sel"]["id"], 30)
+        self.assertEqual(ctx30["metricas"]["desvio"], 25 - ctx30["metricas"]["tempo_pct"])
+        self.assertIsNotNone(ctx30["grafico"])
 
-    @patch("aicentralv2.db.obter_campanha_pi_por_id")
-    @patch("aicentralv2.db.obter_contato_por_id")
-    def test_simular_fase_libera_paginas(self, contato_mock, campanha_mock):
-        campanha_mock.return_value = {"id_campanha": 30, "id_pi": 10, "nome_campanha": "X"}
-        contato_mock.return_value = {}
-        payload = montar_payload_acompanhamento_campanha(
-            30, service=FakeOperacaoService(), linhas_campanhas=[]
-        )
-        payload["resultados"] = []  # sem dashboard cadastrado
-        zero = simular_fase(payload, 0)
-        self.assertIs(zero, payload)
-        fase1 = simular_fase(payload, 1)
-        self.assertEqual(sum(bool(m["realizado"]) for m in fase1["marcos"]), 1)
-        ctx = contexto_pagina(fase1)
-        status = {p["id"]: p["ok"] for p in ctx["paginas"]}
-        self.assertTrue(status["resultados"])
-        self.assertFalse(status["dashboard"])
-        self.assertEqual(simular_fase(payload, "99"), payload)
-
+    def test_grafico_ritmo_e_series(self):
+        r = {
+            "id": 30,
+            "periodo": {"inicio": "2026-11-01", "fim": "2026-11-30"},
+            "meta": 1000.0,
+            "atingido": 400.0,
+        }
+        payload = {"resultados": [r]}
+        anexar_series_entrega(payload, [
+            {"id_campanha": 30, "data_evento": date(2026, 11, 10), "atingido": "200"},
+            {"id_campanha": 99, "data_evento": date(2026, 11, 10), "atingido": "5"},
+        ])
+        self.assertEqual(r["serie"], [("2026-11-10", 200.0)])
+        g = grafico_ritmo(r, hoje=date(2026, 11, 16))
+        # 3 pontos: início (0), diário de 10/11 e o total de hoje.
+        self.assertEqual(g["real"].count("L"), 2)
+        self.assertEqual(g["esperado"]["valor"], "517")  # 1000 * 15/29 dias
+        self.assertEqual([t["rotulo"] for t in g["eixo_x"]], ["01/11", "15/11", "30/11"])
+        self.assertIsNone(grafico_ritmo(dict(r, meta=None)))
+        antes = grafico_ritmo(r, hoje=date(2026, 10, 1))
+        self.assertEqual(antes["esperado"]["valor"], "0")
 
     @patch("aicentralv2.db.obter_campanha_pi_por_id")
     @patch("aicentralv2.db.obter_contato_por_id")
@@ -215,7 +227,9 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         contato_mock.return_value = {}
         linhas = [dict(CAMPANHAS_PI[1], periodo_inicio=date(2026, 12, 1), periodo_fim=date(2027, 1, 20)),
                   dict(CAMPANHAS_PI[0], periodo_inicio=date(2026, 11, 1), periodo_fim=date(2026, 12, 31))]
-        payload = montar_payload_acompanhamento_pi(10, service=FakeOperacaoService(), linhas_campanhas=linhas)
+        payload = montar_payload_acompanhamento_pi(
+            10, service=FakeOperacaoService(), linhas_campanhas=linhas, diarios=[]
+        )
         self.assertTrue(payload["grupo"])
         self.assertEqual(payload["id_pi"], 10)
         # Título e período passam a ser do grupo (PI), não da 1ª campanha.
@@ -232,7 +246,7 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         campanha_mock.return_value = {"id_campanha": 30, "id_pi": 10, "nome_campanha": "Display Principal"}
         contato_mock.return_value = {}
         payload = montar_payload_acompanhamento_pi(
-            10, service=FakeOperacaoService(), linhas_campanhas=[CAMPANHAS_PI[0]]
+            10, service=FakeOperacaoService(), linhas_campanhas=[CAMPANHAS_PI[0]], diarios=[]
         )
         self.assertFalse(payload["grupo"])
         self.assertEqual(payload["campanha"], "Display Principal")

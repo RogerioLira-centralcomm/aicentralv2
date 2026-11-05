@@ -1,74 +1,134 @@
 {% extends 'campanha_publica/base.html' %}
 {% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
 {% block main %}
-{% set rs = campanha.resultados or [] %}
-{% set atual_res = rs|selectattr('atual')|first or rs|first %}
-<section class="kpis">
-  <div class="card kpi" data-in style="--i:0">
-    <span class="label">Etapas concluídas</span>
-    <span class="v" data-count="{{ ctx.n_feitos }}">{{ ctx.n_feitos }}<small>/ {{ ctx.n_marcos }}</small></span>
-    <div class="bar" style="--w:{{ ctx.pct }}%;--i:0"><i></i></div>
-  </div>
-  {% if campanha.grupo %}
-  {% set com_meta = rs|selectattr('pct','ne',none)|list %}
-  <div class="card kpi" data-in style="--i:1">
-    <span class="label">Campanhas no PI</span>
-    <span class="v" data-count="{{ rs|length }}">{{ rs|length }}</span>
-    <span class="s">{% if com_meta %}Entrega média {{ ((com_meta|sum(attribute='pct')) / com_meta|length)|round|int }}% da meta{% else %}Metas a confirmar{% endif %}</span>
-  </div>
-  {% else %}
-  <div class="card kpi" data-in style="--i:1">
-    <span class="label">Entrega da meta</span>
-    {% if atual_res and atual_res.pct is not none %}
-    <span class="v" data-count="{{ atual_res.pct }}">{{ atual_res.pct }}<small>%</small></span>
-    <span class="s">{{ atual_res.atingido_label }} de {{ atual_res.meta_label }} · {{ atual_res.objetivo }}</span>
-    {% else %}
-    <span class="v">—</span>
-    <span class="s">Disponível quando a campanha entrar no ar</span>
-    {% endif %}
-    {% if (ctx.paginas|selectattr('id','equalto','resultados')|first).ok %}<a href="{{ purl('resultados') }}">Ver resultados →</a>{% endif %}
-  </div>
-  {% endif %}
-  <div class="card kpi" data-in style="--i:2">
-    <span class="label">Tempo de veiculação</span>
-    {% if campanha.grupo %}
-    <span class="v" data-count="{{ ctx.tempo_pct or 0 }}">{{ ctx.tempo_pct if ctx.tempo_pct is not none else '—' }}<small>{% if ctx.tempo_pct is not none %}%{% endif %}</small></span>
-    <span class="s">{% if ctx.dias_restantes %}{{ ctx.dias_restantes }} dia{{ 's' if ctx.dias_restantes != 1 }} até o fim do PI{% else %}Período encerrado{% endif %}</span>
-    {% elif atual_res and atual_res.tempo_pct is not none %}
-    <span class="v" data-count="{{ atual_res.tempo_pct }}">{{ atual_res.tempo_pct }}<small>%</small></span>
-    <span class="s">{% if atual_res.dias_restantes %}{{ atual_res.dias_restantes }} dia{{ 's' if atual_res.dias_restantes != 1 }} restante{{ 's' if atual_res.dias_restantes != 1 }}{% else %}Período encerrado{% endif %}</span>
-    {% else %}
-    <span class="v">—</span><span class="s">Período a confirmar</span>
-    {% endif %}
-  </div>
-</section>
+{%- set m = ctx.metricas -%}
+{%- set sel = ctx.sel -%}
+{%- set rs = campanha.resultados or [] -%}
 
-{% if campanha.grupo %}
-<section class="card" data-in style="--i:3" aria-labelledby="gc">
-  <div class="card-head"><h2 id="gc">Campanhas</h2>{% if (ctx.paginas|selectattr('id','equalto','resultados')|first).ok %}<a href="{{ purl('resultados') }}">Ver resultados →</a>{% endif %}</div>
-  <ul class="grp">
-    {% for r in rs %}
-    <li style="--i:{{ loop.index0 }}">
-      <a href="{{ purl('resultados') }}#c{{ r.id }}" class="grp-nm"><b>{{ r.nome }}</b><span>{{ r.plataforma or r.objetivo }}{% if r.status %} · {{ r.status }}{% endif %}</span></a>
-      <div class="bar{{ ' over' if (r.pct or 0) > 100 }}" style="--w:{{ [r.pct or 0, 100]|min }}%;--i:{{ loop.index0 }}"><i></i></div>
-      <span class="grp-pct mono">{{ r.pct ~ '%' if r.pct is not none else '—' }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
-
-<section class="card" data-in style="--i:4" aria-labelledby="tl">
-  <div class="card-head"><h2 id="tl">Linha do tempo</h2><span class="muted">Do PI aprovado ao faturamento</span></div>
-  <ol class="stepper" style="--n:{{ campanha.marcos|length }}">
-    {% for m in campanha.marcos %}
-    <li class="st {{ m.estado }}{{ ' late' if m.atrasado }}" style="--i:{{ loop.index0 }}"{% if m.estado == 'current' %} aria-current="step"{% endif %}>
-      <span class="node"><span class="dot">{% if m.realizado %}{{ icon('check') }}{% endif %}</span></span>
-      <span class="t">{{ m.titulo }}</span>
-      <span class="d">{% if m.realizado %}{{ dcurta(m.realizado) }}{% else %}prev. {{ dcurta(m.previsto) }}{% endif %}</span>
+{# Status do PI: uma faixa só, sem repetir datas em cada etapa. #}
+<section class="status" aria-label="Status do PI" data-in style="--i:0">
+  <span class="status-lbl">Status do PI</span>
+  <ol class="steps">
+    {% for mk in campanha.marcos %}
+    <li class="{{ mk.estado }}{{ ' late' if mk.atrasado and mk.estado == 'current' }}"
+        title="{{ mk.titulo }} · {% if mk.realizado %}concluído {{ dcurta(mk.realizado) }}{% else %}previsto {{ dcurta(mk.previsto) }}{% endif %}"
+        {% if mk.estado == 'current' %}aria-current="step"{% endif %}>
+      <span class="dot">{% if mk.realizado %}{{ icon('check') }}{% endif %}</span>
+      <span class="lbl">{{ mk.curto }}</span>
     </li>
     {% endfor %}
   </ol>
+  {% if ctx.atual %}
+  <span class="status-now">
+    Agora: <b>{{ ctx.atual.titulo }}</b>
+    <span class="mono">prev. {{ dcurta(ctx.atual.previsto) }}</span>
+    {% if ctx.atual.atrasado %}<span class="ut-badge ut-badge-error">atrasado</span>{% endif %}
+  </span>
+  {% else %}
+  <span class="status-now"><b>PI concluído</b></span>
+  {% endif %}
 </section>
+
+{# Cards de métrica (padrão de gerenciador de mídia). Nunca exibem custo. #}
+<section class="scores" aria-label="Métricas">
+  {% if sel %}
+  <div class="score" data-in style="--i:1">
+    <span class="sc-lbl">Meta contratada</span>
+    <span class="sc-val">{{ sel.meta_label }}</span>
+    <span class="sc-sub">{{ sel.objetivo }}</span>
+  </div>
+  <div class="score" data-in style="--i:2">
+    <span class="sc-lbl">Entregue</span>
+    <span class="sc-val">{{ sel.atingido_label }}</span>
+    <span class="sc-sub">até {{ dcurta(campanha.atualizado_em) }}</span>
+  </div>
+  {% else %}
+  <div class="score" data-in style="--i:1">
+    <span class="sc-lbl">Campanhas</span>
+    <span class="sc-val">{{ rs|length }}</span>
+    <span class="sc-sub">{{ m.n_com_meta }} com meta definida</span>
+  </div>
+  {% endif %}
+  <div class="score" data-in style="--i:3">
+    <span class="sc-lbl">{{ '% da meta' if sel else 'Entrega média' }}</span>
+    <span class="sc-val">{{ m.pct ~ '%' if m.pct is not none else '—' }}</span>
+    {% if m.desvio is not none %}
+    <span class="sc-delta {{ 'up' if m.desvio >= 0 else 'down' }}">{{ '+' if m.desvio >= 0 }}{{ m.desvio }} p.p. vs ritmo esperado</span>
+    {% else %}<span class="sc-sub">Meta a confirmar</span>{% endif %}
+  </div>
+  <div class="score" data-in style="--i:4">
+    <span class="sc-lbl">Dias restantes</span>
+    <span class="sc-val">{{ m.dias_restantes if m.dias_restantes is not none else '—' }}</span>
+    <span class="sc-sub">{% if m.tempo_pct is not none %}{{ m.tempo_pct }}% do período decorrido{% else %}Período a confirmar{% endif %}</span>
+  </div>
+</section>
+
+{% if sel and ctx.grafico %}
+{%- set g = ctx.grafico -%}
+<section class="card chart-card" data-in style="--i:5" aria-labelledby="gr">
+  <div class="card-head">
+    <h2 id="gr">Entrega × ritmo ideal</h2>
+    <div class="legend">
+      <span><i class="lg-real"></i>Entregue</span>
+      <span><i class="lg-ideal"></i>Ritmo ideal</span>
+    </div>
+  </div>
+  <div class="chart" role="img"
+       aria-label="Entregue {{ sel.atingido_label }} de {{ sel.meta_label }}; o ritmo ideal para hoje seria {{ g.esperado.valor }}.">
+    <div class="ch-y" aria-hidden="true">{% for t in g.eixo_y %}<span style="top:{{ t.y }}%">{{ t.rotulo }}</span>{% endfor %}</div>
+    <div class="ch-plot">
+      {% for t in g.eixo_y %}<i class="ch-grid" style="top:{{ t.y }}%"></i>{% endfor %}
+      <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">
+        <path class="area" d="{{ g.area }}"/>
+        <path class="ideal" d="{{ g.ideal }}"/>
+        <path class="real" d="{{ g.real }}" pathLength="1"/>
+      </svg>
+      <i class="ch-today" style="left:{{ g.hoje.x }}%"></i>
+      <i class="ch-pt exp" style="left:{{ g.hoje.x }}%;top:{{ g.esperado.y }}%" title="Ritmo ideal hoje: {{ g.esperado.valor }}"></i>
+      <i class="ch-pt" style="left:{{ g.hoje.x }}%;top:{{ g.hoje.y }}%" title="Entregue: {{ sel.atingido_label }}"></i>
+    </div>
+    <div class="ch-x" aria-hidden="true">{% for t in g.eixo_x %}<span style="left:{{ t.x }}%" class="{{ 'first' if loop.first else 'last' if loop.last else '' }}">{{ t.rotulo }}</span>{% endfor %}</div>
+  </div>
+  <p class="chart-note">Hoje: <b>{{ sel.atingido_label }}</b> entregues · ritmo ideal para a data: <b>{{ g.esperado.valor }}</b>{% if not g.n_diarios %} · a curva ganha detalhe conforme a operação lança os números diários{% endif %}</p>
+</section>
+{% endif %}
+
+{% if campanha.grupo %}
+<section class="card table-card" data-in style="--i:5" aria-labelledby="tc">
+  <div class="card-head"><h2 id="tc">Campanhas do PI</h2><span class="muted">Clique para ver a campanha</span></div>
+  <div class="tbl-wrap">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th scope="col">Campanha</th>
+          <th scope="col">Status</th>
+          <th scope="col">Período</th>
+          <th scope="col" class="num">Meta</th>
+          <th scope="col" class="num">Entregue</th>
+          <th scope="col">% da meta</th>
+          <th scope="col">Ritmo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rs %}
+        <tr{% if sel and sel.id == r.id %} class="is-sel"{% endif %}>
+          <td data-label="Campanha"><a href="{{ purl('geral', {'c': r.id|string}) }}" class="tc-nm"><b>{{ r.nome }}</b><span>{{ r.plataforma }}{% if r.plataforma and r.objetivo %} · {% endif %}{{ r.objetivo if r.objetivo != '—' }}</span></a></td>
+          <td data-label="Status">{% if r.status %}<span class="ut-badge ut-badge-gray">{{ r.status }}</span>{% else %}—{% endif %}</td>
+          <td data-label="Período" class="mono">{{ dcurta(r.periodo.inicio) }} – {{ dcurta(r.periodo.fim) }}</td>
+          <td data-label="Meta" class="num">{{ r.meta_label }}</td>
+          <td data-label="Entregue" class="num">{{ r.atingido_label }}</td>
+          <td data-label="% da meta"><span class="pbar"><span class="bar{{ ' over' if (r.pct or 0) > 100 }}" style="--w:{{ [r.pct or 0, 100]|min }}%"><i></i></span><span class="mono">{{ r.pct ~ '%' if r.pct is not none else '—' }}</span></span></td>
+          <td data-label="Ritmo">
+            {% if r.ritmo == 'adiantado' %}<span class="ut-badge ut-badge-success">À frente</span>
+            {% elif r.ritmo == 'no_ritmo' %}<span class="ut-badge ut-badge-brand">No ritmo</span>
+            {% elif r.ritmo == 'atencao' %}<span class="ut-badge ut-badge-warning">Atenção</span>
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
 {% endblock %}
-{% block scripts %}{% include 'campanha_publica/_contador.html' %}{% endblock %}

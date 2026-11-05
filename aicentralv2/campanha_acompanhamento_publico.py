@@ -546,6 +546,7 @@ def montar_payload_acompanhamento_campanha(
         else campanha.get("nome_campanha") or "Campanha",
         "pi": pi_label,
         "id_pi": id_pi,
+        "pi_titulo": pi.get("titulo_pi") or "",
         "grupo": grupo,
         "periodo": {"inicio": _iso(inicio), "fim": _iso(fim)},
         "atualizado_em": _iso(atualizado) or date.today().isoformat(),
@@ -594,7 +595,7 @@ def montar_payload_acompanhamento_campanha(
     }
 
 
-def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=None):
+def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=None, diarios=None):
     """Página do PI: agrupa todas as campanhas do PI num único link."""
     from . import db
 
@@ -603,43 +604,108 @@ def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=No
     linhas = sorted(linhas_campanhas, key=lambda r: int(r.get("id_campanha") or 0))
     if not linhas:
         raise LookupError("PI sem campanhas.")
-    return montar_payload_acompanhamento_campanha(
+    payload = montar_payload_acompanhamento_campanha(
         linhas[0]["id_campanha"],
         service=service,
         linhas_campanhas=linhas,
         escopo_pi=True,
     )
+    if diarios is None:
+        diarios = db.obter_atingido_diario_pi(id_pi) or []
+    return anexar_series_entrega(payload, diarios)
 
 
-# Fases simuladas na prévia da operação (?fases=1&fase=N)
-DEMO_FASES = (
-    {"rotulo": "Dados atuais"},
-    {"rotulo": "1 · PI aprovado", "concluidos": 1},
-    {"rotulo": "2 · Dashboard", "concluidos": 4},
-    {"rotulo": "3 · No ar", "concluidos": 5},
-    {"rotulo": "4 · Prestação de contas", "concluidos": 7},
-    {"rotulo": "5 · Faturado", "concluidos": 8},
-)
+def anexar_series_entrega(payload, diarios):
+    """Anexa a cada campanha a série de entrega acumulada (data, atingido) dos diários."""
+    por_campanha = {}
+    for d in diarios or []:
+        quando = _as_date(d.get("data_evento"))
+        if not quando:
+            continue
+        por_campanha.setdefault(int(d.get("id_campanha") or 0), []).append(
+            (quando.isoformat(), parse_volume_float(d.get("atingido")))
+        )
+    for r in payload.get("resultados") or []:
+        r["serie"] = sorted(por_campanha.get(r["id"], []))
+    return payload
 
 
-def simular_fase(payload, indice):
-    """Copia do payload com os N primeiros marcos concluídos (só para a prévia)."""
-    import copy
-
-    try:
-        fase = DEMO_FASES[int(indice)]
-    except (TypeError, ValueError, IndexError):
-        return payload
-    if "concluidos" not in fase:
-        return payload
-    out = copy.deepcopy(payload)
-    for i, marco in enumerate(out["marcos"]):
-        marco["realizado"] = (marco["realizado"] or marco["previsto"]) if i < fase["concluidos"] else ""
-    return out
+def _num_curto(v):
+    v = float(v or 0)
+    if v >= 1_000_000:
+        txt = f"{v / 1_000_000:.1f}".rstrip("0").rstrip(".")
+        return f"{txt.replace('.', ',')} mi"
+    if v >= 1_000:
+        return f"{round(v / 1_000):d} mil"
+    return f"{int(round(v))}"
 
 
-def contexto_pagina(payload, hoje=None):
-    """Estado derivado (marco atual, progresso, liberação das páginas)."""
+def grafico_ritmo(r, hoje=None):
+    """Dados do gráfico "entrega × ritmo ideal" de uma campanha.
+
+    As linhas usam um espaço normalizado 0–1000 (SVG com preserveAspectRatio=none, traço
+    sem escala); eixos e pontos saem em % para HTML, então o texto não escala com a largura.
+    Linha ideal: 0 no início até a meta no fim. Linha real: diários lançados + total de hoje.
+    """
+    hoje = hoje or date.today()
+    ini, fim = _as_date(r["periodo"]["inicio"]), _as_date(r["periodo"]["fim"])
+    meta = r.get("meta") or 0
+    if not ini or not fim or fim <= ini or meta <= 0:
+        return None
+    total_dias = (fim - ini).days
+    topo = max(meta, r.get("atingido") or 0) * 1.08
+
+    def fx(d):
+        return min(max((d - ini).days, 0), total_dias) / total_dias
+
+    def fy(v):
+        return 1 - min(v, topo) / topo
+
+    def pt(d, v):
+        return f"{round(fx(d) * 1000, 1)},{round(fy(v) * 1000, 1)}"
+
+    ref = min(max(hoje, ini), fim)
+    pontos = [(ini, 0.0)]
+    for iso, val in r.get("serie") or []:
+        d = _as_date(iso)
+        if d and ini <= d <= ref:
+            pontos.append((d, val))
+    atingido = float(r.get("atingido") or 0)
+    if hoje >= ini:
+        pontos.append((ref, atingido))
+    pontos.sort(key=lambda p: p[0])
+    real = " ".join(f"{'M' if k == 0 else 'L'}{pt(d, v)}" for k, (d, v) in enumerate(pontos))
+    esperado = meta * ((ref - ini).days / total_dias) if hoje >= ini else 0
+    meio = ini + timedelta(days=total_dias // 2)
+    pct = lambda f: round(f * 100, 2)
+    return {
+        "ideal": f"M{pt(ini, 0)} L{pt(fim, meta)}",
+        "real": real,
+        "area": f"{real} L{round(fx(pontos[-1][0]) * 1000, 1)},1000 Z",
+        "hoje": {"x": pct(fx(ref)), "y": pct(fy(atingido))},
+        "esperado": {"y": pct(fy(esperado)), "valor": _num_curto(esperado)},
+        "eixo_y": [{"y": pct(fy(meta * f)), "rotulo": _num_curto(meta * f)} for f in (0, .5, 1)],
+        "eixo_x": [{"x": pct(fx(d)), "rotulo": d.strftime("%d/%m")} for d in (ini, meio, fim)],
+        "n_diarios": len(r.get("serie") or []),
+    }
+
+
+ROTULO_CURTO_MARCO = {
+    "pi": "PI aprovado",
+    "materiais": "Materiais",
+    "setup": "Setup",
+    "dashboard": "Dashboard",
+    "no_ar": "No ar",
+    "fim": "Encerramento",
+    "prestacao": "Prestação",
+    "faturamento": "Faturamento",
+}
+
+
+def contexto_pagina(payload, campanha_id=None, hoje=None):
+    """Estado derivado da página: escopo (todas ou uma campanha), métricas e status do PI."""
+    from .campanha_pi_metrics import calcular_periodo_progresso
+
     hoje = hoje or date.today()
     marcos = payload["marcos"]
     feitos = {m["id"] for m in marcos if m["realizado"]}
@@ -648,40 +714,48 @@ def contexto_pagina(payload, hoje=None):
         prev = _as_date(m["previsto"])
         m["atrasado"] = bool(not m["realizado"] and prev and prev < hoje)
         m["estado"] = "done" if m["realizado"] else "current" if i == atual_idx else "todo"
+        m["curto"] = ROTULO_CURTO_MARCO.get(m["id"], m["titulo"])
+
+    resultados = payload.get("resultados") or []
+    sel = next((r for r in resultados if r["id"] == campanha_id), None)
+    if sel is None and len(resultados) == 1:
+        sel = resultados[0]
+    escopo = [sel] if sel else resultados
+
+    com_meta = [r for r in escopo if r.get("pct") is not None]
+    periodo = (
+        {"periodo_pct_elapsed": sel["tempo_pct"], "periodo_dias_restantes": sel["dias_restantes"]}
+        if sel
+        else calcular_periodo_progresso(payload["periodo"]["inicio"], payload["periodo"]["fim"], hoje=hoje)
+    )
+    tempo_pct = periodo.get("periodo_pct_elapsed")
+    pct = (
+        sel["pct"]
+        if sel
+        else (round(sum(r["pct"] for r in com_meta) / len(com_meta)) if com_meta else None)
+    )
+    desvio = pct - tempo_pct if pct is not None and tempo_pct is not None else None
+
     modulos = payload["modulos"]
-
-    def liberado(chave):
-        mod = modulos.get(chave) or {}
-        return mod.get("aparece_apos") in feitos
-
-    tem_dash = any(r["dash_embed"] or r["dash_abrir"] for r in payload.get("resultados") or [])
-    titulo = {m["id"]: m["titulo"] for m in marcos}
+    tem_dash = any(r["dash_embed"] or r["dash_abrir"] for r in resultados)
     paginas = [
         {"id": "geral", "rotulo": "Visão geral", "ok": True},
-        {"id": "resultados", "rotulo": "Resultados", "ok": liberado("combinados")},
-        {"id": "dashboard", "rotulo": "Dashboard", "ok": tem_dash or liberado("dashboard")},
-        {"id": "combinados", "rotulo": "Combinados", "ok": liberado("combinados")},
+        {"id": "relatorios", "rotulo": "Relatórios", "ok": tem_dash},
         {"id": "documentos", "rotulo": "Documentos", "ok": True},
-        {"id": "contato", "rotulo": "Fale com a gente", "ok": True},
     ]
-    bloqueio = {"resultados": titulo.get("pi"), "combinados": titulo.get("pi"), "dashboard": titulo.get("dashboard")}
-    for p in paginas:
-        p["bloqueio"] = bloqueio.get(p["id"], "")
-    atual = marcos[atual_idx] if atual_idx >= 0 else None
-    from .campanha_pi_metrics import calcular_periodo_progresso
-
-    periodo = calcular_periodo_progresso(
-        payload["periodo"]["inicio"], payload["periodo"]["fim"], hoje=hoje
-    )
     return {
-        "tempo_pct": periodo.get("periodo_pct_elapsed"),
-        "dias_restantes": periodo.get("periodo_dias_restantes"),
+        "sel": sel,
+        "escopo": escopo,
+        "metricas": {
+            "pct": pct,
+            "tempo_pct": tempo_pct,
+            "dias_restantes": periodo.get("periodo_dias_restantes"),
+            "desvio": desvio,
+            "n_com_meta": len(com_meta),
+        },
+        "grafico": grafico_ritmo(sel, hoje=hoje) if sel else None,
+        "atual": marcos[atual_idx] if atual_idx >= 0 else None,
         "feitos": feitos,
-        "atual": atual,
-        "proximos": marcos[atual_idx:atual_idx + 3] if atual_idx >= 0 else [],
-        "pct": round(len(feitos) / len(marcos) * 100) if marcos else 0,
-        "n_feitos": len(feitos),
-        "n_marcos": len(marcos),
         "paginas": paginas,
         "relatorios_liberados": [
             r for r in modulos["relatorios"]["itens"] if not r.get("marco") or r["marco"] in feitos

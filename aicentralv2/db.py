@@ -17826,6 +17826,26 @@ def atualizar_campanhas_massa(updates):
         raise e
 
 
+def obter_atingido_diario_pi(id_pi):
+    """Série de entrega (atingido acumulado por data) das campanhas do PI.
+
+    Usada na página pública: NUNCA seleciona gasto/custo.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute('''
+                SELECT id_campanha, data_evento, atingido
+                  FROM cadu_pi_camp_diarios
+                 WHERE id_pi = %s
+                 ORDER BY id_campanha, data_evento ASC
+            ''', (id_pi,))
+            return cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def obter_diarios_campanha_chart(id_campanha):
     """Retorna diários formatados para chart (atingido e gasto ao longo do tempo)"""
     conn = get_db()

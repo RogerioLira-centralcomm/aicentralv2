@@ -1,0 +1,45 @@
+{% extends 'campanha_publica/base.html' %}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block main %}
+{%- set dashes = (campanha.resultados or [])|selectattr('dash_abrir')|list -%}
+{%- set d = (ctx.sel if ctx.sel and ctx.sel.dash_abrir else none) or (dashes|first) -%}
+{% if d %}
+<div class="rep-bar" data-in style="--i:0">
+  <span class="muted">Looker Studio · <b>{{ d.nome }}</b>{% if campanha.grupo and not (ctx.sel and ctx.sel.id == d.id) %} — troque a campanha no seletor acima{% endif %}</span>
+  <div class="rep-actions">
+    {% if d.dash_embed %}<button type="button" class="ut-btn ut-btn-sm ut-btn-secondary" id="tela-cheia">{{ icon('full') }}Tela cheia</button>{% endif %}
+    <a class="ut-btn ut-btn-sm ut-btn-primary" href="{{ d.dash_abrir }}" target="_blank" rel="noopener">Abrir no Looker {{ icon('ext') }}</a>
+  </div>
+</div>
+{% if d.dash_embed %}
+<div class="frame" id="frame" data-in style="--i:1">
+  <div class="skel" aria-hidden="true">
+    <div class="t"><i></i></div>
+    <div class="r"><i></i><i></i><i></i><i></i></div>
+    <i class="c"></i>
+    <span>Carregando relatório…</span>
+  </div>
+  <iframe onload="this.parentNode.classList.add('ready')" src="{{ d.dash_embed }}" title="Relatório · {{ d.nome }}" allowfullscreen
+    referrerpolicy="strict-origin-when-cross-origin" allow="fullscreen"
+    sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation"></iframe>
+</div>
+<p class="hint">Se o relatório pedir login ou não aparecer, use <b>Abrir no Looker</b>: o acesso segue o compartilhamento definido no Looker Studio.</p>
+{% else %}
+<div class="card empty-card" data-in style="--i:1"><b>Relatório disponível no Looker Studio</b><p class="muted">A visualização incorporada não está ativa para este relatório. Use <b>Abrir no Looker</b>.</p></div>
+{% endif %}
+{% else %}
+<div class="card empty-card" data-in><b>Relatórios em preparação</b><p class="muted">A operação publica o relatório detalhado antes do início da veiculação.</p></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const frame = document.getElementById("frame");
+  if (!frame) return;
+  setTimeout(() => frame.classList.add("ready"), 6000);
+  document.getElementById("tela-cheia")?.addEventListener("click", () => {
+    (frame.requestFullscreen || frame.webkitRequestFullscreen)?.call(frame);
+  });
+})();
+</script>
+{% endblock %}

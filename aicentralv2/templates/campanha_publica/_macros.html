@@ -3,7 +3,10 @@
 {%- macro dcurta(iso) -%}{% if iso %}{{ iso[8:10] }}/{{ iso[5:7] }}{% else %}—{% endif %}{%- endmacro -%}
 {%- macro dlonga(iso) -%}{% if iso %}{{ iso[8:10] }} {{ MESES[iso[5:7]|int - 1] }} {{ iso[0:4] }}{% else %}—{% endif %}{%- endmacro -%}
 {%- macro purl(p, extra=None) -%}
+  {#- extra pode trazer 'c': None para limpar o filtro de campanha -#}
   {%- set args = dict(qs) -%}{%- if extra %}{% set _ = args.update(extra) %}{% endif -%}
+  {%- set limpo = {} -%}{%- for k, v in args.items() if v is not none %}{% set _ = limpo.update({k: v}) %}{% endfor -%}
+  {%- set args = limpo -%}
   {%- if p == 'geral' -%}{{ url_for('campanha_acompanhamento_publica', token=token, **args) }}
   {%- else -%}{{ url_for('campanha_acompanhamento_publica', token=token, pagina=p, **args) }}{%- endif -%}
 {%- endmacro -%}
@@ -22,6 +25,9 @@
 {%- elif k == 'wa' %}<path d="M3 21l1.6-4.6A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 9.5c.3 2.2 2.3 4.2 4.5 4.5l1.2-1.2 2 1-.5 1.7c-3.6.4-7.6-3.6-7.2-7.2L10.7 7.8l1 2z" stroke-width="1.4"/>
 {%- elif k == 'full' %}<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
 {%- elif k == 'arrow' %}<path d="M9 6l6 6-6 6"/>
+{%- elif k == 'chev' %}<path d="M6 9l6 6 6-6"/>
+{%- elif k == 'relatorios' %}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+{%- elif k == 'cal' %}<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>
 {%- endif %}</svg>
 {%- endmacro -%}
 {%- macro pessoa_card(p, grande=False, titulo=None) -%}
@@ -33,7 +39,7 @@
 {% if p.email or p.whatsapp %}
 <div class="actions">
   {% if p.whatsapp %}<a class="ut-btn ut-btn-wa" href="{{ p.whatsapp }}" target="_blank" rel="noopener">{{ icon('wa') }}WhatsApp</a>{% endif %}
-  {% if p.email %}<a class="ut-btn ut-btn-secondary" href="mailto:{{ p.email }}?subject={{ ('Campanha ' ~ campanha.campanha ~ ' · ' ~ campanha.pi)|urlencode }}">{{ icon('mail') }}E-mail</a>{% endif %}
+  {% if p.email %}<a class="ut-btn ut-btn-secondary" href="mailto:{{ p.email }}?subject={{ ('PI ' ~ campanha.pi ~ ' · ' ~ (campanha.pi_titulo or campanha.campanha))|urlencode }}">{{ icon('mail') }}E-mail</a>{% endif %}
 </div>
 {% endif %}
 {% endif %}

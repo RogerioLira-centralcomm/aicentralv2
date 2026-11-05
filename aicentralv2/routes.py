@@ -1957,11 +1957,8 @@ def init_routes(app):
     app.jinja_env.filters['parse_brl_float'] = _jinja_parse_brl_float
 
     def _url_pagina_campanha_publica(token, *, barra_fases=None):
-        link = url_for('campanha_acompanhamento_publica', token=token, _external=True)
-        if not barra_fases:
-            return link
-        sep = '&' if '?' in link else '?'
-        return f'{link}{sep}fases=1'
+        """Link público do PI. ``barra_fases`` mantido por compatibilidade: a prévia é a página real."""
+        return url_for('campanha_acompanhamento_publica', token=token, _external=True)
 
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
@@ -6894,10 +6891,8 @@ def init_routes(app):
     @app.route('/campanha/publico/<string:token>')
     def campanha_acompanhamento_publica_legado(token):
         """Links antigos: redireciona para a página canônica /campanha/p/<token>."""
-        destino = url_for('campanha_acompanhamento_publica', token=token)
-        if request.query_string:
-            destino = f"{destino}?{request.query_string.decode('utf-8', 'ignore')}"
-        return redirect(destino, code=301)
+        args = {k: v for k, v in request.args.items() if k not in ('fases', 'fase')}
+        return redirect(url_for('campanha_acompanhamento_publica', token=token, **args), code=301)
 
     @app.route('/campanha/p/<string:token>', defaults={'pagina': 'geral'})
     @app.route('/campanha/p/<string:token>/<string:pagina>')
@@ -6906,15 +6901,22 @@ def init_routes(app):
         from datetime import datetime
 
         from aicentralv2.campanha_acompanhamento_publico import (
-            DEMO_FASES,
             contexto_pagina,
             montar_payload_acompanhamento_pi,
-            simular_fase,
         )
 
-        paginas_validas = ('geral', 'resultados', 'dashboard', 'combinados', 'documentos', 'contato')
-        if pagina not in paginas_validas:
-            return redirect(url_for('campanha_acompanhamento_publica', token=token))
+        paginas_validas = ('geral', 'relatorios', 'documentos', 'contato')
+        legado = {'resultados': 'geral', 'dashboard': 'relatorios', 'combinados': 'documentos'}
+        args_limpos = {k: v for k, v in request.args.items() if k not in ('fases', 'fase')}
+        if pagina in legado or pagina not in paginas_validas or len(args_limpos) != len(request.args):
+            # URL canônica: sem a antiga prévia de fases e com os novos nomes de página.
+            destino = legado.get(pagina, pagina if pagina in paginas_validas else 'geral')
+            return redirect(url_for(
+                'campanha_acompanhamento_publica',
+                token=token,
+                **({'pagina': destino} if destino != 'geral' else {}),
+                **args_limpos,
+            ), code=301)
         try:
             try:
                 row = db.obter_pi_por_link_publico(token)
@@ -6941,8 +6943,10 @@ def init_routes(app):
                             token=novo,
                             **({'pagina': pagina} if pagina != 'geral' else {}),
                         )
-                        if request.query_string:
-                            destino = f"{destino}?{request.query_string.decode('utf-8', 'ignore')}"
+                        args = {k: v for k, v in request.args.items() if k not in ('fases', 'fase')}
+                        if args:
+                            from urllib.parse import urlencode
+                            destino = f"{destino}?{urlencode(args)}"
                         return redirect(destino, code=301)
             if not row:
                 return render_template(
@@ -6961,26 +6965,18 @@ def init_routes(app):
                     ), 410
 
             campanha = montar_payload_acompanhamento_pi(row['id_pi'])
-            previa = (request.args.get('fases') or '').lower() in ('1', 'true', 'yes')
-            fase = request.args.get('fase', '0') if previa else '0'
-            if previa:
-                campanha = simular_fase(campanha, fase)
-            ctx = contexto_pagina(campanha)
+            campanha_id = request.args.get('c', type=int)
+            ctx = contexto_pagina(campanha, campanha_id=campanha_id)
             info = next((p for p in ctx['paginas'] if p['id'] == pagina), None)
-            qs = {'fases': '1', 'fase': fase} if previa else {}
-            dash_id = request.args.get('c', type=int)
+            qs = {'c': str(ctx['sel']['id'])} if ctx['sel'] and campanha.get('grupo') else {}
             resp = make_response(render_template(
                 f'campanha_publica/{pagina}.html',
                 campanha=campanha,
                 ctx=ctx,
                 pagina=pagina,
-                pagina_info=info,
+                pagina_info=info or {'id': pagina, 'rotulo': 'Fale com a gente'},
                 token=token,
-                previa=previa,
-                fase_atual=fase,
-                demo_fases=DEMO_FASES,
                 qs=qs,
-                dash_id=dash_id,
             ))
             resp.headers['X-Robots-Tag'] = 'noindex, nofollow'
             resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'

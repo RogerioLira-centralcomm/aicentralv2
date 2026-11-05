@@ -11,6 +11,8 @@ Decidido com o usuário em 2026-11-05:
 - **Cada PI é um projeto** (lista e visão 360°).
 - Conta 174 sem PI: **estado vazio** na Fase 1; "ver como cliente X" para
   admins internos fica para a Fase 2.
+- Conta **só-Reports** (`reports_only`) continua só no Reports, mesmo com a
+  Área do Cliente liberada no CRM (o desvio para o Connect vem antes).
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

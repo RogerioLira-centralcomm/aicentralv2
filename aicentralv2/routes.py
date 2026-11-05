@@ -6930,7 +6930,12 @@ def init_routes(app):
                     except Exception:
                         pi_link = {}
                     novo = pi_link.get('link_publico_token')
-                    if novo and pi_link.get('link_publico_ativo') and novo != token:
+                    if (
+                        novo
+                        and pi_link.get('link_publico_ativo')
+                        and novo != token
+                        and not _link_expirado(pi_link.get('link_publico_expires_at'))
+                    ):
                         destino = url_for(
                             'campanha_acompanhamento_publica',
                             token=novo,
@@ -14017,6 +14022,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro API excluir diário: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    def _link_expirado(expires_at):
+        from datetime import datetime
+
+        if not expires_at:
+            return False
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        return expires_at < datetime.now()
+
     def _link_publico_pi_json(id_pi):
         info = db.obter_link_publico_pi(id_pi) or {}
         token = info.get('link_publico_token')
@@ -14037,6 +14051,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         info = db.obter_link_publico_pi(id_pi)
         if info is None:
             raise LookupError('PI não encontrado')
+        if _link_expirado(info.get('link_publico_expires_at')):
+            renovar = True  # nunca entregar um link que abre "expirou"
         if info.get('link_publico_token') and not renovar:
             if not info.get('link_publico_ativo'):
                 db.atualizar_link_publico_pi(id_pi, {'link_publico_ativo': True})

@@ -23,7 +23,12 @@
 <div class="ac-briefing">
   <form class="ac-card ac-form ac-enter" method="post" action="{{ area_url('briefing') }}" novalidate>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    {% if erros %}
+    {% if usuario.ver_como %}
+    <div class="ac-notice ac-notice--warning" role="status">
+      <span class="ac-notice__icon">{{ icon('lock', 18) }}</span>
+      <p>Modo de validação: você vê o formulário como {{ usuario.cliente_nome }}, mas o envio fica desativado.</p>
+    </div>
+    {% elif erros %}
     <div class="ac-notice ac-notice--warning" role="alert">
       <span class="ac-notice__icon">{{ icon('activity', 18) }}</span>
       <p>Revise os campos destacados para enviar.</p>
@@ -96,7 +101,7 @@
 
     <div class="ac-form__actions">
       <p class="ac-form__hint">Sem custo. O planejamento chega com o seu executivo.</p>
-      <button type="submit" class="ac-btn ac-btn--primary">{{ icon('send', 18) }}Enviar para a Centralcomm</button>
+      <button type="submit" class="ac-btn ac-btn--primary"{% if usuario.ver_como %} disabled{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
     </div>
   </form>
   {# Reserva sem JS para tirar um item; com JS, o item sai sem recarregar e o texto digitado fica. #}

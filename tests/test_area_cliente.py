@@ -387,3 +387,63 @@ def test_pi_mostra_valores_de_venda_e_notas(app, monkeypatch):
         assert trecho in html, trecho
     assert "lucratividade" not in html.lower() and "Gasto" not in html
     assert client.get("/pis/99", base_url=HOST).status_code == 404
+
+
+OPCOES = [{"id": 80, "nome": "AGÊNCIA X", "tipo": "Agência", "n_pis": 12}]
+
+
+def _admin_cc(monkeypatch):
+    from aicentralv2.area_cliente import acesso, routes
+    admin = dict(_usuario(cliente_id=174), cliente_nome="CENTRALCOMM", pode_ver_como=True, ver_como=False)
+    monkeypatch.setattr(acesso, "contexto_usuario", lambda uid: dict(admin))
+    monkeypatch.setattr(acesso, "clientes_para_ver_como", lambda ano: OPCOES)
+    monkeypatch.setattr(routes, "_CACHE_VER_COMO", {"em": 0.0, "ano": None, "dados": []})
+
+    def aplicar(usuario, cliente_id, ano, opcoes=None):
+        if not usuario.get("pode_ver_como") or int(cliente_id) != 80:
+            return None
+        return {**usuario, "cliente_id": 80, "cliente_nome": "AGÊNCIA X", "executivo": None, "ver_como": True,
+                "ver_como_tipo": "Agência", "cliente_real_id": 174, "cliente_real_nome": "CENTRALCOMM"}
+    monkeypatch.setattr(acesso, "aplicar_ver_como", aplicar)
+    from aicentralv2.area_cliente import dados
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [])
+    return admin
+
+
+def test_admin_cc_ve_seletor_e_troca_de_cliente(app, monkeypatch):
+    _admin_cc(monkeypatch)
+    import aicentralv2.audit as audit
+    monkeypatch.setattr(audit, "registrar_acao_admin", lambda **k: None)
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    html = client.get("/", base_url=HOST).get_data(as_text=True)
+    assert "Ver como cliente" in html and "AGÊNCIA X · Agência · 12 PIs" in html
+    assert client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "999"}).status_code == 403
+    resp = client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "80"})
+    assert resp.status_code == 303
+    html = client.get("/", base_url=HOST).get_data(as_text=True)
+    assert "Você está vendo a Área do Cliente como <b>AGÊNCIA X</b>" in html and "Voltar para CENTRALCOMM" in html
+    client.post("/ver-como/sair", base_url=HOST, data={"csrf": "tok"})
+    with client.session_transaction(base_url=HOST) as sess:
+        assert "area_cliente_ver_como" not in sess
+
+
+def test_ver_como_nao_envia_briefing(app, monkeypatch):
+    _admin_cc(monkeypatch)
+    from aicentralv2.area_cliente import briefing
+    monkeypatch.setattr(briefing, "listar", lambda c: [])
+    monkeypatch.setattr(briefing, "enviar", lambda *a: pytest.fail("não pode gravar no modo ver como"))
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok", "area_cliente_ver_como": 80})
+    resp = client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Teste", "objetivo": "Objetivo de teste"})
+    assert resp.status_code == 422
+    assert "o envio fica desativado" in resp.get_data(as_text=True)
+
+
+def test_quem_nao_e_admin_cc_nao_troca(app, monkeypatch):
+    _logado(monkeypatch, dict(_usuario(), pode_ver_como=False))
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    assert "Ver como cliente" not in client.get("/", base_url=HOST).get_data(as_text=True)
+    from aicentralv2.area_cliente import acesso
+    monkeypatch.setattr(acesso, "clientes_para_ver_como", lambda ano: OPCOES)
+    assert client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "80"}).status_code == 403
+    assert acesso.aplicar_ver_como(dict(_usuario(), pode_ver_como=True), "80abc", 2026, OPCOES) is None
+    assert acesso.aplicar_ver_como(dict(_usuario(), pode_ver_como=True), 81, 2026, OPCOES) is None

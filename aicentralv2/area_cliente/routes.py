@@ -10,6 +10,8 @@ devolve 404, então nenhuma rota interna fica alcançável por ali.
 from __future__ import annotations
 
 import secrets
+import time
+from datetime import date
 from urllib.parse import urlencode, urlparse
 
 from flask import abort, current_app, redirect, render_template, request, session
@@ -36,6 +38,8 @@ ROTAS = Map([
     Rule("/arquivos", endpoint="arquivos_antigo"),
     Rule("/equipe", endpoint="equipe"),
     Rule("/sair", endpoint="sair"),
+    Rule("/ver-como", endpoint="ver_como", methods=["POST"]),
+    Rule("/ver-como/sair", endpoint="ver_como_sair", methods=["POST"]),
 ], strict_slashes=False)
 
 # Rotas do app que continuam valendo no host de clientes: login e seus links
@@ -85,6 +89,17 @@ def _cadu_links():
     )
 
 
+_CACHE_VER_COMO = {"em": 0.0, "ano": None, "dados": []}
+
+
+def _opcoes_ver_como() -> list[dict]:
+    """Clientes e agências com PI validado no ano corrente (cache de 5 minutos)."""
+    ano = date.today().year
+    if _CACHE_VER_COMO["ano"] != ano or time.time() - _CACHE_VER_COMO["em"] > 300:
+        _CACHE_VER_COMO.update(em=time.time(), ano=ano, dados=acesso.clientes_para_ver_como(ano))
+    return _CACHE_VER_COMO["dados"]
+
+
 def _render(template, usuario, ativo, **ctx):
     ativo = "descobrir" if ativo.startswith("descobrir") else ativo
     nav = [
@@ -95,7 +110,9 @@ def _render(template, usuario, ativo, **ctx):
         f"area_cliente/{template}",
         usuario=usuario, nav=nav, cadu=_cadu_links(), area_url=area_url,
         pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "projetos" else "",
-        n_selecao=len(descobrir.selecao(session)), **ctx,
+        n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
+        ver_como_opcoes=_opcoes_ver_como() if usuario.get("pode_ver_como") else [],
+        ver_como_ano=date.today().year, **ctx,
     ))
     resp.headers["Cache-Control"] = "no-store"
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -111,6 +128,12 @@ def _exigir_acesso():
     if not usuario:
         session.clear()
         return None, redirect(f"/login?{urlencode({'next': '/'})}")
+    if usuario["liberado"] and session.get("area_cliente_ver_como"):
+        alvo = acesso.aplicar_ver_como(usuario, session["area_cliente_ver_como"], date.today().year,
+                                       _opcoes_ver_como() if usuario.get("pode_ver_como") else [])
+        if alvo:
+            return alvo, None
+        session.pop("area_cliente_ver_como", None)
     if not usuario["liberado"]:
         resp = current_app.make_response((render_template(
             "area_cliente/sem_acesso.html", usuario=usuario, area_url=area_url,
@@ -157,9 +180,38 @@ def _checar_csrf():
         abort(400)
 
 
+def view_ver_como(usuario):
+    _checar_csrf()
+    real = acesso.contexto_usuario(session.get("user_id"))
+    alvo = acesso.aplicar_ver_como(real or {}, request.form.get("cliente_id"), date.today().year)
+    if not alvo:
+        abort(403)
+    session["area_cliente_ver_como"] = alvo["cliente_id"]
+    session.pop("area_cliente_descobrir", None)
+    try:
+        from ..audit import registrar_acao_admin
+        registrar_acao_admin(user_id=real["user_id"], acao="VIEW_AS", modulo="area_cliente",
+                             descricao=f"Abriu a Área do Cliente como {alvo['cliente_nome']}",
+                             registro_id=alvo["cliente_id"], registro_tipo="cliente")
+    except Exception:
+        current_app.logger.warning("Auditoria do modo ver como indisponível.", exc_info=True)
+    return redirect(area_url("inicio"), code=303)
+
+
+def view_ver_como_sair():
+    _checar_csrf()
+    session.pop("area_cliente_ver_como", None)
+    session.pop("area_cliente_descobrir", None)
+    return redirect(area_url("inicio"), code=303)
+
+
 def view_briefing(usuario):
     valores, erros = {}, {}
-    if request.method == "POST":
+    if request.method == "POST" and usuario.get("ver_como"):
+        # Modo de validação: nada é gravado em nome do cliente.
+        _checar_csrf()
+        erros = {"_ver_como": "Envio desativado enquanto você vê a área como outro cliente."}
+    elif request.method == "POST":
         _checar_csrf()
         if request.form.get("remover_item"):
             secao, _, item_id = request.form["remover_item"].partition(":")
@@ -261,15 +313,19 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao", "ver_como", "ver_como_sair"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
+    if endpoint == "ver_como_sair":
+        return view_ver_como_sair()
     usuario, bloqueio = _exigir_acesso()
     if bloqueio is not None:
         return bloqueio
     if endpoint == "inicio":
         return view_inicio(usuario)
+    if endpoint == "ver_como":
+        return view_ver_como(usuario)
     if endpoint == "briefing":
         return view_briefing(usuario)
     if endpoint == "planejamento_antigo":

@@ -85,12 +85,30 @@
           </button>
           <div class="ac-menu__panel" role="menu" hidden>
             <div class="ac-menu__who"><b>{{ usuario.nome }}</b><small>{{ usuario.email }}</small><small>{{ usuario.cliente_nome }}</small></div>
+            {% if ver_como_opcoes %}
+            <form class="ac-viewas-pick" method="post" action="{{ area_url('ver_como') }}">
+              <input type="hidden" name="csrf" value="{{ csrf_global }}">
+              <label for="ac-ver-como">Ver como cliente <small>com PI validado em {{ ver_como_ano }}</small></label>
+              <input type="search" class="ac-viewas-pick__filter" placeholder="Filtrar {{ ver_como_opcoes|length }} clientes e agências" aria-label="Filtrar clientes" data-ac-filter>
+              <select id="ac-ver-como" name="cliente_id" size="7" class="ac-viewas-pick__list" required>
+                {% for c in ver_como_opcoes %}<option value="{{ c.id }}"{% if c.id == usuario.cliente_id %} selected{% endif %}>{{ c.nome }} · {{ c.tipo }} · {{ c.n_pis }} {{ 'PI' if c.n_pis == 1 else 'PIs' }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="ac-btn ac-btn--primary ac-btn--sm">{{ icon('users', 16) }}Ver como este cliente</button>
+            </form>
+            {% endif %}
             <a class="ac-menu__item" role="menuitem" href="{{ area_url('sair') }}">{{ icon('logout', 18) }}Sair</a>
           </div>
         </div>
       </div>
     </header>
 
+    {% if usuario.ver_como %}
+    <div class="ac-viewas" role="status">
+      <span class="ac-viewas__icon">{{ icon('users', 18) }}</span>
+      <p>Você está vendo a Área do Cliente como <b>{{ usuario.cliente_nome }}</b> ({{ usuario.ver_como_tipo|lower }}). Só leitura: envios ficam desativados.</p>
+      <form method="post" action="{{ area_url('ver_como_sair') }}"><input type="hidden" name="csrf" value="{{ csrf_global }}"><button type="submit" class="ac-btn ac-btn--sm ac-btn--secondary">Voltar para {{ usuario.cliente_real_nome }}</button></form>
+    </div>
+    {% endif %}
     <main id="conteudo" class="ac-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
@@ -151,6 +169,14 @@
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest('[data-ac-menu]')) closeMenus(null);
   });
+  var filtro = document.querySelector('[data-ac-filter]');
+  if (filtro) {
+    var lista = document.getElementById('ac-ver-como');
+    filtro.addEventListener('input', function () {
+      var termo = filtro.value.trim().toLowerCase();
+      Array.prototype.forEach.call(lista.options, function (o) { o.hidden = termo && o.text.toLowerCase().indexOf(termo) === -1; });
+    });
+  }
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;
     if (document.body.classList.contains('ac-side-open')) setDrawer(false);

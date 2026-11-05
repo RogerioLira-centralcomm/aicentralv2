@@ -34,6 +34,12 @@ Decidido com o usuário em 2026-11-05:
   líquido (venda), nota fiscal e pagamento, marcos, resultado por campanha e
   documentos; sem custos nem "zona de lucratividade". Por decisão do usuário,
   todo usuário liberado do cliente ou da agência vê os valores do PI.
+- 2026-11-05: **Ver como cliente** no menu do usuário, só para admin/superadmin
+  da CENTRALCOMM (174) com a área liberada. Lista clientes e agências ativos
+  com PI validado no ano corrente (fora "Em aprovação" e "Cancelado"). Toda a
+  área passa a mostrar os dados do escolhido, com faixa de aviso e botão para
+  voltar; envio de briefing fica desativado. Cada troca vai para a auditoria
+  (`VIEW_AS`, módulo `area_cliente`).
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

@@ -166,7 +166,7 @@ def ultima_liberacao(contato_id) -> dict | None:
 
 
 _CONTEXTO_SQL = """
-    SELECT c.id_contato_cliente, c.nome_completo, c.email, c.foto_url, c.status,
+    SELECT c.id_contato_cliente, c.nome_completo, c.email, c.foto_url, c.status, c.user_type,
            c.pk_id_tbl_cliente, {flag} AS area_cliente_acesso,
            cli.nome_fantasia, cli.status AS cliente_status,
            vend.nome_completo AS executivo_nome, vend.email AS executivo_email,
@@ -200,19 +200,13 @@ def contexto_usuario(user_id) -> dict | None:
             row = cursor.fetchone()
     if not row:
         return None
-    from ..campanha_acompanhamento_publico import _whatsapp
 
     nome = (row["nome_completo"] or "").strip() or (row["email"] or "").split("@")[0]
     partes = nome.split()
     iniciais = ((partes[0][:1] + (partes[-1][:1] if len(partes) > 1 else "")) if partes else "?").upper()
-    executivo = None
-    if row["executivo_nome"]:
-        executivo = {
-            "nome": row["executivo_nome"],
-            "email": row["executivo_email"] or "",
-            "whatsapp": _whatsapp(row["executivo_telefone"]),
-            "foto_url": row["executivo_foto_url"] or "",
-        }
+    from ..auth import ADMIN_ROLES, is_reserved_org_name
+
+    liberado = bool(row["status"] and row["cliente_status"] and row["area_cliente_acesso"])
     return {
         "user_id": int(row["id_contato_cliente"]),
         "nome": nome,
@@ -222,6 +216,91 @@ def contexto_usuario(user_id) -> dict | None:
         "foto_url": row["foto_url"] or "",
         "cliente_id": int(row["pk_id_tbl_cliente"]),
         "cliente_nome": row["nome_fantasia"] or "Cliente",
-        "executivo": executivo,
-        "liberado": bool(row["status"] and row["cliente_status"] and row["area_cliente_acesso"]),
+        "executivo": _executivo(row),
+        "liberado": liberado,
+        # Admin da CentralComm pode ver a área como qualquer cliente com PI no ano (validação tela a tela).
+        "pode_ver_como": liberado and is_reserved_org_name(row["nome_fantasia"]) and row["user_type"] in ADMIN_ROLES,
+        "ver_como": False,
+    }
+
+
+def _executivo(row) -> dict | None:
+    from ..campanha_acompanhamento_publico import _whatsapp
+    if not row.get("executivo_nome"):
+        return None
+    return {
+        "nome": row["executivo_nome"],
+        "email": row.get("executivo_email") or "",
+        "whatsapp": _whatsapp(row.get("executivo_telefone")),
+        "foto_url": row.get("executivo_foto_url") or "",
+    }
+
+
+_VER_COMO_SQL = """
+    SELECT cli.id_cliente, cli.nome_fantasia,
+           BOOL_OR(x.papel = 'agencia') AS agencia, COUNT(DISTINCT x.id_pi) AS n_pis
+      FROM (
+            SELECT pi.id_cliente AS id_cliente, pi.id_pi, 'cliente' AS papel FROM cadu_pi pi
+             WHERE {filtro}
+            UNION ALL
+            SELECT pi.id_agencia, pi.id_pi, 'agencia' FROM cadu_pi pi
+             WHERE pi.id_agencia IS NOT NULL AND {filtro}
+           ) x
+      JOIN tbl_cliente cli ON cli.id_cliente = x.id_cliente
+     WHERE cli.status IS TRUE
+     GROUP BY cli.id_cliente, cli.nome_fantasia
+     ORDER BY cli.nome_fantasia
+"""
+# PIs validados no ano: fora "Em aprovação" (1) e "Cancelado" (6).
+_PI_VALIDADO_NO_ANO = """COALESCE(pi.id_sub_status_pi, 0) NOT IN (1, 6)
+              AND (EXTRACT(YEAR FROM pi.periodo_inicio) = %(ano)s OR EXTRACT(YEAR FROM pi.periodo_fim) = %(ano)s)"""
+
+
+def clientes_para_ver_como(ano: int) -> list[dict]:
+    """Clientes e agências ativos com PI validado no ano, para o modo "ver como"."""
+    conn = _db().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(_VER_COMO_SQL.format(filtro=_PI_VALIDADO_NO_ANO), {"ano": ano})
+            rows = cursor.fetchall()
+    except Exception:
+        conn.rollback()
+        raise
+    return [{"id": int(r["id_cliente"]), "nome": r["nome_fantasia"] or f"Cliente {r['id_cliente']}",
+             "tipo": "Agência" if r["agencia"] else "Cliente", "n_pis": int(r["n_pis"])} for r in rows]
+
+
+def aplicar_ver_como(usuario: dict, cliente_id, ano: int, opcoes=None) -> dict | None:
+    """Troca o cliente do usuário pelo escolhido, só se ele estiver na lista permitida."""
+    if not usuario.get("pode_ver_como"):
+        return None
+    try:
+        cliente_id = int(cliente_id)
+    except (TypeError, ValueError):
+        return None
+    alvo = next((c for c in (opcoes if opcoes is not None else clientes_para_ver_como(ano)) if c["id"] == cliente_id), None)
+    if not alvo:
+        return None
+    conn = _db().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT vend.nome_completo AS executivo_nome, vend.email AS executivo_email,
+                       vend.telefone AS executivo_telefone, vend.foto_url AS executivo_foto_url
+                  FROM tbl_cliente cli
+                  LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
+                 WHERE cli.id_cliente = %s
+                """,
+                (cliente_id,),
+            )
+            row = cursor.fetchone() or {}
+    except Exception:
+        conn.rollback()
+        raise
+    return {
+        **usuario,
+        "cliente_id": alvo["id"], "cliente_nome": alvo["nome"], "executivo": _executivo(row),
+        "ver_como": True, "ver_como_tipo": alvo["tipo"],
+        "cliente_real_id": usuario["cliente_id"], "cliente_real_nome": usuario["cliente_nome"],
     }

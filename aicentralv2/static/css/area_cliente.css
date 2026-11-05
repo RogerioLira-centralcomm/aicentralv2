@@ -490,3 +490,20 @@ p { margin: 0; }
   .ac-table--compact td:first-child { padding-left: 0; }
   .ac-table-wrap { margin: 0; padding: 0; }
 }
+
+/* ---------- Ver como cliente (admin CentralComm) ---------- */
+.ac-viewas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 32px; background: var(--colors-warning-50); border-bottom: 1px solid var(--colors-warning-200); color: var(--colors-warning-700); font-size: 14px; }
+.ac-viewas p { flex: 1 1 280px; }
+.ac-viewas form { margin: 0; }
+.ac-viewas__icon { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #fef0c7; flex: none; }
+.ac-viewas-pick { display: grid; gap: 8px; padding: 10px; border-top: 1px solid var(--line); margin-top: 4px; }
+.ac-viewas-pick label { font-size: 13px; font-weight: 600; color: var(--ink-2); display: grid; gap: 2px; }
+.ac-viewas-pick label small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.ac-viewas-pick__filter { height: 36px; padding: 0 10px; font: inherit; font-size: 14px; border: 1px solid var(--colors-gray-300); border-radius: var(--radius-md); }
+.ac-viewas-pick__list { width: 100%; font: inherit; font-size: 13px; border: 1px solid var(--colors-gray-300); border-radius: var(--radius-md); padding: 4px; color: var(--ink-2); }
+.ac-viewas-pick__list option { padding: 6px 8px; border-radius: 6px; }
+.ac-viewas-pick__filter:focus, .ac-viewas-pick__list:focus { outline: none; border-color: var(--colors-brand-300); box-shadow: var(--ring-brand); }
+.ac-menu__panel:has(.ac-viewas-pick) { width: 340px; }
+@media (max-width: 1023px) { .ac-viewas { padding: 10px 16px; } }
+@media (max-width: 480px) { .ac-menu__panel:has(.ac-viewas-pick) { width: calc(100vw - 32px); } }
+.ac-btn[disabled] { opacity: .5; cursor: not-allowed; }

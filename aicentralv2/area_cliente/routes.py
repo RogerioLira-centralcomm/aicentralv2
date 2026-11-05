@@ -48,16 +48,14 @@ PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico",
                   "/forgot-password", "/signup", "/bem-vindo"}
 PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/")
 
-# Jornada do cliente: Descobrir → Briefing → Projeto (PI fechado) → Campanhas.
+# Menu: Início pelo logo; Descobrir (título com as vitrines abertas); depois
+# Briefing, Campanhas, Relatórios e PIs. Equipe fica no menu do usuário e a
+# visão 360° do PI (antigo "Projetos") é aberta a partir de cada PI.
 NAV_PRINCIPAL = (
-    ("inicio", "Início", "home"),
-    ("descobrir", "Descobrir", "compass"),
     ("briefing", "Briefing", "send"),
-    ("projetos", "Projetos", "folder"),
     ("campanhas", "Campanhas", "megaphone"),
-    ("pis", "PIs", "file"),
     ("relatorios", "Relatórios", "chart"),
-    ("equipe", "Equipe", "users"),
+    ("pis", "PIs", "file"),
 )
 
 EM_PREPARACAO = {
@@ -101,15 +99,20 @@ def _opcoes_ver_como() -> list[dict]:
 
 
 def _render(template, usuario, ativo, **ctx):
-    ativo = "descobrir" if ativo.startswith("descobrir") else ativo
+    ativo = {"projetos": "pis"}.get(ativo, ativo)
     nav = [
         {"id": e, "rotulo": r, "icone": i, "url": area_url(e), "ativo": e == ativo}
         for e, r, i in NAV_PRINCIPAL
     ]
+    nav_descobrir = [
+        {"id": s, "rotulo": t, "icone": i, "url": area_url("descobrir_secao", secao=s),
+         "ativo": ativo == "descobrir" and ctx.get("secao") == s}
+        for s, (t, i, _texto) in descobrir.SECOES.items()
+    ]
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
-        usuario=usuario, nav=nav, cadu=_cadu_links(), area_url=area_url,
-        pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "projetos" else "",
+        usuario=usuario, nav=nav, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
+        pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         ver_como_opcoes=_opcoes_ver_como() if usuario.get("pode_ver_como") else [],
         ver_como_ano=date.today().year, **ctx,
@@ -145,17 +148,6 @@ def _exigir_acesso():
 
 def view_inicio(usuario):
     return _render("inicio.html", usuario, "inicio", resumo=dados.resumo_inicio(usuario["cliente_id"]))
-
-
-def view_projetos(usuario):
-    busca = request.args.get("q", "").strip()[:80]
-    filtro = request.args.get("status", "todos")
-    projetos = dados.listar_projetos(usuario["cliente_id"], busca)
-    if filtro == "ativos":
-        projetos = [p for p in projetos if p["ativo"]]
-    elif filtro == "encerrados":
-        projetos = [p for p in projetos if not p["ativo"]]
-    return _render("projetos.html", usuario, "projetos", projetos=projetos, filtro=filtro, termo=busca)
 
 
 def view_projeto(usuario, id_pi):
@@ -280,8 +272,12 @@ def view_campanhas(usuario):
 
 
 def view_pis(usuario):
+    termo = request.args.get("q", "").strip()[:80]
     pis = dados.listar_pis(usuario["cliente_id"])
-    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI)
+    if termo:
+        t = termo.lower()
+        pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()]
+    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo)
 
 
 def view_pi(usuario, id_pi):
@@ -349,7 +345,8 @@ def despachar():
     if endpoint == "descobrir_selecao":
         return view_descobrir_selecao()
     if endpoint == "projetos":
-        return view_projetos(usuario)
+        destino = area_url("pis") + (f"?{urlencode({'q': request.args['q']})}" if request.args.get("q") else "")
+        return redirect(destino, code=301)
     if endpoint == "projeto":
         return view_projeto(usuario, **args)
     return view_em_preparacao(usuario, endpoint)

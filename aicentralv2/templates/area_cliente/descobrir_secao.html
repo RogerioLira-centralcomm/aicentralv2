@@ -11,12 +11,6 @@
   </div>
 </div>
 
-<nav class="ac-tabs ac-enter" aria-label="Vitrines do Descobrir">
-  {% for id, s in secoes.items() %}
-  <a class="ac-tabs__item{% if id == secao %} is-active{% endif %}" href="{{ area_url('descobrir_secao', secao=id) }}"{% if id == secao %} aria-current="page"{% endif %}>{{ s[0] }}</a>
-  {% endfor %}
-</nav>
-
 <form class="ac-filters ac-enter" method="get" action="{{ area_url('descobrir_secao', secao=secao) }}" role="search">
   <div class="ac-search ac-search--inline">
     {{ icon('search', 18) }}

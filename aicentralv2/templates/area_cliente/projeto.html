@@ -3,7 +3,7 @@
 {% block title %}{{ (resumo.titulo if resumo else 'Projeto') }}{% endblock %}
 {% block content %}
 {% set pl = projeto.payload if not projeto.vazio else None %}
-<a class="ac-back" href="{{ area_url('projetos') }}">{{ icon('arrow-left', 16) }}Projetos</a>
+<a class="ac-back" href="{{ area_url('pi', id_pi=resumo.id) if resumo else area_url('pis') }}">{{ icon('arrow-left', 16) }}{{ resumo.pi if resumo else 'PIs' }}</a>
 
 <header class="ac-hero ac-enter">
   <div class="ac-hero__main">

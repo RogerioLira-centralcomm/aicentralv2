@@ -99,8 +99,11 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     html = resp.get_data(as_text=True)
     assert "Olá" not in html and "Cliente Teste" in html
     assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
-    assert "Nenhum projeto ainda" in html
-    assert 'href="/projetos"' in html
+    assert "Nenhum PI ainda" in html
+    assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
+    nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
+    ordem = [nav.index(t) for t in ("Descobrir", "Canais", "Portais", "Briefing", "Campanhas", "Relatórios", "PIs")]
+    assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav and "Início" not in nav
     assert "R$" not in html
 
 

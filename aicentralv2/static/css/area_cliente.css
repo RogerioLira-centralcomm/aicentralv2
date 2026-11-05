@@ -537,3 +537,9 @@ p { margin: 0; }
 .ac-menu__item.is-disabled { color: var(--colors-gray-400); cursor: default; }
 .ac-menu__item.is-disabled:hover { background: none; }
 .ac-menu__sep { height: 1px; background: var(--line); margin: 4px 0; }
+
+/* ---------- Menu: Descobrir como título com as vitrines abertas ---------- */
+.ac-nav__label--link { display: block; text-decoration: none; padding-top: 4px; }
+.ac-nav__label--link:hover, .ac-nav__label--link.is-active { color: var(--accent-strong); }
+.ac-nav__sep { height: 1px; background: var(--line); margin: 12px 8px; }
+@media (min-width: 1024px) { .ac-rail .ac-nav__label--link { display: none; } .ac-rail .ac-nav__sep { margin: 8px 4px; } }

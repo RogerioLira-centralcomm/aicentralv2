@@ -28,6 +28,13 @@
     </div>
 
     <nav class="ac-nav" aria-label="Seções">
+      <a class="ac-nav__label ac-nav__label--link{% if pagina_ativa == 'descobrir' and not secao is defined %} is-active{% endif %}" href="{{ area_url('descobrir') }}">Descobrir</a>
+      <ul>
+        {% for item in nav_descobrir %}
+        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span></a></li>
+        {% endfor %}
+      </ul>
+      <div class="ac-nav__sep" role="separator"></div>
       <ul>
         {% for item in nav %}
         <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}</a></li>
@@ -50,10 +57,10 @@
   <div class="ac-main">
     <header class="ac-top">
       <button type="button" class="ac-icon-btn ac-top__menu" data-ac-toggle aria-controls="ac-side" aria-expanded="false" aria-label="Abrir ou recolher o menu">{{ icon('sidebar') }}</button>
-      <form class="ac-search" action="{{ area_url('projetos') }}" method="get" role="search">
-        <label class="ac-sr" for="ac-busca">Buscar projetos</label>
+      <form class="ac-search" action="{{ area_url('pis') }}" method="get" role="search">
+        <label class="ac-sr" for="ac-busca">Buscar PIs</label>
         {{ icon('search', 18) }}
-        <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar projetos e PIs" autocomplete="off">
+        <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar PIs por código ou título" autocomplete="off">
       </form>
       <div class="ac-top__actions">
         {% if usuario.ver_como %}
@@ -89,6 +96,7 @@
               <button type="submit" class="ac-btn ac-btn--primary ac-btn--sm">{{ icon('users', 16) }}Ver como este cliente</button>
             </form>
             {% endif %}
+            <a class="ac-menu__item" role="menuitem" href="{{ area_url('equipe') }}">{{ icon('users', 18) }}Equipe</a>
             <p class="ac-menu__label">Cadu</p>
             {% for item in cadu %}
             {% if item.em_breve %}

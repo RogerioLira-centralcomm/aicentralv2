@@ -7,10 +7,10 @@
   <div>
     <p class="ac-eyebrow">Visão geral</p>
     <h1 class="ac-h1">{{ usuario.cliente_nome }}</h1>
-    <p class="ac-lead">Projetos, campanhas e entregas com a Centralcomm.</p>
+    <p class="ac-lead">PIs, campanhas e entregas com a Centralcomm.</p>
   </div>
   <div class="ac-page-head__actions">
-    <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos</a>
+    <a class="ac-btn ac-btn--secondary" href="{{ area_url('pis') }}">{{ icon('file', 18) }}Ver PIs</a>
     <a class="ac-btn ac-btn--primary" href="{{ area_url('briefing') }}">{{ icon('send', 18) }}Enviar briefing</a>
   </div>
 </div>
@@ -18,7 +18,7 @@
 <section class="ac-kpis ac-enter" aria-label="Indicadores">
   <article class="ac-kpi">
     <span class="ac-kpi__icon">{{ icon('folder') }}</span>
-    <p class="ac-kpi__label">Projetos ativos</p>
+    <p class="ac-kpi__label">PIs ativos</p>
     <p class="ac-kpi__value">{{ k.projetos_ativos }}</p>
     <p class="ac-kpi__hint">{{ k.projetos_total }} no total</p>
   </article>
@@ -26,7 +26,7 @@
     <span class="ac-kpi__icon">{{ icon('broadcast') }}</span>
     <p class="ac-kpi__label">Campanhas no ar</p>
     <p class="ac-kpi__value">{{ k.campanhas_no_ar }}</p>
-    <p class="ac-kpi__hint">{{ k.campanhas_total }} campanhas nos projetos</p>
+    <p class="ac-kpi__hint">{{ k.campanhas_total }} campanhas nos PIs</p>
   </article>
   <article class="ac-kpi">
     <span class="ac-kpi__icon">{{ icon('target') }}</span>
@@ -75,7 +75,7 @@
     <header class="ac-card__head">
       <div>
         <h2 class="ac-h2" id="ativ-titulo">Atividades recentes</h2>
-        <p class="ac-card__sub">O que a operação concluiu nos seus projetos.</p>
+        <p class="ac-card__sub">O que a operação concluiu nos seus PIs.</p>
       </div>
     </header>
     {% if resumo.atividades %}
@@ -98,8 +98,8 @@
 
 <section class="ac-section ac-enter" aria-labelledby="dest-titulo">
   <div class="ac-section__head">
-    <h2 class="ac-h2" id="dest-titulo">Projetos em destaque</h2>
-    {% if resumo.destaque %}<a class="ac-link" href="{{ area_url('projetos') }}">Ver todos{{ icon('chevron-right', 16) }}</a>{% endif %}
+    <h2 class="ac-h2" id="dest-titulo">PIs em andamento</h2>
+    {% if resumo.destaque %}<a class="ac-link" href="{{ area_url('pis') }}">Ver todos{{ icon('chevron-right', 16) }}</a>{% endif %}
   </div>
   {% if resumo.destaque %}
   <div class="ac-project-grid">
@@ -107,7 +107,7 @@
   </div>
   {% else %}
   <div class="ac-card">
-    {{ vazio('folder', 'Nenhum projeto ainda', 'Envie um briefing: a Centralcomm monta o planejamento e, com o PI fechado, ele vira um projeto aqui, com campanhas, entregas e documentos.', usuario) }}
+    {{ vazio('file', 'Nenhum PI ainda', 'Envie um briefing: a Centralcomm monta o planejamento e, com o PI fechado, ele aparece aqui com campanhas, entregas e documentos.', usuario) }}
   </div>
   {% endif %}
 </section>

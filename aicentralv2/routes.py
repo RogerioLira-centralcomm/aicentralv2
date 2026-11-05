@@ -1956,6 +1956,14 @@ def init_routes(app):
 
     app.jinja_env.filters['parse_brl_float'] = _jinja_parse_brl_float
 
+    def _url_pagina_campanha_publica(token, *, barra_fases=None):
+        link = url_for('campanha_acompanhamento_publica', token=token, _external=True)
+        if barra_fases is None:
+            return link
+        sep = '&' if '?' in link else '?'
+        flag = '1' if barra_fases else '0'
+        return f'{link}{sep}fases={flag}'
+
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
     def api_campanhas_pi(id_pi):
@@ -2005,10 +2013,17 @@ def init_routes(app):
                     'link_publico_token': er.get('link_publico_token') or '',
                     'link_publico_ativo': bool(er.get('link_publico_ativo')),
                     'link_publico_url': (
-                        url_for(
-                            'campanha_acompanhamento_publica',
-                            token=er.get('link_publico_token'),
-                            _external=True,
+                        _url_pagina_campanha_publica(
+                            er.get('link_publico_token'),
+                            barra_fases=False,
+                        )
+                        if er.get('link_publico_token') and er.get('link_publico_ativo')
+                        else ''
+                    ),
+                    'link_publico_preview_url': (
+                        _url_pagina_campanha_publica(
+                            er.get('link_publico_token'),
+                            barra_fases=True,
                         )
                         if er.get('link_publico_token') and er.get('link_publico_ativo')
                         else ''
@@ -6914,10 +6929,13 @@ def init_routes(app):
                     ), 410
 
             campanha = montar_payload_acompanhamento_campanha(row['id_campanha'])
+            fases_param = (request.args.get('fases') or '1').lower()
+            mostrar_barra_fases = fases_param not in ('0', 'false', 'no')
             return render_template(
                 'campanha_acompanhamento_publica.html',
                 campanha=campanha,
                 token=token,
+                mostrar_barra_fases=mostrar_barra_fases,
             )
         except LookupError:
             return render_template(
@@ -13977,11 +13995,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                         else None
                     ),
                     'link': (
-                        url_for(
-                            'campanha_acompanhamento_publica',
-                            token=token,
-                            _external=True,
-                        )
+                        _url_pagina_campanha_publica(token, barra_fases=False)
+                        if token and campanha.get('link_publico_ativo')
+                        else None
+                    ),
+                    'link_preview': (
+                        _url_pagina_campanha_publica(token, barra_fases=True)
                         if token and campanha.get('link_publico_ativo')
                         else None
                     ),
@@ -14003,12 +14022,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     if not token:
                         return jsonify({'success': False, 'error': 'Não foi possível gerar o link'}), 500
 
-                link = url_for(
-                    'campanha_acompanhamento_publica',
-                    token=token,
-                    _external=True,
-                )
-                return jsonify({'success': True, 'token': token, 'link': link, 'ativo': True})
+                link = _url_pagina_campanha_publica(token, barra_fases=False)
+                preview = _url_pagina_campanha_publica(token, barra_fases=True)
+                return jsonify({
+                    'success': True,
+                    'token': token,
+                    'link': link,
+                    'link_preview': preview,
+                    'ativo': True,
+                })
 
             payload = request.get_json(silent=True) or {}
             updates = {}
@@ -14026,11 +14048,12 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'ativo': bool(campanha.get('link_publico_ativo')),
                 'token': token,
                 'link': (
-                    url_for(
-                        'campanha_acompanhamento_publica',
-                        token=token,
-                        _external=True,
-                    )
+                    _url_pagina_campanha_publica(token, barra_fases=False)
+                    if token and campanha.get('link_publico_ativo')
+                    else None
+                ),
+                'link_preview': (
+                    _url_pagina_campanha_publica(token, barra_fases=True)
                     if token and campanha.get('link_publico_ativo')
                     else None
                 ),

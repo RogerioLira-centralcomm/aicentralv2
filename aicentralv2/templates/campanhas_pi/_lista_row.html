@@ -133,7 +133,7 @@
       </a>
     {% endif %}
     {% if c.link_publico_token and c.link_publico_ativo %}
-      <a href="{{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token) }}" target="_blank" rel="noopener" class="camp-action-btn" title="Página do cliente" aria-label="Abrir página pública da campanha">
+      <a href="{{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token, fases=1) }}" target="_blank" rel="noopener" class="camp-action-btn" title="Prévia da página (com fases)" aria-label="Abrir prévia da página pública">
         <i class="fas fa-link" aria-hidden="true"></i>
       </a>
       <button type="button" class="camp-action-btn" title="Copiar link da campanha" aria-label="Copiar link público"

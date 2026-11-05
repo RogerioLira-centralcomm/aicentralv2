@@ -213,6 +213,7 @@ const fmtLong = iso => iso ? d(iso).toLocaleDateString("pt-BR", { day: "2-digit"
 
 // Fases de demonstração: quantos marcos estão concluídos e se o assistente aparece.
 const DEMO_FASES = [
+  { rotulo: "Dados atuais",            ao_vivo: true },
   { rotulo: "1 · PI aprovado",         concluidos: 1 },
   { rotulo: "2 · Dashboard",           concluidos: 4 },
   { rotulo: "3 · No ar",               concluidos: 5 },
@@ -342,25 +343,33 @@ const MODULOS = {
     </form></div></section>`
 };
 
-// Demonstração: simula a página em cada fase do ciclo
-function demo(cfg) {
-  if (!cfg.demo) return render(cfg);
+// Barra de fases: simula marcos concluídos (operacional / prévia)
+function initBarraFases(cfg) {
   const box = document.getElementById("demo");
   box.className = "demo";
-  box.innerHTML = `<span>Modo demonstração · ver a página na fase:</span><div class="seg" role="group">${DEMO_FASES.map((f, i) =>
+  box.innerHTML = `<span>Ver a página na fase:</span><div class="seg" role="group" aria-label="Fase da campanha">${DEMO_FASES.map((f, i) =>
     `<button type="button" data-i="${i}" aria-pressed="false">${f.rotulo}</button>`).join("")}</div>`;
   const aplicar = i => {
     const f = DEMO_FASES[i];
-    const c = structuredClone(cfg);
-    c.marcos.forEach((m, j) => m.realizado = j < f.concluidos ? m.previsto : "");
-    c.modulos.assistente.ativo = !!f.ia;
     box.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.i == i));
+    if (f.ao_vivo) {
+      render(cfg);
+      return;
+    }
+    const c = structuredClone(cfg);
+    c.marcos.forEach((m, j) => { m.realizado = j < f.concluidos ? (m.realizado || m.previsto) : ""; });
+    c.modulos.assistente.ativo = !!f.ia;
     render(c);
   };
   box.addEventListener("click", e => { const b = e.target.closest("button"); if (b) aplicar(+b.dataset.i); });
   aplicar(0);
 }
-if (CAMPANHA.demo) { demo(CAMPANHA); } else { render(CAMPANHA); }
+{% if mostrar_barra_fases %}
+initBarraFases(CAMPANHA);
+{% else %}
+document.getElementById("demo").hidden = true;
+render(CAMPANHA);
+{% endif %}
 </script>
 </body>
 </html>

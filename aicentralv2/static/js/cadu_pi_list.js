@@ -384,8 +384,8 @@
       '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
       '<td data-label="Investimento" class="pi-campaign-detail-money pi-inner-investment">' + celMidia + '</td>' +
       '<td data-label="Ações" class="pi-commercial-actions" onclick="event.stopPropagation();">' +
-      (c.link_publico_url
-        ? '<a href="' + escapeHtml(c.link_publico_url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Abrir página do cliente" aria-label="Abrir página pública da campanha" onclick="event.stopPropagation();">' +
+      ((c.link_publico_preview_url || c.link_publico_url)
+        ? '<a href="' + escapeHtml(c.link_publico_preview_url || c.link_publico_url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Prévia da página (com fases)" aria-label="Abrir prévia da página pública" onclick="event.stopPropagation();">' +
           '<i class="fa-solid fa-link" aria-hidden="true"></i></a>' +
           '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Copiar link da campanha" aria-label="Copiar link público" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', ' + JSON.stringify(c.link_publico_url) + ', event)">' +
           '<i class="fa-regular fa-copy" aria-hidden="true"></i></button>'

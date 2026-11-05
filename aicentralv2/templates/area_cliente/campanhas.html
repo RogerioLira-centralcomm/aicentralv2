@@ -1,0 +1,60 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, barra, vazio %}
+{% block title %}Campanhas{% endblock %}
+{% block content %}
+{% set k = ritmo.kpis %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">Campanhas</h1>
+    <p class="ac-lead">Todas as campanhas dos seus projetos: entrega contra a meta e tempo decorrido, atualizados pela operação.</p>
+  </div>
+</div>
+
+<section class="ac-kpis ac-enter" aria-label="Resumo das campanhas">
+  <article class="ac-kpi"><span class="ac-kpi__icon">{{ icon('broadcast') }}</span><p class="ac-kpi__label">No ar</p><p class="ac-kpi__value">{{ k.no_ar }}</p><p class="ac-kpi__hint">{{ k.encerram_7d }} encerram em 7 dias</p></article>
+  <article class="ac-kpi"><span class="ac-kpi__icon">{{ icon('clock') }}</span><p class="ac-kpi__label">Aguardando criativos</p><p class="ac-kpi__value">{{ k.aguardando }}</p><p class="ac-kpi__hint">Precisam de material para entrar no ar</p></article>
+  <article class="ac-kpi"><span class="ac-kpi__icon">{{ icon('target') }}</span><p class="ac-kpi__label">Entrega média</p><p class="ac-kpi__value">{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</p><p class="ac-kpi__hint">Entregue sobre a meta, campanhas no ar</p></article>
+  <article class="ac-kpi"><span class="ac-kpi__icon">{{ icon('check') }}</span><p class="ac-kpi__label">Finalizadas</p><p class="ac-kpi__value">{{ k.finalizadas }}</p><p class="ac-kpi__hint">Com resultado final apurado</p></article>
+</section>
+
+<nav class="ac-tabs ac-section ac-enter" aria-label="Status das campanhas">
+  {% for id, rotulo in grupos_rotulo.items() %}
+  <a class="ac-tabs__item{% if id == filtro %} is-active{% endif %}" href="{{ area_url('campanhas') }}?status={{ id }}"{% if id == filtro %} aria-current="page"{% endif %}>{{ rotulo }} <span class="ac-tabs__count">{{ ritmo.grupos[id]|length }}</span></a>
+  {% endfor %}
+</nav>
+
+{% set lista = ritmo.grupos[filtro] %}
+{% if lista %}
+<div class="ac-card ac-table-card ac-enter">
+  <table class="ac-table">
+    <thead>
+      <tr><th scope="col">Campanha</th><th scope="col">PI e período</th><th scope="col">Status e canal</th><th scope="col">Entrega</th><th scope="col">Tempo</th><th scope="col">Operação</th></tr>
+    </thead>
+    <tbody>
+      {% for c in lista %}
+      <tr>
+        <td data-label="Campanha"><b>{{ c.nome }}</b><small>{{ c.objetivo }}</small></td>
+        <td data-label="PI e período"><a class="ac-link" href="{{ area_url('projeto', id_pi=c.projeto_id) }}">{{ c.pi }}</a><small>{{ periodo(c.periodo) }}</small></td>
+        <td data-label="Status e canal">{{ status_badge({'andamento': 'Em andamento', 'aguardando': 'Aguardando criativos'}.get(filtro, c.status)) }}<small>{{ c.plataforma or '—' }}</small></td>
+        <td data-label="Entrega" class="ac-table__bar">
+          <span class="ac-table__pct">{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %} {{ ritmo_badge(c.ritmo) }}</span>
+          {{ barra(c.pct, 'Entrega de ' ~ c.nome) }}
+          <small>{{ c.atingido_label }} de {{ c.meta_label }}</small>
+        </td>
+        <td data-label="Tempo" class="ac-table__bar">
+          <span class="ac-table__pct">{% if c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</span>
+          {{ barra(c.tempo_pct, 'Tempo decorrido de ' ~ c.nome) }}
+          <small>{% if c.dias_restantes is not none and c.dias_restantes >= 0 and filtro == 'andamento' %}{{ c.dias_restantes }} dias restantes{% elif c.tempo_pct is not none and c.tempo_pct >= 100 %}Período encerrado{% else %}Tempo decorrido{% endif %}</small>
+        </td>
+        <td data-label="Operação">{{ c.responsavel or 'Centralcomm' }}{% if c.dash_abrir %}<a class="ac-link" href="{{ c.dash_abrir }}" target="_blank" rel="noopener">Dashboard{{ icon('external', 14) }}</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="ac-card ac-enter">
+  {{ vazio('megaphone', 'Nenhuma campanha ' ~ grupos_rotulo[filtro]|lower, 'Quando um PI for fechado, as campanhas dele aparecem aqui com a entrega de cada uma.', usuario) }}
+</div>
+{% endif %}
+{% endblock %}

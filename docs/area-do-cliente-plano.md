@@ -26,6 +26,14 @@ Decidido com o usuário em 2026-11-05:
   preço, investimento mínimo, CPA ou valor de mercado. "Incluir no briefing"
   separa itens na sessão (até 30); eles vão no texto do próximo briefing.
   Jornada: Descobrir → Briefing → Projeto (PI fechado) → Campanhas.
+- 2026-11-05: sai **Mídia e Veiculação** (Campanhas já cobre) e **Arquivos**
+  vira **PIs**. Telas espelham as internas do CentralX só com o que interessa
+  ao cliente: Campanhas = "Central de ritmo" (no ar, aguardando criativos,
+  paradas, finalizadas; entrega x tempo; responsável da operação), sem gasto,
+  previsto ou preço. PIs = etapas, valor bruto, comissão de agência, valor
+  líquido (venda), nota fiscal e pagamento, marcos, resultado por campanha e
+  documentos; sem custos nem "zona de lucratividade". Por decisão do usuário,
+  todo usuário liberado do cliente ou da agência vê os valores do PI.
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

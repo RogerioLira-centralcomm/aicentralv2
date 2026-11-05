@@ -350,3 +350,40 @@ def test_selecao_cabe_no_cookie():
         descobrir.alternar(sess, "audiencias", 10000 + i, "Audiência com um nome bem comprido " * 4)
     import json
     assert len(json.dumps(sess["area_cliente_descobrir"], ensure_ascii=False).encode()) < 2000
+
+
+def test_campanhas_por_status_sem_custos(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    camp = {"id": 1, "nome": "Verão Meta", "plataforma": "Meta Ads", "objetivo": "Alcance", "status": "Aguardando",
+            "periodo": {"inicio": "2026-12-01", "fim": "2027-01-01"}, "meta": 1000.0, "meta_label": "1.000",
+            "atingido": 0.0, "atingido_label": "0", "pct": 0, "tempo_pct": None, "dias_restantes": None, "ritmo": "",
+            "dash_embed": "", "dash_abrir": "", "atual": False, "id_pi": 12, "no_ar": False, "responsavel": "Ana Op"}
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [camp]}])
+    client = _client(app, {"user_id": 501})
+    html = client.get("/campanhas?status=aguardando", base_url=HOST).get_data(as_text=True)
+    assert "Verão Meta" in html and "Ana Op" in html and "Aguardando criativos" in html
+    for termo in ("Gasto", "Previsto", "Investimento", "Mídia e Veiculação", "Arquivos"):
+        assert termo not in html
+    assert client.get("/midia", base_url=HOST).headers["Location"] == "/campanhas"
+    assert client.get("/arquivos", base_url=HOST).headers["Location"] == "/pis"
+
+
+def test_pi_mostra_valores_de_venda_e_notas(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    pi = {"id": 12, "pi": "CC-123", "titulo": "PI Verão", "status": "Em faturamento", "status_id": 4,
+          "periodo": {"inicio": "2026-10-01", "fim": "2026-11-01"}, "cliente": "Cliente", "agencia": "Agência X",
+          "bruto": 10000.0, "comissao": 2000.0, "liquido": 8000.0, "n_notas": 1, "n_pagas": 0, "atualizado_em": "",
+          "documentos": [], "faturado": 8000.0, "pago": None, "historico": [{"titulo": "Campanha no ar", "em": "2026-10-02"}],
+          "etapas": [{"titulo": t, "estado": e} for t, e in zip(dados.ETAPAS_PI, ("done", "done", "done", "current", "todo"))],
+          "notas": [{"numero": "123", "emissao": "2026-11-03", "valor": 8000.0, "liquido": 7500.0, "competencia": "11/2026",
+                     "prevista": "2026-12-03", "pago_em": "", "status": "NF Emitida"}]}
+    monkeypatch.setattr(dados, "pi_do_cliente", lambda c, i: pi if i == 12 else None)
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
+    client = _client(app, {"user_id": 501})
+    html = client.get("/pis/12", base_url=HOST).get_data(as_text=True)
+    for trecho in ("R$ 10.000,00", "R$ 2.000,00", "R$ 8.000,00", "R$ 7.500,00", "NF Emitida", "Previsto 03/12/2026", "Em faturamento"):
+        assert trecho in html, trecho
+    assert "lucratividade" not in html.lower() and "Gasto" not in html
+    assert client.get("/pis/99", base_url=HOST).status_code == 404

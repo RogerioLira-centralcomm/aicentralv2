@@ -1,0 +1,37 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, vazio %}
+{% block title %}PIs{% endblock %}
+{% block content %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">PIs</h1>
+    <p class="ac-lead">Seus pedidos de inserção: andamento, faturamento, notas fiscais e valores.</p>
+  </div>
+</div>
+
+{% if pis %}
+<div class="ac-card ac-table-card ac-enter">
+  <table class="ac-table">
+    <thead>
+      <tr><th scope="col">PI</th><th scope="col">Etapa</th><th scope="col">Período</th><th scope="col" class="ac-num">Valor bruto</th><th scope="col" class="ac-num">Valor líquido</th><th scope="col">Notas fiscais</th></tr>
+    </thead>
+    <tbody>
+      {% for p in pis %}
+      <tr>
+        <td data-label="PI"><a class="ac-link" href="{{ area_url('pi', id_pi=p.id) }}">{{ p.pi }}</a><small>{{ p.titulo }}</small></td>
+        <td data-label="Etapa">{{ status_badge(p.status) }}</td>
+        <td data-label="Período">{{ periodo(p.periodo) }}</td>
+        <td data-label="Valor bruto" class="ac-num">{{ p.bruto|format_brl if p.bruto is not none else '—' }}</td>
+        <td data-label="Valor líquido" class="ac-num"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
+        <td data-label="Notas fiscais">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="ac-card ac-enter">
+  {{ vazio('file', 'Nenhum PI ainda', 'Quando um planejamento for aprovado, o PI aparece aqui com o andamento, o faturamento e as notas fiscais.', usuario) }}
+</div>
+{% endif %}
+{% endblock %}

@@ -115,8 +115,9 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
                c.totalizador_atingido, c.periodo_inicio, c.periodo_fim,
                c.link_dash, c.link_dash_incorporar, c.updated_at,
                plt.descricao AS plataforma_nome, obj.descricao AS objetivo_nome,
-               st.descricao AS status_nome
+               st.descricao AS status_nome, resp.nome_completo AS responsavel_nome
           FROM cadu_pi_campanha c
+          LEFT JOIN tbl_contato_cliente resp ON resp.id_contato_cliente = c.id_responsavel_operacao
           LEFT JOIN cadu_pi_camp_plataforma plt ON plt.id_plataforma = c.id_plataforma
           LEFT JOIN cadu_pi_camp_objetivos obj ON obj.id_objetivos_campanha = c.id_objetivos_campanha
           LEFT JOIN cadu_pi_camp_status st ON st.id = c.id_status
@@ -130,6 +131,7 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
         resultado = _resultado_campanha(row, 0)
         resultado["id_pi"] = row["id_pi"]
         resultado["no_ar"] = (resultado["status"] or "").strip().lower() in STATUS_CAMPANHA_NO_AR
+        resultado["responsavel"] = row.get("responsavel_nome") or ""
         saida.append(resultado)
     return saida
 
@@ -216,3 +218,153 @@ def projeto_do_cliente(cliente_id, id_pi) -> dict | None:
     except LookupError:
         return {"vazio": True, "id_pi": id_pi}
     return {"vazio": False, "payload": payload, "ctx": contexto_pagina(payload)}
+
+
+# ---------- PIs: histórico, faturamento e notas fiscais (só valores de venda) ----------
+
+ETAPAS_PI = ("Em aprovação", "Em configuração", "Em andamento", "Em faturamento", "Finalizado")
+
+
+def _brl(valor):
+    from flask import current_app
+    if valor in (None, ""):
+        return None
+    parse = current_app.jinja_env.filters["parse_brl"]
+    numero = parse(valor) if isinstance(valor, str) else float(valor)
+    return numero
+
+
+def listar_pis(cliente_id) -> list[dict]:
+    """PIs do cliente com valores de venda e o resumo das notas fiscais."""
+    rows = _fetch(
+        """
+        SELECT pi.id_pi, pi.codigo_pi_cc, pi.codigo_pi_ag, pi.titulo_pi, pi.periodo_inicio, pi.periodo_fim,
+               pi.created_at, pi.updated_at, pi.id_sub_status_pi, ss.display AS sub_status,
+               pi.vr_bruto_pi, pi.vr_cms_agencia, pi.vr_liquido_pi, pi.pi_tem_agencia,
+               pi.googled_pi_princ, pi.googled_pi_pecas, pi.googled_pi_arq_ass,
+               cli.nome_fantasia AS cliente_nome, ag.nome_fantasia AS agencia_nome,
+               COUNT(nf.id) AS n_notas,
+               COUNT(nf.id) FILTER (WHERE nf.data_pag_realizado IS NOT NULL OR nfs.descricao ILIKE 'pagamento%%') AS n_pagas
+          FROM cadu_pi pi
+          LEFT JOIN cadu_pi_sub_status ss ON ss.key = pi.id_sub_status_pi
+          LEFT JOIN tbl_cliente cli ON cli.id_cliente = pi.id_cliente
+          LEFT JOIN tbl_cliente ag ON ag.id_cliente = pi.id_agencia
+          LEFT JOIN cadu_pi_nota_fiscal nf ON nf.id_pi = pi.id_pi
+          LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nfs.id = nf.status
+         WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
+           AND COALESCE(pi.id_sub_status_pi, 0) <> %s
+         GROUP BY pi.id_pi, ss.display, cli.nome_fantasia, ag.nome_fantasia
+         ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC
+        """,
+        (cliente_id, cliente_id, SUB_STATUS_CANCELADO),
+    )
+    return [_pi_resumo(r) for r in rows]
+
+
+def _pi_resumo(r) -> dict:
+    return {
+        "id": r["id_pi"],
+        "pi": _pi_label(r),
+        "titulo": r["titulo_pi"] or _pi_label(r),
+        "status": r["sub_status"] or "Em preparação",
+        "status_id": r["id_sub_status_pi"],
+        "periodo": {"inicio": _iso(r["periodo_inicio"]), "fim": _iso(r["periodo_fim"])},
+        "cliente": r.get("cliente_nome") or "",
+        "agencia": r.get("agencia_nome") if r.get("pi_tem_agencia") else "",
+        "bruto": _brl(r["vr_bruto_pi"]),
+        "comissao": _brl(r["vr_cms_agencia"]) if r.get("pi_tem_agencia") else None,
+        "liquido": _brl(r["vr_liquido_pi"]),
+        "n_notas": int(r.get("n_notas") or 0),
+        "n_pagas": int(r.get("n_pagas") or 0),
+        "atualizado_em": _iso(r["updated_at"] or r["created_at"]),
+        "documentos": [{"titulo": t, "url": u} for t, u in (
+            ("PI e pasta principal", r.get("googled_pi_princ")), ("Plano de mídia e peças", r.get("googled_pi_pecas")),
+            ("Documentos assinados", r.get("googled_pi_arq_ass"))) if u and str(u).startswith(("http://", "https://"))],
+    }
+
+
+def pi_do_cliente(cliente_id, id_pi) -> dict | None:
+    """Um PI do cliente: valores de venda, notas fiscais e histórico da operação."""
+    resumo = next((p for p in listar_pis(cliente_id) if p["id"] == int(id_pi)), None)
+    if not resumo:
+        return None
+    notas = _fetch(
+        """
+        SELECT nf.numero_nota, nf.data_emissao, nf.valor, nf.valor_liquido, nf.mes_ref_comp,
+               nf.data_pag_prevista, nf.data_pag_realizado, nfs.descricao AS status
+          FROM cadu_pi_nota_fiscal nf
+          LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nfs.id = nf.status
+         WHERE nf.id_pi = %s
+         ORDER BY COALESCE(nf.data_emissao, nf.created_at) DESC
+        """,
+        (int(id_pi),),
+    )
+    resumo["notas"] = [{
+        "numero": n["numero_nota"] or "—",
+        "emissao": _iso(n["data_emissao"]),
+        "valor": _brl(n["valor"]),
+        "liquido": _brl(n["valor_liquido"]),
+        "competencia": n["mes_ref_comp"] or "",
+        "prevista": _iso(n["data_pag_prevista"]),
+        "pago_em": _iso(n["data_pag_realizado"]),
+        "status": n["status"] or ("Pagamento realizado" if n["data_pag_realizado"] else "NF emitida"),
+    } for n in notas]
+    resumo["faturado"] = sum(n["valor"] or 0 for n in resumo["notas"]) or None
+    resumo["pago"] = sum((n["valor"] or 0) for n in resumo["notas"] if n["pago_em"] or "pagamento" in n["status"].lower()) or None
+    try:
+        etapas = _fetch(
+            "SELECT etapa, concluida_em FROM cadu_pi_operacao_etapa WHERE id_pi = %s AND concluida_em IS NOT NULL ORDER BY concluida_em",
+            (int(id_pi),),
+        )
+    except Exception:
+        logger.warning("Etapas da operação indisponíveis.", exc_info=True)
+        etapas = []
+    historico = [{"titulo": ETAPAS_CLIENTE.get(e["etapa"], "Atualização da operação"), "em": _iso(e["concluida_em"])} for e in etapas]
+    historico += [{"titulo": f"Nota fiscal {n['numero']} emitida", "em": n["emissao"]} for n in resumo["notas"] if n["emissao"]]
+    historico += [{"titulo": f"Pagamento da nota {n['numero']} realizado", "em": n["pago_em"]} for n in resumo["notas"] if n["pago_em"]]
+    resumo["historico"] = sorted((h for h in historico if h["em"]), key=lambda h: h["em"], reverse=True)
+    atual = resumo["status"]
+    resumo["etapas"] = [{"titulo": t, "estado": "done" if ETAPAS_PI.index(t) < ETAPAS_PI.index(atual) else ("current" if t == atual else "todo")}
+                        for t in ETAPAS_PI] if atual in ETAPAS_PI else []
+    return resumo
+
+
+# ---------- Campanhas por status ----------
+
+GRUPOS_CAMPANHA = {
+    "andamento": ("Em andamento", ("ativa", "ativo", "em andamento")),
+    "aguardando": ("Aguardando criativos", ("aguardando",)),
+    "parada": ("Paradas", ("parada",)),
+    "finalizadas": ("Finalizadas", ("finalizada", "finalizado", "encerrada", "encerrado")),
+}
+
+
+def listar_campanhas(cliente_id, projetos=None) -> dict:
+    """Todas as campanhas dos PIs do cliente, agrupadas por status (canceladas ficam de fora)."""
+    projetos = listar_projetos(cliente_id) if projetos is None else projetos
+    grupos = {chave: [] for chave in GRUPOS_CAMPANHA}
+    for p in projetos:
+        for c in p["campanhas"]:
+            status = (c["status"] or "").strip().lower()
+            chave = next((k for k, (_r, valores) in GRUPOS_CAMPANHA.items() if status in valores), None)
+            if chave is None:
+                continue
+            grupos[chave].append({**c, "projeto": p["titulo"], "projeto_id": p["id"], "pi": p["pi"]})
+    return grupos
+
+
+def ritmo_campanhas(cliente_id) -> dict:
+    """Painel de campanhas no espírito da "Central de ritmo" interna, sem gasto nem previsto."""
+    grupos = listar_campanhas(cliente_id)
+    no_ar = grupos["andamento"]
+    pcts = [c["pct"] for c in no_ar if c["pct"] is not None]
+    return {
+        "grupos": grupos,
+        "kpis": {
+            "no_ar": len(no_ar),
+            "aguardando": len(grupos["aguardando"]),
+            "encerram_7d": sum(1 for c in no_ar if c["dias_restantes"] is not None and 0 <= c["dias_restantes"] <= 7),
+            "entrega_media": round(sum(pcts) / len(pcts)) if pcts else None,
+            "finalizadas": len(grupos["finalizadas"]),
+        },
+    }

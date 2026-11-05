@@ -29,9 +29,11 @@ ROTAS = Map([
     Rule("/descobrir/<secao>", endpoint="descobrir_secao"),
     Rule("/descobrir/<secao>/<int:item_id>", endpoint="descobrir_item"),
     Rule("/planejamento", endpoint="planejamento_antigo"),
-    Rule("/midia", endpoint="midia"),
+    Rule("/pis", endpoint="pis"),
+    Rule("/pis/<int:id_pi>", endpoint="pi"),
+    Rule("/midia", endpoint="midia_antigo"),
     Rule("/relatorios", endpoint="relatorios"),
-    Rule("/arquivos", endpoint="arquivos"),
+    Rule("/arquivos", endpoint="arquivos_antigo"),
     Rule("/equipe", endpoint="equipe"),
     Rule("/sair", endpoint="sair"),
 ], strict_slashes=False)
@@ -49,17 +51,13 @@ NAV_PRINCIPAL = (
     ("briefing", "Briefing", "send"),
     ("projetos", "Projetos", "folder"),
     ("campanhas", "Campanhas", "megaphone"),
-    ("midia", "Mídia e Veiculação", "broadcast"),
+    ("pis", "PIs", "file"),
     ("relatorios", "Relatórios", "chart"),
-    ("arquivos", "Arquivos", "file"),
     ("equipe", "Equipe", "users"),
 )
 
 EM_PREPARACAO = {
-    "campanhas": ("Campanhas", "megaphone", "Todas as campanhas dos seus projetos em um só lugar, com meta, entregue e ritmo de cada uma, sem valores de custo."),
-    "midia": ("Mídia e Veiculação", "broadcast", "Canais, plataformas, formatos e períodos de veiculação de cada campanha, em um só lugar."),
     "relatorios": ("Relatórios", "chart", "Dashboards de entrega atualizados diariamente e as prestações de contas de cada projeto."),
-    "arquivos": ("Arquivos", "file", "PIs, planos de mídia, peças e documentos assinados, organizados por projeto."),
     "equipe": ("Equipe", "users", "Quem da sua empresa tem acesso a esta área e o time Centralcomm que cuida da sua conta."),
 }
 
@@ -220,6 +218,28 @@ def view_descobrir_selecao():
     return redirect(destino, code=303)
 
 
+def view_campanhas(usuario):
+    filtro = request.args.get("status", "andamento")
+    if filtro not in dados.GRUPOS_CAMPANHA:
+        filtro = "andamento"
+    ritmo = dados.ritmo_campanhas(usuario["cliente_id"])
+    return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro,
+                   grupos_rotulo={k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()})
+
+
+def view_pis(usuario):
+    pis = dados.listar_pis(usuario["cliente_id"])
+    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI)
+
+
+def view_pi(usuario, id_pi):
+    pi = dados.pi_do_cliente(usuario["cliente_id"], id_pi)
+    if pi is None:
+        abort(404)
+    campanhas = dados.campanhas_dos_pis([id_pi])
+    return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas)
+
+
 def view_em_preparacao(usuario, endpoint):
     titulo, icone, texto = EM_PREPARACAO[endpoint]
     return _render("em_preparacao.html", usuario, endpoint, titulo=titulo, icone=icone, texto=texto)
@@ -254,6 +274,16 @@ def despachar():
         return view_briefing(usuario)
     if endpoint == "planejamento_antigo":
         return redirect(area_url("descobrir"), code=301)
+    if endpoint == "midia_antigo":
+        return redirect(area_url("campanhas"), code=301)
+    if endpoint == "arquivos_antigo":
+        return redirect(area_url("pis"), code=301)
+    if endpoint == "campanhas":
+        return view_campanhas(usuario)
+    if endpoint == "pis":
+        return view_pis(usuario)
+    if endpoint == "pi":
+        return view_pi(usuario, **args)
     if endpoint == "descobrir":
         return view_descobrir(usuario)
     if endpoint == "descobrir_secao":

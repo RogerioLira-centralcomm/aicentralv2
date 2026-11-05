@@ -5,7 +5,10 @@
 {%- set d = (ctx.sel if ctx.sel and ctx.sel.dash_abrir else none) or (dashes|first) -%}
 {% if d %}
 <div class="rep-bar" data-in style="--i:0">
-  <span class="muted">Looker Studio · <b>{{ d.nome }}</b>{% if campanha.grupo and not (ctx.sel and ctx.sel.id == d.id) %} — troque a campanha no seletor acima{% endif %}</span>
+  <span class="muted">
+    {% if ctx.sel and ctx.sel.id != d.id %}<b>{{ ctx.sel.nome }}</b> ainda não tem relatório publicado. Mostrando o de <b>{{ d.nome }}</b>.
+    {% else %}Looker Studio · <b>{{ d.nome }}</b>{% if campanha.grupo and not ctx.sel %} · troque a campanha no seletor acima{% endif %}{% endif %}
+  </span>
   <div class="rep-actions">
     {% if d.dash_embed %}<button type="button" class="ut-btn ut-btn-sm ut-btn-secondary" id="tela-cheia">{{ icon('full') }}Tela cheia</button>{% endif %}
     <a class="ut-btn ut-btn-sm ut-btn-primary" href="{{ d.dash_abrir }}" target="_blank" rel="noopener">Abrir no Looker {{ icon('ext') }}</a>

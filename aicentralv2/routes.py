@@ -14109,7 +14109,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/campanha/<int:id_campanha>/link-publico/previa')
     @login_required
     def api_campanha_link_publico_previa(id_campanha):
-        """Abre a prévia (com fases) da página do PI desta campanha, gerando o link se faltar."""
+        """Abre a página pública do PI desta campanha (como o cliente vê), gerando o link se faltar."""
         campanha = db.obter_campanha_pi_por_id(id_campanha)
         if not campanha:
             return render_template('erro_publico.html', mensagem='Campanha não encontrada.'), 404

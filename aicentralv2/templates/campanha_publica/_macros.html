@@ -1,0 +1,40 @@
+{#- Macros das páginas públicas da campanha (importar with context). -#}
+{%- set MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'] -%}
+{%- macro dcurta(iso) -%}{% if iso %}{{ iso[8:10] }}/{{ iso[5:7] }}{% else %}—{% endif %}{%- endmacro -%}
+{%- macro dlonga(iso) -%}{% if iso %}{{ iso[8:10] }} {{ MESES[iso[5:7]|int - 1] }} {{ iso[0:4] }}{% else %}—{% endif %}{%- endmacro -%}
+{%- macro purl(p, extra=None) -%}
+  {%- set args = dict(qs) -%}{%- if extra %}{% set _ = args.update(extra) %}{% endif -%}
+  {%- if p == 'geral' -%}{{ url_for('campanha_acompanhamento_publica', token=token, **args) }}
+  {%- else -%}{{ url_for('campanha_acompanhamento_publica', token=token, pagina=p, **args) }}{%- endif -%}
+{%- endmacro -%}
+{%- macro iniciais(nome) -%}{% for p in (nome or '?').split()[:2] %}{{ p[0]|upper }}{% endfor %}{%- endmacro -%}
+{%- macro icon(k) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if k == 'geral' %}<path d="M3 12h4l3-8 4 16 3-8h4"/>
+{%- elif k == 'resultados' %}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+{%- elif k == 'dashboard' %}<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+{%- elif k == 'combinados' %}<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>
+{%- elif k == 'documentos' %}<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/>
+{%- elif k == 'contato' %}<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+{%- elif k == 'check' %}<path d="M5 12l5 5L20 7" stroke-width="3"/>
+{%- elif k == 'ext' %}<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>
+{%- elif k == 'mail' %}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>
+{%- elif k == 'wa' %}<path d="M3 21l1.6-4.6A8.5 8.5 0 1 1 8 19.6z"/><path d="M9 9.5c.3 2.2 2.3 4.2 4.5 4.5l1.2-1.2 2 1-.5 1.7c-3.6.4-7.6-3.6-7.2-7.2L10.7 7.8l1 2z" stroke-width="1.4"/>
+{%- elif k == 'full' %}<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+{%- elif k == 'arrow' %}<path d="M9 6l6 6-6 6"/>
+{%- endif %}</svg>
+{%- endmacro -%}
+{%- macro pessoa_card(p, grande=False, titulo=None) -%}
+{% if p %}
+<div class="person{{ ' lg' if grande }}">
+  <span class="avatar">{% if p.foto_url %}<img src="{{ p.foto_url }}" alt="" loading="lazy">{% else %}{{ iniciais(p.nome) }}{% endif %}</span>
+  <span class="who"><b>{{ p.nome }}</b><span>{{ p.papel }} · Centralcomm</span></span>
+</div>
+{% if p.email or p.whatsapp %}
+<div class="actions">
+  {% if p.whatsapp %}<a class="cx-btn wa" href="{{ p.whatsapp }}" target="_blank" rel="noopener">{{ icon('wa') }}WhatsApp</a>{% endif %}
+  {% if p.email %}<a class="cx-btn cx-btn-secondary" href="mailto:{{ p.email }}?subject={{ ('Campanha ' ~ campanha.campanha ~ ' · ' ~ campanha.pi)|urlencode }}">{{ icon('mail') }}E-mail</a>{% endif %}
+</div>
+{% endif %}
+{% endif %}
+{%- endmacro -%}

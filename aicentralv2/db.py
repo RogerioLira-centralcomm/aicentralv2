@@ -10545,13 +10545,23 @@ def gerar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
 
 
 def gerar_link_publico_campanha(id_campanha, dias_validade=None):
-    """Gera ou reativa token público da página de acompanhamento da campanha."""
-    import secrets
+    """Gera token público amigável (cliente-campanha-xxxxxx) da página de acompanhamento."""
+    from .campanha_acompanhamento_publico import token_amigavel
 
     conn = get_db()
     try:
-        token = secrets.token_urlsafe(16)
         with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT c.nome_campanha, cli.nome_fantasia AS cliente_nome
+                  FROM cadu_pi_campanha c
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.id_cliente
+                 WHERE c.id_campanha = %s
+                ''',
+                (id_campanha,),
+            )
+            info = cursor.fetchone() or {}
+            token = token_amigavel(info.get('cliente_nome'), info.get('nome_campanha'))
             if dias_validade:
                 from datetime import datetime, timedelta
 

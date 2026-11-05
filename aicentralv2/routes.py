@@ -7,7 +7,7 @@ from __future__ import annotations
 Rotas da Aplicação
 """
 
-from flask import session, redirect, url_for, flash, request, render_template, jsonify, current_app
+from flask import session, redirect, url_for, flash, request, render_template, jsonify, current_app, make_response
 from functools import wraps
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
@@ -1958,11 +1958,10 @@ def init_routes(app):
 
     def _url_pagina_campanha_publica(token, *, barra_fases=None):
         link = url_for('campanha_acompanhamento_publica', token=token, _external=True)
-        if barra_fases is None:
+        if not barra_fases:
             return link
         sep = '&' if '?' in link else '?'
-        flag = '1' if barra_fases else '0'
-        return f'{link}{sep}fases={flag}'
+        return f'{link}{sep}fases=1'
 
     @app.route('/api/cadu-pi/<int:id_pi>/campanhas')
     @login_required
@@ -6902,15 +6901,30 @@ def init_routes(app):
                 mensagem='Erro ao carregar cotação'), 500
 
     @app.route('/campanha/publico/<string:token>')
-    def campanha_acompanhamento_publica(token):
-        """Página pública de acompanhamento da campanha (dados do PI)."""
+    def campanha_acompanhamento_publica_legado(token):
+        """Links antigos: redireciona para a página canônica /campanha/p/<token>."""
+        destino = url_for('campanha_acompanhamento_publica', token=token)
+        if request.query_string:
+            destino = f"{destino}?{request.query_string.decode('utf-8', 'ignore')}"
+        return redirect(destino, code=301)
+
+    @app.route('/campanha/p/<string:token>', defaults={'pagina': 'geral'})
+    @app.route('/campanha/p/<string:token>/<string:pagina>')
+    def campanha_acompanhamento_publica(token, pagina):
+        """Página pública de acompanhamento da campanha (dados do PI), com páginas internas."""
+        from datetime import datetime
+
+        from aicentralv2.campanha_acompanhamento_publico import (
+            DEMO_FASES,
+            contexto_pagina,
+            montar_payload_acompanhamento_campanha,
+            simular_fase,
+        )
+
+        paginas_validas = ('geral', 'resultados', 'dashboard', 'combinados', 'documentos', 'contato')
+        if pagina not in paginas_validas:
+            return redirect(url_for('campanha_acompanhamento_publica', token=token))
         try:
-            from datetime import datetime
-
-            from aicentralv2.campanha_acompanhamento_publico import (
-                montar_payload_acompanhamento_campanha,
-            )
-
             row = db.obter_campanha_pi_por_link_publico(token)
             if not row:
                 return render_template(
@@ -6929,14 +6943,30 @@ def init_routes(app):
                     ), 410
 
             campanha = montar_payload_acompanhamento_campanha(row['id_campanha'])
-            fases_param = (request.args.get('fases') or '1').lower()
-            mostrar_barra_fases = fases_param not in ('0', 'false', 'no')
-            return render_template(
-                'campanha_acompanhamento_publica.html',
+            previa = (request.args.get('fases') or '').lower() in ('1', 'true', 'yes')
+            fase = request.args.get('fase', '0') if previa else '0'
+            if previa:
+                campanha = simular_fase(campanha, fase)
+            ctx = contexto_pagina(campanha)
+            info = next((p for p in ctx['paginas'] if p['id'] == pagina), None)
+            qs = {'fases': '1', 'fase': fase} if previa else {}
+            dash_id = request.args.get('c', type=int)
+            resp = make_response(render_template(
+                f'campanha_publica/{pagina}.html',
                 campanha=campanha,
+                ctx=ctx,
+                pagina=pagina,
+                pagina_info=info,
                 token=token,
-                mostrar_barra_fases=mostrar_barra_fases,
-            )
+                previa=previa,
+                fase_atual=fase,
+                demo_fases=DEMO_FASES,
+                qs=qs,
+                dash_id=dash_id,
+            ))
+            resp.headers['X-Robots-Tag'] = 'noindex, nofollow'
+            resp.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+            return resp
         except LookupError:
             return render_template(
                 'erro_publico.html',

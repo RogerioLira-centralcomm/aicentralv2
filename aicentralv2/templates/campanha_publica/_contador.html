@@ -1,0 +1,18 @@
+<script>
+/* Contagem dos números na entrada (respeita movimento reduzido). */
+(() => {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  document.querySelectorAll("[data-count]").forEach((el, k) => {
+    const alvo = +el.dataset.count, txt = el.firstChild;
+    if (!txt || txt.nodeType !== 3 || !isFinite(alvo) || alvo <= 0) return;
+    const t0 = performance.now() + 200 + k * 70, dur = 900;
+    const tick = t => {
+      const p = Math.min(1, Math.max(0, (t - t0) / dur));
+      txt.nodeValue = String(Math.round(alvo * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    txt.nodeValue = "0";
+    requestAnimationFrame(tick);
+  });
+})();
+</script>

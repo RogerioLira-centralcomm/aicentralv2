@@ -5,8 +5,12 @@ from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
 from aicentralv2.campanha_acompanhamento_publico import (
+    contexto_pagina,
     montar_payload_acompanhamento_campanha,
     normalizar_url_embed_looker_studio,
+    normalizar_url_visualizacao_looker_studio,
+    simular_fase,
+    token_amigavel,
 )
 
 
@@ -59,7 +63,57 @@ class FakeOperacaoService:
         }
 
 
+CAMPANHAS_PI = [
+    {
+        "id_campanha": 30,
+        "nome_campanha": "Display Principal",
+        "plataforma_nome": "Google Ads",
+        "objetivo_nome": "Alcance",
+        "status_nome": "Em andamento",
+        "obj_contratados": "1.000.000",
+        "totalizador_atingido": "250.000",
+        "totalizador_gasto": "98.765,43",
+        "valor_plataforma": "77.711,00",
+        "custo_midia_orcado": "66.622,00",
+        "periodo_inicio": date.today() - timedelta(days=5),
+        "periodo_fim": date.today() + timedelta(days=10),
+        "link_dash": "https://datastudio.google.com/u/0/reporting/abc/page/VgD",
+        "link_dash_incorporar": True,
+    },
+    {
+        "id_campanha": 31,
+        "nome_campanha": "Vídeo",
+        "plataforma_nome": "YouTube",
+        "obj_contratados": "",
+        "totalizador_atingido": None,
+        "link_dash": "",
+    },
+]
+
+
 class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
+    def test_normalizar_url_looker_com_conta_google(self):
+        url = "https://datastudio.google.com/u/0/reporting/c5a3/page/VgD"
+        self.assertEqual(
+            normalizar_url_embed_looker_studio(url),
+            "https://datastudio.google.com/embed/reporting/c5a3/page/VgD",
+        )
+        self.assertEqual(
+            normalizar_url_visualizacao_looker_studio(url),
+            "https://datastudio.google.com/reporting/c5a3/page/VgD",
+        )
+        self.assertEqual(
+            normalizar_url_embed_looker_studio("https://lookerstudio.google.com/u/2/embed/reporting/x/page/y"),
+            "https://lookerstudio.google.com/embed/reporting/x/page/y",
+        )
+
+    def test_token_amigavel(self):
+        token = token_amigavel("Animale", "Black Friday · Fim de Ano")
+        self.assertRegex(token, r"^animale-black-friday-fim-de-ano-[a-z2-9]{6}$")
+        self.assertLessEqual(len(token), 64)
+        self.assertRegex(token_amigavel("", ""), r"^campanha-[a-z2-9]{6}$")
+
+
     def test_normalizar_url_looker_view_para_embed(self):
         view = (
             "https://lookerstudio.google.com/reporting/abc123/page/def456"
@@ -84,11 +138,13 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         contato_mock.return_value = {
             "nome_completo": "Ana Comercial",
             "email": "ana@centralcomm.media",
+            "telefone": "(11) 98888-7777",
         }
 
         payload = montar_payload_acompanhamento_campanha(
             30,
             service=FakeOperacaoService(),
+            linhas_campanhas=CAMPANHAS_PI,
         )
 
         self.assertFalse(payload["demo"])
@@ -104,6 +160,51 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         pi_marco = next(m for m in payload["marcos"] if m["id"] == "pi")
         self.assertTrue(pi_marco["realizado"])
         self.assertEqual(payload["modulos"]["contatos"]["cliente"][0]["email"], "cliente@example.com")
+
+        # Resultados: meta, atingido e %, sem nenhum valor de custo.
+        res = payload["resultados"]
+        self.assertEqual([r["id"] for r in res], [30, 31])
+        principal = res[0]
+        self.assertTrue(principal["atual"])
+        self.assertEqual(principal["meta_label"], "1.000.000")
+        self.assertEqual(principal["pct"], 25)
+        self.assertEqual(
+            principal["dash_embed"],
+            "https://datastudio.google.com/embed/reporting/abc/page/VgD",
+        )
+        self.assertIsNone(res[1]["pct"])
+        texto = repr(res)
+        for proibido in ("98.765", "77.711", "66.622", "gasto", "custo", "valor"):
+            self.assertNotIn(proibido, texto)
+
+        # Executivo interno com WhatsApp a partir do telefone do contato.
+        self.assertEqual(payload["executivo"]["nome"], "Ana Comercial")
+        self.assertEqual(payload["executivo"]["whatsapp"], "https://wa.me/5511988887777")
+
+        ctx = contexto_pagina(payload)
+        ids = [p["id"] for p in ctx["paginas"]]
+        self.assertEqual(ids, ["geral", "resultados", "dashboard", "combinados", "documentos", "contato"])
+        self.assertTrue(all(p["ok"] for p in ctx["paginas"]))
+        self.assertEqual(ctx["atual"]["id"], "materiais")
+
+    @patch("aicentralv2.db.obter_campanha_pi_por_id")
+    @patch("aicentralv2.db.obter_contato_por_id")
+    def test_simular_fase_libera_paginas(self, contato_mock, campanha_mock):
+        campanha_mock.return_value = {"id_campanha": 30, "id_pi": 10, "nome_campanha": "X"}
+        contato_mock.return_value = {}
+        payload = montar_payload_acompanhamento_campanha(
+            30, service=FakeOperacaoService(), linhas_campanhas=[]
+        )
+        payload["resultados"] = []  # sem dashboard cadastrado
+        zero = simular_fase(payload, 0)
+        self.assertIs(zero, payload)
+        fase1 = simular_fase(payload, 1)
+        self.assertEqual(sum(bool(m["realizado"]) for m in fase1["marcos"]), 1)
+        ctx = contexto_pagina(fase1)
+        status = {p["id"]: p["ok"] for p in ctx["paginas"]}
+        self.assertTrue(status["resultados"])
+        self.assertFalse(status["dashboard"])
+        self.assertEqual(simular_fase(payload, "99"), payload)
 
 
 if __name__ == "__main__":

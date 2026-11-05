@@ -1,0 +1,46 @@
+{% extends 'campanha_publica/base.html' %}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block main %}
+{% set atual_res = (campanha.resultados or [])|selectattr('atual')|first %}
+<section class="kpis">
+  <div class="card kpi" data-in style="--i:0">
+    <span class="label">Etapas concluídas</span>
+    <span class="v" data-count="{{ ctx.n_feitos }}">{{ ctx.n_feitos }}<small>/ {{ ctx.n_marcos }}</small></span>
+    <div class="bar" style="--w:{{ ctx.pct }}%;--i:0"><i></i></div>
+  </div>
+  <div class="card kpi" data-in style="--i:1">
+    <span class="label">Entrega da meta</span>
+    {% if atual_res and atual_res.pct is not none %}
+    <span class="v" data-count="{{ atual_res.pct }}">{{ atual_res.pct }}<small>%</small></span>
+    <span class="s">{{ atual_res.atingido_label }} de {{ atual_res.meta_label }} · {{ atual_res.objetivo }}</span>
+    {% else %}
+    <span class="v">—</span>
+    <span class="s">Disponível quando a campanha entrar no ar</span>
+    {% endif %}
+    {% if (ctx.paginas|selectattr('id','equalto','resultados')|first).ok %}<a href="{{ purl('resultados') }}">Ver resultados →</a>{% endif %}
+  </div>
+  <div class="card kpi" data-in style="--i:2">
+    <span class="label">Tempo de veiculação</span>
+    {% if atual_res and atual_res.tempo_pct is not none %}
+    <span class="v" data-count="{{ atual_res.tempo_pct }}">{{ atual_res.tempo_pct }}<small>%</small></span>
+    <span class="s">{% if atual_res.dias_restantes %}{{ atual_res.dias_restantes }} dia{{ 's' if atual_res.dias_restantes != 1 }} restante{{ 's' if atual_res.dias_restantes != 1 }}{% else %}Período encerrado{% endif %}</span>
+    {% else %}
+    <span class="v">—</span><span class="s">Período a confirmar</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card" data-in style="--i:3" aria-labelledby="tl">
+  <div class="card-head"><h2 id="tl">Linha do tempo</h2><span class="muted">Do PI aprovado ao faturamento</span></div>
+  <ol class="stepper" style="--n:{{ campanha.marcos|length }}">
+    {% for m in campanha.marcos %}
+    <li class="st {{ m.estado }}{{ ' late' if m.atrasado }}" style="--i:{{ loop.index0 }}"{% if m.estado == 'current' %} aria-current="step"{% endif %}>
+      <span class="node"><span class="dot">{% if m.realizado %}{{ icon('check') }}{% endif %}</span></span>
+      <span class="t">{{ m.titulo }}</span>
+      <span class="d">{% if m.realizado %}{{ dcurta(m.realizado) }}{% else %}prev. {{ dcurta(m.previsto) }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}
+{% block scripts %}{% include 'campanha_publica/_contador.html' %}{% endblock %}

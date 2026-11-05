@@ -1,0 +1,23 @@
+{% extends 'campanha_publica/base.html' %}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block main %}
+{% if campanha.executivo %}
+<section class="card" data-in style="--i:0">
+  <span class="label" style="display:block;margin-bottom:12px">Executivo(a) responsável pela sua conta</span>
+  {{ pessoa_card(campanha.executivo, grande=True) }}
+  <p class="hint" style="margin-top:14px">Fale direto sobre a campanha, ajustes de verba, materiais ou resultados.</p>
+</section>
+{% endif %}
+{% if campanha.operacao %}
+<section class="card" data-in style="--i:1">
+  <span class="label" style="display:block;margin-bottom:12px">Operação</span>
+  {{ pessoa_card(campanha.operacao) }}
+</section>
+{% endif %}
+{% if not campanha.executivo and not campanha.operacao %}
+<section class="card" data-in>
+  <span class="label">Centralcomm</span>
+  <p style="margin-top:8px">Escreva para <a href="mailto:operacao@centralcomm.media">operacao@centralcomm.media</a>.</p>
+</section>
+{% endif %}
+{% endblock %}

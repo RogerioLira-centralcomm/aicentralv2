@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse, urlunparse
 
@@ -12,20 +13,28 @@ from .pi_operacao_service import PiOperacaoService
 _LOOKER_HOSTS = ("lookerstudio.google.com", "datastudio.google.com")
 
 
+_CONTA_GOOGLE = re.compile(r"^/u/\d+(?=/)")
+
+
+def _sem_conta_google(path):
+    """Remove o prefixo de conta (/u/0/) que o Google põe no link copiado do navegador."""
+    return _CONTA_GOOGLE.sub("", path or "")
+
+
 def normalizar_url_embed_looker_studio(url):
     """Converte link de visualização do Looker Studio para URL de incorporação."""
     text = (url or "").strip()
     if not text:
         return ""
-    if "/embed/" in text:
-        return _https_looker(text)
 
     parsed = urlparse(text if "://" in text else f"https://{text}")
     host = (parsed.netloc or "").lower().removeprefix("www.")
     if host not in _LOOKER_HOSTS:
         return text
 
-    path = parsed.path or ""
+    path = _sem_conta_google(parsed.path)
+    if path.startswith("/embed/reporting/"):
+        return urlunparse(("https", host, path, parsed.params, parsed.query, parsed.fragment))
     if path.startswith("/reporting/"):
         path = "/embed" + path
     elif not path.startswith("/embed/reporting/"):
@@ -44,14 +53,6 @@ def normalizar_url_embed_looker_studio(url):
     return normalized
 
 
-def _https_looker(url):
-    parsed = urlparse(url)
-    host = (parsed.netloc or "").lower().removeprefix("www.")
-    if host in _LOOKER_HOSTS and parsed.scheme == "http":
-        return urlunparse(("https", host, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    return url
-
-
 def normalizar_url_visualizacao_looker_studio(url):
     """Link para abrir o relatório no Looker (não depende de incorporação ativa)."""
     text = (url or "").strip()
@@ -65,7 +66,7 @@ def normalizar_url_visualizacao_looker_studio(url):
     if host not in _LOOKER_HOSTS:
         return text
 
-    path = parsed.path or ""
+    path = _sem_conta_google(parsed.path)
     if path.startswith("/embed/reporting/"):
         path = path.replace("/embed/reporting/", "/reporting/", 1)
     elif not path.startswith("/reporting/"):
@@ -169,8 +170,77 @@ def _contato_cc(nome, papel, email):
     }
 
 
-def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
-    """Retorna dict no formato do template HTML (const CAMPANHA)."""
+def _so_digitos(value):
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def _whatsapp(telefone):
+    digitos = _so_digitos(telefone)
+    if len(digitos) in (10, 11):
+        digitos = "55" + digitos
+    return f"https://wa.me/{digitos}" if len(digitos) >= 12 else ""
+
+
+def _pessoa_interna(contato, nome, papel):
+    contato = contato or {}
+    nome = nome or contato.get("nome_completo")
+    if not nome:
+        return None
+    telefone = contato.get("telefone") or ""
+    return {
+        "nome": nome,
+        "papel": papel,
+        "email": contato.get("email") or "",
+        "telefone": telefone,
+        "whatsapp": _whatsapp(telefone),
+        "foto_url": contato.get("foto_url") or "",
+    }
+
+
+def _pct(atingido, meta):
+    if not meta or meta <= 0:
+        return None
+    return round(atingido / meta * 100)
+
+
+def _resultado_campanha(row, atual_id, hoje=None):
+    """Painel de entrega de uma campanha: objetivo, meta, atingido. Nunca expõe custo."""
+    from .campanha_pi_metrics import calcular_periodo_progresso
+
+    meta = parse_volume_float(row.get("obj_contratados"))
+    atingido = parse_volume_float(row.get("totalizador_atingido"))
+    periodo = calcular_periodo_progresso(row.get("periodo_inicio"), row.get("periodo_fim"), hoje=hoje)
+    pct = _pct(atingido, meta)
+    tempo = periodo.get("periodo_pct_elapsed")
+    ritmo = ""
+    if pct is not None and tempo:
+        ritmo = "adiantado" if pct >= tempo + 5 else "no_ritmo" if pct >= tempo - 10 else "atencao"
+    link_raw = (row.get("link_dash") or "").strip()
+    incorporar = row.get("link_dash_incorporar")
+    incorporar = True if incorporar is None else bool(incorporar)
+    return {
+        "id": int(row.get("id_campanha") or 0),
+        "nome": row.get("nome_campanha") or "Campanha",
+        "plataforma": row.get("plataforma_nome") or "",
+        "objetivo": row.get("objetivo_nome") or "—",
+        "status": row.get("status_nome") or row.get("status_descricao") or "",
+        "periodo": {"inicio": _iso(row.get("periodo_inicio")), "fim": _iso(row.get("periodo_fim"))},
+        "meta": meta if meta > 0 else None,
+        "meta_label": _volume_label(row.get("obj_contratados")),
+        "atingido": atingido,
+        "atingido_label": _volume_label(row.get("totalizador_atingido")) if atingido else "0",
+        "pct": pct,
+        "tempo_pct": tempo,
+        "dias_restantes": periodo.get("periodo_dias_restantes"),
+        "ritmo": ritmo,
+        "dash_embed": normalizar_url_embed_looker_studio(link_raw) if incorporar and link_raw else "",
+        "dash_abrir": normalizar_url_visualizacao_looker_studio(link_raw) if link_raw else "",
+        "atual": int(row.get("id_campanha") or 0) == int(atual_id),
+    }
+
+
+def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_campanhas=None):
+    """Retorna dict usado pelas páginas públicas da campanha."""
     from . import db
 
     campanha_row = db.obter_campanha_pi_por_id(id_campanha)
@@ -427,6 +497,23 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
             }
         )
 
+    if linhas_campanhas is None:
+        linhas_campanhas = db.obter_campanhas_pi({"id_pi": id_pi}) or []
+    linhas = list(linhas_campanhas) or [{**campanha_row, **campanha}]
+    if not any(int(r.get("id_campanha") or 0) == int(id_campanha) for r in linhas):
+        linhas.insert(0, {**campanha_row, **campanha})
+    resultados = [_resultado_campanha(r, id_campanha) for r in linhas]
+    resultados.sort(key=lambda r: (not r["atual"], r["id"]))
+
+    executivo = _pessoa_interna(
+        resp_comercial,
+        pi.get("responsavel_comercial_nome"),
+        "Executivo(a) de atendimento",
+    )
+    operacao_pessoa = _pessoa_interna(resp_operacao, resp_op, "Operações")
+    if not executivo:
+        executivo, operacao_pessoa = operacao_pessoa, None
+
     atualizado = operacao.get("resumo", {}).get("ultima_atualizacao") or campanha.get(
         "updated_at"
     ) or pi.get("updated_at")
@@ -441,6 +528,9 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
         "periodo": {"inicio": _iso(inicio), "fim": _iso(fim)},
         "atualizado_em": _iso(atualizado) or date.today().isoformat(),
         "marcos": marcos,
+        "resultados": resultados,
+        "executivo": executivo,
+        "operacao": operacao_pessoa,
         "modulos": {
             "dashboard": {
                 "aparece_apos": "dashboard",
@@ -480,3 +570,97 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
             },
         },
     }
+
+
+# Fases simuladas na prévia da operação (?fases=1&fase=N)
+DEMO_FASES = (
+    {"rotulo": "Dados atuais"},
+    {"rotulo": "1 · PI aprovado", "concluidos": 1},
+    {"rotulo": "2 · Dashboard", "concluidos": 4},
+    {"rotulo": "3 · No ar", "concluidos": 5},
+    {"rotulo": "4 · Prestação de contas", "concluidos": 7},
+    {"rotulo": "5 · Faturado", "concluidos": 8},
+)
+
+
+def simular_fase(payload, indice):
+    """Copia do payload com os N primeiros marcos concluídos (só para a prévia)."""
+    import copy
+
+    try:
+        fase = DEMO_FASES[int(indice)]
+    except (TypeError, ValueError, IndexError):
+        return payload
+    if "concluidos" not in fase:
+        return payload
+    out = copy.deepcopy(payload)
+    for i, marco in enumerate(out["marcos"]):
+        marco["realizado"] = (marco["realizado"] or marco["previsto"]) if i < fase["concluidos"] else ""
+    return out
+
+
+def contexto_pagina(payload, hoje=None):
+    """Estado derivado (marco atual, progresso, liberação das páginas)."""
+    hoje = hoje or date.today()
+    marcos = payload["marcos"]
+    feitos = {m["id"] for m in marcos if m["realizado"]}
+    atual_idx = next((i for i, m in enumerate(marcos) if not m["realizado"]), -1)
+    for i, m in enumerate(marcos):
+        prev = _as_date(m["previsto"])
+        m["atrasado"] = bool(not m["realizado"] and prev and prev < hoje)
+        m["estado"] = "done" if m["realizado"] else "current" if i == atual_idx else "todo"
+    modulos = payload["modulos"]
+
+    def liberado(chave):
+        mod = modulos.get(chave) or {}
+        return mod.get("aparece_apos") in feitos
+
+    tem_dash = any(r["dash_embed"] or r["dash_abrir"] for r in payload.get("resultados") or [])
+    titulo = {m["id"]: m["titulo"] for m in marcos}
+    paginas = [
+        {"id": "geral", "rotulo": "Visão geral", "ok": True},
+        {"id": "resultados", "rotulo": "Resultados", "ok": liberado("combinados")},
+        {"id": "dashboard", "rotulo": "Dashboard", "ok": tem_dash or liberado("dashboard")},
+        {"id": "combinados", "rotulo": "Combinados", "ok": liberado("combinados")},
+        {"id": "documentos", "rotulo": "Documentos", "ok": True},
+        {"id": "contato", "rotulo": "Fale com a gente", "ok": True},
+    ]
+    bloqueio = {"resultados": titulo.get("pi"), "combinados": titulo.get("pi"), "dashboard": titulo.get("dashboard")}
+    for p in paginas:
+        p["bloqueio"] = bloqueio.get(p["id"], "")
+    atual = marcos[atual_idx] if atual_idx >= 0 else None
+    return {
+        "feitos": feitos,
+        "atual": atual,
+        "proximos": marcos[atual_idx:atual_idx + 3] if atual_idx >= 0 else [],
+        "pct": round(len(feitos) / len(marcos) * 100) if marcos else 0,
+        "n_feitos": len(feitos),
+        "n_marcos": len(marcos),
+        "paginas": paginas,
+        "relatorios_liberados": [
+            r for r in modulos["relatorios"]["itens"] if not r.get("marco") or r["marco"] in feitos
+        ],
+    }
+
+
+def _slug_palavras(value, limite=44):
+    import unicodedata
+
+    raw = unicodedata.normalize("NFKD", str(value or "").lower())
+    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
+    out = ""
+    for palavra in (w for w in re.split(r"[^a-z0-9]+", raw) if w):
+        candidato = f"{out}-{palavra}" if out else palavra
+        if len(candidato) > limite:
+            break
+        out = candidato
+    return out
+
+
+def token_amigavel(cliente, campanha):
+    """Link como o do Smart Planner: ``cliente-nome-da-campanha-k7m2qx``."""
+    import secrets
+
+    alfabeto = "abcdefghijkmnpqrstuvwxyz23456789"
+    base = _slug_palavras(f"{cliente or ''} {campanha or ''}") or "campanha"
+    return f"{base}-{''.join(secrets.choice(alfabeto) for _ in range(6))}"

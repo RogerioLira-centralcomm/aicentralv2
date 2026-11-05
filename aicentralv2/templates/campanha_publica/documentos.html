@@ -1,0 +1,22 @@
+{% extends 'campanha_publica/base.html' %}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block main %}
+{% set docs = campanha.modulos.documentos.itens %}
+{% set rels = ctx.relatorios_liberados %}
+<section class="card" data-in style="--i:0">
+  <div class="card-head"><h2>Documentos do PI</h2></div>
+  {% if docs %}
+  <ul class="list">{% for r in docs %}
+    <li><span class="ic">{{ icon('documentos') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>Google Drive{% if r.data %} · {{ dcurta(r.data) }}{% endif %}</span></span><span class="go">{{ icon('ext') }}</span></li>
+  {% endfor %}</ul>
+  {% else %}<p class="empty">Os documentos aparecem aqui assim que forem anexados ao PI.</p>{% endif %}
+</section>
+<section class="card" data-in style="--i:1">
+  <div class="card-head"><h2>Prestação de contas</h2></div>
+  {% if rels %}
+  <ul class="list">{% for r in rels %}
+    <li><span class="ic">{{ icon('resultados') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>{{ dcurta(r.data) }}</span></span><span class="go">{{ icon('ext') }}</span></li>
+  {% endfor %}</ul>
+  {% else %}<p class="empty">Publicada até 10 dias após o fim da veiculação.</p>{% endif %}
+</section>
+{% endblock %}

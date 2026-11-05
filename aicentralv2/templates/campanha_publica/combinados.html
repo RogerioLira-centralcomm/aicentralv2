@@ -1,0 +1,19 @@
+{% extends 'campanha_publica/base.html' %}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+{% block main %}
+{% set m = campanha.modulos.combinados %}
+<section class="card" data-in style="--i:0">
+  <div class="card-head"><h2>Combinados do PI</h2><span class="muted">Conforme o pedido de inserção</span></div>
+  <dl class="dl">{% for c in m.pi %}<div><dt>{{ c.rotulo }}</dt><dd>{{ c.valor }}</dd></div>{% endfor %}</dl>
+</section>
+{% if m.campanhas %}
+<div class="cols">
+  {% for c in m.campanhas %}
+  <section class="card" data-in style="--i:{{ loop.index }}">
+    <div class="card-head"><h2>{{ c.nome }}</h2></div>
+    <dl class="dl">{% for i in c.itens if i.rotulo != 'KPI' %}<div><dt>{{ i.rotulo }}</dt><dd>{{ i.valor }}</dd></div>{% endfor %}</dl>
+  </section>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,122 @@
+{#- Página pública da campanha · Centralcomm
+    Layout: navegação lateral (páginas internas) · conteúdo · coluna de contexto.
+    Dados: campanha_acompanhamento_publico.montar_payload_acompanhamento_campanha + contexto_pagina.
+    Prévia da operação: ?fases=1&fase=N simula os marcos concluídos. -#}
+{% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#0E1915">
+<meta name="robots" content="noindex, nofollow">
+<title>{% if pagina_info and pagina != 'geral' %}{{ pagina_info.rotulo }} · {% endif %}{{ campanha.campanha }} · Centralcomm</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=34">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanha_publica.css') }}?v=4">
+</head>
+<body>
+<div class="app">
+  <nav class="side" aria-label="Páginas da campanha">
+   <div class="wrap side-in">
+    <a class="brand" href="https://centralcomm.media" target="_blank" rel="noopener" aria-label="Centralcomm (abre o site)">
+      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="32" height="23">
+      <span><b>Centralcomm</b><small>Acompanhamento</small></span>
+    </a>
+    <ul class="nav">
+      {% for p in ctx.paginas %}
+      <li style="--i:{{ loop.index0 }}">
+        {% if p.ok %}
+        <a href="{{ purl(p.id) }}"{% if p.id == pagina %} aria-current="page"{% endif %}>{{ icon(p.id) }}<span>{{ p.rotulo }}</span></a>
+        {% else %}
+        <span class="off" title="Disponível após: {{ p.bloqueio }}">{{ icon(p.id) }}<span>{{ p.rotulo }}</span><span class="soon">em breve</span></span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="side-foot">
+      Atualizado em<br><b>{{ dlonga(campanha.atualizado_em) }}</b>
+    </div>
+   </div>
+  </nav>
+
+  <div class="content">
+    {% if previa %}
+    <div class="wrap"><div class="previa" role="note">
+      <span>Prévia da operação · ver como fase:</span>
+      <div class="tabs">
+        {% for f in demo_fases %}
+        <a href="{{ purl(pagina, {'fase': loop.index0|string}) }}"{% if fase_atual == loop.index0|string %} aria-current="true"{% endif %}>{{ f.rotulo }}</a>
+        {% endfor %}
+      </div>
+    </div></div>
+    {% endif %}
+
+    <header class="head wrap">
+      <div class="id">
+        <span class="crumb">{{ pagina_info.rotulo if pagina_info else 'Campanha' }}</span>
+        <h1>{{ campanha.campanha }}</h1>
+        <div class="meta">
+          <span><b>{{ campanha.cliente }}</b></span>
+          <span class="mono">{{ campanha.pi }}</span>
+          <span>{{ dlonga(campanha.periodo.inicio) }} – {{ dlonga(campanha.periodo.fim) }}</span>
+        </div>
+      </div>
+      {% block head_cta %}
+      {% if pagina != 'contato' and campanha.executivo %}
+      <div class="head-cta">
+        <a class="cx-btn cx-btn-secondary" href="{{ purl('contato') }}">{{ icon('contato') }}Falar com o executivo</a>
+      </div>
+      {% endif %}
+      {% endblock %}
+    </header>
+
+    <div class="body wrap{% block body_class %}{% endblock %}">
+      <main class="main" id="conteudo">
+        {% block main %}{% endblock %}
+      </main>
+      {% block aside %}
+      <aside class="aside" aria-label="Contexto">
+        {% set atual = ctx.atual %}
+        <section class="card next" data-in style="--i:2">
+          <span class="label">{{ 'Próximo passo' if atual else 'Status' }}</span>
+          {% if atual %}
+          <b>{{ atual.titulo }}</b>
+          <span class="s">
+            <span class="mono">prev. {{ dcurta(atual.previsto) }}</span>
+            <span class="cx-badge {{ 'cx-badge-info' if atual.responsavel == 'cc' else 'cx-badge-warning' }}">{{ 'Centralcomm' if atual.responsavel == 'cc' else 'Cliente' }}</span>
+            {% if atual.atrasado %}<span class="cx-badge cx-badge-danger">atrasado</span>{% endif %}
+          </span>
+          {% else %}
+          <b>Campanha concluída</b>
+          {% endif %}
+        </section>
+        {% if pagina != 'contato' and campanha.executivo %}
+        <section class="card" data-in style="--i:3">
+          <span class="label" style="display:block;margin-bottom:10px">Seu contato</span>
+          {{ pessoa_card(campanha.executivo) }}
+        </section>
+        {% endif %}
+        {% block aside_extra %}{% endblock %}
+      </aside>
+      {% endblock %}
+    </div>
+  </div>
+</div>
+<script>
+/* Mobile: mantém a aba ativa visível na barra rolável. */
+(() => {
+  const a = document.querySelector('.nav a[aria-current="page"]');
+  const nav = document.querySelector(".nav");
+  if (a && nav && nav.scrollWidth > nav.clientWidth) {
+    nav.scrollLeft += a.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12;
+  }
+})();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

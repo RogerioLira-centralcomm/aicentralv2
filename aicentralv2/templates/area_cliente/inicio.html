@@ -5,8 +5,9 @@
 {% set k = resumo.kpis %}
 <div class="ac-page-head ac-enter">
   <div>
-    <h1 class="ac-h1">Olá, {{ usuario.primeiro_nome }}</h1>
-    <p class="ac-lead">Acompanhe os projetos de {{ usuario.cliente_nome }} com a Centralcomm.</p>
+    <p class="ac-eyebrow">Visão geral</p>
+    <h1 class="ac-h1">{{ usuario.cliente_nome }}</h1>
+    <p class="ac-lead">Projetos, campanhas e entregas com a Centralcomm.</p>
   </div>
   <div class="ac-page-head__actions">
     <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos</a>

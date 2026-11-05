@@ -97,7 +97,8 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     resp = _client(app, {"user_id": 501}).get("/", base_url=HOST)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert "Olá, Ana" in html
+    assert "Olá" not in html and "Cliente Teste" in html
+    assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
     assert "Nenhum projeto ainda" in html
     assert 'href="/projetos"' in html
     assert "R$" not in html
@@ -421,7 +422,7 @@ def test_admin_cc_ve_seletor_e_troca_de_cliente(app, monkeypatch):
     resp = client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "80"})
     assert resp.status_code == 303
     html = client.get("/", base_url=HOST).get_data(as_text=True)
-    assert "Você está vendo a Área do Cliente como <b>AGÊNCIA X</b>" in html and "Voltar para CENTRALCOMM" in html
+    assert "Vendo como <b>AGÊNCIA X</b>" in html and "voltar para CENTRALCOMM" in html
     client.post("/ver-como/sair", base_url=HOST, data={"csrf": "tok"})
     with client.session_transaction(base_url=HOST) as sess:
         assert "area_cliente_ver_como" not in sess

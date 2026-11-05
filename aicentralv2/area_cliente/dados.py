@@ -136,7 +136,7 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
     return saida
 
 
-def atividades_recentes(ids_pi, projetos_por_id, limite=8) -> list[dict]:
+def atividades_recentes(ids_pi, projetos_por_id, limite=6) -> list[dict]:
     """Etapas concluídas da operação, com rótulos para o cliente."""
     ids = [int(i) for i in ids_pi or []]
     if not ids:

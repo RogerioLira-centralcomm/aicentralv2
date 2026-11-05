@@ -35,20 +35,6 @@
       </ul>
     </nav>
 
-    <div class="ac-nav ac-nav--cadu">
-      <p class="ac-nav__label">Cadu</p>
-      <ul>
-        {% for item in cadu %}
-        <li>
-          {% if item.em_breve %}
-          <span class="ac-nav__link is-disabled" aria-disabled="true" title="{{ item.rotulo }} · em breve">{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span><em class="ac-nav__soon">Em breve</em></span>
-          {% else %}
-          <a class="ac-nav__link" href="{{ item.url }}" target="_blank" rel="noopener" title="{{ item.rotulo }}">{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span><span class="ac-nav__ext">{{ icon('external', 14) }}</span></a>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
 
     {% if usuario.executivo %}
     <div class="ac-exec" title="Seu executivo: {{ usuario.executivo.nome }}">
@@ -70,6 +56,13 @@
         <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar projetos e PIs" autocomplete="off">
       </form>
       <div class="ac-top__actions">
+        {% if usuario.ver_como %}
+        <form class="ac-viewas" method="post" action="{{ area_url('ver_como_sair') }}" role="status" title="Só leitura: envios ficam desativados">
+          <input type="hidden" name="csrf" value="{{ csrf_global }}">
+          {{ icon('users', 16) }}<span class="ac-viewas__text">Vendo como <b>{{ usuario.cliente_nome }}</b></span>
+          <button type="submit" class="ac-viewas__exit" aria-label="Sair da visualização e voltar para {{ usuario.cliente_real_nome }}">Sair</button>
+        </form>
+        {% endif %}
         <div class="ac-menu" data-ac-menu>
           <button type="button" class="ac-icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Notificações" data-ac-menu-btn>{{ icon('bell') }}</button>
           <div class="ac-menu__panel ac-menu__panel--notes" role="region" aria-label="Notificações" hidden>
@@ -96,19 +89,21 @@
               <button type="submit" class="ac-btn ac-btn--primary ac-btn--sm">{{ icon('users', 16) }}Ver como este cliente</button>
             </form>
             {% endif %}
+            <p class="ac-menu__label">Cadu</p>
+            {% for item in cadu %}
+            {% if item.em_breve %}
+            <span class="ac-menu__item is-disabled" aria-disabled="true">{{ icon(item.icone, 18) }}{{ item.rotulo }}<em class="ac-nav__soon">Em breve</em></span>
+            {% else %}
+            <a class="ac-menu__item" role="menuitem" href="{{ item.url }}" target="_blank" rel="noopener">{{ icon(item.icone, 18) }}{{ item.rotulo }}<span class="ac-nav__ext">{{ icon('external', 14) }}</span></a>
+            {% endif %}
+            {% endfor %}
+            <div class="ac-menu__sep" role="separator"></div>
             <a class="ac-menu__item" role="menuitem" href="{{ area_url('sair') }}">{{ icon('logout', 18) }}Sair</a>
           </div>
         </div>
       </div>
     </header>
 
-    {% if usuario.ver_como %}
-    <div class="ac-viewas" role="status">
-      <span class="ac-viewas__icon">{{ icon('users', 18) }}</span>
-      <p>Você está vendo a Área do Cliente como <b>{{ usuario.cliente_nome }}</b> ({{ usuario.ver_como_tipo|lower }}). Só leitura: envios ficam desativados.</p>
-      <form method="post" action="{{ area_url('ver_como_sair') }}"><input type="hidden" name="csrf" value="{{ csrf_global }}"><button type="submit" class="ac-btn ac-btn--sm ac-btn--secondary">Voltar para {{ usuario.cliente_real_nome }}</button></form>
-    </div>
-    {% endif %}
     <main id="conteudo" class="ac-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>

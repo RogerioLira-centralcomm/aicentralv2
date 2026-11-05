@@ -1,0 +1,150 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, ritmo_badge, barra, vazio %}
+{% block title %}{{ (resumo.titulo if resumo else 'Projeto') }}{% endblock %}
+{% block content %}
+{% set pl = projeto.payload if not projeto.vazio else None %}
+<a class="ac-back" href="{{ area_url('projetos') }}">{{ icon('arrow-left', 16) }}Projetos</a>
+
+<header class="ac-hero ac-enter">
+  <div class="ac-hero__main">
+    <p class="ac-eyebrow">{{ resumo.pi if resumo else 'PI' }} · Visão 360°</p>
+    <h1 class="ac-h1">{{ resumo.titulo if resumo else pl.campanha }}</h1>
+    <div class="ac-hero__meta">
+      {{ status_badge(resumo.status if resumo else '') }}
+      <span>{{ icon('calendar', 16) }}{{ periodo(resumo.periodo if resumo else pl.periodo) }}</span>
+      {% if pl %}<span>{{ icon('clock', 16) }}Atualizado em {{ data_br(pl.atualizado_em) }}</span>{% endif %}
+    </div>
+  </div>
+  {% if pl %}
+  {% set dash = (pl.resultados|selectattr('dash_abrir')|first) %}
+  {% if dash %}<a class="ac-btn ac-btn--primary" href="{{ dash.dash_abrir }}" target="_blank" rel="noopener">{{ icon('chart', 18) }}Abrir dashboard</a>{% endif %}
+  {% endif %}
+</header>
+
+{% if not pl %}
+<div class="ac-card ac-enter">
+  {{ vazio('megaphone', 'As campanhas ainda não foram cadastradas', 'Assim que a operação cadastrar as campanhas deste PI, você vê aqui metas, entregas, cronograma e documentos.', usuario) }}
+</div>
+{% else %}
+{% set ctx = projeto.ctx %}
+<nav class="ac-tabs ac-tabs--anchors ac-enter" aria-label="Seções do projeto">
+  <a class="ac-tabs__item" href="#visao">Visão geral</a>
+  <a class="ac-tabs__item" href="#campanhas">Campanhas</a>
+  <a class="ac-tabs__item" href="#combinados">Combinados</a>
+  <a class="ac-tabs__item" href="#documentos">Documentos</a>
+  <a class="ac-tabs__item" href="#equipe">Equipe</a>
+</nav>
+
+<section id="visao" class="ac-kpis ac-kpis--3 ac-enter" aria-label="Resumo do projeto">
+  <article class="ac-kpi">
+    <p class="ac-kpi__label">Período decorrido</p>
+    <p class="ac-kpi__value">{% if ctx.tempo_pct is not none %}{{ ctx.tempo_pct }}%{% else %}—{% endif %}</p>
+    {{ barra(ctx.tempo_pct, 'Período decorrido') }}
+    <p class="ac-kpi__hint">{% if ctx.dias_restantes is not none %}{{ ctx.dias_restantes }} dias restantes{% else %}Período a definir{% endif %}</p>
+  </article>
+  <article class="ac-kpi">
+    <p class="ac-kpi__label">Etapas concluídas</p>
+    <p class="ac-kpi__value">{{ ctx.n_feitos }}<small> de {{ ctx.n_marcos }}</small></p>
+    {{ barra(ctx.pct, 'Etapas concluídas') }}
+    <p class="ac-kpi__hint">{% if ctx.atual %}Agora: {{ ctx.atual.titulo }}{% else %}Todas as etapas concluídas{% endif %}</p>
+  </article>
+  <article class="ac-kpi">
+    <p class="ac-kpi__label">Entrega média</p>
+    <p class="ac-kpi__value">{% if resumo and resumo.pct is not none %}{{ resumo.pct }}%{% else %}—{% endif %}</p>
+    {{ barra(resumo.pct if resumo else None, 'Entrega média') }}
+    <p class="ac-kpi__hint">Entregue sobre a meta das campanhas</p>
+  </article>
+</section>
+
+<section class="ac-card ac-enter" aria-labelledby="crono-titulo">
+  <header class="ac-card__head"><h2 class="ac-h2" id="crono-titulo">Cronograma</h2></header>
+  <ol class="ac-steps">
+    {% for m in pl.marcos %}
+    <li class="ac-steps__item is-{{ m.estado }}{% if m.atrasado %} is-late{% endif %}">
+      <span class="ac-steps__dot" aria-hidden="true">{% if m.estado == 'done' %}{{ icon('check', 14) }}{% endif %}</span>
+      <div class="ac-steps__body">
+        <p class="ac-steps__title">{{ m.titulo }}</p>
+        <p class="ac-steps__meta">
+          {% if m.realizado %}Concluído em {{ data_br(m.realizado) }}{% elif m.previsto %}Previsto para {{ data_br(m.previsto) }}{% else %}A definir{% endif %}
+          · {{ 'Sua equipe' if m.responsavel == 'cliente' else 'Centralcomm' }}
+        </p>
+      </div>
+      {% if m.estado == 'current' %}<span class="ac-badge ac-badge--brand">Agora</span>{% elif m.atrasado %}<span class="ac-badge ac-badge--warning">Atrasado</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+
+<section id="campanhas" class="ac-section ac-enter" aria-labelledby="camp-titulo">
+  <div class="ac-section__head"><h2 class="ac-h2" id="camp-titulo">Campanhas</h2></div>
+  <div class="ac-campaigns">
+    {% for c in pl.resultados %}
+    <article class="ac-card ac-campaign">
+      <div class="ac-campaign__head">
+        <div>
+          <h3 class="ac-h3">{{ c.nome }}</h3>
+          <p class="ac-card__sub">{{ c.plataforma or '—' }} · {{ c.objetivo }} · {{ periodo(c.periodo) }}</p>
+        </div>
+        <div class="ac-campaign__badges">{% if c.status %}{{ status_badge(c.status) }}{% endif %}{{ ritmo_badge(c.ritmo) }}</div>
+      </div>
+      <dl class="ac-stats">
+        <div><dt>Meta</dt><dd>{{ c.meta_label }}</dd></div>
+        <div><dt>Entregue</dt><dd>{{ c.atingido_label }}</dd></div>
+        <div><dt>Entrega</dt><dd>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</dd></div>
+      </dl>
+      {{ barra(c.pct, 'Entrega de ' ~ c.nome) }}
+      {% if c.tempo_pct is not none %}<p class="ac-perf__meta">{{ c.tempo_pct }}% do período decorrido</p>{% endif %}
+      {% if c.dash_abrir %}<a class="ac-link" href="{{ c.dash_abrir }}" target="_blank" rel="noopener">Ver dashboard{{ icon('external', 14) }}</a>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<div class="ac-grid-2">
+  <section id="combinados" class="ac-card ac-enter" aria-labelledby="comb-titulo">
+    <header class="ac-card__head"><h2 class="ac-h2" id="comb-titulo">Combinados</h2></header>
+    <dl class="ac-defs">
+      {% for item in pl.modulos.combinados.pi %}
+      <div><dt>{{ item.rotulo }}</dt><dd>{{ item.valor }}</dd></div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  <section id="documentos" class="ac-card ac-enter" aria-labelledby="docs-titulo">
+    <header class="ac-card__head"><h2 class="ac-h2" id="docs-titulo">Documentos</h2></header>
+    {% set docs = pl.modulos.documentos.itens + ctx.relatorios_liberados %}
+    {% if docs %}
+    <ul class="ac-files">
+      {% for d in docs %}
+      <li><a class="ac-file" href="{{ d.url }}" target="_blank" rel="noopener"><span class="ac-file__icon">{{ icon('file', 18) }}</span><span class="ac-file__name">{{ d.titulo }}{% if d.data %}<small>{{ data_br(d.data) }}</small>{% endif %}</span>{{ icon('external', 14) }}</a></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {{ vazio('file', 'Nenhum documento ainda', 'PI assinado, plano de mídia e prestação de contas aparecem aqui quando forem anexados.') }}
+    {% endif %}
+  </section>
+</div>
+
+<section id="equipe" class="ac-card ac-enter" aria-labelledby="equipe-titulo">
+  <header class="ac-card__head"><h2 class="ac-h2" id="equipe-titulo">Equipe do projeto</h2></header>
+  <ul class="ac-people">
+    {% for pessoa in [pl.executivo, pl.operacao] if pessoa %}
+    <li class="ac-person">
+      {% if pessoa.foto_url %}<img class="ac-avatar ac-avatar--lg" src="{{ pessoa.foto_url }}" alt="" width="44" height="44">{% else %}<span class="ac-avatar ac-avatar--lg ac-avatar--initials" aria-hidden="true">{{ pessoa.nome[:1]|upper }}</span>{% endif %}
+      <div class="ac-person__text"><b>{{ pessoa.nome }}</b><small>{{ pessoa.papel }} · Centralcomm</small></div>
+      <div class="ac-person__actions">
+        {% if pessoa.whatsapp %}<a class="ac-icon-btn ac-icon-btn--brand" href="{{ pessoa.whatsapp }}" target="_blank" rel="noopener" aria-label="WhatsApp de {{ pessoa.nome }}">{{ icon('whatsapp', 18) }}</a>{% endif %}
+        {% if pessoa.email %}<a class="ac-icon-btn" href="mailto:{{ pessoa.email }}" aria-label="E-mail de {{ pessoa.nome }}">{{ icon('mail', 18) }}</a>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+    {% for pessoa in pl.modulos.contatos.cliente %}
+    <li class="ac-person">
+      <span class="ac-avatar ac-avatar--lg ac-avatar--initials ac-avatar--soft" aria-hidden="true">{{ pessoa.nome[:1]|upper }}</span>
+      <div class="ac-person__text"><b>{{ pessoa.nome }}</b><small>{{ pessoa.papel }}</small></div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

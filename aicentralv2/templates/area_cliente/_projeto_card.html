@@ -1,0 +1,14 @@
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, barra %}
+<a class="ac-project" href="{{ area_url('projeto', id_pi=p.id) }}">
+  <div class="ac-project__top">
+    <span class="ac-project__code">{{ p.pi }}</span>
+    {{ status_badge(p.status) }}
+  </div>
+  <h3 class="ac-project__title">{{ p.titulo }}</h3>
+  <p class="ac-project__meta">{{ icon('calendar', 16) }}{{ periodo(p.periodo) }}</p>
+  <p class="ac-project__meta">{{ icon('megaphone', 16) }}{{ p.n_campanhas }} {{ 'campanha' if p.n_campanhas == 1 else 'campanhas' }}{% if p.plataformas %} · {{ p.plataformas|join(', ') }}{% endif %}</p>
+  <div class="ac-project__progress">
+    <div class="ac-project__progress-row"><span>Entrega</span><b>{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</b></div>
+    {{ barra(p.pct, 'Entrega de ' ~ p.titulo) }}
+  </div>
+</a>

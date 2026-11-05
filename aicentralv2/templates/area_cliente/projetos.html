@@ -1,0 +1,34 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}Projetos{% endblock %}
+{% block content %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">Projetos</h1>
+    <p class="ac-lead">Cada PI fechado com a Centralcomm é um projeto, com campanhas, entregas e documentos.</p>
+  </div>
+</div>
+
+<div class="ac-toolbar ac-enter">
+  <nav class="ac-tabs" aria-label="Filtrar projetos">
+    {% for id, rotulo in [('todos', 'Todos'), ('ativos', 'Ativos'), ('encerrados', 'Encerrados')] %}
+    <a class="ac-tabs__item{% if filtro == id %} is-active{% endif %}" href="{{ area_url('projetos') }}?status={{ id }}{% if termo %}&amp;q={{ termo|urlencode }}{% endif %}"{% if filtro == id %} aria-current="page"{% endif %}>{{ rotulo }}</a>
+    {% endfor %}
+  </nav>
+  {% if termo %}<p class="ac-toolbar__note">Resultados para “{{ termo }}” · <a class="ac-link" href="{{ area_url('projetos') }}?status={{ filtro }}">limpar busca</a></p>{% endif %}
+</div>
+
+{% if projetos %}
+<div class="ac-project-grid ac-enter">
+  {% for p in projetos %}{% include 'area_cliente/_projeto_card.html' %}{% endfor %}
+</div>
+{% else %}
+<div class="ac-card ac-enter">
+  {% if termo %}
+  {{ vazio('search', 'Nenhum projeto encontrado', 'Tente o código do PI ou outra palavra do título.') }}
+  {% else %}
+  {{ vazio('folder', 'Nenhum projeto por aqui', 'Quando um PI for fechado com a Centralcomm, ele aparece nesta lista com as campanhas e entregas.', usuario) }}
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -540,6 +540,10 @@ def create_app(config_class=Config):
         from .product_domains import register_product_host_routing
         register_product_host_routing(app)
 
+        # Área do Cliente: só responde no host CLIENTES_URL (despacho próprio).
+        from .area_cliente import register as register_area_cliente
+        register_area_cliente(app)
+
         # Redirect da rota legada /teste-crm para /crm-v3 (mantido 1-2 sprints)
         from flask import redirect as _redirect, url_for as _url_for
 

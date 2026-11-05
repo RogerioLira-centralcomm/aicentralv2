@@ -52,5 +52,17 @@
       <div class="crm-v3-cadu-contact-status__head"><span>Uso do Cadu</span><b data-cadu-contact-access></b></div>
       <p data-cadu-contact-copy></p>
     </section>
+    {# Área do Cliente (clientes.centralcomm.media): salva na hora, fora do "Salvar". #}
+    <section class="cx-drawer-section crm-v3-area-cliente" data-area-cliente hidden>
+      <label class="cx-drawer-toggle">
+        <input type="checkbox" data-area-cliente-toggle />
+        <span class="cx-drawer-toggle-switch" aria-hidden="true"></span>
+        <span class="cx-drawer-toggle-label">
+          <strong>Acesso à Área do Cliente</strong>
+          <small data-area-cliente-copy>Entra em clientes.centralcomm.media com o mesmo e-mail e senha do Cadu.</small>
+        </span>
+      </label>
+      <p class="crm-v3-area-cliente__warn" data-area-cliente-warn hidden>Este contato ainda não tem senha do Cadu. Envie o convite para ele conseguir entrar.</p>
+    </section>
   </form>
 </template>

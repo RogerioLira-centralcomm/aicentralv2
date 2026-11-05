@@ -58,6 +58,21 @@
         "tests/frontend/video_editor_dev_server.py"
       ],
       "port": 5077
+    },
+    {
+      "name": "flask-clientes",
+      "runtimeExecutable": "/usr/bin/env",
+      "runtimeArgs": [
+        "CLIENTES_URL=http://clientes.localhost:5052",
+        ".venv/bin/flask",
+        "--app",
+        "run:app",
+        "run",
+        "--port",
+        "5052"
+      ],
+      "port": 5052,
+      "url": "http://clientes.localhost:5052"
     }
   ]
 }

@@ -1,0 +1,75 @@
+{# Ícones de linha (traço 1.75, 20px), no estilo Untitled UI. #}
+{% macro icon(name, size=20) -%}
+<svg class="ac-icon" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{%- if name == 'home' -%}<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/>
+{%- elif name == 'folder' -%}<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>
+{%- elif name == 'megaphone' -%}<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/>
+{%- elif name == 'compass' -%}<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/>
+{%- elif name == 'broadcast' -%}<circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4"/><path d="M19 5a10 10 0 0 1 0 14M5 19A10 10 0 0 1 5 5"/>
+{%- elif name == 'chart' -%}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+{%- elif name == 'file' -%}<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>
+{%- elif name == 'users' -%}<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-4-6"/>
+{%- elif name == 'plug' -%}<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0Z"/><path d="M12 17v4"/>
+{%- elif name == 'sparkles' -%}<path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/>
+{%- elif name == 'shield' -%}<path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.3 7.5 9.5 4.3-1.2 7.5-4.9 7.5-9.5V6Z"/><path d="m9 12 2 2 4-4"/>
+{%- elif name == 'flow' -%}<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.5 6H14a3 3 0 0 1 3 3v6.5"/><path d="M6 8.5V15a3 3 0 0 0 3 3h6.5"/>
+{%- elif name == 'search' -%}<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+{%- elif name == 'bell' -%}<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z"/><path d="M10 20a2 2 0 0 0 4 0"/>
+{%- elif name == 'menu' -%}<path d="M3 6h18M3 12h18M3 18h18"/>
+{%- elif name == 'close' -%}<path d="M6 6l12 12M18 6 6 18"/>
+{%- elif name == 'chevron-down' -%}<path d="m6 9 6 6 6-6"/>
+{%- elif name == 'chevron-right' -%}<path d="m9 6 6 6-6 6"/>
+{%- elif name == 'arrow-left' -%}<path d="M19 12H5M11 18l-6-6 6-6"/>
+{%- elif name == 'external' -%}<path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/>
+{%- elif name == 'calendar' -%}<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>
+{%- elif name == 'check' -%}<path d="m5 12.5 4.5 4.5L19 7.5"/>
+{%- elif name == 'clock' -%}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{%- elif name == 'whatsapp' -%}<path d="M4 20l1.3-3.9A8.5 8.5 0 1 1 8.1 19Z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.3-2-1-1 .8a4 4 0 0 1-2.2-2.2l.8-1-1-2Z"/>
+{%- elif name == 'mail' -%}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/>
+{%- elif name == 'logout' -%}<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l-5-5 5-5M5 12h11"/>
+{%- elif name == 'lock' -%}<rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+{%- elif name == 'target' -%}<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>
+{%- elif name == 'activity' -%}<path d="M3 12h4l3-8 4 16 3-8h4"/>
+{%- else -%}<circle cx="12" cy="12" r="9"/>
+{%- endif -%}
+</svg>
+{%- endmacro %}
+
+{% macro data_br(valor) -%}
+{%- if valor -%}{% set v = valor|string %}{{ v[8:10] }}/{{ v[5:7] }}/{{ v[0:4] }}{%- else -%}—{%- endif -%}
+{%- endmacro %}
+
+{% macro periodo(p) -%}
+{%- if p and (p.inicio or p.fim) -%}{{ data_br(p.inicio) }} a {{ data_br(p.fim) }}{%- else -%}Período a definir{%- endif -%}
+{%- endmacro %}
+
+{% macro status_badge(texto, ativo=False) -%}
+{% set t = (texto or '')|lower %}
+{% set tom = 'success' if ('andamento' in t or 'ativ' in t) else ('brand' if 'configura' in t else ('warning' if 'aprova' in t else 'gray')) %}
+<span class="ac-badge ac-badge--{{ tom }}"><span class="ac-badge__dot" aria-hidden="true"></span>{{ texto or 'Em preparação' }}</span>
+{%- endmacro %}
+
+{% macro ritmo_badge(ritmo) -%}
+{% if ritmo == 'adiantado' %}<span class="ac-badge ac-badge--success">Adiantada</span>
+{% elif ritmo == 'no_ritmo' %}<span class="ac-badge ac-badge--brand">No ritmo</span>
+{% elif ritmo == 'atencao' %}<span class="ac-badge ac-badge--warning">Atenção</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro barra(pct, rotulo) -%}
+{% set largura = [[pct or 0, 0]|max, 100]|min %}
+<div class="ac-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct or 0 }}" aria-label="{{ rotulo }}">
+  <span class="ac-progress__fill" style="width: {{ largura }}%"></span>
+</div>
+{%- endmacro %}
+
+{% macro vazio(icone, titulo, texto, usuario=None) -%}
+<div class="ac-empty">
+  <span class="ac-empty__icon">{{ icon(icone, 24) }}</span>
+  <p class="ac-empty__title">{{ titulo }}</p>
+  <p class="ac-empty__text">{{ texto }}</p>
+  {% if usuario and usuario.executivo and usuario.executivo.whatsapp %}
+  <a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ usuario.executivo.whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}Falar com {{ usuario.executivo.nome.split()[0] }}</a>
+  {% endif %}
+</div>
+{%- endmacro %}

@@ -6692,3 +6692,10 @@ img.crm-v3-avatar-mini {
 .crm-v3-para-lead__motivo { display: grid; gap: 6px; font-weight: 600; }
 .crm-v3-para-lead__motivo textarea { font: inherit; font-weight: 400; padding: 8px 10px; border: 1px solid var(--cx-border, #d0d5dd); border-radius: 8px; resize: vertical; }
 .crm-v3-para-lead__acoes { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Área do Cliente: selo no card do contato e interruptor no drawer. */
+.crm-v3-area-cliente-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;background:#e8f5f1;border:1px solid #a8ddd0;padding:2px 7px;color:#055c50;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap}
+.crm-v3-area-cliente-badge i{font-size:12px}
+.crm-v3-area-cliente{margin-top:4px;padding:13px 14px!important;border:1px solid #e2ebe7!important;border-radius:10px;background:#fff}
+.crm-v3-area-cliente .cx-drawer-toggle-label small{display:block;margin-top:2px;color:var(--crm-text-muted);font-size:12px;font-weight:400;line-height:1.4}
+.crm-v3-area-cliente__warn{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fffaeb;color:#b54708;font-size:12px;line-height:1.4}

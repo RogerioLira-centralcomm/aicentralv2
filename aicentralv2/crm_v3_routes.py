@@ -462,6 +462,25 @@ def api_update_contato(contato_id):
     return _ok(contato, contato=contato, cliente_id=cliente_id)
 
 
+@bp.route("/api/contatos/<contato_id>/area-cliente", methods=["PUT"])
+@login_required_api
+def api_area_cliente_contato(contato_id):
+    """Libera ou revoga a Área do Cliente (clientes.centralcomm.media) do contato."""
+    if not session.get("is_centralcomm"):
+        return _err("Só a equipe CentralComm libera a Área do Cliente.", 403)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("ativo"), bool):
+        return _err("Informe ativo como verdadeiro ou falso.")
+    from .area_cliente.acesso import definir_acesso, ultima_liberacao
+    try:
+        resultado = definir_acesso(contato_id, data["ativo"], session.get("user_id"))
+    except RuntimeError as e:
+        return _err(str(e), 409)
+    if not resultado:
+        return _err("Contato não encontrado", 404)
+    return _ok(resultado, area_cliente=resultado, liberacao=ultima_liberacao(contato_id))
+
+
 @bp.route("/api/clientes/<cliente_id>/atividades")
 @login_required_api
 def api_atividades(cliente_id):

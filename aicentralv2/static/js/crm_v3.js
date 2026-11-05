@@ -2438,7 +2438,10 @@
             muito_uso: 'Cadu: muito uso'
         }[level] || 'Cadu sem acesso';
         var icon = level === 'sem_acesso' ? 'fa-lock' : 'fa-wand-magic-sparkles';
-        return '<span class="crm-v3-cadu-usage is-' + escapeHtml(level) + '" title="' + escapeHtml(label) + '"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(label) + '</span></span>';
+        var area = contato.area_cliente_acesso
+            ? '<span class="crm-v3-area-cliente-badge" title="Acesso liberado à Área do Cliente"><i class="fa-solid fa-door-open" aria-hidden="true"></i><span>Área do Cliente</span></span>'
+            : '';
+        return '<span class="crm-v3-cadu-usage is-' + escapeHtml(level) + '" title="' + escapeHtml(label) + '"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(label) + '</span></span>' + area;
     }
 
     function contatoDetailsHtml(c) {

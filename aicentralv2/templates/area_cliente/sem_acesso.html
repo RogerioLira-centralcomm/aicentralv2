@@ -1,0 +1,33 @@
+{% from 'area_cliente/_macros.html' import icon %}<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Acesso ainda não liberado · Centralcomm</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+</head>
+<body data-cadu-skin="workspace" data-cadu-theme="light" class="ac-gate">
+<main class="ac-gate__card ac-enter">
+  <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Centralcomm" width="40" height="40">
+  <span class="ac-gate__icon">{{ icon('lock', 24) }}</span>
+  <h1 class="ac-h1">Acesso ainda não liberado</h1>
+  <p class="ac-lead">Olá, {{ usuario.primeiro_nome }}. Sua conta de {{ usuario.cliente_nome }} entrou, mas a Área do Cliente ainda não foi liberada para o seu usuário. Peça ao seu executivo na Centralcomm.</p>
+  {% if usuario.executivo %}
+  <div class="ac-gate__exec">
+    {% if usuario.executivo.foto_url %}<img class="ac-avatar ac-avatar--lg" src="{{ usuario.executivo.foto_url }}" alt="" width="44" height="44">{% else %}<span class="ac-avatar ac-avatar--lg ac-avatar--initials" aria-hidden="true">{{ usuario.executivo.nome[:1]|upper }}</span>{% endif %}
+    <div class="ac-person__text"><b>{{ usuario.executivo.nome }}</b><small>Executivo(a) da sua conta</small></div>
+  </div>
+  <div class="ac-gate__actions">
+    {% if usuario.executivo.whatsapp %}<a class="ac-btn ac-btn--primary" href="{{ usuario.executivo.whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Chamar no WhatsApp</a>{% endif %}
+    {% if usuario.executivo.email %}<a class="ac-btn ac-btn--secondary" href="mailto:{{ usuario.executivo.email }}?subject=Acesso%20%C3%A0%20%C3%81rea%20do%20Cliente">{{ icon('mail', 18) }}Enviar e-mail</a>{% endif %}
+  </div>
+  {% endif %}
+  <a class="ac-link ac-gate__out" href="{{ area_url('sair') }}">Entrar com outra conta</a>
+</main>
+</body>
+</html>

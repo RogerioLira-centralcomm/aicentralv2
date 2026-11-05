@@ -1,0 +1,16 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block content %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">{{ titulo }}</h1>
+  </div>
+</div>
+<div class="ac-card ac-soon ac-enter">
+  <span class="ac-soon__icon">{{ icon(icone, 28) }}</span>
+  <span class="ac-badge ac-badge--brand">Em preparação</span>
+  <p class="ac-soon__text">{{ texto }}</p>
+  <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos enquanto isso</a>
+</div>
+{% endblock %}

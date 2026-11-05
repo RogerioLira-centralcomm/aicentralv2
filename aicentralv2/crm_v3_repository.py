@@ -868,7 +868,15 @@ class CrmV3Repository:
         if not cliente:
             return None
         rows = _db().obter_contatos_por_cliente(cliente_id) or []
-        return [self._map_contato(r) for r in rows]
+        contatos = [self._map_contato(r) for r in rows]
+        # Área do Cliente: flag por contato + última liberação (tolera banco sem migração).
+        from .area_cliente.acesso import flags_por_cliente, liberacoes_por_cliente
+        flags = flags_por_cliente(cliente_id)
+        liberacoes = liberacoes_por_cliente(cliente_id) if flags else {}
+        for contato in contatos:
+            contato["area_cliente_acesso"] = bool(flags.get(contato["id"]))
+            contato["area_cliente_liberacao"] = liberacoes.get(contato["id"])
+        return contatos
 
     def get_contato(self, contato_id: str) -> Optional[Dict[str, Any]]:
         return self._map_contato(_db().obter_contato_por_id(contato_id))

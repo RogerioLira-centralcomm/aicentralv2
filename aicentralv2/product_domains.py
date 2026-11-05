@@ -22,6 +22,7 @@ PRODUCT_CONFIG_KEYS = {
     "connect": "CONNECT_URL",
     "workspace": "WORKSPACE_URL",
     "auth": "AUTH_URL",
+    "clientes": "CLIENTES_URL",
 }
 
 

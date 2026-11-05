@@ -2846,6 +2846,47 @@
        Drawer: Contato
        ----------------------------------------------------------- */
 
+    // Área do Cliente: liga/desliga na hora (reversível, então sem confirmação).
+    function bindAreaCliente(wrapper, contato, clienteId) {
+        var section = wrapper.querySelector('[data-area-cliente]');
+        if (!section || !contato || !contato.id) return;
+        var input = section.querySelector('[data-area-cliente-toggle]');
+        var copy = section.querySelector('[data-area-cliente-copy]');
+        var warn = section.querySelector('[data-area-cliente-warn]');
+        var padrao = copy ? copy.textContent : '';
+        function pintar(info) {
+            input.checked = !!contato.area_cliente_acesso;
+            if (warn) warn.hidden = !(input.checked && !contato.cadu_access_enabled);
+            if (copy) {
+                copy.textContent = info && info.autor
+                    ? (info.acao === 'REVOKE' ? 'Revogado por ' : 'Liberado por ') + info.autor + ' em ' + info.em + '.'
+                    : padrao;
+            }
+        }
+        section.hidden = false;
+        pintar(contato.area_cliente_liberacao);
+        input.addEventListener('change', function () {
+            var ativo = input.checked;
+            input.disabled = true;
+            apiFetch('/contatos/' + encodeURIComponent(contato.id) + '/area-cliente', {
+                method: 'PUT',
+                body: { ativo: ativo }
+            }).then(function (resp) {
+                contato.area_cliente_acesso = ativo;
+                contato.area_cliente_liberacao = resp && resp.liberacao;
+                pintar(contato.area_cliente_liberacao);
+                toast(ativo ? 'Área do Cliente liberada' : 'Acesso à Área do Cliente revogado');
+                notifyEntityUpdated('cliente', clienteId);
+                if (window.crmV3 && typeof window.crmV3.reloadClientes === 'function') {
+                    window.crmV3.reloadClientes();
+                }
+            }).catch(function (err) {
+                input.checked = !ativo;
+                toast(err.message || 'Não foi possível alterar o acesso.', true);
+            }).then(function () { input.disabled = false; });
+        });
+    }
+
     function openDrawerContato(contato, clienteId) {
         var frag = cloneTpl('cx-drawer-contato-tpl');
         if (!frag) return;
@@ -2869,6 +2910,7 @@
                     : (level === 'nunca_usou' ? 'Possui acesso ao Cadu, mas ainda não registrou uso.' : tokens + ' Tokens Cadu consumidos.');
             }
         }
+        bindAreaCliente(wrapper, contato, clienteId);
         // Popula cargos/setores reais (tbl_cargo_contato / tbl_setor) —
         // antes eram inputs livres, agora combos padronizados. Passa o
         // `contato` para preservar seleção existente.

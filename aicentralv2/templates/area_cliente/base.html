@@ -1,0 +1,148 @@
+{% from 'area_cliente/_macros.html' import icon %}<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}Área do Cliente{% endblock %} · Centralcomm</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+</head>
+<body data-cadu-skin="workspace" data-cadu-theme="light">
+<a class="ac-skip" href="#conteudo">Pular para o conteúdo</a>
+<div class="ac-app">
+  <aside class="ac-side" id="ac-side" aria-label="Navegação da Área do Cliente">
+    <div class="ac-side__head">
+      <a class="ac-brand" href="{{ area_url('inicio') }}">
+        <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="32" height="32">
+        <span class="ac-brand__text"><b>Centralcomm</b><small>Área do Cliente</small></span>
+      </a>
+      <button type="button" class="ac-icon-btn ac-side__close" data-ac-close aria-label="Fechar menu">{{ icon('close') }}</button>
+    </div>
+
+    <div class="ac-account-chip" title="{{ usuario.cliente_nome }}">
+      <span class="ac-account-chip__mark" aria-hidden="true">{{ usuario.cliente_nome[:1]|upper }}</span>
+      <span class="ac-account-chip__name">{{ usuario.cliente_nome }}</span>
+    </div>
+
+    <nav class="ac-nav" aria-label="Seções">
+      <ul>
+        {% for item in nav %}
+        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span>{{ item.rotulo }}</span></a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+
+    <div class="ac-nav ac-nav--cadu">
+      <p class="ac-nav__label">Cadu</p>
+      <ul>
+        {% for item in cadu %}
+        <li>
+          {% if item.em_breve %}
+          <span class="ac-nav__link is-disabled" aria-disabled="true">{{ icon(item.icone) }}<span>{{ item.rotulo }}</span><em class="ac-nav__soon">Em breve</em></span>
+          {% else %}
+          <a class="ac-nav__link" href="{{ item.url }}" target="_blank" rel="noopener">{{ icon(item.icone) }}<span>{{ item.rotulo }}</span><span class="ac-nav__ext">{{ icon('external', 14) }}</span></a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    {% if usuario.executivo %}
+    <div class="ac-exec">
+      {% if usuario.executivo.foto_url %}<img class="ac-avatar" src="{{ usuario.executivo.foto_url }}" alt="" width="36" height="36">{% else %}<span class="ac-avatar ac-avatar--initials" aria-hidden="true">{{ usuario.executivo.nome[:1]|upper }}</span>{% endif %}
+      <div class="ac-exec__text"><small>Seu executivo</small><b>{{ usuario.executivo.nome }}</b></div>
+      {% if usuario.executivo.whatsapp %}<a class="ac-icon-btn ac-icon-btn--brand" href="{{ usuario.executivo.whatsapp }}" target="_blank" rel="noopener" aria-label="WhatsApp de {{ usuario.executivo.nome }}">{{ icon('whatsapp', 18) }}</a>
+      {% elif usuario.executivo.email %}<a class="ac-icon-btn" href="mailto:{{ usuario.executivo.email }}" aria-label="E-mail de {{ usuario.executivo.nome }}">{{ icon('mail', 18) }}</a>{% endif %}
+    </div>
+    {% endif %}
+  </aside>
+  <div class="ac-scrim" data-ac-close hidden></div>
+
+  <div class="ac-main">
+    <header class="ac-top">
+      <button type="button" class="ac-icon-btn ac-top__menu" data-ac-open aria-controls="ac-side" aria-expanded="false" aria-label="Abrir menu">{{ icon('menu') }}</button>
+      <form class="ac-search" action="{{ area_url('projetos') }}" method="get" role="search">
+        <label class="ac-sr" for="ac-busca">Buscar projetos</label>
+        {{ icon('search', 18) }}
+        <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar projetos e PIs" autocomplete="off">
+      </form>
+      <div class="ac-top__actions">
+        <div class="ac-menu" data-ac-menu>
+          <button type="button" class="ac-icon-btn" aria-haspopup="true" aria-expanded="false" aria-label="Notificações" data-ac-menu-btn>{{ icon('bell') }}</button>
+          <div class="ac-menu__panel ac-menu__panel--notes" role="region" aria-label="Notificações" hidden>
+            <p class="ac-menu__title">Notificações</p>
+            <p class="ac-menu__empty">Nenhuma novidade por enquanto. Avisamos aqui quando uma campanha entrar no ar ou um relatório ficar pronto.</p>
+          </div>
+        </div>
+        <div class="ac-menu" data-ac-menu>
+          <button type="button" class="ac-user" aria-haspopup="true" aria-expanded="false" data-ac-menu-btn>
+            {% if usuario.foto_url %}<img class="ac-avatar" src="{{ usuario.foto_url }}" alt="" width="32" height="32">{% else %}<span class="ac-avatar ac-avatar--initials" aria-hidden="true">{{ usuario.iniciais }}</span>{% endif %}
+            <span class="ac-user__name">{{ usuario.primeiro_nome }}</span>
+            {{ icon('chevron-down', 16) }}
+          </button>
+          <div class="ac-menu__panel" role="menu" hidden>
+            <div class="ac-menu__who"><b>{{ usuario.nome }}</b><small>{{ usuario.email }}</small></div>
+            <a class="ac-menu__item" role="menuitem" href="{{ area_url('sair') }}">{{ icon('logout', 18) }}Sair</a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="conteudo" class="ac-content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<script>
+(function () {
+  var side = document.getElementById('ac-side');
+  var scrim = document.querySelector('.ac-scrim');
+  var opener = document.querySelector('[data-ac-open]');
+  function setOpen(open) {
+    document.body.classList.toggle('ac-side-open', open);
+    scrim.hidden = !open;
+    opener.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { var first = side.querySelector('a, button'); if (first) first.focus(); }
+    else { opener.focus(); }
+  }
+  opener.addEventListener('click', function () { setOpen(true); });
+  document.querySelectorAll('[data-ac-close]').forEach(function (el) {
+    el.addEventListener('click', function () { setOpen(false); });
+  });
+
+  var menus = Array.prototype.slice.call(document.querySelectorAll('[data-ac-menu]'));
+  function closeMenus(except) {
+    menus.forEach(function (m) {
+      if (m === except) return;
+      m.querySelector('[data-ac-menu-btn]').setAttribute('aria-expanded', 'false');
+      m.querySelector('.ac-menu__panel').hidden = true;
+    });
+  }
+  menus.forEach(function (m) {
+    var btn = m.querySelector('[data-ac-menu-btn]');
+    var panel = m.querySelector('.ac-menu__panel');
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var open = panel.hidden;
+      closeMenus(m);
+      panel.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  });
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('[data-ac-menu]')) closeMenus(null);
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    if (document.body.classList.contains('ac-side-open')) setOpen(false);
+    var aberto = menus.find(function (m) { return !m.querySelector('.ac-menu__panel').hidden; });
+    if (aberto) { closeMenus(null); aberto.querySelector('[data-ac-menu-btn]').focus(); }
+  });
+})();
+</script>
+</body>
+</html>

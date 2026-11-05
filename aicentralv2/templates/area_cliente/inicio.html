@@ -1,0 +1,110 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, barra, vazio %}
+{% block title %}Início{% endblock %}
+{% block content %}
+{% set k = resumo.kpis %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">Olá, {{ usuario.primeiro_nome }}</h1>
+    <p class="ac-lead">Acompanhe os projetos de {{ usuario.cliente_nome }} com a Centralcomm.</p>
+  </div>
+  <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos</a>
+</div>
+
+<section class="ac-kpis ac-enter" aria-label="Indicadores">
+  <article class="ac-kpi">
+    <span class="ac-kpi__icon">{{ icon('folder') }}</span>
+    <p class="ac-kpi__label">Projetos ativos</p>
+    <p class="ac-kpi__value">{{ k.projetos_ativos }}</p>
+    <p class="ac-kpi__hint">{{ k.projetos_total }} no total</p>
+  </article>
+  <article class="ac-kpi">
+    <span class="ac-kpi__icon">{{ icon('broadcast') }}</span>
+    <p class="ac-kpi__label">Campanhas no ar</p>
+    <p class="ac-kpi__value">{{ k.campanhas_no_ar }}</p>
+    <p class="ac-kpi__hint">{{ k.campanhas_total }} campanhas nos projetos</p>
+  </article>
+  <article class="ac-kpi">
+    <span class="ac-kpi__icon">{{ icon('target') }}</span>
+    <p class="ac-kpi__label">Entrega média</p>
+    <p class="ac-kpi__value">{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</p>
+    <p class="ac-kpi__hint">Entregue sobre a meta, campanhas no ar</p>
+  </article>
+  <article class="ac-kpi">
+    <span class="ac-kpi__icon">{{ icon('chart') }}</span>
+    <p class="ac-kpi__label">Dashboards</p>
+    <p class="ac-kpi__value">{{ k.dashboards }}</p>
+    <p class="ac-kpi__hint">Atualizados diariamente</p>
+  </article>
+</section>
+
+<div class="ac-grid-2">
+  <section class="ac-card ac-enter" aria-labelledby="perf-titulo">
+    <header class="ac-card__head">
+      <div>
+        <h2 class="ac-h2" id="perf-titulo">Performance de mídia</h2>
+        <p class="ac-card__sub">Entregue sobre a meta contratada de cada campanha.</p>
+      </div>
+    </header>
+    {% if resumo.performance %}
+    <ul class="ac-perf">
+      {% for c in resumo.performance %}
+      <li class="ac-perf__item">
+        <div class="ac-perf__top">
+          <div class="ac-perf__name">
+            <b>{{ c.nome }}</b>
+            <small>{{ c.plataforma or c.objetivo }}{% if c.dias_restantes is not none and c.no_ar %} · {{ c.dias_restantes }} dias restantes{% endif %}</small>
+          </div>
+          <div class="ac-perf__pct">{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}{{ ritmo_badge(c.ritmo) }}</div>
+        </div>
+        {{ barra(c.pct, 'Entrega de ' ~ c.nome) }}
+        <p class="ac-perf__meta">{{ c.atingido_label }} de {{ c.meta_label }} · {{ c.objetivo }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {{ vazio('chart', 'Nenhuma campanha com meta ainda', 'Quando uma campanha entrar no ar, a entrega dela em relação à meta aparece aqui, atualizada todos os dias.', usuario) }}
+    {% endif %}
+  </section>
+
+  <section class="ac-card ac-enter" aria-labelledby="ativ-titulo">
+    <header class="ac-card__head">
+      <div>
+        <h2 class="ac-h2" id="ativ-titulo">Atividades recentes</h2>
+        <p class="ac-card__sub">O que a operação concluiu nos seus projetos.</p>
+      </div>
+    </header>
+    {% if resumo.atividades %}
+    <ol class="ac-feed">
+      {% for a in resumo.atividades %}
+      <li class="ac-feed__item">
+        <span class="ac-feed__dot" aria-hidden="true">{{ icon('check', 14) }}</span>
+        <div>
+          <p class="ac-feed__title">{{ a.titulo }}</p>
+          <p class="ac-feed__meta"><a href="{{ area_url('projeto', id_pi=a.projeto_id) }}">{{ a.projeto }}</a> · {{ a.em.strftime('%d/%m/%Y') }}</p>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    {{ vazio('activity', 'Sem atividades por enquanto', 'Aprovação do PI, recebimento de materiais, início das campanhas e fechamentos vão aparecer aqui.') }}
+    {% endif %}
+  </section>
+</div>
+
+<section class="ac-section ac-enter" aria-labelledby="dest-titulo">
+  <div class="ac-section__head">
+    <h2 class="ac-h2" id="dest-titulo">Projetos em destaque</h2>
+    {% if resumo.destaque %}<a class="ac-link" href="{{ area_url('projetos') }}">Ver todos{{ icon('chevron-right', 16) }}</a>{% endif %}
+  </div>
+  {% if resumo.destaque %}
+  <div class="ac-project-grid">
+    {% for p in resumo.destaque %}{% include 'area_cliente/_projeto_card.html' %}{% endfor %}
+  </div>
+  {% else %}
+  <div class="ac-card">
+    {{ vazio('folder', 'Nenhum projeto ainda', 'Cada PI fechado com a Centralcomm vira um projeto aqui, com campanhas, entregas, documentos e o time responsável.', usuario) }}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

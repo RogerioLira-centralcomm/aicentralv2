@@ -17,6 +17,7 @@ DOMAINS=(
   reports.centralcomm.media
   workspace.centralcomm.media
   auth.centralcomm.media
+  clientes.centralcomm.media
 )
 
 if ! command -v certbot >/dev/null 2>&1; then

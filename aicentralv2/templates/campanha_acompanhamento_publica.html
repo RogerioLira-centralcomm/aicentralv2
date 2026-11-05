@@ -138,6 +138,14 @@
 
   .embed { position: relative; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; aspect-ratio: 16 / 10; min-height: 420px; }
   .embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .dash-open { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+  .dash-open p { margin: 0; font-size: 14px; max-width: 52ch; }
+  .dash-open a.btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px;
+    background: var(--accent); color: var(--surface); font-weight: 600; text-decoration: none; white-space: nowrap;
+  }
+  .dash-open a.btn:hover { filter: brightness(1.05); }
+  .dash-hint { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.45; }
   .embed .ph { position: absolute; inset: 0; display: grid; grid-template-rows: auto 1fr; gap: 16px; padding: 20px; }
   .ph .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
   .ph .kpis div, .ph .chart { border-radius: 8px; background: var(--accent-soft); opacity: .7; }
@@ -258,9 +266,13 @@ function render(cfg) {
   }).join("");
 
   // Módulos liberados pelos marcos concluídos
-  const liberado = mod => mod && feitos.has(mod.aparece_apos) && mod.ativo !== false;
+  const liberado = (k, mod) => {
+    if (!mod || mod.ativo === false) return false;
+    if (k === "dashboard" && (mod.url_embed || mod.url_abrir)) return true;
+    return feitos.has(mod.aparece_apos);
+  };
   document.getElementById("modules").innerHTML = ORDEM_MODULOS
-    .filter(k => liberado(cfg.modulos[k]))
+    .filter(k => liberado(k, cfg.modulos[k]))
     .map(k => MODULOS[k](cfg.modulos[k], cfg, feitos)).join("");
 
   document.getElementById("footer").innerHTML = `
@@ -276,14 +288,23 @@ function render(cfg) {
 const head = (titulo, extra = "") => `<div class="module-head"><h2>${esc(titulo)}</h2>${extra ? `<span class="muted">${extra}</span>` : ""}</div>`;
 
 const MODULOS = {
-  dashboard: m => `<section class="module">
-    ${head(m.titulo, esc(m.descricao))}
-    <div class="embed">${m.url_embed
-      ? `<iframe src="${esc(m.url_embed)}" title="${esc(m.titulo)}" loading="lazy" allowfullscreen
-           sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>`
-      : `<div class="ph" aria-hidden="true"><div class="kpis"><div></div><div></div><div></div><div></div></div><div class="chart"></div></div>
-         <span class="note">Looker Studio · cole o link em url_embed</span>`}
-    </div></section>`,
+  dashboard: m => {
+    const abrir = m.url_abrir || m.url_embed;
+    const card = abrir ? `<div class="card dash-open">
+      <div><p><strong>Acesse o relatório no Looker Studio.</strong> Use o botão ao lado (login Google, se solicitado).</p>
+      ${m.url_embed ? `<p class="dash-hint" style="margin-top:8px">Se a área abaixo mostrar que a incorporação foi desativada, o relatório ainda abre normalmente pelo botão.</p>` : ""}
+      </div>
+      <a class="btn" href="${esc(abrir)}" target="_blank" rel="noopener">Abrir dashboard</a>
+    </div>` : "";
+    const embed = m.url_embed
+      ? `<div class="embed" style="margin-top:12px"><iframe src="${esc(m.url_embed)}" title="${esc(m.titulo)}" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"
+           allow="fullscreen; encrypted-media"
+           sandbox="allow-storage-access-by-user-activation allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation"></iframe></div>`
+      : (abrir ? `<p class="dash-hint">Visualização incorporada indisponível até a operação ativar <em>Incorporar relatório</em> no Looker Studio.</p>`
+        : `<div class="embed"><div class="ph" aria-hidden="true"><div class="kpis"><div></div><div></div><div></div><div></div></div><div class="chart"></div></div>
+         <span class="note">Looker Studio · informe o link no cadastro da campanha</span></div>`);
+    return `<section class="module">${head(m.titulo, esc(m.descricao))}${card}${embed}</section>`;
+  },
 
   relatorios: (m, cfg, feitos) => {
     const itens = m.itens.filter(r => !r.marco || feitos.has(r.marco));

@@ -882,6 +882,15 @@ def init_db(app):
                             ADD COLUMN link_publico_ativo BOOLEAN NOT NULL DEFAULT FALSE,
                             ADD COLUMN link_publico_expires_at TIMESTAMP WITHOUT TIME ZONE;
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi_campanha'
+                          AND column_name = 'link_dash_incorporar'
+                    ) THEN
+                        ALTER TABLE cadu_pi_campanha
+                            ADD COLUMN link_dash_incorporar BOOLEAN NOT NULL DEFAULT TRUE;
+                    END IF;
                 END $$;
             ''')
 
@@ -17049,6 +17058,7 @@ def obter_campanhas_pi(filtros=None, somente_pi_em_andamento=False):
                     c.id_pi,
                     c.id_cliente,
                     c.link_dash,
+                    c.link_dash_incorporar,
                     c.mes_ref,
                     c.mes_ref_comp,
                     c.nome_campanha,
@@ -17424,6 +17434,7 @@ def obter_campanha_pi_por_id(id_campanha):
                     c.id_pi,
                     c.id_cliente,
                     c.link_dash,
+                    c.link_dash_incorporar,
                     c.mes_ref,
                     c.mes_ref_comp,
                     c.nome_campanha,
@@ -17592,6 +17603,7 @@ def atualizar_campanha_pi(id_campanha, data):
                 SET id_pi = %s,
                     id_cliente = %s,
                     link_dash = %s,
+                    link_dash_incorporar = COALESCE(%s, link_dash_incorporar),
                     mes_ref = %s,
                     mes_ref_comp = %s,
                     nome_campanha = %s,
@@ -17625,6 +17637,7 @@ def atualizar_campanha_pi(id_campanha, data):
                 data.get('id_pi'),
                 data.get('id_cliente'),
                 data.get('link_dash'),
+                data.get('link_dash_incorporar'),
                 data.get('mes_ref'),
                 data.get('mes_ref_comp'),
                 data.get('nome_campanha'),

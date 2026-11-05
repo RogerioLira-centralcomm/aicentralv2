@@ -697,8 +697,13 @@
           </div>
 
           <div class="camp-field camp-col-4">
-            <label for="link_dash">Link Dashboard</label>
-            <input type="url" id="link_dash" name="link_dash" placeholder="https://...">
+            <label for="link_dash">Link Dashboard (Looker Studio)</label>
+            <input type="url" id="link_dash" name="link_dash" placeholder="URL de visualização ou incorporar">
+            <p class="text-[10px] text-gray-500 mt-1">Looker: <strong>Arquivo → Incorporar relatório</strong> (ativado) + compartilhamento em leitura.</p>
+            <label class="inline-flex items-center gap-2 mt-1 cursor-pointer select-none text-xs">
+              <input type="checkbox" id="link_dash_incorporar" name="link_dash_incorporar" checked>
+              <span>Incorporar na página pública</span>
+            </label>
           </div>
         </div>
 

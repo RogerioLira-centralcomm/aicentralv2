@@ -129,8 +129,13 @@
             </select>
           </div>
           <div class="col-span-2">
-            <label for="camp_link_dash">Link do dashboard</label>
-            <input id="camp_link_dash" type="url" name="link_dash" placeholder="https://">
+            <label for="camp_link_dash">Link do dashboard (Looker Studio)</label>
+            <input id="camp_link_dash" type="url" name="link_dash" placeholder="URL de visualização ou de incorporar">
+            <p class="text-[10px] text-gray-500 mt-1 leading-snug">Página do cliente: ative no Looker <strong>Arquivo → Incorporar relatório</strong> e compartilhe leitura com quem tem o link. Se aparecer “incorporação desativada”, desmarque abaixo até corrigir.</p>
+            <label class="inline-flex items-center gap-2 mt-2 cursor-pointer select-none text-xs text-gray-700">
+              <input type="checkbox" id="camp_link_dash_incorporar" name="link_dash_incorporar" checked>
+              <span>Exibir dashboard incorporado na página pública</span>
+            </label>
           </div>
 
           <input type="hidden" name="id_centralx" id="nova_camp_id_centralx" value="">
@@ -297,6 +302,8 @@
     setFormField('id_objetivos_campanha', c.id_objetivos_campanha || '');
     setFormField('id_responsavel_operacao', c.id_responsavel_operacao || {{ (pi.id_resp_comercial or '')|tojson }});
     setFormField('link_dash', c.link_dash || '');
+    var dashInc = document.getElementById('camp_link_dash_incorporar');
+    if (dashInc) dashInc.checked = c.link_dash_incorporar !== false;
     var dtIni = document.getElementById('nova_camp_dt_inicio');
     var dtFim = document.getElementById('nova_camp_dt_fim');
     if (dtIni) dtIni.value = c.periodo_inicio_iso || '';

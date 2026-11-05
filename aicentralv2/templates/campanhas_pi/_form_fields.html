@@ -106,9 +106,14 @@
     </label>
   </div>
   <div class="camp-field camp-col-4 cx-field">
-    <label for="link_dash">Link do dashboard</label>
+    <label for="link_dash">Link do dashboard (Looker Studio)</label>
     <input type="url" id="link_dash" name="link_dash" class="cx-input cx-input-sm w-full"
-           value="{{ form_camp.link_dash if form_camp else '' }}" placeholder="https://...">
+           value="{{ form_camp.link_dash if form_camp else '' }}" placeholder="URL de visualização ou incorporar">
+    <p class="text-[10px] text-gray-500 mt-1">Ative <strong>Incorporar relatório</strong> no Looker para embed na página do cliente.</p>
+    <label class="inline-flex items-center gap-2 mt-1 cursor-pointer select-none text-xs">
+      <input type="checkbox" name="link_dash_incorporar" {% if not form_camp or form_camp.link_dash_incorporar != False %}checked{% endif %}>
+      <span>Incorporar na página pública</span>
+    </label>
   </div>
 </div>
 

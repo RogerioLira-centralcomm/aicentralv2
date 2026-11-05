@@ -4,7 +4,10 @@ import unittest
 from datetime import date, timedelta
 from unittest.mock import MagicMock, patch
 
-from aicentralv2.campanha_acompanhamento_publico import montar_payload_acompanhamento_campanha
+from aicentralv2.campanha_acompanhamento_publico import (
+    montar_payload_acompanhamento_campanha,
+    normalizar_url_embed_looker_studio,
+)
 
 
 class FakeOperacaoService:
@@ -25,7 +28,7 @@ class FakeOperacaoService:
             "campanha": {
                 "id_campanha": id_campanha,
                 "nome_campanha": "Display Principal",
-                "link_dash": "https://lookerstudio.google.com/embed/reporting/x",
+                "link_dash": "https://lookerstudio.google.com/reporting/x/page/y",
                 "periodo_inicio": hoje - timedelta(days=5),
                 "periodo_fim": hoje + timedelta(days=10),
                 "objetivo_nome": "Alcance",
@@ -57,6 +60,19 @@ class FakeOperacaoService:
 
 
 class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
+    def test_normalizar_url_looker_view_para_embed(self):
+        view = (
+            "https://lookerstudio.google.com/reporting/abc123/page/def456"
+        )
+        self.assertEqual(
+            normalizar_url_embed_looker_studio(view),
+            "https://lookerstudio.google.com/embed/reporting/abc123/page/def456",
+        )
+
+    def test_normalizar_url_looker_ja_embed(self):
+        embed = "https://lookerstudio.google.com/embed/reporting/x/page/y"
+        self.assertEqual(normalizar_url_embed_looker_studio(embed), embed)
+
     @patch("aicentralv2.db.obter_campanha_pi_por_id")
     @patch("aicentralv2.db.obter_contato_por_id")
     def test_montar_payload_estrutura_template(self, contato_mock, campanha_mock):
@@ -83,7 +99,7 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         self.assertIn("modulos", payload)
         self.assertEqual(
             payload["modulos"]["dashboard"]["url_embed"],
-            "https://lookerstudio.google.com/embed/reporting/x",
+            "https://lookerstudio.google.com/embed/reporting/x/page/y",
         )
         pi_marco = next(m for m in payload["marcos"] if m["id"] == "pi")
         self.assertTrue(pi_marco["realizado"])

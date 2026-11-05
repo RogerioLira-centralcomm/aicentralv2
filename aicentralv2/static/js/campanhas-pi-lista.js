@@ -851,6 +851,8 @@ let currentSidebarCamp = null;
       document.getElementById('mes_ref').value = formatDateForInput(c.mes_ref);
       document.getElementById('mes_ref_comp').value = c.mes_ref_comp || '';
       document.getElementById('link_dash').value = c.link_dash || '';
+      var dashInc = document.getElementById('link_dash_incorporar');
+      if (dashInc) dashInc.checked = c.link_dash_incorporar !== false;
       document.getElementById('periodo_inicio').value = formatDateForInput(c.periodo_inicio);
       document.getElementById('periodo_fim').value = formatDateForInput(c.periodo_fim);
       document.getElementById('under').checked = !!c.under;

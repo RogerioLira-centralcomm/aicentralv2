@@ -3,9 +3,84 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from urllib.parse import urlparse, urlunparse
 
 from .campanha_pi_metrics import parse_volume_float
 from .pi_operacao_service import PiOperacaoService
+
+
+_LOOKER_HOSTS = ("lookerstudio.google.com", "datastudio.google.com")
+
+
+def normalizar_url_embed_looker_studio(url):
+    """Converte link de visualização do Looker Studio para URL de incorporação."""
+    text = (url or "").strip()
+    if not text:
+        return ""
+    if "/embed/" in text:
+        return _https_looker(text)
+
+    parsed = urlparse(text if "://" in text else f"https://{text}")
+    host = (parsed.netloc or "").lower().removeprefix("www.")
+    if host not in _LOOKER_HOSTS:
+        return text
+
+    path = parsed.path or ""
+    if path.startswith("/reporting/"):
+        path = "/embed" + path
+    elif not path.startswith("/embed/reporting/"):
+        return text
+
+    normalized = urlunparse(
+        (
+            "https",
+            host,
+            path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
+    return normalized
+
+
+def _https_looker(url):
+    parsed = urlparse(url)
+    host = (parsed.netloc or "").lower().removeprefix("www.")
+    if host in _LOOKER_HOSTS and parsed.scheme == "http":
+        return urlunparse(("https", host, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    return url
+
+
+def normalizar_url_visualizacao_looker_studio(url):
+    """Link para abrir o relatório no Looker (não depende de incorporação ativa)."""
+    text = (url or "").strip()
+    if not text:
+        return ""
+    if "://" not in text:
+        text = f"https://{text}"
+
+    parsed = urlparse(text)
+    host = (parsed.netloc or "").lower().removeprefix("www.")
+    if host not in _LOOKER_HOSTS:
+        return text
+
+    path = parsed.path or ""
+    if path.startswith("/embed/reporting/"):
+        path = path.replace("/embed/reporting/", "/reporting/", 1)
+    elif not path.startswith("/reporting/"):
+        return text
+
+    return urlunparse(
+        (
+            "https",
+            host,
+            path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
 
 
 def _as_date(value):
@@ -106,6 +181,17 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
     operacao = (service or PiOperacaoService()).estado_campanha(id_pi, id_campanha)
     pi = operacao.get("pi") or {}
     campanha = operacao.get("campanha") or dict(campanha_row)
+    if not campanha.get("link_dash") and campanha_row.get("link_dash"):
+        campanha["link_dash"] = campanha_row["link_dash"]
+    link_raw = (campanha.get("link_dash") or campanha_row.get("link_dash") or "").strip()
+    link_dash_view = normalizar_url_visualizacao_looker_studio(link_raw)
+    incorporar = campanha.get("link_dash_incorporar")
+    if incorporar is None:
+        incorporar = campanha_row.get("link_dash_incorporar", True)
+    incorporar = bool(incorporar)
+    link_dash_embed = (
+        normalizar_url_embed_looker_studio(link_raw) if incorporar and link_raw else ""
+    )
     campanhas_pi = operacao.get("campanhas_relacionadas") or []
     timeline = _timeline_map(operacao.get("timeline"))
 
@@ -224,7 +310,7 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
             "titulo": "Dashboard de entregas publicado",
             "previsto": _iso(_shift(inicio, -3)),
             "realizado": _iso(campanha.get("updated_at"))
-            if campanha.get("link_dash")
+            if link_dash_embed
             else "",
             "responsavel": "cc",
             "nota": "Acompanhamento diário",
@@ -360,7 +446,9 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None):
                 "aparece_apos": "dashboard",
                 "titulo": "Dashboard de entregas",
                 "descricao": "Atualizado diariamente pela operação Centralcomm.",
-                "url_embed": campanha.get("link_dash") or "",
+                "url_embed": link_dash_embed,
+                "url_abrir": link_dash_view or link_raw,
+                "incorporar_ativo": incorporar,
             },
             "relatorios": {
                 "aparece_apos": "prestacao",

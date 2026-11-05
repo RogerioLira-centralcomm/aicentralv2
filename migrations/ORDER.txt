@@ -251,3 +251,5 @@ migrations/run_add_tipo_de_contrato_pi_cotacao.py
 migrations/run_add_representacao_comercial_v1.py
 # Campanha PI: token e flags do link público de acompanhamento (idempotente).
 migrations/run_sql_migration.py add_campanha_link_publico.sql
+# Campanha PI: flag para incorporar Looker na página pública (idempotente).
+migrations/run_sql_migration.py add_campanha_link_dash_incorporar.sql

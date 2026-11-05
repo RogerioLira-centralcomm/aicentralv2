@@ -2001,6 +2001,7 @@ def init_routes(app):
                     'cliente_nome': er.get('cliente_nome', ''),
                     'objetivo_nome': er.get('objetivo_nome', ''),
                     'link_dash': er.get('link_dash', ''),
+                    'link_dash_incorporar': er.get('link_dash_incorporar', True),
                     'link_publico_token': er.get('link_publico_token') or '',
                     'link_publico_ativo': bool(er.get('link_publico_ativo')),
                     'link_publico_url': (
@@ -13131,6 +13132,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_pi': request.form.get('id_pi', type=int),
             'id_cliente': request.form.get('id_cliente', type=int),
             'link_dash': request.form.get('link_dash', '').strip() or None,
+            'link_dash_incorporar': request.form.get('link_dash_incorporar') == 'on',
             'mes_ref': mes_ref,
             'mes_ref_comp': mes_ref_comp,
             'nome_campanha': request.form.get('nome_campanha', '').strip() or None,

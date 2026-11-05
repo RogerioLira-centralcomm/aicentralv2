@@ -234,10 +234,12 @@ def _brl(valor):
     return numero
 
 
-def listar_pis(cliente_id) -> list[dict]:
+def listar_pis(cliente_id, id_pi=None) -> list[dict]:
     """PIs do cliente com valores de venda e o resumo das notas fiscais."""
+    filtro_pi = "AND pi.id_pi = %s" if id_pi is not None else ""
+    params = (cliente_id, cliente_id, SUB_STATUS_CANCELADO) + ((int(id_pi),) if id_pi is not None else ())
     rows = _fetch(
-        """
+        f"""
         SELECT pi.id_pi, pi.codigo_pi_cc, pi.codigo_pi_ag, pi.titulo_pi, pi.periodo_inicio, pi.periodo_fim,
                pi.created_at, pi.updated_at, pi.id_sub_status_pi, ss.display AS sub_status,
                pi.vr_bruto_pi, pi.vr_cms_agencia, pi.vr_liquido_pi, pi.pi_tem_agencia,
@@ -253,10 +255,11 @@ def listar_pis(cliente_id) -> list[dict]:
           LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nfs.id = nf.status
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
            AND COALESCE(pi.id_sub_status_pi, 0) <> %s
+           {filtro_pi}
          GROUP BY pi.id_pi, ss.display, cli.nome_fantasia, ag.nome_fantasia
          ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC
         """,
-        (cliente_id, cliente_id, SUB_STATUS_CANCELADO),
+        params,
     )
     return [_pi_resumo(r) for r in rows]
 
@@ -285,9 +288,10 @@ def _pi_resumo(r) -> dict:
 
 def pi_do_cliente(cliente_id, id_pi) -> dict | None:
     """Um PI do cliente: valores de venda, notas fiscais e histórico da operação."""
-    resumo = next((p for p in listar_pis(cliente_id) if p["id"] == int(id_pi)), None)
-    if not resumo:
+    encontrados = listar_pis(cliente_id, id_pi=id_pi)
+    if not encontrados:
         return None
+    resumo = encontrados[0]
     notas = _fetch(
         """
         SELECT nf.numero_nota, nf.data_emissao, nf.valor, nf.valor_liquido, nf.mes_ref_comp,

@@ -8,7 +8,10 @@
     <h1 class="ac-h1">Olá, {{ usuario.primeiro_nome }}</h1>
     <p class="ac-lead">Acompanhe os projetos de {{ usuario.cliente_nome }} com a Centralcomm.</p>
   </div>
-  <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos</a>
+  <div class="ac-page-head__actions">
+    <a class="ac-btn ac-btn--secondary" href="{{ area_url('projetos') }}">{{ icon('folder', 18) }}Ver projetos</a>
+    <a class="ac-btn ac-btn--primary" href="{{ area_url('briefing') }}">{{ icon('send', 18) }}Enviar briefing</a>
+  </div>
 </div>
 
 <section class="ac-kpis ac-enter" aria-label="Indicadores">
@@ -103,7 +106,7 @@
   </div>
   {% else %}
   <div class="ac-card">
-    {{ vazio('folder', 'Nenhum projeto ainda', 'Cada PI fechado com a Centralcomm vira um projeto aqui, com campanhas, entregas, documentos e o time responsável.', usuario) }}
+    {{ vazio('folder', 'Nenhum projeto ainda', 'Envie um briefing: a Centralcomm monta o planejamento e, com o PI fechado, ele vira um projeto aqui, com campanhas, entregas e documentos.', usuario) }}
   </div>
   {% endif %}
 </section>

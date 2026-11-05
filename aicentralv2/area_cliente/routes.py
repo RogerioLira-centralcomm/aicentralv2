@@ -9,16 +9,18 @@ devolve 404, então nenhuma rota interna fica alcançável por ali.
 
 from __future__ import annotations
 
+import secrets
 from urllib.parse import urlencode, urlparse
 
 from flask import abort, current_app, redirect, render_template, request, session
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, dados
+from . import acesso, briefing, dados
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
+    Rule("/briefing", endpoint="briefing", methods=["GET", "HEAD", "POST"]),
     Rule("/projetos", endpoint="projetos"),
     Rule("/projetos/<int:id_pi>", endpoint="projeto"),
     Rule("/campanhas", endpoint="campanhas"),
@@ -27,7 +29,6 @@ ROTAS = Map([
     Rule("/relatorios", endpoint="relatorios"),
     Rule("/arquivos", endpoint="arquivos"),
     Rule("/equipe", endpoint="equipe"),
-    Rule("/integracoes", endpoint="integracoes"),
     Rule("/sair", endpoint="sair"),
 ], strict_slashes=False)
 
@@ -37,26 +38,26 @@ PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico",
                   "/forgot-password", "/signup", "/bem-vindo"}
 PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/")
 
+# Jornada do cliente: Briefing → Planejamento → Projeto (PI fechado) → Campanhas.
 NAV_PRINCIPAL = (
     ("inicio", "Início", "home"),
+    ("briefing", "Briefing", "send"),
+    ("planejamento", "Planejamento", "compass"),
     ("projetos", "Projetos", "folder"),
     ("campanhas", "Campanhas", "megaphone"),
-    ("planejamento", "Planejamento", "compass"),
     ("midia", "Mídia e Veiculação", "broadcast"),
     ("relatorios", "Relatórios", "chart"),
     ("arquivos", "Arquivos", "file"),
     ("equipe", "Equipe", "users"),
-    ("integracoes", "Integrações", "plug"),
 )
 
 EM_PREPARACAO = {
-    "campanhas": ("Campanhas", "megaphone", "Todas as campanhas dos seus projetos, com meta, entregue e ritmo de cada uma, sem valores de custo."),
-    "planejamento": ("Planejamento", "compass", "Os planos de mídia aprovados e, em breve, um guia com os recursos do Cadu Planner para montar o próximo plano com a Centralcomm."),
+    "campanhas": ("Campanhas", "megaphone", "Todas as campanhas dos seus projetos em um só lugar, com meta, entregue e ritmo de cada uma, sem valores de custo."),
+    "planejamento": ("Planejamento", "compass", "Depois do seu briefing, a Centralcomm monta o plano de mídia e ele aparece aqui para você revisar e aprovar. Em breve, um guia com os recursos do Cadu Planner para pensar o próximo plano junto com a gente."),
     "midia": ("Mídia e Veiculação", "broadcast", "Canais, plataformas, formatos e períodos de veiculação de cada campanha, em um só lugar."),
     "relatorios": ("Relatórios", "chart", "Dashboards de entrega atualizados diariamente e as prestações de contas de cada projeto."),
     "arquivos": ("Arquivos", "file", "PIs, planos de mídia, peças e documentos assinados, organizados por projeto."),
     "equipe": ("Equipe", "users", "Quem da sua empresa tem acesso a esta área e o time Centralcomm que cuida da sua conta."),
-    "integracoes": ("Integrações", "plug", "Conexões com Reports, Looker Studio e as tags de medição do seu site."),
 }
 
 
@@ -139,6 +140,34 @@ def view_projeto(usuario, id_pi):
     return _render("projeto.html", usuario, "projetos", projeto=projeto, resumo=resumo)
 
 
+def _csrf_token() -> str:
+    token = session.get("area_cliente_csrf")
+    if not token:
+        token = session["area_cliente_csrf"] = secrets.token_urlsafe(24)
+    return token
+
+
+def view_briefing(usuario):
+    valores, erros = {}, {}
+    if request.method == "POST":
+        enviado = request.form.get("csrf") or ""
+        if not secrets.compare_digest(enviado, session.get("area_cliente_csrf") or "-"):
+            abort(400)
+        valores, erros = briefing.validar(request.form)
+        if not erros:
+            novo_id = briefing.enviar(usuario, valores)
+            return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
+    status = 422 if erros else 200
+    resp = _render(
+        "briefing.html", usuario, "briefing",
+        canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
+        enviados=briefing.listar(usuario["cliente_id"]),
+        enviado_id=request.args.get("enviado", type=int),
+    )
+    resp.status_code = status
+    return resp
+
+
 def view_em_preparacao(usuario, endpoint):
     titulo, icone, texto = EM_PREPARACAO[endpoint]
     return _render("em_preparacao.html", usuario, endpoint, titulo=titulo, icone=icone, texto=texto)
@@ -160,7 +189,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"}:
+    if request.method not in {"GET", "HEAD"} and endpoint != "briefing":
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -169,6 +198,8 @@ def despachar():
         return bloqueio
     if endpoint == "inicio":
         return view_inicio(usuario)
+    if endpoint == "briefing":
+        return view_briefing(usuario)
     if endpoint == "projetos":
         return view_projetos(usuario)
     if endpoint == "projeto":

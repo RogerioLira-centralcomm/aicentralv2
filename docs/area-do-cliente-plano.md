@@ -13,6 +13,12 @@ Decidido com o usuário em 2026-11-05:
   admins internos fica para a Fase 2.
 - Conta **só-Reports** (`reports_only`) continua só no Reports, mesmo com a
   Área do Cliente liberada no CRM (o desvio para o Connect vem antes).
+- 2026-11-05, revisão em tela: jornada **Briefing → Planejamento → Projeto
+  (PI fechado) → Campanhas**. Novo item **Briefing** (formulário do cliente,
+  grava em `cadu_briefings` como `pendente`/enviado à Centralcomm, com o
+  executivo da conta; a equipe recebe em /briefings). Sai **Integrações**.
+  Sidebar abre recolhida em ícones (lembra a escolha). Nome do cliente vai
+  para o topo, sob o nome do usuário.
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

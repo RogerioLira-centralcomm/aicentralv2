@@ -1,0 +1,113 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}Briefing{% endblock %}
+{% macro erro(campo) -%}{% if erros.get(campo) %}<p class="ac-field__error" id="erro-{{ campo }}">{{ erros[campo] }}</p>{% endif %}{%- endmacro %}
+{% block content %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">Briefing</h1>
+    <p class="ac-lead">Conte o que você precisa. A Centralcomm monta o planejamento de mídia e o seu executivo retorna com a proposta.</p>
+  </div>
+</div>
+
+{% if enviado_id %}
+<div class="ac-notice ac-notice--success ac-enter" role="status">
+  <span class="ac-notice__icon">{{ icon('check', 18) }}</span>
+  <div>
+    <p class="ac-notice__title">Briefing enviado</p>
+    <p>{% if usuario.executivo %}{{ usuario.executivo.nome }} recebeu{% else %}A Centralcomm recebeu{% endif %} o seu briefing e volta com o planejamento. Você acompanha o andamento aqui embaixo.</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="ac-briefing">
+  <form class="ac-card ac-form ac-enter" method="post" action="{{ area_url('briefing') }}" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    {% if erros %}
+    <div class="ac-notice ac-notice--warning" role="alert">
+      <span class="ac-notice__icon">{{ icon('activity', 18) }}</span>
+      <p>Revise os campos destacados para enviar.</p>
+    </div>
+    {% endif %}
+
+    <div class="ac-field">
+      <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
+      <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ valores.titulo or '' }}"
+             placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
+      {{ erro('titulo') }}
+    </div>
+
+    <div class="ac-field">
+      <label for="b-objetivo">Objetivo <span class="ac-req" aria-hidden="true">*</span></label>
+      <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
+                placeholder="O que você quer alcançar? Ex.: gerar visitas às lojas, vender pelo site, tornar a marca conhecida em uma região."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ valores.objetivo or '' }}</textarea>
+      {{ erro('objetivo') }}
+    </div>
+
+    <div class="ac-field">
+      <label for="b-publico">Público e praças</label>
+      <textarea id="b-publico" name="publico" rows="2" maxlength="1000" placeholder="Quem você quer atingir e onde. Ex.: mulheres de 25 a 45 anos, Belo Horizonte e região.">{{ valores.publico or '' }}</textarea>
+    </div>
+
+    <div class="ac-field-row">
+      <div class="ac-field">
+        <label for="b-inicio">Início desejado</label>
+        <input id="b-inicio" name="inicio" type="date" value="{{ valores.inicio or '' }}">
+      </div>
+      <div class="ac-field">
+        <label for="b-fim">Fim desejado</label>
+        <input id="b-fim" name="fim" type="date" value="{{ valores.fim or '' }}"{% if erros.fim %} aria-invalid="true" aria-describedby="erro-fim"{% endif %}>
+        {{ erro('fim') }}
+      </div>
+      <div class="ac-field">
+        <label for="b-verba">Verba prevista</label>
+        <input id="b-verba" name="verba" type="text" maxlength="120" value="{{ valores.verba or '' }}" placeholder="Ex.: até R$ 50 mil">
+      </div>
+    </div>
+
+    <fieldset class="ac-field ac-chips">
+      <legend>Canais de interesse</legend>
+      <div class="ac-chips__list">
+        {% for valor, rotulo in canais %}
+        <label class="ac-chip"><input type="checkbox" name="canais" value="{{ valor }}"{% if valor in (valores.canais or []) %} checked{% endif %}><span>{{ rotulo }}</span></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="ac-field">
+      <label for="b-descricao">Mais detalhes</label>
+      <textarea id="b-descricao" name="descricao" rows="5" maxlength="6000" placeholder="Contexto, concorrentes, peças que você já tem, links de referência, datas importantes.">{{ valores.descricao or '' }}</textarea>
+    </div>
+
+    <div class="ac-form__actions">
+      <p class="ac-form__hint">Sem custo. O planejamento chega com o seu executivo.</p>
+      <button type="submit" class="ac-btn ac-btn--primary">{{ icon('send', 18) }}Enviar para a Centralcomm</button>
+    </div>
+  </form>
+
+  <section class="ac-card ac-enter" aria-labelledby="enviados-titulo">
+    <header class="ac-card__head">
+      <div>
+        <h2 class="ac-h2" id="enviados-titulo">Briefings enviados</h2>
+        <p class="ac-card__sub">Briefing → Planejamento → Projeto.</p>
+      </div>
+    </header>
+    {% if enviados %}
+    <ul class="ac-briefs">
+      {% for b in enviados %}
+      <li class="ac-brief{% if b.id == enviado_id %} is-new{% endif %}">
+        <div class="ac-brief__top">
+          <b>{{ b.titulo }}</b>
+          <span class="ac-badge ac-badge--{{ b.tom }}">{{ b.status }}</span>
+        </div>
+        {% if b.objetivo %}<p class="ac-brief__text">{{ b.objetivo|truncate(140) }}</p>{% endif %}
+        <p class="ac-brief__meta">Enviado em {{ b.em }}{% if b.autor %} por {{ b.autor }}{% endif %}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    {{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -195,3 +195,67 @@ def test_crm_libera_so_para_equipe_centralcomm(app, monkeypatch):
     assert resp.status_code == 200
     assert resp.get_json()["liberacao"]["autor"] == "Equipe"
     assert chamadas == [("42", True, 7)]
+
+
+def _briefing_client(app, monkeypatch, enviados=None):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import briefing
+    monkeypatch.setattr(briefing, "listar", lambda cliente_id: enviados or [])
+    return _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+
+
+def test_briefing_mostra_formulario_e_nav_sem_integracoes(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    resp = client.get("/briefing", base_url=HOST)
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'name="csrf" value="tok"' in html
+    assert "Enviar para a Centralcomm" in html
+    assert "Integrações" not in html
+    assert client.get("/integracoes", base_url=HOST).status_code == 404
+
+
+def test_briefing_sem_token_e_recusado(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    resp = client.post("/briefing", base_url=HOST, data={"titulo": "Verão", "objetivo": "Vender mais no verão"})
+    assert resp.status_code == 400
+
+
+def test_briefing_invalido_volta_com_erros(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    from aicentralv2.area_cliente import briefing
+    monkeypatch.setattr(briefing, "enviar", lambda *a: pytest.fail("não deveria gravar"))
+    resp = client.post("/briefing", base_url=HOST, data={
+        "csrf": "tok", "titulo": "V", "objetivo": "curto", "inicio": "2026-12-10", "fim": "2026-12-01",
+    })
+    assert resp.status_code == 422
+    html = resp.get_data(as_text=True)
+    for msg in ("Dê um nome", "Conte em uma ou duas frases", "O fim precisa ser depois do início"):
+        assert msg in html
+
+
+def test_briefing_valido_grava_e_redireciona(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    from aicentralv2.area_cliente import briefing
+    gravados = []
+    monkeypatch.setattr(briefing, "enviar", lambda usuario, d: gravados.append((usuario["cliente_id"], d)) or 77)
+    resp = client.post("/briefing", base_url=HOST, data={
+        "csrf": "tok", "titulo": "Coleção de verão", "objetivo": "Gerar visitas às lojas de BH",
+        "canais": ["social", "inexistente"], "inicio": "2026-12-01", "fim": "2027-01-15", "verba": "até 50 mil",
+    })
+    assert resp.status_code == 303
+    assert resp.headers["Location"] == "/briefing?enviado=77"
+    cliente_id, d = gravados[0]
+    assert cliente_id == 900 and d["canais"] == ["social"] and str(d["fim"]) == "2027-01-15"
+
+
+def test_texto_do_briefing_reune_os_campos():
+    from datetime import date
+    from aicentralv2.area_cliente.briefing import _texto_briefing
+    texto = _texto_briefing({
+        "objetivo": "Vender", "publico": "BH", "inicio": date(2026, 12, 1), "fim": None,
+        "canais": ["ooh"], "verba": "50 mil", "descricao": "Detalhes",
+    })
+    assert "Período desejado: 01/12/2026 a a definir" in texto
+    assert "Canais de interesse: OOH e DOOH" in texto
+    assert texto.endswith("Detalhes")

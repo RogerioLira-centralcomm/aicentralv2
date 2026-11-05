@@ -9,7 +9,7 @@
       <h3>{{ r.nome }}</h3>
       <div class="sub">{% if r.plataforma %}<span>{{ r.plataforma }}</span>{% endif %}<span>{{ r.objetivo }}</span><span class="mono">{{ dcurta(r.periodo.inicio) }} – {{ dcurta(r.periodo.fim) }}</span></div>
     </div>
-    {% if r.status %}<span class="cx-badge cx-badge-muted">{{ r.status }}</span>{% endif %}
+    {% if r.status %}<span class="ut-badge ut-badge-gray">{{ r.status }}</span>{% endif %}
   </div>
   <div class="nums">
     <div class="num"><span class="label">Meta</span><b>{{ r.meta_label }}</b></div>
@@ -27,7 +27,7 @@
     {% elif r.ritmo == 'no_ritmo' %}<span class="ritmo no_ritmo">Entrega no ritmo previsto</span>
     {% elif r.ritmo == 'atencao' %}<span class="ritmo atencao">Em acompanhamento pela operação</span>
     {% else %}<span class="muted">Números atualizados pela operação</span>{% endif %}
-    {% if r.dash_embed or r.dash_abrir %}<a class="cx-btn cx-btn-secondary" href="{{ purl('dashboard', {'c': r.id|string}) }}">Relatório detalhado {{ icon('arrow') }}</a>{% endif %}
+    {% if r.dash_embed or r.dash_abrir %}<a class="ut-btn ut-btn-secondary" href="{{ purl('dashboard', {'c': r.id|string}) }}">Relatório detalhado {{ icon('arrow') }}</a>{% endif %}
   </div>
 </section>
 {% else %}

@@ -10649,6 +10649,116 @@ def obter_campanha_pi_por_link_publico(token):
         raise e
 
 
+def obter_pi_por_link_publico(token):
+    """PI com link público ativo pelo token (página de acompanhamento do PI)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id_pi, link_publico_token, link_publico_ativo, link_publico_expires_at
+                  FROM cadu_pi
+                 WHERE link_publico_token = %s
+                   AND link_publico_ativo = TRUE
+                ''',
+                (token,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def obter_link_publico_pi(id_pi):
+    """Token/estado do link público do PI (None se o PI não existe)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT id_pi, link_publico_token, link_publico_ativo, link_publico_expires_at
+                  FROM cadu_pi
+                 WHERE id_pi = %s
+                ''',
+                (id_pi,),
+            )
+            return cursor.fetchone()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def gerar_link_publico_pi(id_pi, dias_validade=None):
+    """Gera token amigável (cliente-titulo-do-pi-xxxxxx) e ativa o link do PI."""
+    from datetime import datetime, timedelta
+
+    from .campanha_acompanhamento_publico import token_amigavel
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT p.titulo_pi, p.codigo_pi_cc, cli.nome_fantasia AS cliente_nome
+                  FROM cadu_pi p
+                  LEFT JOIN tbl_cliente cli ON cli.id_cliente = p.id_cliente
+                 WHERE p.id_pi = %s
+                ''',
+                (id_pi,),
+            )
+            info = cursor.fetchone()
+            if not info:
+                return None
+            token = token_amigavel(
+                info.get('cliente_nome'),
+                info.get('titulo_pi') or info.get('codigo_pi_cc'),
+            )
+            expires = (
+                datetime.now() + timedelta(days=int(dias_validade))
+                if dias_validade
+                else None
+            )
+            cursor.execute(
+                '''
+                UPDATE cadu_pi
+                   SET link_publico_token = %s,
+                       link_publico_ativo = TRUE,
+                       link_publico_expires_at = %s
+                 WHERE id_pi = %s
+                ''',
+                (token, expires, id_pi),
+            )
+            conn.commit()
+            return token if cursor.rowcount > 0 else None
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def atualizar_link_publico_pi(id_pi, updates):
+    """Atualiza ativo/validade do link público do PI."""
+    allowed = ('link_publico_ativo', 'link_publico_expires_at')
+    sets, params = [], []
+    for key in allowed:
+        if key in updates:
+            sets.append(f'{key} = %s')
+            params.append(updates[key])
+    if not sets:
+        return False
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f'UPDATE cadu_pi SET {", ".join(sets)} WHERE id_pi = %s',
+                (*params, id_pi),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
 def renovar_link_publico_cotacao(cotacao_uuid, dias_validade=30):
     """Renova a validade de um link público existente"""
     from datetime import datetime, timedelta

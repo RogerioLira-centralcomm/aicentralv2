@@ -384,12 +384,13 @@
       '<td data-label="Entrega" class="pi-inner-delivery">' + celObjetivo + '</td>' +
       '<td data-label="Investimento" class="pi-campaign-detail-money pi-inner-investment">' + celMidia + '</td>' +
       '<td data-label="Ações" class="pi-commercial-actions" onclick="event.stopPropagation();">' +
+      // Link público é do PI: o mesmo link para todas as campanhas.
       ((c.link_publico_preview_url || c.link_publico_url)
-        ? '<a href="' + escapeHtml(c.link_publico_preview_url || c.link_publico_url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Prévia da página (com fases)" aria-label="Abrir prévia da página pública" onclick="event.stopPropagation();">' +
+        ? '<a href="' + escapeHtml(c.link_publico_preview_url || c.link_publico_url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Prévia da página do PI (com fases)" aria-label="Abrir prévia da página pública do PI" onclick="event.stopPropagation();">' +
           '<i class="fa-solid fa-link" aria-hidden="true"></i></a>' +
-          '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Copiar link da campanha" aria-label="Copiar link público" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', ' + JSON.stringify(c.link_publico_url) + ', event)">' +
+          '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Copiar link do PI" aria-label="Copiar link público do PI" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', ' + JSON.stringify(c.link_publico_url).replace(/"/g, '&quot;') + ', event)">' +
           '<i class="fa-regular fa-copy" aria-hidden="true"></i></button>'
-        : '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Gerar link para o cliente" aria-label="Gerar link público" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', null, event)">' +
+        : '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Gerar link do PI para o cliente" aria-label="Gerar link público do PI" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', null, event)">' +
           '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i></button>') +
       '</td>' +
       '</tr>';

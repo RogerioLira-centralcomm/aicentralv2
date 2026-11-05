@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from aicentralv2.campanha_acompanhamento_publico import (
     contexto_pagina,
     montar_payload_acompanhamento_campanha,
+    montar_payload_acompanhamento_pi,
     normalizar_url_embed_looker_studio,
     normalizar_url_visualizacao_looker_studio,
     simular_fase,
@@ -205,6 +206,41 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         self.assertTrue(status["resultados"])
         self.assertFalse(status["dashboard"])
         self.assertEqual(simular_fase(payload, "99"), payload)
+
+
+    @patch("aicentralv2.db.obter_campanha_pi_por_id")
+    @patch("aicentralv2.db.obter_contato_por_id")
+    def test_payload_do_pi_agrupa_campanhas(self, contato_mock, campanha_mock):
+        campanha_mock.side_effect = lambda i: {"id_campanha": i, "id_pi": 10, "nome_campanha": "X"}
+        contato_mock.return_value = {}
+        linhas = [dict(CAMPANHAS_PI[1], periodo_inicio=date(2026, 12, 1), periodo_fim=date(2027, 1, 20)),
+                  dict(CAMPANHAS_PI[0], periodo_inicio=date(2026, 11, 1), periodo_fim=date(2026, 12, 31))]
+        payload = montar_payload_acompanhamento_pi(10, service=FakeOperacaoService(), linhas_campanhas=linhas)
+        self.assertTrue(payload["grupo"])
+        self.assertEqual(payload["id_pi"], 10)
+        # Título e período passam a ser do grupo (PI), não da 1ª campanha.
+        self.assertEqual(payload["campanha"], "PI036826")
+        self.assertEqual(payload["periodo"], {"inicio": "2026-11-01", "fim": "2027-01-20"})
+        self.assertEqual([r["id"] for r in payload["resultados"]], [30, 31])
+        self.assertFalse(any(r["atual"] for r in payload["resultados"]))
+        dash = next(m for m in payload["marcos"] if m["id"] == "dashboard")
+        self.assertTrue(dash["realizado"])
+
+    @patch("aicentralv2.db.obter_campanha_pi_por_id")
+    @patch("aicentralv2.db.obter_contato_por_id")
+    def test_payload_do_pi_com_uma_campanha_mantem_nome(self, contato_mock, campanha_mock):
+        campanha_mock.return_value = {"id_campanha": 30, "id_pi": 10, "nome_campanha": "Display Principal"}
+        contato_mock.return_value = {}
+        payload = montar_payload_acompanhamento_pi(
+            10, service=FakeOperacaoService(), linhas_campanhas=[CAMPANHAS_PI[0]]
+        )
+        self.assertFalse(payload["grupo"])
+        self.assertEqual(payload["campanha"], "Display Principal")
+        self.assertTrue(payload["resultados"][0]["atual"])
+
+    def test_payload_do_pi_sem_campanhas(self):
+        with self.assertRaises(LookupError):
+            montar_payload_acompanhamento_pi(10, linhas_campanhas=[])
 
 
 if __name__ == "__main__":

@@ -239,8 +239,14 @@ def _resultado_campanha(row, atual_id, hoje=None):
     }
 
 
-def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_campanhas=None):
-    """Retorna dict usado pelas páginas públicas da campanha."""
+def montar_payload_acompanhamento_campanha(
+    id_campanha, *, service=None, linhas_campanhas=None, escopo_pi=False
+):
+    """Retorna dict usado pelas páginas públicas.
+
+    ``escopo_pi``: a página é do PI inteiro (link por PI); com mais de uma campanha,
+    título, período e marco do dashboard passam a valer para o grupo.
+    """
     from . import db
 
     campanha_row = db.obter_campanha_pi_por_id(id_campanha)
@@ -268,8 +274,17 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
         linhas_campanhas = db.obter_campanhas_pi({"id_pi": id_pi}) or []
     linhas_campanhas = list(linhas_campanhas)
 
+    grupo = bool(escopo_pi and len(linhas_campanhas) > 1)
     inicio = campanha.get("periodo_inicio") or pi.get("periodo_inicio")
     fim = campanha.get("periodo_fim") or pi.get("periodo_fim")
+    if grupo:
+        inicios = [d for d in (_as_date(r.get("periodo_inicio")) for r in linhas_campanhas) if d]
+        fins = [d for d in (_as_date(r.get("periodo_fim")) for r in linhas_campanhas) if d]
+        inicio = min(inicios) if inicios else _as_date(pi.get("periodo_inicio")) or inicio
+        fim = max(fins) if fins else _as_date(pi.get("periodo_fim")) or fim
+    algum_dash = bool(link_dash_embed) or (
+        grupo and any((r.get("link_dash") or "").strip() for r in linhas_campanhas)
+    )
 
     codigo_pi = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or ""
     pi_label = codigo_pi or f"PI #{id_pi}"
@@ -382,7 +397,7 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
             "titulo": "Dashboard de entregas publicado",
             "previsto": _iso(_shift(inicio, -3)),
             "realizado": _iso(campanha.get("updated_at"))
-            if link_dash_embed
+            if algum_dash
             else "",
             "responsavel": "cc",
             "nota": "Acompanhamento diário",
@@ -503,6 +518,9 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
     if not any(int(r.get("id_campanha") or 0) == int(id_campanha) for r in linhas):
         linhas.insert(0, {**campanha_row, **campanha})
     resultados = [_resultado_campanha(r, id_campanha) for r in linhas]
+    if grupo:
+        for r in resultados:
+            r["atual"] = False  # no link do PI nenhuma campanha é "a principal"
     resultados.sort(key=lambda r: (not r["atual"], r["id"]))
 
     executivo = _pessoa_interna(
@@ -523,8 +541,12 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
     return {
         "demo": False,
         "cliente": pi.get("cliente_nome") or campanha.get("cliente_nome") or "Cliente",
-        "campanha": campanha.get("nome_campanha") or "Campanha",
+        "campanha": (pi.get("titulo_pi") or pi_label)
+        if grupo
+        else campanha.get("nome_campanha") or "Campanha",
         "pi": pi_label,
+        "id_pi": id_pi,
+        "grupo": grupo,
         "periodo": {"inicio": _iso(inicio), "fim": _iso(fim)},
         "atualizado_em": _iso(atualizado) or date.today().isoformat(),
         "marcos": marcos,
@@ -570,6 +592,23 @@ def montar_payload_acompanhamento_campanha(id_campanha, *, service=None, linhas_
             },
         },
     }
+
+
+def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=None):
+    """Página do PI: agrupa todas as campanhas do PI num único link."""
+    from . import db
+
+    if linhas_campanhas is None:
+        linhas_campanhas = db.obter_campanhas_pi({"id_pi": id_pi}) or []
+    linhas = sorted(linhas_campanhas, key=lambda r: int(r.get("id_campanha") or 0))
+    if not linhas:
+        raise LookupError("PI sem campanhas.")
+    return montar_payload_acompanhamento_campanha(
+        linhas[0]["id_campanha"],
+        service=service,
+        linhas_campanhas=linhas,
+        escopo_pi=True,
+    )
 
 
 # Fases simuladas na prévia da operação (?fases=1&fase=N)
@@ -629,7 +668,14 @@ def contexto_pagina(payload, hoje=None):
     for p in paginas:
         p["bloqueio"] = bloqueio.get(p["id"], "")
     atual = marcos[atual_idx] if atual_idx >= 0 else None
+    from .campanha_pi_metrics import calcular_periodo_progresso
+
+    periodo = calcular_periodo_progresso(
+        payload["periodo"]["inicio"], payload["periodo"]["fim"], hoje=hoje
+    )
     return {
+        "tempo_pct": periodo.get("periodo_pct_elapsed"),
+        "dias_restantes": periodo.get("periodo_dias_restantes"),
         "feitos": feitos,
         "atual": atual,
         "proximos": marcos[atual_idx:atual_idx + 3] if atual_idx >= 0 else [],

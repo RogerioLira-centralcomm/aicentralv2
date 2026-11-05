@@ -32,8 +32,8 @@
 </div>
 {% if p.email or p.whatsapp %}
 <div class="actions">
-  {% if p.whatsapp %}<a class="cx-btn wa" href="{{ p.whatsapp }}" target="_blank" rel="noopener">{{ icon('wa') }}WhatsApp</a>{% endif %}
-  {% if p.email %}<a class="cx-btn cx-btn-secondary" href="mailto:{{ p.email }}?subject={{ ('Campanha ' ~ campanha.campanha ~ ' · ' ~ campanha.pi)|urlencode }}">{{ icon('mail') }}E-mail</a>{% endif %}
+  {% if p.whatsapp %}<a class="ut-btn ut-btn-wa" href="{{ p.whatsapp }}" target="_blank" rel="noopener">{{ icon('wa') }}WhatsApp</a>{% endif %}
+  {% if p.email %}<a class="ut-btn ut-btn-secondary" href="mailto:{{ p.email }}?subject={{ ('Campanha ' ~ campanha.campanha ~ ' · ' ~ campanha.pi)|urlencode }}">{{ icon('mail') }}E-mail</a>{% endif %}
 </div>
 {% endif %}
 {% endif %}

@@ -132,20 +132,14 @@
         <i class="fas fa-chart-line" aria-hidden="true"></i>
       </a>
     {% endif %}
-    {% if c.link_publico_token and c.link_publico_ativo %}
-      <a href="{{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token, fases=1) }}" target="_blank" rel="noopener" class="camp-action-btn" title="Prévia da página (com fases)" aria-label="Abrir prévia da página pública">
-        <i class="fas fa-link" aria-hidden="true"></i>
-      </a>
-      <button type="button" class="camp-action-btn" title="Copiar link da campanha" aria-label="Copiar link público"
-              onclick="copiarLinkCampanhaPublica({{ c.id_campanha }}, {{ url_for('campanha_acompanhamento_publica', token=c.link_publico_token, _external=True)|tojson }})">
-        <i class="far fa-copy" aria-hidden="true"></i>
-      </button>
-    {% else %}
-      <button type="button" class="camp-action-btn" title="Gerar link para o cliente" aria-label="Gerar link público"
-              onclick="copiarLinkCampanhaPublica({{ c.id_campanha }}, null)">
-        <i class="fas fa-share-alt" aria-hidden="true"></i>
-      </button>
-    {% endif %}
+    {# Link público é do PI: um link para todas as campanhas (gera na hora se faltar). #}
+    <a href="{{ url_for('api_campanha_link_publico_previa', id_campanha=c.id_campanha) }}" target="_blank" rel="noopener" class="camp-action-btn" title="Prévia da página do PI (com fases)" aria-label="Abrir prévia da página pública do PI">
+      <i class="fas fa-link" aria-hidden="true"></i>
+    </a>
+    <button type="button" class="camp-action-btn" title="Copiar link do PI para o cliente" aria-label="Copiar link público do PI"
+            onclick="copiarLinkCampanhaPublica({{ c.id_campanha }}, null)">
+      <i class="far fa-copy" aria-hidden="true"></i>
+    </button>
     <button type="button" class="camp-action-btn" data-open-diarios
             data-id="{{ c.id_campanha }}" data-codigo="{{ c.codigo_pi|e }}"
             data-titulo="{{ c.titulo_pi|e }}" data-nome="{{ c.nome_campanha|e }}"

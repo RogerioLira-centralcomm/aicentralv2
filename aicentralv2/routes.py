@@ -1968,6 +1968,10 @@ def init_routes(app):
     def api_campanhas_pi(id_pi):
         try:
             campanhas_raw = db.obter_campanhas_pi(filtros={'id_pi': id_pi})
+            try:
+                _link_pi = _link_publico_pi_json(id_pi)
+            except Exception:
+                _link_pi = {}
             campanhas = []
             for c in (campanhas_raw or []):
                 er = _anexar_preco_metrica_campanha(c)
@@ -2009,24 +2013,11 @@ def init_routes(app):
                     'objetivo_nome': er.get('objetivo_nome', ''),
                     'link_dash': er.get('link_dash', ''),
                     'link_dash_incorporar': er.get('link_dash_incorporar', True),
-                    'link_publico_token': er.get('link_publico_token') or '',
-                    'link_publico_ativo': bool(er.get('link_publico_ativo')),
-                    'link_publico_url': (
-                        _url_pagina_campanha_publica(
-                            er.get('link_publico_token'),
-                            barra_fases=False,
-                        )
-                        if er.get('link_publico_token') and er.get('link_publico_ativo')
-                        else ''
-                    ),
-                    'link_publico_preview_url': (
-                        _url_pagina_campanha_publica(
-                            er.get('link_publico_token'),
-                            barra_fases=True,
-                        )
-                        if er.get('link_publico_token') and er.get('link_publico_ativo')
-                        else ''
-                    ),
+                    # Link público é do PI (um link para todas as campanhas).
+                    'link_publico_token': _link_pi.get('token') or '',
+                    'link_publico_ativo': bool(_link_pi.get('ativo')),
+                    'link_publico_url': _link_pi.get('link') or '',
+                    'link_publico_preview_url': _link_pi.get('link_preview') or '',
                     'under': er.get('under', False),
                     'codigo_pi': er.get('codigo_pi', ''),
                     'id_pi': er.get('id_pi'),
@@ -6917,7 +6908,7 @@ def init_routes(app):
         from aicentralv2.campanha_acompanhamento_publico import (
             DEMO_FASES,
             contexto_pagina,
-            montar_payload_acompanhamento_campanha,
+            montar_payload_acompanhamento_pi,
             simular_fase,
         )
 
@@ -6925,7 +6916,29 @@ def init_routes(app):
         if pagina not in paginas_validas:
             return redirect(url_for('campanha_acompanhamento_publica', token=token))
         try:
-            row = db.obter_campanha_pi_por_link_publico(token)
+            try:
+                row = db.obter_pi_por_link_publico(token)
+            except Exception as e:  # coluna ainda não migrada: segue pelos tokens antigos
+                app.logger.warning('Link público do PI indisponível: %s', e)
+                row = None
+            if not row:
+                row = db.obter_campanha_pi_por_link_publico(token)
+                if row:
+                    # Link antigo (por campanha): se o PI já tem link próprio, vai para ele.
+                    try:
+                        pi_link = db.obter_link_publico_pi(row['id_pi']) or {}
+                    except Exception:
+                        pi_link = {}
+                    novo = pi_link.get('link_publico_token')
+                    if novo and pi_link.get('link_publico_ativo') and novo != token:
+                        destino = url_for(
+                            'campanha_acompanhamento_publica',
+                            token=novo,
+                            **({'pagina': pagina} if pagina != 'geral' else {}),
+                        )
+                        if request.query_string:
+                            destino = f"{destino}?{request.query_string.decode('utf-8', 'ignore')}"
+                        return redirect(destino, code=301)
             if not row:
                 return render_template(
                     'erro_publico.html',
@@ -6942,7 +6955,7 @@ def init_routes(app):
                         mensagem='Este link expirou.',
                     ), 410
 
-            campanha = montar_payload_acompanhamento_campanha(row['id_campanha'])
+            campanha = montar_payload_acompanhamento_pi(row['id_pi'])
             previa = (request.args.get('fases') or '').lower() in ('1', 'true', 'yes')
             fase = request.args.get('fase', '0') if previa else '0'
             if previa:
@@ -14004,93 +14017,94 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro API excluir diário: {str(e)}")
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    def _link_publico_pi_json(id_pi):
+        info = db.obter_link_publico_pi(id_pi) or {}
+        token = info.get('link_publico_token')
+        ativo = bool(token and info.get('link_publico_ativo'))
+        expira = info.get('link_publico_expires_at')
+        return {
+            'success': True,
+            'id_pi': id_pi,
+            'ativo': ativo,
+            'token': token,
+            'expires_at': expira.isoformat() if expira else None,
+            'link': _url_pagina_campanha_publica(token, barra_fases=False) if ativo else None,
+            'link_preview': _url_pagina_campanha_publica(token, barra_fases=True) if ativo else None,
+        }
+
+    def _garantir_link_publico_pi(id_pi, *, renovar=False, dias=None):
+        """Reaproveita o link ativo do PI ou gera um novo (token amigável)."""
+        info = db.obter_link_publico_pi(id_pi)
+        if info is None:
+            raise LookupError('PI não encontrado')
+        if info.get('link_publico_token') and not renovar:
+            if not info.get('link_publico_ativo'):
+                db.atualizar_link_publico_pi(id_pi, {'link_publico_ativo': True})
+            return info['link_publico_token']
+        return db.gerar_link_publico_pi(id_pi, dias)
+
+    def _api_link_publico_pi(id_pi):
+        if request.method == 'GET':
+            if db.obter_link_publico_pi(id_pi) is None:
+                return jsonify({'success': False, 'error': 'PI não encontrado'}), 404
+            return jsonify(_link_publico_pi_json(id_pi))
+        if request.method == 'POST':
+            renovar = request.args.get('renovar') in ('1', 'true', 'yes')
+            dias = request.args.get('dias')
+            dias_val = int(dias) if dias and str(dias).isdigit() else None
+            token = _garantir_link_publico_pi(id_pi, renovar=renovar, dias=dias_val)
+            if not token:
+                return jsonify({'success': False, 'error': 'Não foi possível gerar o link'}), 500
+            return jsonify(_link_publico_pi_json(id_pi))
+        payload = request.get_json(silent=True) or {}
+        updates = {}
+        if 'link_publico_ativo' in payload:
+            updates['link_publico_ativo'] = bool(payload['link_publico_ativo'])
+        if 'link_publico_expires_at' in payload:
+            updates['link_publico_expires_at'] = payload['link_publico_expires_at'] or None
+        if not updates:
+            return jsonify({'success': False, 'error': 'Nenhuma alteração informada'}), 400
+        db.atualizar_link_publico_pi(id_pi, updates)
+        return jsonify(_link_publico_pi_json(id_pi))
+
+    @app.route('/api/cadu-pi/<int:id_pi>/link-publico', methods=['GET', 'POST', 'PATCH'])
+    @login_required
+    def api_pi_link_publico(id_pi):
+        """Link público de acompanhamento do PI (um link para todas as campanhas)."""
+        try:
+            return _api_link_publico_pi(id_pi)
+        except LookupError as e:
+            return jsonify({'success': False, 'error': str(e)}), 404
+        except Exception as e:
+            app.logger.error('Erro no link público do PI %s: %s', id_pi, e)
+            return jsonify({'success': False, 'error': 'Erro ao processar o link público'}), 500
+
     @app.route('/api/campanha/<int:id_campanha>/link-publico', methods=['GET', 'POST', 'PATCH'])
     @login_required
     def api_campanha_link_publico(id_campanha):
-        """Consulta, gera ou atualiza o link público da página de acompanhamento."""
+        """Compatível com os botões por campanha: opera o link do PI da campanha."""
         try:
             campanha = db.obter_campanha_pi_por_id(id_campanha)
             if not campanha:
                 return jsonify({'success': False, 'error': 'Campanha não encontrada'}), 404
-
-            if request.method == 'GET':
-                token = campanha.get('link_publico_token')
-                return jsonify({
-                    'success': True,
-                    'ativo': bool(campanha.get('link_publico_ativo')),
-                    'token': token,
-                    'expires_at': (
-                        campanha['link_publico_expires_at'].isoformat()
-                        if campanha.get('link_publico_expires_at')
-                        else None
-                    ),
-                    'link': (
-                        _url_pagina_campanha_publica(token, barra_fases=False)
-                        if token and campanha.get('link_publico_ativo')
-                        else None
-                    ),
-                    'link_preview': (
-                        _url_pagina_campanha_publica(token, barra_fases=True)
-                        if token and campanha.get('link_publico_ativo')
-                        else None
-                    ),
-                })
-
-            if request.method == 'POST':
-                renovar = request.args.get('renovar') in ('1', 'true', 'yes')
-                token = campanha.get('link_publico_token')
-                if token and not renovar:
-                    if not campanha.get('link_publico_ativo'):
-                        db.atualizar_link_publico_campanha(
-                            id_campanha,
-                            {'link_publico_ativo': True},
-                        )
-                else:
-                    dias = request.args.get('dias')
-                    dias_val = int(dias) if dias and str(dias).isdigit() else None
-                    token = db.gerar_link_publico_campanha(id_campanha, dias_val)
-                    if not token:
-                        return jsonify({'success': False, 'error': 'Não foi possível gerar o link'}), 500
-
-                link = _url_pagina_campanha_publica(token, barra_fases=False)
-                preview = _url_pagina_campanha_publica(token, barra_fases=True)
-                return jsonify({
-                    'success': True,
-                    'token': token,
-                    'link': link,
-                    'link_preview': preview,
-                    'ativo': True,
-                })
-
-            payload = request.get_json(silent=True) or {}
-            updates = {}
-            if 'link_publico_ativo' in payload:
-                updates['link_publico_ativo'] = bool(payload['link_publico_ativo'])
-            if 'link_publico_expires_at' in payload:
-                updates['link_publico_expires_at'] = payload['link_publico_expires_at'] or None
-            if not updates:
-                return jsonify({'success': False, 'error': 'Nenhuma alteração informada'}), 400
-            db.atualizar_link_publico_campanha(id_campanha, updates)
-            campanha = db.obter_campanha_pi_por_id(id_campanha)
-            token = campanha.get('link_publico_token')
-            return jsonify({
-                'success': True,
-                'ativo': bool(campanha.get('link_publico_ativo')),
-                'token': token,
-                'link': (
-                    _url_pagina_campanha_publica(token, barra_fases=False)
-                    if token and campanha.get('link_publico_ativo')
-                    else None
-                ),
-                'link_preview': (
-                    _url_pagina_campanha_publica(token, barra_fases=True)
-                    if token and campanha.get('link_publico_ativo')
-                    else None
-                ),
-            })
+            return _api_link_publico_pi(campanha['id_pi'])
+        except LookupError as e:
+            return jsonify({'success': False, 'error': str(e)}), 404
         except Exception as e:
             app.logger.error('Erro no link público da campanha %s: %s', id_campanha, e)
-            return jsonify({'success': False, 'error': str(e)}), 500
+            return jsonify({'success': False, 'error': 'Erro ao processar o link público'}), 500
+
+    @app.route('/api/campanha/<int:id_campanha>/link-publico/previa')
+    @login_required
+    def api_campanha_link_publico_previa(id_campanha):
+        """Abre a prévia (com fases) da página do PI desta campanha, gerando o link se faltar."""
+        campanha = db.obter_campanha_pi_por_id(id_campanha)
+        if not campanha:
+            return render_template('erro_publico.html', mensagem='Campanha não encontrada.'), 404
+        token = _garantir_link_publico_pi(campanha['id_pi'])
+        if not token:
+            return render_template('erro_publico.html', mensagem='Não foi possível gerar o link.'), 500
+        return redirect(_url_pagina_campanha_publica(token, barra_fases=True))
 
     # ==================== EMAIL DE CAMPANHA PI ====================
 

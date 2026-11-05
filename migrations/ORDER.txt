@@ -253,3 +253,5 @@ migrations/run_add_representacao_comercial_v1.py
 migrations/run_sql_migration.py add_campanha_link_publico.sql
 # Campanha PI: flag para incorporar Looker na página pública (idempotente).
 migrations/run_sql_migration.py add_campanha_link_dash_incorporar.sql
+# PI: link público único de acompanhamento (agrupa campanhas do PI; idempotente).
+migrations/run_sql_migration.py add_pi_link_publico.sql

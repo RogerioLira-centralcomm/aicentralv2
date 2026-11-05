@@ -4,7 +4,7 @@
     Prévia da operação: ?fases=1&fase=N simula os marcos concluídos. -#}
 {% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-cadu-skin="workspace" data-cadu-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,8 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind/enterprise-system.css') }}?v=34">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/campanha_publica.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/campanha_publica.css') }}?v=7">
 </head>
 <body>
 <div class="app">
@@ -63,13 +62,14 @@
         <div class="meta">
           <span><b>{{ campanha.cliente }}</b></span>
           <span class="mono">{{ campanha.pi }}</span>
+          {% if campanha.grupo %}<span>{{ campanha.resultados|length }} campanhas</span>{% endif %}
           <span>{{ dlonga(campanha.periodo.inicio) }} – {{ dlonga(campanha.periodo.fim) }}</span>
         </div>
       </div>
       {% block head_cta %}
       {% if pagina != 'contato' and campanha.executivo %}
       <div class="head-cta">
-        <a class="cx-btn cx-btn-secondary" href="{{ purl('contato') }}">{{ icon('contato') }}Falar com o executivo</a>
+        <a class="ut-btn ut-btn-secondary" href="{{ purl('contato') }}">{{ icon('contato') }}Falar com o executivo</a>
       </div>
       {% endif %}
       {% endblock %}
@@ -88,8 +88,8 @@
           <b>{{ atual.titulo }}</b>
           <span class="s">
             <span class="mono">prev. {{ dcurta(atual.previsto) }}</span>
-            <span class="cx-badge {{ 'cx-badge-info' if atual.responsavel == 'cc' else 'cx-badge-warning' }}">{{ 'Centralcomm' if atual.responsavel == 'cc' else 'Cliente' }}</span>
-            {% if atual.atrasado %}<span class="cx-badge cx-badge-danger">atrasado</span>{% endif %}
+            <span class="ut-badge {{ 'ut-badge-brand' if atual.responsavel == 'cc' else 'ut-badge-warning' }}">{{ 'Centralcomm' if atual.responsavel == 'cc' else 'Cliente' }}</span>
+            {% if atual.atrasado %}<span class="ut-badge ut-badge-error">atrasado</span>{% endif %}
           </span>
           {% else %}
           <b>Campanha concluída</b>
@@ -115,6 +115,14 @@
   if (a && nav && nav.scrollWidth > nav.clientWidth) {
     nav.scrollLeft += a.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12;
   }
+  if (!nav) return;
+  const fim = () => {
+    nav.classList.toggle("overflow", nav.scrollWidth > nav.clientWidth + 1);
+    nav.classList.toggle("at-end", nav.scrollLeft + nav.clientWidth >= nav.scrollWidth - 2);
+  };
+  fim();
+  nav.addEventListener("scroll", fim, { passive: true });
+  addEventListener("resize", fim);
 })();
 </script>
 {% block scripts %}{% endblock %}

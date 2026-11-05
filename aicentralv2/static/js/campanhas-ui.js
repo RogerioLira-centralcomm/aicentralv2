@@ -240,7 +240,8 @@
       global.showToast(message, kind || 'success');
       return;
     }
-    window.alert(message);
+    // Sem toast disponível: nada de alert nativo, só registro no console.
+    if (global.console) global.console.info(message);
   }
 
   function copiarLinkCampanhaPublica(idCampanha, url, ev) {
@@ -251,7 +252,7 @@
     const copy = function (link) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(link).then(function () {
-          toastLinkCampanha('Link da campanha copiado.', 'success');
+          toastLinkCampanha('Link do PI copiado para o cliente.', 'success');
         }).catch(function () {
           toastLinkCampanha(link, 'info');
         });

@@ -602,3 +602,14 @@ def test_selo_de_campanhas_e_brilho_do_briefing(app, monkeypatch):
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [])
     html = _client(app, {"user_id": 501}).get("/", base_url=HOST).get_data(as_text=True)
     assert 'aria-label="7 campanhas em andamento">7<' in html and "ac-nav__link--shine" in html
+
+
+def test_periodo_encerrado_nao_diz_termina_hoje(app):
+    from aicentralv2.area_cliente import dados
+    itens = dados.marcar_encerradas([{"periodo": {"fim": "2020-01-31"}, "dias_restantes": 0},
+                                     {"periodo": {"fim": "2999-01-31"}, "dias_restantes": 5}])
+    assert [i["dias_restantes"] for i in itens] == [-1, 5]
+    with app.test_request_context("/"):
+        from flask import render_template_string
+        html = render_template_string("{% from 'area_cliente/_macros.html' import barra %}{{ barra(100, 'x', 100, '', -1) }}{{ barra(50, 'y', 90, '', 0) }}")
+    assert "encerrada" in html and "termina hoje" in html

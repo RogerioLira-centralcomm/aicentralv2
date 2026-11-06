@@ -160,6 +160,8 @@ def view_projeto(usuario, id_pi):
     projeto = dados.projeto_do_cliente(usuario["cliente_id"], id_pi)
     if projeto is None:
         abort(404)
+    if not projeto.get("vazio"):
+        dados.marcar_encerradas(projeto["payload"].get("resultados"))
     resumo = dados.resumo_projeto(usuario["cliente_id"], id_pi)
     plats = plataformas.resumo(dados.campanhas_dos_pis([id_pi]))
     return _render("projeto.html", usuario, "projetos", projeto=projeto, resumo=resumo, plats=plats,

@@ -54,6 +54,16 @@ def _limpo(valor):
     return None if texto.lower() in ("", "none", "null") else texto
 
 
+def marcar_encerradas(itens) -> list:
+    """Dias restantes = -1 quando o período já terminou (o cálculo base nunca fica abaixo de 0)."""
+    hoje = date.today().isoformat()
+    for item in itens or []:
+        fim = ((item.get("periodo") or {}).get("fim") or "")[:10]
+        if fim and fim < hoje:
+            item["dias_restantes"] = -1
+    return itens
+
+
 def _pi_label(row):
     return _limpo(row.get("codigo_pi_cc")) or _limpo(row.get("codigo_pi_ag")) or f"PI #{row['id_pi']}"
 
@@ -114,7 +124,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
             "campanhas": das_campanhas,
         })
         projetos[-1]["ritmo"] = _ritmo(projetos[-1]["pct"], projetos[-1]["tempo_pct"])
-    return projetos
+    return marcar_encerradas(projetos)
 
 
 def campanhas_dos_pis(ids_pi) -> list[dict]:
@@ -146,6 +156,7 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
         resultado = _resultado_campanha(row, 0)
         resultado["id_pi"] = row["id_pi"]
         resultado["no_ar"] = (resultado["status"] or "").strip().lower() in STATUS_CAMPANHA_NO_AR
+        marcar_encerradas([resultado])
         resultado["responsavel"] = row.get("responsavel_nome") or ""
         from .plataformas import iniciais, logo
         resultado["plataforma_logo"] = logo(resultado["plataforma"])

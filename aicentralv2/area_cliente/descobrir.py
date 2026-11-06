@@ -24,7 +24,7 @@ TIPO_ROTULO = {"estrategias": "Estratégia", "canais": "Canal", "formatos": "For
 POR_PAGINA = 24
 LIMITE_SELECAO = 20  # a seleção fica no cookie de sessão (limite de ~4 KB)
 NOME_MAX = 60
-NOME_MAX_ESTRATEGIA = 150  # nome · verba · praças da simulação
+NOME_MAX_ESTRATEGIA = 110  # nome · verba · praças da simulação
 
 
 def _repo():
@@ -242,7 +242,7 @@ def selecao(sess) -> list[dict]:
     return saida[:LIMITE_SELECAO]
 
 
-def alternar(sess, secao: str, item_id, nome: str) -> bool:
+def alternar(sess, secao: str, item_id, nome: str, atualizar: bool = False) -> bool:
     """Inclui ou tira um item da seleção. Devolve True se ficou incluído."""
     if secao not in SECOES:
         raise NotFound()
@@ -252,7 +252,7 @@ def alternar(sess, secao: str, item_id, nome: str) -> bool:
         raise NotFound()
     itens = selecao(sess)
     chave = (secao, item_id)
-    if secao == "estrategias" and nome:
+    if atualizar and secao == "estrategias" and nome:
         # Estratégia já no briefing com outra simulação: atualiza em vez de tirar.
         atual = next((i for i in itens if (i["secao"], i["id"]) == chave), None)
         novo = _texto(nome, NOME_MAX_ESTRATEGIA)

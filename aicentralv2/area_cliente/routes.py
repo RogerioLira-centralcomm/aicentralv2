@@ -366,9 +366,11 @@ def view_descobrir_simulacao(item_id):
 def view_descobrir_selecao():
     _checar_csrf()
     nome = request.form.get("nome", "")
-    if request.form.get("secao") == "estrategias" and request.form.get("verba"):
+    # Só a ficha manda verba: aí a estratégia já incluída é atualizada com a nova simulação, não tirada.
+    simulada = request.form.get("secao") == "estrategias" and bool(request.form.get("verba"))
+    if simulada:
         nome = descobrir.nome_simulacao(request.form.get("id"), request.form.get("verba"), request.form.get("pracas"))
-    incluido = descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), nome)
+    incluido = descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), nome, atualizar=simulada)
     if request.headers.get("X-Requested-With") == "fetch":
         # O botão troca de estado sem recarregar; "total" atualiza os contadores do menu e do CTA.
         return jsonify(incluido=incluido, total=len(descobrir.selecao(session)), limite=descobrir.LIMITE_SELECAO)

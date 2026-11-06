@@ -43,7 +43,7 @@
           <td class="es-name"><a href="{{ url_for('parametros.estrategias_editar', estrategia_id=l.id) }}">{{ l.nome }}</a><small>{{ l.slug }}</small></td>
           <td><span class="es-chip">{{ l.objetivo }}</span></td>
           <td class="es-num">{{ l.verba_rotulo|replace('A partir de ', '') }}</td>
-          <td><span class="es-logos">{% for c in l.canais %}{% if c.logo %}<img src="{{ c.logo }}" alt="" title="{{ c.nome }}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'{{ c.nome[:1] }}',title:'{{ c.nome }}'}))">{% else %}<b title="{{ c.nome }}">{{ c.nome[:1] }}</b>{% endif %}{% endfor %}</span></td>
+          <td><span class="es-logos">{% for c in l.canais %}{% if c.logo %}<img src="{{ c.logo }}" alt="" title="{{ c.nome }}" loading="lazy" data-ini="{{ c.nome[:1] }}" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:this.dataset.ini,title:this.title}))">{% else %}<b title="{{ c.nome }}">{{ c.nome[:1] }}</b>{% endif %}{% endfor %}</span></td>
           <td class="es-flags">
             {% if l.remarketing %}<span title="Usa remarketing">RMK</span>{% endif %}
             {% if l.lista_clientes %}<span title="Usa lista de clientes">Lista</span>{% endif %}

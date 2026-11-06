@@ -127,3 +127,14 @@ def test_validar_parametros_recusa_valor_fora():
                  {"benchmarks": {"inventado": ["cpm", 1, 2, 0, 0]}}):
         with pytest.raises(ValueError):
             estimativa.validar_parametros(ruim)
+
+
+def test_selecao_de_estrategia_atualiza_so_com_simulacao():
+    from aicentralv2.area_cliente import descobrir
+    sess = {}
+    assert descobrir.alternar(sess, "estrategias", 6, "Vendas · R$ 20 mil · Recife - PE", atualizar=True)
+    assert descobrir.alternar(sess, "estrategias", 6, "Vendas · R$ 50 mil · Recife - PE", atualizar=True)
+    assert sess["area_cliente_descobrir"] == [["estrategias", 6, "Vendas · R$ 50 mil · Recife - PE"]]
+    # botão do cartão da vitrine (sem simulação) tira do briefing, mesmo com outro nome
+    assert not descobrir.alternar(sess, "estrategias", 6, "Vendas")
+    assert sess["area_cliente_descobrir"] == []

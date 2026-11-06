@@ -106,6 +106,9 @@ def parametros() -> dict:
                             alvo[k] = v
     except Exception:
         log.exception("estrategias: parâmetros de estimativa indisponíveis; usando padrões")
+        from .visao import _rollback
+        _rollback()
+        return {"benchmarks": bench, "conversao": conv}  # sem cache: tenta de novo na próxima
     valor = {"benchmarks": bench, "conversao": conv}
     _CACHE.update(em=time.monotonic(), valor=valor)
     return valor

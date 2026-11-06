@@ -25,7 +25,7 @@ def canais_catalogo() -> dict:
     """slug -> {nome, logo, categoria} dos canais ativos do Planner, mais os extras."""
     if time.monotonic() - _CACHE["em"] < _TTL and _CACHE["canais"]:
         return _CACHE["canais"]
-    mapa = {}
+    mapa, ok = {}, False
     try:
         from ..cadu_planner.channels import _channel_logo  # logo curado; o /assets_images gravado não é servido
         from ..db import get_db
@@ -34,13 +34,25 @@ def canais_catalogo() -> dict:
             for r in cur.fetchall():
                 logo = _channel_logo(str(r["slug"]).lower(), r.get("logo_path")) or ""
                 mapa[r["slug"]] = {"nome": r["nome"], "logo": logo, "categoria": r.get("categoria") or ""}
+        ok = True
     except Exception:
         log.exception("estrategias: canais do catálogo indisponíveis")
+        _rollback()
     mapa.pop("waze", None)
     for slug, extra in catalogo.CANAIS_EXTRAS.items():
         mapa.setdefault(slug, dict(extra))
-    _CACHE.update(em=time.monotonic(), canais=mapa)
+    if ok:  # falha não fica em cache: a próxima requisição tenta de novo
+        _CACHE.update(em=time.monotonic(), canais=mapa)
     return mapa
+
+
+def _rollback():
+    """Consulta que falhou deixa a transação abortada; desfaz para o resto da requisição seguir."""
+    try:
+        from ..db import get_db
+        get_db().rollback()
+    except Exception:
+        pass
 
 
 def slugs_validos() -> set[str]:

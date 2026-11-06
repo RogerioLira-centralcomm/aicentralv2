@@ -245,39 +245,27 @@ def _campanhas_acompanhar(campanhas) -> dict:
 
 
 def _aviso(acompanhar: dict) -> dict:
-    """Cartão de aviso ao lado das campanhas: o que pede atenção, ou o resumo do que vai bem."""
+    """Recado curto ao lado das campanhas. A operação é da Centralcomm: o que está abaixo do ritmo
+    já foi identificado e está sendo otimizado pela equipe, então o tom é sempre positivo e sem pedido."""
     itens = acompanhar["itens"]
     pcts = [c["pct"] for c in itens if c["pct"] is not None]
     media = _media(pcts)
     if not itens:
-        return {"tom": "neutro", "titulo": "Comece pelo briefing",
-                "frase": "Nenhuma campanha com meta por enquanto.",
-                "texto": "Conte o objetivo e a verba no briefing; a Centralcomm monta o planejamento.", "acao": "briefing"}
-    atencao = [c for c in itens if c["ritmo"] == "atencao"]
-    if acompanhar["no_ar"] and atencao:
-        nomes = ", ".join(c["nome"] for c in atencao[:2]) + (f" e mais {len(atencao) - 2}" if len(atencao) > 2 else "")
-        return {"tom": "atencao", "titulo": "Atenção",
-                "frase": f"{len(atencao)} {'campanha está' if len(atencao) == 1 else 'campanhas estão'} abaixo do ritmo.",
-                "texto": f"{nomes}: a entrega está atrás do tempo decorrido. Fale com o executivo para ajustar.",
-                "acao": "otimizacao"}
+        return {"tom": "neutro", "titulo": "Tudo pronto", "frase": "As campanhas aparecem aqui assim que entrarem no ar."}
+    atencao = [c for c in itens if c["ritmo"] == "atencao"] if acompanhar["no_ar"] else []
+    if atencao:
+        n = len(atencao)
+        return {"tom": "bom", "titulo": "Em otimização",
+                "frase": f"{n} {'campanha está' if n == 1 else 'campanhas estão'} sendo {'otimizada' if n == 1 else 'otimizadas'} "
+                         "pela equipe Centralcomm para recuperar o ritmo."}
     if pcts and all(p >= 100 for p in pcts):
-        if acompanhar["no_ar"]:
-            return {"tom": "bom", "titulo": "Destaque",
-                    "frase": f"Entrega acima da meta em todas as campanhas ({media}%).",
-                    "texto": "Mantenha o ritmo e avalie a otimização para maximizar resultados até o encerramento.",
-                    "acao": "otimizacao"}
-        return {"tom": "bom", "titulo": "Destaque",
-                "frase": f"As últimas campanhas entregaram acima da meta ({media}%).",
-                "texto": "Bom momento para planejar a próxima: envie um briefing com o que vem pela frente.",
-                "acao": "briefing"}
+        quando = "Todas as campanhas" if acompanhar["no_ar"] else "As últimas campanhas"
+        return {"tom": "bom", "titulo": "Acima da meta", "frase": f"{quando} entregaram acima da meta ({media}%)."}
     if acompanhar["no_ar"]:
-        return {"tom": "bom", "titulo": "Em dia",
-                "frase": f"Todas as campanhas no ritmo{f' ({media}% de entrega média)' if media is not None else ''}.",
-                "texto": "A entrega acompanha o tempo decorrido. Avise se quiser reforçar algum canal.",
-                "acao": "otimizacao"}
+        return {"tom": "bom", "titulo": "No ritmo",
+                "frase": f"As campanhas acompanham o tempo decorrido{f' ({media}% de entrega média)' if media is not None else ''}."}
     return {"tom": "neutro", "titulo": "Resumo",
-            "frase": f"As últimas campanhas entregaram {media}% da meta em média." if media is not None else "Sem campanhas no ar agora.",
-            "texto": "Envie um briefing para a próxima campanha.", "acao": "briefing"}
+            "frase": f"As últimas campanhas entregaram {media}% da meta em média." if media is not None else "Sem campanhas no ar agora."}
 
 
 def resumo_inicio(cliente_id) -> dict:
@@ -301,8 +289,8 @@ def resumo_inicio(cliente_id) -> dict:
         },
         "acompanhar": acompanhar,
         "aviso": _aviso(acompanhar),
-        "pis": recentes[:4],
-        "pis_mais": max(len(recentes) - 4, 0),
+        "pis": recentes[:5],
+        "pis_mais": max(len(recentes) - 5, 0),
         "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}, limite=12),
         "hoje": date.today(),
     }

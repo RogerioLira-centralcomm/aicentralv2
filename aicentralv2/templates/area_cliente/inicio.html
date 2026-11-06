@@ -66,49 +66,34 @@
   </section>
 
   <aside class="ac-home-side">
-    <a class="ac-btn ac-btn--primary ac-home-cta" href="{{ area_url('briefing') }}">{{ icon('send', 20) }}Enviar briefing</a>
-    <p class="ac-home-cta__hint">Inicie uma nova demanda de campanha, PI ou dashboard.</p>
     <section class="ac-aviso ac-aviso--{{ av.tom }}" aria-labelledby="aviso-titulo">
-      <h2 class="ac-aviso__title" id="aviso-titulo">{{ icon('alert' if av.tom == 'atencao' else 'target', 24) }}{{ av.titulo }}</h2>
+      <h2 class="ac-aviso__title" id="aviso-titulo">{{ icon('sparkles' if av.titulo == 'Em otimização' else 'check', 18) }}{{ av.titulo }}</h2>
       <p class="ac-aviso__frase">{{ av.frase }}</p>
-      <p class="ac-aviso__texto">{{ av.texto }}</p>
-      {% if av.acao == 'otimizacao' and usuario.executivo and usuario.executivo.whatsapp %}
-      <a class="ac-aviso__link" href="{{ usuario.executivo.whatsapp }}?text={{ ('Olá, ' ~ usuario.executivo.nome.split(' ')[0] ~ '! Quero conversar sobre otimizar as campanhas da ' ~ usuario.cliente_nome ~ '.')|urlencode }}" target="_blank" rel="noopener">Solicitar otimização{{ icon('chevron-right', 16) }}</a>
-      {% elif av.acao == 'otimizacao' %}
-      <a class="ac-aviso__link" href="{{ area_url('briefing') }}">Solicitar otimização{{ icon('chevron-right', 16) }}</a>
+    </section>
+
+    <section class="ac-hpis-side" aria-labelledby="pis-titulo">
+      <header class="ac-home-sec__head">
+        <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="pis-titulo">PIs recentes</h2>
+        <a class="ac-home-link" href="{{ area_url('pis') }}">Ver todos{% if resumo.pis_mais %} ({{ resumo.pis|length + resumo.pis_mais }}){% endif %}{{ icon('chevron-right', 14) }}</a>
+      </header>
+      {% if resumo.pis %}
+      <ul class="ac-hpis-list">
+        {% for p in resumo.pis %}
+        <li>
+          <a class="ac-hpis-list__item" href="{{ area_url('pi', id_pi=p.id) }}">
+            <span class="ac-hpis-list__top"><b>{{ p.titulo }}</b><span class="ac-hpis-list__pct">{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</span></span>
+            <span class="ac-hcamp__bar"><span class="ac-hcamp__fill{% if p.ativo and p.ritmo %} ac-hcamp__fill--{{ p.ritmo }}{% elif (p.pct or 0) >= 100 %} ac-hcamp__fill--adiantado{% endif %}" style="width: {{ [[p.pct or 0, 0]|max, 100]|min }}%"></span></span>
+            <span class="ac-hpis-list__meta"><small>{{ p.pi }} · {{ periodo(p.periodo) }}</small>{{ status_badge(p.status) }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
       {% else %}
-      <a class="ac-aviso__link" href="{{ area_url('briefing') }}">Abrir o briefing{{ icon('chevron-right', 16) }}</a>
+      <p class="ac-home-empty">Nenhum PI ainda.</p>
       {% endif %}
     </section>
   </aside>
 </div>
-
-<section class="ac-home-sec ac-home-sec--pis" aria-labelledby="pis-titulo">
-  <header class="ac-home-sec__head">
-    <div>
-      <h2 class="ac-home-sec__title" id="pis-titulo">PIs recentes</h2>
-      <p class="ac-home-sec__sub">Em andamento primeiro, depois os últimos atualizados.</p>
-    </div>
-    <a class="ac-home-link" href="{{ area_url('pis') }}">Ver todos{% if resumo.pis_mais %} ({{ resumo.pis|length + resumo.pis_mais }}){% endif %}{{ icon('chevron-right', 14) }}</a>
-  </header>
-  {% if resumo.pis %}
-  <table class="ac-hpis">
-    <thead><tr><th scope="col"><span class="ac-sr">PI</span></th><th scope="col" class="ac-hpis__barcol"><span class="ac-sr">Progresso</span></th><th scope="col" class="is-num">Entrega</th><th scope="col">Status</th></tr></thead>
-    <tbody>
-      {% for p in resumo.pis %}
-      <tr>
-        <th scope="row"><a class="ac-hpis__name" href="{{ area_url('pi', id_pi=p.id) }}"><b>{{ p.titulo }}</b><small>{{ p.pi }} · {{ periodo(p.periodo) }} · {{ p.n_campanhas }} {{ 'campanha' if p.n_campanhas == 1 else 'campanhas' }}</small></a></th>
-        <td class="ac-hpis__barcol"><span class="ac-hcamp__bar"><span class="ac-hcamp__fill{% if p.ativo and p.ritmo %} ac-hcamp__fill--{{ p.ritmo }}{% elif (p.pct or 0) >= 100 %} ac-hcamp__fill--adiantado{% endif %}" style="width: {{ [[p.pct or 0, 0]|max, 100]|min }}%"></span></span></td>
-        <td class="is-num"><b>{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</b></td>
-        <td>{{ status_badge(p.status) }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="ac-home-empty">Nenhum PI ainda. Envie um briefing para a Centralcomm montar o planejamento.</p>
-  {% endif %}
-</section>
 
 {% if resumo.atividades %}
 <section class="ac-hupd" aria-labelledby="upd-titulo">

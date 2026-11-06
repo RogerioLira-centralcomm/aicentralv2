@@ -99,8 +99,8 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     html = resp.get_data(as_text=True)
     assert "Olá" not in html and "Cliente Teste" in html
     assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
-    assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 2  # topo + chamada principal do Início
-    assert "Comece pelo briefing" in html and "Acompanhe suas campanhas" in html
+    assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 1  # só o botão do topo
+    assert "Tudo pronto" in html and "Acompanhe suas campanhas" in html and "Solicitar otimização" not in html
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
     ordem = [nav.index(t) for t in ("Início", "Briefing", "Campanhas", "Relatórios", "PIs", "Descobrir", "Canais", "Portais")]
@@ -977,3 +977,21 @@ def test_contraparte_mostra_cliente_para_agencia_e_agencia_para_cliente():
     assert dados.contraparte(row, 20) == {"rotulo": "Cliente", "nome": "CEMIG D"}        # quem vê é a agência
     assert dados.contraparte(row, 10) == {"rotulo": "Agência", "nome": "Lapis Raro"}     # quem vê é o cliente
     assert dados.contraparte(dict(row, pi_tem_agencia=False, id_agencia=None), 10) == {"rotulo": "Agência", "nome": "Direto"}
+
+
+def test_inicio_aviso_positivo_e_campanhas_para_acompanhar():
+    from aicentralv2.area_cliente import dados
+    no_ar = [_camp(id=1, nome="A", pct=30, ritmo="atencao"), _camp(id=2, nome="B", pct=60, ritmo="no_ritmo")]
+    ac = dados._campanhas_acompanhar(no_ar + [_camp(id=3, nome="Velha", no_ar=False)])
+    assert ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["A", "B"]
+    aviso = dados._aviso(ac)
+    # a operação é da Centralcomm: abaixo do ritmo vira "em otimização", em tom positivo e sem pedido ao cliente
+    assert aviso["tom"] == "bom" and aviso["titulo"] == "Em otimização" and "1 campanha está sendo otimizada" in aviso["frase"]
+    assert "acao" not in aviso
+    # nada no ar: as 3 mais recentes com meta e o resumo do resultado
+    encerradas = [_camp(id=i, nome=f"E{i}", no_ar=False, pct=101, ritmo="no_ritmo", periodo={"inicio": "2026-01-01", "fim": f"2026-0{i}-01"})
+                  for i in range(1, 5)]
+    ac = dados._campanhas_acompanhar(encerradas)
+    assert not ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["E4", "E3", "E2"]
+    assert "As últimas campanhas entregaram acima da meta (101%)" in dados._aviso(ac)["frase"]
+    assert dados._aviso(dados._campanhas_acompanhar([]))["titulo"] == "Tudo pronto"

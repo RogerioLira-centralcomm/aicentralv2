@@ -970,3 +970,13 @@ section.ac-stats { gap: 0; margin: 0; }
   html.ac-rail .ac-nav .ac-nav__label { display: block; height: 0; padding: 0; overflow: hidden; }
   html.ac-rail .ac-nav .ac-nav__group { margin-bottom: 14px; }
 }
+
+/* Faixa de indicadores clicável, com mini barra */
+.ac-stats--links .ac-stat { text-decoration: none; color: inherit; grid-template-rows: auto auto auto; row-gap: 2px; transition: background-color 140ms ease; }
+.ac-stats--links .ac-stat:hover { background: var(--colors-gray-25); }
+.ac-stats--links .ac-stat:first-child { border-radius: 10px 0 0 10px; }
+.ac-stats--links .ac-stat:last-child { border-radius: 0 10px 10px 0; }
+.ac-stat__bar { grid-column: 1 / -1; margin-top: 8px; }
+.ac-stat__bar .ac-progress { height: 4px; }
+.ac-stat__bar .ac-progress__mark { top: -3px; height: 10px; }
+@media (max-width: 720px) { .ac-stats--links .ac-stat { border-radius: 0 !important; } }

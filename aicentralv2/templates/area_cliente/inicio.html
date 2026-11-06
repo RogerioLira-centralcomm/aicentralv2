@@ -6,11 +6,25 @@
 <h1 class="ac-h1 ac-page-title">{{ usuario.cliente_nome }}</h1>
 
 {# Faixa única de indicadores: quatro células iguais, sem cards separados. #}
-<section class="ac-stats" aria-label="Indicadores">
-  <div class="ac-stat"><span class="ac-stat__label">PIs ativos</span><b class="ac-stat__value">{{ k.projetos_ativos }}</b><span class="ac-stat__hint">de {{ k.projetos_total }}</span></div>
-  <div class="ac-stat"><span class="ac-stat__label">Campanhas no ar</span><b class="ac-stat__value">{{ k.campanhas_no_ar }}</b><span class="ac-stat__hint">de {{ k.campanhas_total }}</span></div>
-  <div class="ac-stat"><span class="ac-stat__label">Entrega média</span><b class="ac-stat__value">{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b><span class="ac-stat__hint">sobre a meta</span></div>
-  <div class="ac-stat"><span class="ac-stat__label">Dashboards no ar</span><b class="ac-stat__value">{{ k.dashboards }}</b><span class="ac-stat__hint"><a class="ac-link" href="{{ area_url('relatorios') }}">ver</a></span></div>
+<section class="ac-stats ac-stats--links" aria-label="Indicadores">
+  {% set pct_pis = (k.projetos_ativos / k.projetos_total * 100)|round|int if k.projetos_total else 0 %}
+  {% set pct_camp = (k.campanhas_no_ar / k.campanhas_total * 100)|round|int if k.campanhas_total else 0 %}
+  <a class="ac-stat" href="{{ area_url('pis') }}">
+    <span class="ac-stat__label">PIs ativos</span><b class="ac-stat__value">{{ k.projetos_ativos }}</b><span class="ac-stat__hint">de {{ k.projetos_total }}</span>
+    <span class="ac-stat__bar">{{ barra(pct_pis, 'PIs ativos sobre o total') }}</span>
+  </a>
+  <a class="ac-stat" href="{{ area_url('campanhas') }}">
+    <span class="ac-stat__label">Campanhas no ar</span><b class="ac-stat__value">{{ k.campanhas_no_ar }}</b><span class="ac-stat__hint">de {{ k.campanhas_total }}</span>
+    <span class="ac-stat__bar">{{ barra(pct_camp, 'Campanhas no ar sobre o total') }}</span>
+  </a>
+  <a class="ac-stat" href="{{ area_url('campanhas') }}">
+    <span class="ac-stat__label">Entrega média</span><b class="ac-stat__value">{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b><span class="ac-stat__hint">{% if k.tempo_medio is not none %}{{ k.tempo_medio }}% do período{% else %}sobre a meta{% endif %}</span>
+    <span class="ac-stat__bar">{{ barra(k.entrega_media, 'Entrega média das campanhas no ar', k.tempo_medio, k.ritmo) }}</span>
+  </a>
+  <a class="ac-stat" href="{{ area_url('relatorios') }}">
+    <span class="ac-stat__label">Dashboards no ar</span><b class="ac-stat__value">{{ k.dashboards }}</b><span class="ac-stat__hint">de {{ k.campanhas_no_ar }} campanhas</span>
+    <span class="ac-stat__bar">{{ barra((k.dashboards / k.campanhas_no_ar * 100)|round|int if k.campanhas_no_ar else 0, 'Campanhas no ar com dashboard') }}</span>
+  </a>
 </section>
 
 <div class="ac-panels">

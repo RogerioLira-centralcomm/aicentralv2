@@ -186,6 +186,17 @@ def resumo_projeto(cliente_id, id_pi) -> dict | None:
     return projetos[0] if projetos else None
 
 
+def _media(valores):
+    return round(sum(valores) / len(valores)) if valores else None
+
+
+def _ritmo(pct, tempo):
+    """Mesma régua das campanhas: adiantado, no ritmo ou atenção."""
+    if pct is None or not tempo:
+        return ""
+    return "adiantado" if pct >= tempo + 5 else "no_ritmo" if pct >= tempo - 10 else "atencao"
+
+
 def resumo_inicio(cliente_id) -> dict:
     """Tudo o que a tela Início mostra, em uma chamada."""
     projetos = listar_projetos(cliente_id)
@@ -197,13 +208,14 @@ def resumo_inicio(cliente_id) -> dict:
     )[:6]
     ativos = [p for p in projetos if p["ativo"]]
     destaque = (ativos or projetos)[:4]
-    return {
+    resumo = {
         "kpis": {
             "projetos_ativos": sum(1 for p in projetos if p["ativo"]),
             "projetos_total": len(projetos),
             "campanhas_no_ar": sum(1 for c in campanhas if c["no_ar"]),
             "campanhas_total": len(campanhas),
             "entrega_media": round(sum(pcts) / len(pcts)) if pcts else None,
+            "tempo_medio": _media([c["tempo_pct"] for c in campanhas if c["no_ar"] and c["tempo_pct"] is not None]),
             "dashboards": sum(1 for c in campanhas if c["dash_abrir"] and c["no_ar"]),
         },
         "performance": performance,
@@ -212,6 +224,9 @@ def resumo_inicio(cliente_id) -> dict:
         "destaque_ativos": bool(ativos),
         "hoje": date.today(),
     }
+    k = resumo["kpis"]
+    k["ritmo"] = _ritmo(k["entrega_media"], k["tempo_medio"])
+    return resumo
 
 
 def projeto_do_cliente(cliente_id, id_pi) -> dict | None:
@@ -384,6 +399,7 @@ def ritmo_campanhas(cliente_id) -> dict:
             "aguardando": len(grupos["aguardando"]),
             "encerram_7d": sum(1 for c in no_ar if c["dias_restantes"] is not None and 0 <= c["dias_restantes"] <= 7),
             "entrega_media": round(sum(pcts) / len(pcts)) if pcts else None,
+            "tempo_medio": _media([c["tempo_pct"] for c in no_ar if c["tempo_pct"] is not None]),
             "finalizadas": len(grupos["finalizadas"]),
         },
     }

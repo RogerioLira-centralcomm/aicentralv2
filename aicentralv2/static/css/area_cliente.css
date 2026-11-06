@@ -959,3 +959,14 @@ section.ac-stats { gap: 0; margin: 0; }
   .ac-grid-wrap { overflow-x: hidden; }
 }
 @media (max-width: 600px) { .ac-grid .ac-grid__sticky { max-width: 38vw; } .ac-grid__actions { padding-left: 4px !important; padding-right: 6px !important; } }
+
+/* Sessões do menu: título pequeno + respiro entre grupos (sem linhas) */
+.ac-nav .ac-nav__group { margin-bottom: 18px; }
+.ac-nav .ac-nav__group:last-child { margin-bottom: 0; }
+.ac-nav .ac-nav__label { display: block; margin: 0; padding: 0 10px 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--colors-gray-400); }
+.ac-nav .ac-nav__label--link { text-decoration: none; }
+.ac-nav .ac-nav__label--link:hover, .ac-nav .ac-nav__label--link.is-active { color: var(--accent-strong); }
+@media (min-width: 1024px) {
+  html.ac-rail .ac-nav .ac-nav__label { display: block; height: 0; padding: 0; overflow: hidden; }
+  html.ac-rail .ac-nav .ac-nav__group { margin-bottom: 14px; }
+}

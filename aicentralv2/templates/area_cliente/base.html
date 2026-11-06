@@ -37,11 +37,14 @@
         <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span></a></li>
         {% endfor %}
       </ul>
+      {% for grupo, ids in [('Planejar', ['briefing']), ('Acompanhar', ['campanhas', 'relatorios', 'pis'])] %}
+      <p class="ac-nav__label">{{ grupo }}</p>
       <ul class="ac-nav__group">
-        {% for item in nav %}
+        {% for item in nav if item.id in ids %}
         <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}{% if item.id == 'briefing' and not item.ativo %} ac-nav__link--shine{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}{% if item.id == 'campanhas' and n_campanhas_no_ar %}<span class="ac-nav__count ac-nav__count--live" aria-label="{{ n_campanhas_no_ar }} campanhas em andamento">{{ n_campanhas_no_ar }}</span>{% endif %}</a></li>
         {% endfor %}
       </ul>
+      {% endfor %}
     </nav>
 
 

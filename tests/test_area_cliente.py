@@ -105,6 +105,7 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     ordem = [nav.index(t) for t in ("Início", "Descobrir", "Canais", "Portais", "Briefing", "Campanhas", "Relatórios", "PIs")]
     assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav
     assert "ac-nav__sep" not in nav  # menu sem linhas
+    assert nav.index("Planejar") < nav.index("Briefing") < nav.index("Acompanhar") < nav.index("Campanhas")
     assert "R$" not in html
 
 

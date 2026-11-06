@@ -81,8 +81,13 @@ if command -v systemd-analyze >/dev/null; then
     systemd-analyze verify "$studio_unit"
 fi
 sudo install -m 644 "$studio_unit" /etc/systemd/system/cadu-media-worker.service
-sudo mkdir -p /etc/systemd/system/aicentralv2.service.d
-printf '[Service]\nEnvironment="MEDIA_WORKER_MODE=supervised"\nEnvironment="MEDIA_TRANSCRIBE_MODEL_PATH=%s"\n' "$studio_model" | sudo tee /etc/systemd/system/aicentralv2.service.d/media-worker.conf >/dev/null
+# O site roda pelo gunicorn.service (porta 8001); aicentralv2.service é a unit antiga.
+# Sem o modo supervisionado no app real, cada pedido de mídia abriria um
+# "queue_worker --drain" (o app inteiro) além deste worker.
+for app_unit in gunicorn aicentralv2; do
+    sudo mkdir -p "/etc/systemd/system/${app_unit}.service.d"
+    printf '[Service]\nEnvironment="MEDIA_WORKER_MODE=supervised"\nEnvironment="MEDIA_TRANSCRIBE_MODEL_PATH=%s"\n' "$studio_model" | sudo tee "/etc/systemd/system/${app_unit}.service.d/media-worker.conf" >/dev/null
+done
 sudo systemctl daemon-reload
 sudo systemctl enable cadu-media-worker
 sudo systemctl restart cadu-media-worker

@@ -88,6 +88,16 @@ def obter_por_slug(slug: str, somente_ativas: bool = True) -> dict | None:
     return next((e for e in todas if e["slug"] == slug), None)
 
 
+def obter_por_url(endereco: str, somente_ativas: bool = True) -> dict | None:
+    """Pelo endereço público; aceita também o nome atual e o slug interno (quem chama redireciona)."""
+    alvo = (endereco or "").strip().lower()
+    if not alvo:
+        return None
+    todas, _ = listar(somente_ativas)
+    return (next((e for e in todas if catalogo.url_slug(e) == alvo), None)
+            or next((e for e in todas if catalogo.slug_url(e["nome"]) == alvo or e["slug"] == alvo), None))
+
+
 # ---------- validação ----------
 
 def _txt(valor, campo, obrigatorio=False, limite=None) -> str:
@@ -206,6 +216,8 @@ def normalizar(bruto: dict, slugs_validos: set[str]) -> dict:
 
     return {
         "slug": slug, "nome": _txt(bruto.get("nome"), "nome", True), "objetivo": objetivo,
+        # Só vale na criação: ao editar, salvar() mantém o endereço já gravado (links compartilhados não quebram).
+        "url_slug": catalogo.slug_url(bruto.get("nome")),
         "resumo": _txt(bruto.get("resumo"), "resumo", True), "verba_minima": verba_minima,
         "ativo": bool(bruto.get("ativo", True)), "ordem": _int(bruto.get("ordem") or 100, "ordem", 0, 10_000),
         "descricao": _txt(bruto.get("descricao"), "descricao"), "duracao": _txt(bruto.get("duracao"), "duracao"),
@@ -243,8 +255,12 @@ def salvar(e: dict, estrategia_id: int | None, usuario_id: int | None) -> int:
         with conn.cursor() as cur:
             if estrategia_id:
                 cur.execute("""UPDATE cadu_estrategias SET slug=%s, nome=%s, objetivo=%s, resumo=%s, verba_minima=%s,
-                               ativo=%s, ordem=%s, dados=%s, atualizado_em=now(), atualizado_por=%s WHERE id=%s RETURNING id""",
-                            (*[colunas[k] for k in _COLUNAS], Json(dados), usuario_id, estrategia_id))
+                               ativo=%s, ordem=%s,
+                               dados = CASE WHEN dados ? 'url_slug'
+                                            THEN %s::jsonb || jsonb_build_object('url_slug', dados->'url_slug')
+                                            ELSE %s::jsonb END,
+                               atualizado_em=now(), atualizado_por=%s WHERE id=%s RETURNING id""",
+                            (*[colunas[k] for k in _COLUNAS], Json(dados), Json(dados), usuario_id, estrategia_id))
             else:
                 cur.execute("""INSERT INTO cadu_estrategias (slug, nome, objetivo, resumo, verba_minima, ativo, ordem, dados,
                                atualizado_por) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",

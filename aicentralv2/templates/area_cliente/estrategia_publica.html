@@ -1,0 +1,47 @@
+{% from 'area_cliente/_macros.html' import icon %}<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+{% set titulo = item.nome ~ ' · ' ~ empresa_nome %}
+{% set og_img = (item.imagens[0].url if item.imagens else '/static/images/area_cliente/og-area-cliente.png?v=1') %}
+{% set og_base = (config.CLIENTES_URL or '')|trim('/') %}
+<meta name="description" content="{{ item.resumo }}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Centralcomm">
+<meta property="og:title" content="{{ titulo }}">
+<meta property="og:description" content="{{ item.resumo }}">
+<meta property="og:url" content="{{ url_publica }}">
+<meta property="og:image" content="{{ og_base }}{{ og_img }}">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0d171a">
+<title>{{ titulo }} · Centralcomm</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_estrategias.css') }}?v={{ static_fingerprint('css/area_cliente_estrategias.css') }}">
+</head>
+<body class="ac-pub" data-cadu-skin="workspace" data-cadu-theme="light">
+<header class="ac-pub__bar">
+  <a class="ac-brand" href="https://centralcomm.media" target="_blank" rel="noopener" aria-label="Centralcomm">
+    <img class="ac-brand__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="40" height="28">
+    <span class="ac-brand__text"><b>Centralcomm</b><small>Estratégias de mídia</small></span>
+  </a>
+  <p class="ac-pub__by">Compartilhado por <b>{{ empresa_nome }}</b></p>
+  <a class="ac-btn ac-btn--sm ac-btn--secondary ac-pub__login" href="{{ login_url }}">{{ icon('lock', 16) }}<span>Entrar</span></a>
+</header>
+<main class="ac-pub__main" id="conteudo">
+  {% set publico = True %}
+  {% include 'area_cliente/_estrategia_ficha.html' %}
+</main>
+<footer class="ac-pub__foot">
+  <p>Estratégia de referência da Centralcomm. Valores e alcance são estimativas a partir de benchmarks de mercado; a proposta final é ajustada para cada marca.</p>
+</footer>
+<script type="application/json" id="es-pracas-json">{{ item.pracas_seletor.itens|tojson }}</script>
+<script src="{{ url_for('static', filename='js/area_cliente_estrategias.js') }}?v={{ static_fingerprint('js/area_cliente_estrategias.js') }}" defer></script>
+</body>
+</html>

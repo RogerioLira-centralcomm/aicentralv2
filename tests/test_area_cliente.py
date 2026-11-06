@@ -99,7 +99,8 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     html = resp.get_data(as_text=True)
     assert "Olá" not in html and "Cliente Teste" in html
     assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
-    assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 1
+    assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 2  # topo + chamada principal do Início
+    assert "Comece pelo briefing" in html and "Acompanhe suas campanhas" in html
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
     ordem = [nav.index(t) for t in ("Início", "Briefing", "Campanhas", "Relatórios", "PIs", "Descobrir", "Canais", "Portais")]
@@ -543,6 +544,23 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
     import json
     d = json.loads(dados_json)[0]
     assert d["tempo"] == "40% · 18 dias restantes" and d["pi_url"] == "/pis/12" and d["pi_360"] == "/projetos/12"
+    # resumo, diferença em p.p. sobre a meta proporcional ao tempo e coluna de responsável
+    assert "+10 p.p. da meta" in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" in html
+
+
+def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    base = {"plataforma": "Meta Ads", "objetivo": "CPM", "status": "Ativa", "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"},
+            "meta": 1000.0, "meta_label": "1.000", "atingido_label": "500", "tempo_pct": 40, "dias_restantes": 18,
+            "dash_embed": "", "dash_abrir": "", "atual": False, "id_pi": 12, "no_ar": True, "responsavel": ""}
+    campanhas = [dict(base, id=1, nome="Adiantada X", atingido=600.0, pct=60, ritmo="adiantado"),
+                 dict(base, id=2, nome="Atrasada Y", atingido=200.0, pct=20, ritmo="atencao"),
+                 dict(base, id=3, nome="Ritmo Z", atingido=400.0, pct=40, ritmo="no_ritmo")]
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": campanhas}])
+    html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
+    assert html.index("Atrasada Y") < html.index("Ritmo Z") < html.index("Adiantada X")
+    assert "1 precisa de atenção" in html and "-20 p.p. da meta" in html
 
 
 def test_logos_e_resumo_de_plataformas():
@@ -647,7 +665,29 @@ def test_relatorios_so_pis_abertos_com_link_publico(app, monkeypatch):
     assert "PI Verão" in html and "PI Antigo" not in html
     assert 'href="/campanha/p/cliente-pi-abc123"' in html and "Prestação de contas" in html
     assert "Verão Meta" in html and "Encerrada" not in html
-    assert "ac-progress--adiantado" in html and "ac-progress--tempo" in html and "ac-progress__mark" not in html
+    assert "ac-progress--adiantado" in html and "Campanhas ativas" in html and "Adiantada" in html
+    assert 'href="https://lookerstudio.google.com/x"' in html and 'data-ac-sort' in html
+
+
+def test_relatorios_escolhe_o_pi_pela_query(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    base = {"status": "Em andamento", "status_id": 3, "ativo": True, "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "tempo_pct": 40}
+    projetos = [
+        {**base, "id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [_camp()]},
+        {**base, "id": 14, "titulo": "PI Inverno", "pi": "CC-140", "campanhas": [_camp(id=5, nome="Inverno Google", ritmo="atencao", id_pi=14),
+                                                                                  _camp(id=6, nome="Inverno Meta", ritmo="no_ritmo", id_pi=14)]},
+    ]
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
+    client = _client(app, {"user_id": 501})
+    html = client.get("/relatorios", base_url=HOST).get_data(as_text=True)
+    # Sem escolha, abre o PI com mais campanhas no ar.
+    assert ">PI Inverno</a>" in html
+    assert "Inverno Google" in html and "Verão Meta" not in html and '<option value="12"' in html
+    html = client.get("/relatorios?pi=12", base_url=HOST).get_data(as_text=True)
+    assert "Verão Meta" in html and "Inverno Google" not in html
+    assert '<option value="12" selected' in html
 
 
 def test_pis_abre_em_andamento(app, monkeypatch):
@@ -823,3 +863,96 @@ def test_toda_equipe_centralcomm_pode_ver_como(monkeypatch):
     conn = _ConexaoFalsa(_linha_contato(user_type="admin"))
     monkeypatch.setattr(acesso, "_db", lambda conn=conn: type("D", (), {"get_db": staticmethod(lambda: conn)}))
     assert acesso.contexto_usuario(501)["pode_ver_como"] is False  # admin de outro cliente não vê como
+
+
+# ---------- Estratégias: endereço com o nome e link público por empresa ----------
+
+def _estrategias_sem_banco(monkeypatch):
+    from aicentralv2.area_cliente import acesso
+    from aicentralv2.estrategias import repositorio, visao
+    monkeypatch.setattr(repositorio, "listar", lambda somente_ativas=True: (repositorio._semente(), False))
+    monkeypatch.setattr(visao, "canais_catalogo", lambda: {})
+    monkeypatch.setattr(acesso, "_CACHE_EMPRESAS", {"em": 9e18, "mapa": {"cliente-teste": "Cliente Teste", "cemig-d": "CEMIG D"}})
+
+
+def test_slug_da_estrategia_vem_do_nome_completo():
+    from aicentralv2.estrategias import catalogo
+    assert catalogo.slug_url("Funil essencial: busca, social e remarketing") == "funil-essencial-busca-social-e-remarketing"
+    assert catalogo.slug_url("E-commerce com catálogo e remarketing dinâmico") == "e-commerce-com-catalogo-e-remarketing-dinamico"
+    assert catalogo.url_slug({"nome": "Outro nome", "url_slug": "gravado"}) == "gravado"
+
+
+def test_estrategia_por_id_redireciona_para_o_nome(app, monkeypatch):
+    _estrategias_sem_banco(monkeypatch)
+    resp = _client(app).get("/descobrir/estrategias/1?verba=20000", base_url=HOST)
+    assert resp.status_code == 301
+    assert resp.headers["Location"].endswith("/descobrir/estrategias/funil-essencial-busca-social-e-remarketing?verba=20000")
+
+
+def test_ficha_logada_mostra_link_publico_da_empresa(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    _estrategias_sem_banco(monkeypatch)
+    client = _client(app, {"user_id": 501})
+    # slug interno antigo leva ao endereço novo
+    antigo = client.get("/descobrir/estrategias/funil-essencial-busca-social", base_url=HOST)
+    assert antigo.status_code == 301 and antigo.headers["Location"].endswith("funil-essencial-busca-social-e-remarketing")
+    html = client.get("/descobrir/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST).get_data(as_text=True)
+    assert "/cliente-teste/estrategias/funil-essencial-busca-social-e-remarketing" in html
+    assert "Incluir no briefing" in html and 'data-url="/descobrir/estrategias/1/simulacao"' in html
+    vitrine = client.get("/descobrir/estrategias", base_url=HOST).get_data(as_text=True)
+    assert 'href="/descobrir/estrategias/funil-essencial-busca-social-e-remarketing"' in vitrine
+
+
+def test_link_publico_abre_sem_login(app, monkeypatch):
+    _estrategias_sem_banco(monkeypatch)
+    client = _client(app)
+    resp = client.get("/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST)
+    html = resp.get_data(as_text=True)
+    assert resp.status_code == 200
+    assert "Compartilhado por <b>CEMIG D</b>" in html and "Funil essencial: busca, social e remarketing" in html
+    assert "Incluir no briefing" not in html and "Ir para o briefing" not in html
+    assert 'data-url="/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing/simulacao"' in html
+    sim = client.get("/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing/simulacao?verba=20000", base_url=HOST)
+    assert sim.status_code == 200
+    assert client.get("/empresa-inexistente/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST).status_code == 404
+    assert client.get("/cemig-d/estrategias/nao-existe", base_url=HOST).status_code == 404
+    assert client.get("/CEMIG-D/estrategias/funil-essencial-busca-social", base_url=HOST).status_code == 301
+
+
+def test_editar_estrategia_mantem_endereco_gravado(monkeypatch):
+    from aicentralv2.estrategias import repositorio
+    chamadas = []
+
+    class Cur:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def execute(self, sql, params): chamadas.append((sql, params))
+        def fetchone(self): return {"id": 7}
+
+    class Conn:
+        def cursor(self): return Cur()
+        def commit(self): pass
+
+    monkeypatch.setattr(repositorio, "tabela_existe", lambda: True)
+    monkeypatch.setattr(repositorio, "_conn", lambda: Conn())
+    e = dict(repositorio._semente()[0], nome="Nome novo")
+    assert repositorio.salvar(e, 7, 1) == 7
+    sql, _ = chamadas[0]
+    assert "dados ? 'url_slug'" in sql and "jsonb_build_object('url_slug', dados->'url_slug')" in sql
+
+
+def test_inicio_aviso_e_campanhas_para_acompanhar():
+    from aicentralv2.area_cliente import dados
+    no_ar = [_camp(id=1, nome="A", pct=30, ritmo="atencao"), _camp(id=2, nome="B", pct=60, ritmo="no_ritmo")]
+    ac = dados._campanhas_acompanhar(no_ar + [_camp(id=3, nome="Velha", no_ar=False)])
+    assert ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["A", "B"]
+    aviso = dados._aviso(ac)
+    assert aviso["tom"] == "atencao" and "1 campanha está abaixo do ritmo" in aviso["frase"] and aviso["acao"] == "otimizacao"
+    # nada no ar: mostra as 3 mais recentes com meta e resume o resultado
+    encerradas = [_camp(id=i, nome=f"E{i}", no_ar=False, pct=101, ritmo="no_ritmo", periodo={"inicio": "2026-01-01", "fim": f"2026-0{i}-01"})
+                  for i in range(1, 5)]
+    ac = dados._campanhas_acompanhar(encerradas)
+    assert not ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["E4", "E3", "E2"]
+    aviso = dados._aviso(ac)
+    assert aviso["tom"] == "bom" and "acima da meta (101%)" in aviso["frase"] and aviso["acao"] == "briefing"
+    assert dados._aviso(dados._campanhas_acompanhar([]))["titulo"] == "Comece pelo briefing"

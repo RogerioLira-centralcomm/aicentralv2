@@ -12,6 +12,7 @@ maiores.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 FAIXAS = (10_000, 20_000, 30_000, 50_000, 75_000, 100_000, 150_000)
 ARREDONDA = 500  # valores por canal em múltiplos de R$ 500
@@ -173,6 +174,19 @@ MINIMO_CANAL = {
 }
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def slug_url(texto, limite: int = 120) -> str:
+    """Endereço legível a partir de um nome: sem acento, minúsculas e hífens.
+    "Funil essencial: busca, social e remarketing" -> "funil-essencial-busca-social-e-remarketing"."""
+    t = unicodedata.normalize("NFKD", str(texto or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", t).strip("-")[:limite].rstrip("-")
+
+
+def url_slug(e: dict) -> str:
+    """Endereço público da estratégia. Fica gravado em dados.url_slug (nome do cadastro, uma vez);
+    sem ele, sai do nome atual. O ``slug`` interno continua sendo a chave das imagens e da semente."""
+    return e.get("url_slug") or slug_url(e.get("nome")) or str(e.get("slug") or "")
 
 
 def brl(valor) -> str:

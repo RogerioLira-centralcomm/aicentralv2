@@ -87,3 +87,29 @@
 
   desenharChips();
 })();
+
+/* Link público da estratégia: copia o endereço e avisa no próprio botão (sem diálogo). */
+(function () {
+  'use strict';
+  var caixa = document.querySelector('[data-es-share]');
+  if (!caixa) return;
+  var campo = caixa.querySelector('[data-es-share-url]');
+  var botao = caixa.querySelector('[data-es-share-copiar]');
+  var rotulo = botao.querySelector('span');
+  var original = rotulo.textContent;
+  function avisar(texto) {
+    rotulo.textContent = texto;
+    botao.classList.add('is-ok');
+    setTimeout(function () { rotulo.textContent = original; botao.classList.remove('is-ok'); }, 2200);
+  }
+  campo.addEventListener('focus', function () { campo.select(); });
+  botao.addEventListener('click', function () {
+    var url = campo.value;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(url).then(function () { avisar('Link copiado'); }, function () { campo.select(); avisar('Link selecionado: copie'); });
+    } else {
+      campo.select();
+      try { avisar(document.execCommand('copy') ? 'Link copiado' : 'Link selecionado: copie'); } catch (e) { avisar('Link selecionado: copie'); }
+    }
+  });
+})();

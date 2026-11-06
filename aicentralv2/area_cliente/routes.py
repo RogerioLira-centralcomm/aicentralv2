@@ -32,6 +32,11 @@ ROTAS = Map([
     Rule("/descobrir/<secao>", endpoint="descobrir_secao"),
     Rule("/descobrir/<secao>/<int:item_id>", endpoint="descobrir_item"),
     Rule("/descobrir/estrategias/<int:item_id>/simulacao", endpoint="descobrir_simulacao"),
+    Rule("/descobrir/estrategias/<int:item_id>", endpoint="descobrir_estrategia_id"),
+    Rule("/descobrir/estrategias/<endereco>", endpoint="descobrir_estrategia"),
+    # Link público (sem login): /<empresa de quem compartilhou>/estrategias/<estratégia>.
+    Rule("/<empresa>/estrategias/<endereco>", endpoint="estrategia_publica"),
+    Rule("/<empresa>/estrategias/<endereco>/simulacao", endpoint="estrategia_publica_simulacao"),
     Rule("/planejamento", endpoint="planejamento_antigo"),
     Rule("/pis", endpoint="pis"),
     Rule("/pis/<int:id_pi>", endpoint="pi"),
@@ -342,12 +347,73 @@ def view_descobrir_secao(usuario, secao):
     return _render("descobrir_secao.html", usuario, "descobrir", lista=lista, **comum)
 
 
+def _com_query(url: str) -> str:
+    return url + (f"?{request.query_string.decode()}" if request.query_string else "")
+
+
+def _url_absoluta(caminho: str) -> str:
+    base = (current_app.config.get("CLIENTES_URL") or request.host_url or "").rstrip("/")
+    return base + caminho
+
+
+def view_descobrir_estrategia_id(item_id):
+    """Endereço antigo (/descobrir/estrategias/1): vai para o endereço com o nome."""
+    from ..estrategias import catalogo
+    e = descobrir._estrategia(item_id)
+    return redirect(_com_query(area_url("descobrir_estrategia", endereco=catalogo.url_slug(e))), code=301)
+
+
+def view_descobrir_estrategia(usuario, endereco):
+    from ..estrategias import catalogo
+    e = descobrir.estrategia_por_url(endereco)
+    canonico = catalogo.url_slug(e)
+    if endereco != canonico:
+        return redirect(_com_query(area_url("descobrir_estrategia", endereco=canonico)), code=301)
+    empresa = catalogo.slug_url(usuario.get("cliente_nome"))
+    link_publico = _url_absoluta(area_url("estrategia_publica", empresa=empresa, endereco=canonico)) if empresa else ""
+    return _render("descobrir_estrategia.html", usuario, "descobrir", secao="estrategias", secao_titulo="Estratégias",
+                   item=descobrir.detalhe_estrategia(None, request.args.get("verba"), request.args.get("pracas"), estrategia=e),
+                   tipo="Estratégia", csrf=_csrf_token(), marcados=descobrir.selecionados(session),
+                   sim_url=area_url("descobrir_simulacao", item_id=e["id"]), link_publico=link_publico,
+                   empresa_nome=usuario.get("cliente_nome") or "")
+
+
+def _estrategia_publica(empresa, endereco):
+    """(nome da empresa, estratégia) do link público, ou a resposta de redirecionamento/404."""
+    from ..estrategias import catalogo
+    nome_empresa = acesso.empresa_por_slug(empresa)
+    if not nome_empresa:
+        abort(404)
+    e = descobrir.estrategia_por_url(endereco)
+    canonico, empresa_ok = catalogo.url_slug(e), catalogo.slug_url(nome_empresa)
+    return nome_empresa, e, (canonico, empresa_ok) if (endereco, empresa) != (canonico, empresa_ok) else None
+
+
+def view_estrategia_publica(empresa, endereco):
+    """Ficha da estratégia para quem não tem login, com o nome da empresa que compartilhou."""
+    nome_empresa, e, corrigir = _estrategia_publica(empresa, endereco)
+    if corrigir:
+        return redirect(_com_query(area_url("estrategia_publica", empresa=corrigir[1], endereco=corrigir[0])), code=301)
+    item = descobrir.detalhe_estrategia(None, request.args.get("verba"), request.args.get("pracas"), estrategia=e)
+    caminho = area_url("estrategia_publica", empresa=empresa, endereco=endereco)
+    resp = current_app.make_response(render_template(
+        "area_cliente/estrategia_publica.html", item=item, area_url=area_url, empresa_nome=nome_empresa,
+        sim_url=area_url("estrategia_publica_simulacao", empresa=empresa, endereco=endereco),
+        url_publica=_url_absoluta(caminho), login_url="/login?" + urlencode({"next": area_url("descobrir_estrategia", endereco=endereco)}),
+    ))
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return resp
+
+
+def view_estrategia_publica_simulacao(empresa, endereco):
+    _nome, e, _corrigir = _estrategia_publica(empresa, endereco)
+    return view_descobrir_simulacao(e["id"])
+
+
 def view_descobrir_item(usuario, secao, item_id):
     if secao == "estrategias":
-        return _render("descobrir_estrategia.html", usuario, "descobrir", secao=secao, secao_titulo="Estratégias",
-                       item=descobrir.detalhe_estrategia(item_id, request.args.get("verba"), request.args.get("pracas")),
-                       tipo="Estratégia", csrf=_csrf_token(),
-                       marcados=descobrir.selecionados(session))
+        return view_descobrir_estrategia_id(item_id)
     item = descobrir.detalhe(secao, item_id)
     titulo, _icone, _texto = descobrir.SECOES[secao]
     return _render("descobrir_item.html", usuario, "descobrir", secao=secao, secao_titulo=titulo, item=item,
@@ -413,7 +479,10 @@ def _drawer_campanha(c, status) -> dict:
 
 
 def view_relatorios(usuario):
-    return _render("relatorios.html", usuario, "relatorios", pis=dados.relatorios(usuario["cliente_id"]))
+    pis = dados.relatorios(usuario["cliente_id"])
+    escolhido = request.args.get("pi", type=int)
+    atual = next((p for p in pis if p["id"] == escolhido), pis[0] if pis else None)
+    return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=atual)
 
 
 PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados", "todos": "Todos"}
@@ -506,6 +575,12 @@ def despachar():
         if "user_id" not in session:
             return redirect("/login")
         return view_solicitar_acesso()
+    if endpoint == "estrategia_publica":
+        return view_estrategia_publica(**args)
+    if endpoint == "estrategia_publica_simulacao":
+        return view_estrategia_publica_simulacao(**args)
+    if endpoint == "descobrir_estrategia_id":
+        return view_descobrir_estrategia_id(**args)
     usuario, bloqueio = _exigir_acesso()
     if bloqueio is not None:
         return bloqueio
@@ -539,6 +614,8 @@ def despachar():
         return view_descobrir_secao(usuario, **args)
     if endpoint == "descobrir_item":
         return view_descobrir_item(usuario, **args)
+    if endpoint == "descobrir_estrategia":
+        return view_descobrir_estrategia(usuario, **args)
     if endpoint == "descobrir_selecao":
         return view_descobrir_selecao()
     if endpoint == "descobrir_simulacao":

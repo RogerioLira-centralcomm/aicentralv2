@@ -837,7 +837,8 @@ ESTRATEGIAS = [
 
 def lista() -> list[dict]:
     """Cópias, para ninguém alterar o catálogo em memória."""
-    return [deepcopy(e) for e in ESTRATEGIAS]
+    from .catalogo import slug_url
+    return [dict(deepcopy(e), url_slug=slug_url(e["nome"])) for e in ESTRATEGIAS]
 
 
 # O que esperar em cada fase. Textos de expectativa, sem promessa de número.

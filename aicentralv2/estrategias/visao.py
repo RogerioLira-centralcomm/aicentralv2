@@ -87,7 +87,7 @@ def cartao(e: dict, canais: dict | None = None) -> dict:
     canais = canais if canais is not None else canais_catalogo()
     pagos = [c for c in e.get("canais") or [] if catalogo.recebe_verba(c)]
     imgs = imagens(e["slug"])
-    return {"id": e["id"], "slug": e["slug"], "nome": e["nome"], "resumo": e.get("resumo") or "",
+    return {"id": e["id"], "slug": e["slug"], "url_slug": catalogo.url_slug(e), "nome": e["nome"], "resumo": e.get("resumo") or "",
             "objetivo": catalogo.OBJETIVOS.get(e.get("objetivo"), ""), "objetivo_id": e.get("objetivo"),
             "verba_minima": e["verba_minima"], "verba_rotulo": "A partir de " + catalogo.brl_curto(e["verba_minima"]),
             "canais": [no(c["slug"], canais) for c in pagos],

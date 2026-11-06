@@ -46,7 +46,7 @@
 {% if v.cartoes %}
 <div class="es-cards ac-enter">
   {% for c in v.cartoes %}
-  {% set href = area_url('descobrir_item', secao=secao, item_id=c.id) %}
+  {% set href = area_url('descobrir_estrategia', endereco=c.url_slug) %}
   <article class="es-card">
     <a class="es-card__media{% if not c.imagem %} is-empty{% endif %}" href="{{ href }}" tabindex="-1" aria-hidden="true">
       {% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy"><span class="es-ilus">Ilustração</span>{% else %}{{ icon('flow', 32) }}{% endif %}

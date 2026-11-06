@@ -250,6 +250,28 @@ _CONTEXTO_SQL = """
 """
 
 
+_CACHE_EMPRESAS: dict = {"em": 0.0, "mapa": {}}
+
+
+def empresa_por_slug(endereco: str) -> str | None:
+    """Nome da empresa (cliente ativo) cujo nome vira este trecho de URL; usado no link público
+    das estratégias (/<empresa>/estrategias/<estratégia>). Cache de 10 min; nome repetido: o cadastro mais antigo."""
+    import time
+    from ..estrategias.catalogo import slug_url
+    agora = time.time()
+    if agora - _CACHE_EMPRESAS["em"] > 600:
+        mapa: dict[str, str] = {}
+        conn = _db().get_db()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT nome_fantasia FROM tbl_cliente WHERE status AND COALESCE(TRIM(nome_fantasia), '') <> '' "
+                           "ORDER BY id_cliente")
+            for row in cursor.fetchall():
+                nome = (row["nome_fantasia"] if isinstance(row, dict) else row[0]).strip()
+                mapa.setdefault(slug_url(nome), nome)
+        _CACHE_EMPRESAS.update(em=agora, mapa=mapa)
+    return _CACHE_EMPRESAS["mapa"].get((endereco or "").strip().lower())
+
+
 def contexto_usuario(user_id) -> dict | None:
     """Dados do contato logado, do cliente e do executivo, com o estado do acesso.
 

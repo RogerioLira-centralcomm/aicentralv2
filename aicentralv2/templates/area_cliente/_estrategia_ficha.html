@@ -1,0 +1,200 @@
+{# Ficha da estratégia: logada (Descobrir) e pública (/<empresa>/estrategias/<endereço>).
+   Precisa de: item, sim_url, publico; logada também secao, marcados, csrf, voltar, link_publico, empresa_nome; pública, login_url. #}
+{% from 'area_cliente/_macros.html' import icon, marca %}
+{% macro no_fluxo(n) -%}
+<li class="es-node es-node--{{ n.tipo }}">
+  {% if n.tipo == 'canal' or n.logo %}{{ marca(n.logo, n.nome, 'sm') }}{% else %}<span class="es-node__icon">{{ icon(n.icone, 16) }}</span>{% endif %}
+  <span>{{ n.nome }}</span>
+</li>
+{%- endmacro %}
+<article class="es-ficha">
+  <header class="es-hero">
+    <div class="es-hero__info">
+      <p class="es-hero__eyebrow">{{ icon('target', 16) }}{{ item.objetivo }}</p>
+      <h1 class="es-hero__title">{{ item.nome }}</h1>
+      <p class="es-hero__lead">{{ item.resumo }}</p>
+      <dl class="es-facts">
+        <div><dt>Verba</dt><dd>{{ item.verba_rotulo }}</dd></div>
+        {% if item.duracao %}<div><dt>Duração</dt><dd>{{ item.duracao }}</dd></div>{% endif %}
+        {% if item.publico %}<div><dt>Público</dt><dd>{{ item.publico }}</dd></div>{% endif %}
+        <div><dt>Peças</dt><dd>{{ item.total_pecas }} {{ 'peça' if item.total_pecas == 1 else 'peças' }}</dd></div>
+      </dl>
+      <div class="es-hero__actions">
+        {% if not publico %}{% with item_id=item.id, nome=item.nome, marcado=(secao, item.id) in marcados, simulacao=item.sim %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}{% endif %}
+        <a class="ac-btn ac-btn--sm ac-btn--secondary" href="#verba">{{ icon('chart', 16) }}Ver verba por canal</a>
+      </div>
+    </div>
+    {% if item.imagens %}
+    <div class="es-gallery{% if item.imagens|length == 1 %} is-single{% endif %}">
+      {% for img in item.imagens %}
+      <figure class="es-gallery__item{% if loop.first %} is-main{% endif %}">
+        <button type="button" data-ac-zoom="{{ img.url }}" data-ac-legenda="{{ img.legenda }} (ilustração)" aria-label="Ampliar: {{ img.legenda }}"><img src="{{ img.url }}" alt="{{ img.legenda }}" loading="{{ 'eager' if loop.first else 'lazy' }}"></button>
+        <figcaption>{{ img.legenda }}</figcaption>
+      </figure>
+      {% endfor %}
+      <p class="es-gallery__note">Ilustrações de referência, criadas por IA. As peças da campanha usam a sua marca.</p>
+    </div>
+    {% endif %}
+  </header>
+
+  {% if not publico and link_publico %}
+  <div class="es-share" data-es-share>
+    <span class="es-share__icon">{{ icon('globe', 18) }}</span>
+    <div class="es-share__text"><b>Link público para compartilhar</b><small>Abre sem login, com o nome {{ empresa_nome }}.</small></div>
+    <input class="es-share__url" type="text" value="{{ link_publico }}" readonly aria-label="Link público da estratégia" data-es-share-url>
+    <button type="button" class="ac-btn ac-btn--sm ac-btn--secondary" data-es-share-copiar>{{ icon('check', 16) }}<span>Copiar link</span></button>
+    <a class="ac-icon-btn ac-icon-btn--xs" href="{{ link_publico }}" target="_blank" rel="noopener" title="Abrir a página pública" aria-label="Abrir a página pública">{{ icon('external', 16) }}</a>
+  </div>
+  {% endif %}
+
+  {% if item.descricao %}<p class="es-desc">{{ item.descricao }}</p>{% endif %}
+
+  <section class="es-sec" aria-labelledby="es-fluxo-t">
+    <h2 class="es-sec__title" id="es-fluxo-t">{{ icon('flow', 20) }}Como o público percorre a estratégia</h2>
+    <ol class="es-flow">
+      {% for et in item.fluxo %}
+      <li class="es-flow__step">
+        <div class="es-flow__card">
+          <p class="es-flow__n">{{ loop.index }}</p>
+          <h3 class="es-flow__title">{{ et.titulo }}</h3>
+          <ul class="es-flow__nodes">{% for n in et.nos %}{{ no_fluxo(n) }}{% endfor %}</ul>
+          {% if et.descricao %}<p class="es-flow__text">{{ et.descricao }}</p>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  {% if item.efeitos %}
+  <section class="es-sec" aria-labelledby="es-efeitos-t">
+    <h2 class="es-sec__title" id="es-efeitos-t">{{ icon('clock', 20) }}O que esperar</h2>
+    <ol class="es-timeline">
+      {% for ef in item.efeitos %}<li><p class="es-timeline__fase">{{ ef.fase }}</p><p class="es-timeline__texto">{{ ef.texto }}</p></li>{% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+  <section class="es-sec" id="verba" aria-labelledby="es-verba-t" data-es-simulador data-url="{{ sim_url }}">
+    <h2 class="es-sec__title" id="es-verba-t">{{ icon('chart', 20) }}Simule investimento e praças</h2>
+    <p class="es-sec__hint">Escolha a verba do período e onde a campanha roda. A população das praças limita quantas pessoas dá para alcançar; capitais custam um pouco mais que o interior.</p>
+    <div class="es-controls">
+      <div class="es-control">
+        <p class="es-control__label">Verba do período</p>
+        <div class="es-tiers" role="group" aria-label="Verba do período">
+          {% for f in item.sim.faixas %}
+          <a class="es-tier{% if f.verba == item.sim.verba %} is-on{% endif %}{% if not f.disponivel %} is-off{% endif %}" data-es-tier="{{ f.verba }}"
+             {% if f.disponivel %}href="?verba={{ f.verba }}{% if item.sim.ids_txt %}&pracas={{ item.sim.ids_txt }}{% endif %}#verba"{% if f.verba == item.sim.verba %} aria-current="true"{% endif %}{% else %}aria-disabled="true" title="Esta estratégia começa em {{ item.verba_rotulo|replace('A partir de ', '') }}"{% endif %}>{{ f.rotulo }}</a>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="es-control">
+        <label class="es-control__label" for="es-praca-busca">Praças</label>
+        <div class="es-pracas">
+          <ul class="es-pracas__chips" data-es-chips aria-label="Praças escolhidas"></ul>
+          <input id="es-praca-busca" class="es-pracas__input" type="search" list="es-pracas-dl" placeholder="Digite uma capital, cidade ou estado" autocomplete="off" data-es-praca-busca>
+          <datalist id="es-pracas-dl">{% for p in item.pracas_seletor.itens %}<option value="{{ p.nome }}">{% endfor %}</datalist>
+        </div>
+        <div class="es-presets" role="group" aria-label="Seleções prontas">
+          {% for pr in item.pracas_seletor.presets %}<button type="button" class="es-preset" data-es-preset="{{ pr.ids|join(',') }}">{{ pr.rotulo }}</button>{% endfor %}
+        </div>
+        <noscript><p class="es-sec__hint">Ative o JavaScript para escolher praças; sem ele a simulação vale para o Brasil inteiro.</p></noscript>
+      </div>
+    </div>
+    <div data-es-sim-area>{% with sim=item.sim %}{% include 'area_cliente/_estrategia_simulacao.html' %}{% endwith %}</div>
+    {% if item.escala %}<p class="es-escala">{{ icon('activity', 16) }}<span>{{ item.escala }}</span></p>{% endif %}
+    {% if item.como_escala %}<p class="es-sec__hint">{{ item.como_escala }}</p>{% endif %}
+    <p class="es-fonte">População: {{ item.pracas_seletor.fonte }}.</p>
+  </section>
+
+  <section class="es-sec" aria-labelledby="es-canais-t">
+    <h2 class="es-sec__title" id="es-canais-t">{{ icon('broadcast', 20) }}Canais, formatos e otimizações</h2>
+    <div class="es-channels">
+      {% for c in item.canais_detalhe %}
+      <article class="es-channel">
+        <header>{{ marca(c.logo, c.nome, 'md') }}<div><h3>{{ c.nome }}</h3><p>{{ c.papel }}{% if c.entra and c.entra != item.verba_rotulo|replace('A partir de ', '') %} · entra a partir de {{ c.entra }}{% endif %}</p></div></header>
+        {% if c.formatos %}<ul class="es-chips">{% for f in c.formatos %}<li>{{ f }}</li>{% endfor %}</ul>{% endif %}
+        {% if c.otimizacoes %}<ul class="es-checks">{% for o in c.otimizacoes %}<li>{{ icon('check', 14) }}{{ o }}</li>{% endfor %}</ul>{% endif %}
+        {% if c.nota %}<p class="es-channel__note">{{ c.nota }}</p>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="es-trio">
+    <section class="es-box" aria-labelledby="es-conv-t">
+      <h2 class="es-box__title" id="es-conv-t">{{ icon('target', 18) }}Conversão</h2>
+      <p class="es-badge{% if item.conversao.precisa_link %} es-badge--warn{% endif %}">{{ icon('layout' if item.conversao.precisa_link else 'check', 14) }}{{ 'Precisa criar landing page ou link de conversão' if item.conversao.precisa_link else 'Não precisa de página nova' }}</p>
+      <p class="es-box__line"><b>Destino:</b> {{ item.conversao.destino_nome }}</p>
+      {% if item.conversao.descricao %}<p class="es-box__text">{{ item.conversao.descricao }}</p>{% endif %}
+      {% if item.conversao.eventos %}<p class="es-box__sub">Eventos medidos</p><ul class="es-chips">{% for ev in item.conversao.eventos %}<li>{{ ev }}</li>{% endfor %}</ul>{% endif %}
+    </section>
+    <section class="es-box{% if not item.remarketing_info.usa %} is-off{% endif %}" aria-labelledby="es-rmk-t">
+      <h2 class="es-box__title" id="es-rmk-t">{{ icon('activity', 18) }}Remarketing</h2>
+      {% if item.remarketing_info.usa %}
+      <p class="es-box__line"><b>Janela:</b> {{ item.remarketing_info.janela_dias }} dias</p>
+      <ul class="es-checks">{% for p in item.remarketing_info.publicos %}<li>{{ icon('check', 14) }}{{ p }}</li>{% endfor %}</ul>
+      {% if item.remarketing_info.descricao %}<p class="es-box__text">{{ item.remarketing_info.descricao }}</p>{% endif %}
+      {% else %}<p class="es-box__text">Esta estratégia não usa remarketing.</p>{% endif %}
+    </section>
+    <section class="es-box{% if not item.lista_info.usa %} is-off{% endif %}" aria-labelledby="es-lista-t">
+      <h2 class="es-box__title" id="es-lista-t">{{ icon('users', 18) }}Lista de clientes da empresa</h2>
+      {% if item.lista_info.usa %}
+      <ul class="es-checks">{% for u in item.lista_info.usos %}<li>{{ icon('check', 14) }}{{ u }}</li>{% endfor %}</ul>
+      {% if item.lista_info.requisito %}<p class="es-box__text es-box__req">{{ icon('lock', 14) }}<span>{{ item.lista_info.requisito }}</span></p>{% endif %}
+      {% else %}<p class="es-box__text">Esta estratégia não depende da sua base de clientes.</p>{% endif %}
+    </section>
+  </div>
+
+  <section class="es-sec" aria-labelledby="es-pecas-t">
+    <h2 class="es-sec__title" id="es-pecas-t">{{ icon('layout', 20) }}Peças necessárias <span class="es-count">{{ item.total_pecas }}</span></h2>
+    <ul class="es-pieces">
+      {% for p in item.criativos %}
+      <li>
+        <span class="es-pieces__qty">{{ p.quantidade }}×</span>
+        <div><strong>{{ p.peca }}</strong>{% if p.specs %}<small>{{ p.specs }}</small>{% endif %}</div>
+        <span class="es-pieces__where">{% for n in p.nos %}{{ marca(n.logo, n.nome, 'xs') }}{% endfor %}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="es-sec" aria-labelledby="es-kpi-t">
+    <h2 class="es-sec__title" id="es-kpi-t">{{ icon('chart', 20) }}O que vamos medir</h2>
+    {% if item.kpis_principais %}
+    <div class="es-kpis">
+      {% for k in item.kpis_principais %}
+      <div class="es-kpi"><p class="es-kpi__tag">Principal{% if k.etapa %} · {{ k.etapa }}{% endif %}</p><h3>{{ k.nome }}</h3><p>{{ k.fonte }}{% if k.como %}: {{ k.como }}{% endif %}</p></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if item.kpis_apoio %}
+    <table class="es-kpi-table">
+      <thead><tr><th>Indicador de apoio</th><th>Etapa</th><th>Fonte</th></tr></thead>
+      <tbody>{% for k in item.kpis_apoio %}<tr><td>{{ k.nome }}{% if k.como %}<small>{{ k.como }}</small>{% endif %}</td><td>{{ k.etapa }}</td><td>{{ k.fonte }}</td></tr>{% endfor %}</tbody>
+    </table>
+    {% endif %}
+  </section>
+
+  {% if item.otimizacoes %}
+  <section class="es-sec" aria-labelledby="es-otim-t">
+    <h2 class="es-sec__title" id="es-otim-t">{{ icon('sparkles', 20) }}Otimizações durante a campanha</h2>
+    <ul class="es-checks es-checks--cols">{% for o in item.otimizacoes %}<li>{{ icon('check', 14) }}{{ o }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  <aside class="es-cta">
+    {% if publico %}
+    <div><h2>Quer rodar esta estratégia?</h2><p>A equipe Centralcomm ajusta canais, verba e peças para a sua marca. Quem tem acesso à Área do Cliente pode incluí-la direto no briefing.</p></div>
+    <div class="es-cta__actions">
+      <a class="ac-btn ac-btn--sm ac-btn--secondary" href="https://centralcomm.media" target="_blank" rel="noopener">{{ icon('globe', 16) }}Conhecer a Centralcomm</a>
+      <a class="ac-btn ac-btn--sm" href="{{ login_url }}">{{ icon('lock', 16) }}Entrar na Área do Cliente</a>
+    </div>
+    {% else %}
+    <div><h2>Quer rodar esta estratégia?</h2><p>Inclua no briefing e a equipe Centralcomm ajusta canais, verba e peças para a sua marca.</p></div>
+    <div class="es-cta__actions">
+      {% with item_id=item.id, nome=item.nome, marcado=(secao, item.id) in marcados, simulacao=item.sim %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+      <a class="ac-btn ac-btn--sm" href="{{ area_url('briefing') }}">{{ icon('send', 16) }}Ir para o briefing</a>
+    </div>
+    {% endif %}
+  </aside>
+</article>

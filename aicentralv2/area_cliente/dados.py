@@ -213,17 +213,65 @@ def _ritmo(pct, tempo):
     return "adiantado" if pct >= tempo + 5 else "no_ritmo" if pct >= tempo - 10 else "atencao"
 
 
+_ORDEM_RITMO = {"atencao": 0, "no_ritmo": 1, "adiantado": 2, "": 3}
+
+
+def _campanhas_acompanhar(campanhas) -> dict:
+    """Campanhas da tela inicial: as no ar (atenção primeiro, menor entrega antes);
+    sem nenhuma no ar, as 3 mais recentes com meta, para o cliente ver como terminaram."""
+    no_ar = sorted((c for c in campanhas if c["no_ar"]),
+                   key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["pct"] if c["pct"] is not None else -1))
+    if no_ar:
+        return {"itens": no_ar[:6], "mais": max(len(no_ar) - 6, 0), "no_ar": True}
+    recentes = sorted((c for c in campanhas if c["meta"]), key=lambda c: c["periodo"]["fim"] or "", reverse=True)[:3]
+    return {"itens": recentes, "mais": 0, "no_ar": False}
+
+
+def _aviso(acompanhar: dict) -> dict:
+    """Cartão de aviso ao lado das campanhas: o que pede atenção, ou o resumo do que vai bem."""
+    itens = acompanhar["itens"]
+    pcts = [c["pct"] for c in itens if c["pct"] is not None]
+    media = _media(pcts)
+    if not itens:
+        return {"tom": "neutro", "titulo": "Comece pelo briefing",
+                "frase": "Nenhuma campanha com meta por enquanto.",
+                "texto": "Conte o objetivo e a verba no briefing; a Centralcomm monta o planejamento.", "acao": "briefing"}
+    atencao = [c for c in itens if c["ritmo"] == "atencao"]
+    if acompanhar["no_ar"] and atencao:
+        nomes = ", ".join(c["nome"] for c in atencao[:2]) + (f" e mais {len(atencao) - 2}" if len(atencao) > 2 else "")
+        return {"tom": "atencao", "titulo": "Atenção",
+                "frase": f"{len(atencao)} {'campanha está' if len(atencao) == 1 else 'campanhas estão'} abaixo do ritmo.",
+                "texto": f"{nomes}: a entrega está atrás do tempo decorrido. Fale com o executivo para ajustar.",
+                "acao": "otimizacao"}
+    if pcts and all(p >= 100 for p in pcts):
+        if acompanhar["no_ar"]:
+            return {"tom": "bom", "titulo": "Destaque",
+                    "frase": f"Entrega acima da meta em todas as campanhas ({media}%).",
+                    "texto": "Mantenha o ritmo e avalie a otimização para maximizar resultados até o encerramento.",
+                    "acao": "otimizacao"}
+        return {"tom": "bom", "titulo": "Destaque",
+                "frase": f"As últimas campanhas entregaram acima da meta ({media}%).",
+                "texto": "Bom momento para planejar a próxima: envie um briefing com o que vem pela frente.",
+                "acao": "briefing"}
+    if acompanhar["no_ar"]:
+        return {"tom": "bom", "titulo": "Em dia",
+                "frase": f"Todas as campanhas no ritmo{f' ({media}% de entrega média)' if media is not None else ''}.",
+                "texto": "A entrega acompanha o tempo decorrido. Avise se quiser reforçar algum canal.",
+                "acao": "otimizacao"}
+    return {"tom": "neutro", "titulo": "Resumo",
+            "frase": f"As últimas campanhas entregaram {media}% da meta em média." if media is not None else "Sem campanhas no ar agora.",
+            "texto": "Envie um briefing para a próxima campanha.", "acao": "briefing"}
+
+
 def resumo_inicio(cliente_id) -> dict:
     """Tudo o que a tela Início mostra, em uma chamada."""
     projetos = listar_projetos(cliente_id)
     campanhas = [c for p in projetos for c in p["campanhas"]]
     pcts = [c["pct"] for c in campanhas if c["no_ar"] and c["pct"] is not None]
-    performance = sorted(
-        (c for c in campanhas if c["meta"]),
-        key=lambda c: (not c["no_ar"], c["periodo"]["fim"] or ""),
-    )[:6]
-    ativos = [p for p in projetos if p["ativo"]]
-    destaque = (ativos or projetos)[:4]
+    acompanhar = _campanhas_acompanhar(campanhas)
+    # PIs recentes: os em andamento primeiro, depois os mais atualizados.
+    recentes = [p for p in projetos if p["ativo"]] + sorted((p for p in projetos if not p["ativo"]),
+                                                            key=lambda p: p["atualizado_em"] or "", reverse=True)
     resumo = {
         "kpis": {
             "projetos_ativos": sum(1 for p in projetos if p["ativo"]),
@@ -234,10 +282,11 @@ def resumo_inicio(cliente_id) -> dict:
             "tempo_medio": _media([c["tempo_pct"] for c in campanhas if c["no_ar"] and c["tempo_pct"] is not None]),
             "dashboards": sum(1 for c in campanhas if c["dash_abrir"] and c["no_ar"]),
         },
-        "performance": performance,
-        "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}),
-        "destaque": destaque,
-        "destaque_ativos": bool(ativos),
+        "acompanhar": acompanhar,
+        "aviso": _aviso(acompanhar),
+        "pis": recentes[:4],
+        "pis_mais": max(len(recentes) - 4, 0),
+        "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}, limite=12),
         "hoje": date.today(),
     }
     k = resumo["kpis"]
@@ -406,6 +455,9 @@ def listar_campanhas(cliente_id, projetos=None) -> dict:
 def ritmo_campanhas(cliente_id) -> dict:
     """Painel de campanhas no espírito da "Central de ritmo" interna, sem gasto nem previsto."""
     grupos = listar_campanhas(cliente_id)
+    # No ar: as que pedem atenção primeiro; dentro de cada ritmo, a menor entrega antes.
+    grupos["andamento"].sort(key=lambda c: ({"atencao": 0, "no_ritmo": 1, "adiantado": 2}.get(c["ritmo"] or "", 3),
+                                            c["pct"] if c["pct"] is not None else -1))
     no_ar = grupos["andamento"]
     pcts = [c["pct"] for c in no_ar if c["pct"] is not None]
     return {
@@ -448,10 +500,18 @@ def relatorios(cliente_id) -> list[dict]:
         if e.get("link_publico_token") and e.get("link_publico_ativo") and not (expira and expira < datetime.now()):
             link = f"/campanha/p/{e['link_publico_token']}"
         financ = _limpo(e.get("googled_pi_financ"))
-        dashboards = [c for c in p["campanhas"] if c["dash_abrir"] and c["no_ar"]]
+        ativas = [c for c in p["campanhas"] if c["no_ar"]]
+        ritmos = {r: sum(1 for c in ativas if c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")}
         saida.append({**p, "link_publico": link,
                       "prestacao": financ if financ and financ.startswith(("http://", "https://")) else "",
-                      "dashboards": dashboards})
+                      "ativas": sorted(ativas, key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["nome"])),
+                      "kpis": {"ativas": len(ativas),
+                               "entrega_media": _media([c["pct"] for c in ativas if c["pct"] is not None]),
+                               "no_ritmo": ritmos["no_ritmo"] + ritmos["adiantado"],
+                               "adiantadas": ritmos["adiantado"],
+                               "atencao": ritmos["atencao"]}})
+    # PIs em andamento primeiro; dentro deles, os com mais campanhas no ar.
+    saida.sort(key=lambda p: (not p["ativo"], -p["kpis"]["ativas"]))
     return saida
 
 

@@ -117,10 +117,19 @@ def _ids_pracas(texto) -> list[str]:
     return [p for p in str(texto or "").replace(" ", "").split(",") if p][:60]
 
 
-def detalhe_estrategia(item_id, verba=None, pracas=None) -> dict:
+def estrategia_por_url(endereco) -> dict:
+    """Estratégia ativa pelo endereço legível (ou nome atual / slug interno); 404 se não houver."""
+    from ..estrategias import repositorio
+    e = repositorio.obter_por_url(endereco, somente_ativas=True)
+    if not e:
+        raise NotFound()
+    return e
+
+
+def detalhe_estrategia(item_id, verba=None, pracas=None, estrategia=None) -> dict:
     """Ficha completa com a simulação inicial (verba e praças da URL, se vierem)."""
     from ..estrategias import visao
-    e = _estrategia(item_id)
+    e = estrategia or _estrategia(item_id)
     item = visao.completa(e)
     item["sim"] = visao.simulacao(e, _verba_valida(e, verba), _ids_pracas(pracas))
     return item

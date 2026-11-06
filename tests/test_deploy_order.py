@@ -22,10 +22,21 @@ def test_service_stays_up_until_code_schema_and_build_are_ready():
     deps = position('# 2. Atualizar dependencias')
     migrations = position('# 3. Atualizar schema e dados idempotentes')
     build = position('# 4. Build frontend')
-    stop = position('\nstop_service_for_deploy\n')
     workers = position('# Workers: instaladores')
-    start = position('sudo systemctl start "$APP_SERVICE"\nsleep 3')
-    assert pull < deps < migrations < build < stop < workers < start
+    stop = position('\nstop_service_for_deploy\nstep_done "parada do servico"')
+    start = position('sudo systemctl start "$APP_SERVICE"\n# Espera ativa')
+    restarts = position('sudo systemctl restart --no-block cadu-media-worker')
+    # instaladores, nginx e Chromium rodam com o site no ar; os workers reiniciam depois que o site volta
+    assert pull < deps < migrations < build < workers < stop < start < restarts
+
+
+def test_the_end_of_the_deploy_skips_work_that_did_not_change():
+    verify = position('scripts/verify_creative_viewer_apis.py)')
+    assert position('should_run "$VERIFY_STATE_FILE" "${FORCE_VERIFY:-0}"') < verify
+    assert position('INTERACTIVES_FINGERPRINT') < position('scripts/import_centralcomm_interactives.py --source')
+    assert position('should_run "$PLAYWRIGHT_STATE_FILE"') < position('npx playwright install')
+    tail = SCRIPT[position('# 8. Iniciar servico'):position('step_done "health check"')]
+    assert 'sleep 3' not in tail and 'sleep 2' not in tail          # sem esperas fixas: espera ativa pela porta
 
 
 def test_every_flow_table_migration_the_code_needs_is_registered():

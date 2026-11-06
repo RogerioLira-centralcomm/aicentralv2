@@ -101,7 +101,7 @@ def test_the_deploy_script_wires_the_new_behaviour_in_the_right_order():
     assert '-r requirements.txt --upgrade' not in SCRIPT                     # the unconditional upgrade is gone
     assert 'o servico nao para' in SCRIPT and 'requirements.txt sem alteracoes' in SCRIPT
     # every phase is timed, and the summary also prints when the deploy fails
-    for label in ('git pull e artefatos gerados', 'dependencias Python', 'migracoes', 'build do frontend', 'parada do servico, nginx, importacao e workers', 'iniciar o servico',
+    for label in ('git pull e artefatos gerados', 'dependencias Python', 'migracoes', 'build do frontend', 'nginx e systemd', 'catalogo de interativos', 'workers e Chromium (site no ar)', 'parada do servico', 'reinicio dos workers', 'iniciar o servico',
                   'validacao das APIs', 'health check'):
         assert f'step_done "{label}' in SCRIPT, label
     failure = SCRIPT[SCRIPT.index('restore_service_on_error() {'):SCRIPT.index('trap restore_service_on_error ERR')]

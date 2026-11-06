@@ -258,6 +258,8 @@ BUILD_OUTPUT_PATHS=(
     "aicentralv2/static/cadu_studio/audio/react"
     "aicentralv2/static/cadu_studio/home/react"
     "aicentralv2/static/cadu_studio/editor/react"
+    "aicentralv2/static/cadu_studio/mesa/react"
+    "aicentralv2/static/leads_v3"
     "aicentralv2/static/css/tailwind"
     "aicentralv2/static/css/video-studio.css"
 )
@@ -270,7 +272,7 @@ git checkout -- . 2>/dev/null || true
 echo "  > OK"
 step_done "git pull e artefatos gerados"
 
-# Ordem: código → dependências → schema → build → parada curta → workers → início.
+# Ordem: código → dependências → schema → build → instaladores (site no ar) → parada curta → início → restart dos workers.
 # O schema vem antes do build: um worker do gunicorn reciclado durante o build já
 # carrega o código novo e encontra as colunas novas, e o serviço só cai no fim.
 # 2. Atualizar dependencias
@@ -409,7 +411,9 @@ echo "[4/9] Build frontend (Tailwind)..."
 frontend_build_step
 step_done "build do frontend"
 
-stop_service_for_deploy
+# Tudo daqui até a parada roda com o site no ar: diretórios, nginx, catálogo de
+# interativos, instaladores de workers e Chromium do editor de vídeo não dependem do
+# serviço parado. Antes, isso tudo acontecia com o site fora do ar.
 
 # Diretorios e dependencias do sistema
 mkdir -p aicentralv2/static/uploads/audiencias aicentralv2/static/uploads/cotacoes \
@@ -446,20 +450,30 @@ echo ""
 echo "[7/9] Configurando nginx (client_max_body_size 256M)..."
 bash deploy/configure_nginx_upload.sh >> "$DEPLOY_LOG" 2>&1
 echo "  > OK"
+step_done "nginx e systemd"
 
-# O catálogo pode ser montado fora do Git em qualquer momento. Mantemos esta
-# importação independente do marcador de migrations para não ignorar um novo
-# catálogo depois de um deploy que não alterou o schema.
+# O catálogo pode ser montado fora do Git em qualquer momento: a importação roda quando
+# o conteúdo da pasta (nomes, tamanhos, datas) ou o importador mudam, e não a cada deploy.
 INTERACTIVES_SOURCE="${CENTRALCOMM_INTERACTIVES_SOURCE:-/var/www/aicentralv2/data/html-slides-pt}"
+INTERACTIVES_STATE_FILE="${INTERACTIVES_STATE_FILE:-logs/.last-interactives-fingerprint}"
 if [ -f "$INTERACTIVES_SOURCE/creative-format-overview.html" ]; then
-    "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE" >> "$DEPLOY_LOG" 2>&1
+    INTERACTIVES_FINGERPRINT="$( { find "$INTERACTIVES_SOURCE" -type f -printf '%P %s %T@\n' 2>/dev/null | sort; \
+        git rev-parse HEAD:scripts/import_centralcomm_interactives.py 2>/dev/null; } | md5sum | cut -d' ' -f1)"
+    if [ "${FORCE_INTERACTIVES:-0}" = "1" ] || [ "$(cat "$INTERACTIVES_STATE_FILE" 2>/dev/null)" != "$INTERACTIVES_FINGERPRINT" ]; then
+        echo "  > Importando catálogo de interativos..."
+        "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE" >> "$DEPLOY_LOG" 2>&1
+        printf '%s\n' "$INTERACTIVES_FINGERPRINT" > "$INTERACTIVES_STATE_FILE"
+    else
+        echo "  > Catálogo de interativos sem alteracoes; importacao pulada."
+    fi
 else
     echo "Catálogo CentralComm ausente; importação de interativos ignorada: $INTERACTIVES_SOURCE" >> "$DEPLOY_LOG"
 fi
+step_done "catalogo de interativos"
 
 # Workers: instaladores só rodam quando deploy/ ou as dependências de mídia
 # mudaram. O worker de mídia executa código da aplicação, então é reiniciado
-# em todo deploy para não ficar com a versão anterior.
+# em todo deploy para não ficar com a versão anterior (mais abaixo, com o serviço no ar).
 WORKERS_STATE_FILE="${WORKERS_STATE_FILE:-logs/.last-workers-revision}"
 if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.txt requirements-media.txt; then
     MEDIA_PYTHON="$(pwd)/$VENV_PYTHON" bash deploy/install_media_worker.sh >> "$DEPLOY_LOG" 2>&1
@@ -478,17 +492,21 @@ if should_run "$WORKERS_STATE_FILE" "${FORCE_WORKERS:-0}" deploy requirements.tx
 else
     echo "  > Workers sem alteracoes; instaladores pulados."
 fi
-# Chromium do render do editor de vídeo: roda em todo deploy porque o instalador acima só
-# roda quando deploy/ muda. Rápido quando o navegador da versão atual do Playwright já existe;
-# bibliotecas do sistema (--with-deps) só na primeira instalação. Falha não interrompe o deploy.
+# Chromium do render do editor de vídeo: só quando o Playwright mudou (package.json /
+# package-lock.json) ou o navegador ainda não existe. Antes rodava npx em todo deploy.
+# Bibliotecas do sistema (--with-deps) só na primeira instalação. Falha não interrompe o deploy.
+PLAYWRIGHT_STATE_FILE="${PLAYWRIGHT_STATE_FILE:-logs/.last-playwright-revision}"
 if command -v node >/dev/null 2>&1 && [ -d node_modules/playwright ]; then
     VIDEO_BROWSERS="$(pwd)/instance/ms-playwright"
     mkdir -p "$VIDEO_BROWSERS"
     VIDEO_BROWSER_DEPS=""
     ls -d "$VIDEO_BROWSERS"/chromium_headless_shell-* >/dev/null 2>&1 || VIDEO_BROWSER_DEPS="--with-deps"
-    if PLAYWRIGHT_BROWSERS_PATH="$VIDEO_BROWSERS" npx playwright install $VIDEO_BROWSER_DEPS chromium >> "$DEPLOY_LOG" 2>&1; then
+    if [ -z "$VIDEO_BROWSER_DEPS" ] && ! should_run "$PLAYWRIGHT_STATE_FILE" "${FORCE_PLAYWRIGHT:-0}" package.json package-lock.json; then
+        echo "  > Chromium do editor de vídeo já instalado; Playwright sem alteracoes."
+    elif PLAYWRIGHT_BROWSERS_PATH="$VIDEO_BROWSERS" npx playwright install $VIDEO_BROWSER_DEPS chromium >> "$DEPLOY_LOG" 2>&1; then
         VIDEO_SERVICE_USER="$(systemctl show aicentralv2 --property=User --value 2>/dev/null)"
         [ -n "$VIDEO_SERVICE_USER" ] && chown -R "$VIDEO_SERVICE_USER" "$VIDEO_BROWSERS" 2>/dev/null || true
+        record_state "$PLAYWRIGHT_STATE_FILE"
         echo "  > Chromium do editor de vídeo pronto em instance/ms-playwright."
     else
         echo "  > Aviso: Chromium do editor de vídeo não instalado (detalhes em $DEPLOY_LOG)."
@@ -496,34 +514,25 @@ if command -v node >/dev/null 2>&1 && [ -d node_modules/playwright ]; then
 else
     echo "  > Aviso: node ou playwright ausentes; render do editor de vídeo indisponível."
 fi
-# Workers de longa duração carregam o código da aplicação uma vez só: sem restart
-# ficam na versão anterior (os instaladores usam enable --now, que não reinicia o que
-# já roda). Os timers não entram aqui: cada disparo já sobe o código novo.
-# O de mídia sempre sobe (restart); nos demais, try-restart só age em unidade ativa e ignora o que não está instalado.
-# --no-block: o deploy não espera o worker terminar o job em andamento (a auditoria tem até
-# 15 min de TimeoutStopSec); o systemd sobe o código novo assim que o job atual acabar.
-sudo systemctl restart cadu-media-worker >> "$DEPLOY_LOG" 2>&1
-LONG_RUNNING_WORKERS=(
-    cadu-brand-audit-worker
-    cadu-conversation-memory-worker
-    cadu-resource-registry-worker
-    cadu-reports-flow-monitor
-    cadu-link-icon-worker@1
-    cadu-link-icon-worker@2
-)
-echo "  > Reiniciando workers de longa duracao..."
-for worker in "${LONG_RUNNING_WORKERS[@]}"; do
-    sudo systemctl try-restart --no-block "$worker" >> "$DEPLOY_LOG" 2>&1 || \
-        echo "  > AVISO: nao foi possivel reiniciar $worker (veja $DEPLOY_LOG)"
-done
+step_done "workers e Chromium (site no ar)"
 
-step_done "parada do servico, nginx, importacao e workers"
+stop_service_for_deploy
+step_done "parada do servico"
 
 # 8. Iniciar servico
 echo ""
 echo "[8/9] Iniciando servico..."
 sudo systemctl start "$APP_SERVICE"
-sleep 3
+# Espera ativa: segue assim que o gunicorn responde na porta (até START_WAIT segundos),
+# em vez de esperas fixas. O health check abaixo reaproveita a resposta.
+START_WAIT="${START_WAIT:-60}"
+HTTP_CODE="000"
+for _ in $(seq 1 "$START_WAIT"); do
+    HTTP_CODE=$(curl -s -m 2 -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null) || HTTP_CODE="000"
+    [ "$HTTP_CODE" != "000" ] && break
+    sudo systemctl is-active --quiet "$APP_SERVICE" || [ "$(sudo systemctl show "$APP_SERVICE" --property=ActiveState --value 2>/dev/null)" = "activating" ] || break
+    sleep 1
+done
 
 if sudo systemctl is-active --quiet "$APP_SERVICE"; then
     SERVICE_STOPPED=0
@@ -543,6 +552,38 @@ else
 fi
 
 step_done "iniciar o servico"
+
+# Workers de longa duração carregam o código da aplicação uma vez só: sem restart
+# ficam na versão anterior (os instaladores usam enable --now, que não reinicia o que
+# já roda). Os timers não entram aqui: cada disparo já sobe o código novo.
+# Todos com --no-block: o deploy não espera job em andamento (a auditoria tem até
+# 15 min de TimeoutStopSec, e o de mídia pode estar renderizando); o systemd sobe
+# o código novo assim que o job atual acabar. O de mídia sempre reinicia; nos demais,
+# try-restart só age em unidade ativa e ignora o que não está instalado.
+sudo systemctl restart --no-block cadu-media-worker >> "$DEPLOY_LOG" 2>&1 || \
+    echo "  > AVISO: nao foi possivel reiniciar cadu-media-worker (veja $DEPLOY_LOG)"
+LONG_RUNNING_WORKERS=(
+    cadu-brand-audit-worker
+    cadu-conversation-memory-worker
+    cadu-resource-registry-worker
+    cadu-reports-flow-monitor
+    cadu-link-icon-worker@1
+    cadu-link-icon-worker@2
+)
+echo "  > Reiniciando workers de longa duracao..."
+for worker in "${LONG_RUNNING_WORKERS[@]}"; do
+    sudo systemctl try-restart --no-block "$worker" >> "$DEPLOY_LOG" 2>&1 || \
+        echo "  > AVISO: nao foi possivel reiniciar $worker (veja $DEPLOY_LOG)"
+done
+step_done "reinicio dos workers"
+
+# Validação das APIs da Modelagem de Criativos: sobe a aplicação inteira de novo e
+# consulta o banco, então só roda quando algo que essas APIs usam mudou (rotas e
+# módulos de criativos, migrações, dependências, o próprio script). FORCE_VERIFY=1 força.
+VERIFY_STATE_FILE="${VERIFY_STATE_FILE:-logs/.last-verify-revision}"
+if should_run "$VERIFY_STATE_FILE" "${FORCE_VERIFY:-0}" \
+       'aicentralv2/creative_modeling*' \
+       migrations requirements.txt run.py scripts/verify_creative_viewer_apis.py; then
 echo "  > Validando APIs de formatos e visualizadores..."
 # Esta validação sobe a aplicação inteira e consulta o banco: sem limite, uma espera por trava deixaria o deploy preso
 # para sempre depois de o serviço já estar no ar. Com limite, o deploy falha com uma mensagem que aponta o passo.
@@ -561,12 +602,15 @@ if [ "$VERIFY_STATUS" != "0" ]; then
     exit "$VERIFY_STATUS"
 fi
 step_done "validacao das APIs"
+record_state "$VERIFY_STATE_FILE"
+else
+    echo "  > APIs de criativos sem alteracoes; validacao pulada (FORCE_VERIFY=1 para rodar)."
+    step_done "validacao das APIs (pulada)"
+fi
 
-# 9. Health check
+# 9. Health check (a resposta veio da espera ativa do passo 8)
 echo ""
 echo "[9/9] Health check..."
-sleep 2
-HTTP_CODE=$(curl -s -m 10 -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/ 2>/dev/null || echo "000")
 if [ "$HTTP_CODE" = "000" ]; then
     echo "  > Servidor nao respondeu (pode precisar de login)"
 elif [ "$HTTP_CODE" -lt "400" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "302" ]; then

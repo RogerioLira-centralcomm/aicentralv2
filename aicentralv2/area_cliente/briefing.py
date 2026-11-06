@@ -124,10 +124,12 @@ def validar(form) -> tuple[dict, dict]:
     dados["materiais"] = mat if mat in _MAT else ""
     dados["mensuracao"] = _escolhas(form, "mensuracao", MENSURACAO)
     pracas = []
-    for p in form.getlist("pracas"):
-        p = re.sub(r"\s+", " ", p or "").strip()[:80]
-        if p and p.lower() not in {x.lower() for x in pracas}:
-            pracas.append(p)
+    for bruto in form.getlist("pracas"):
+        # Sem JS o campo de busca chega como texto livre: "BH, Contagem; Betim".
+        for p in re.split(r"[;,\n]+", bruto or ""):
+            p = re.sub(r"\s+", " ", p).strip()[:80]
+            if p and p.lower() not in {x.lower() for x in pracas}:
+                pracas.append(p)
     dados["pracas"] = pracas[:MAX_PRACAS]
     if dados["abrangencia"] == "nacional":
         dados["pracas"] = []
@@ -375,8 +377,8 @@ def _limpa_segmentacao(texto: str) -> str:
 def _quebra_pracas(texto: str) -> list[str]:
     if not texto or _sem_acento(texto) in {"a definir", "", "-"}:
         return []
-    partes = re.split(r"[\n;,]+", texto)
-    return [re.sub(r"\s+", " ", p).strip(" .*") for p in partes if p.strip(" .*")][:20]
+    partes = (re.sub(r"\s+", " ", p.rsplit(":", 1)[-1]).strip(" .*") for p in re.split(r"[\n;,]+", texto))
+    return [p for p in partes if p and _sem_acento(p) not in {"nacional", "brasil", "a definir"}][:20]
 
 
 def historico(cliente_id, limite: int = 8) -> list[dict]:
@@ -461,7 +463,8 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
         texto = b["briefing_original"] or ""
         publico = _secao(texto, "Público") or _linha(texto, "Público e praças")
         pracas_txt = _secao(texto, "Praças")
-        pracas = [p for p in re.split(r";\s*", pracas_txt.split("\n")[-1]) if p and not p.startswith("Abrangência")] if pracas_txt else []
+        linhas_pr = [ln for ln in pracas_txt.split("\n") if ln and not ln.startswith(("Abrangência:", "Lojas e raio:"))]
+        pracas = [p for p in re.split(r";\s*", linhas_pr[0]) if p] if linhas_pr else []
         saida.append({
             "id": f"briefing:{b['id']}", "fonte": "Briefing", "titulo": b["titulo"] or "Briefing",
             "quando": b["em"].strftime("%m/%Y") if b["em"] else "", "objetivo": (b["objetivo"] or "")[:600],

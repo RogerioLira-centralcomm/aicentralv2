@@ -338,7 +338,7 @@
       <button type="button" class="ac-btn ac-btn--secondary" id="bw-voltar" hidden>{{ icon('arrow-left', 18) }}Voltar</button>
       <p class="ac-form__hint" id="bw-dica">Sem custo. O planejamento chega com o seu executivo.</p>
       <button type="button" class="ac-btn ac-btn--primary" id="bw-seguir" hidden>Continuar{{ icon('chevron-right', 18) }}</button>
-      <button type="submit" class="ac-btn ac-btn--primary" id="bw-enviar"{% if usuario.ver_como %} disabled{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
+      <button type="submit" class="ac-btn ac-btn--primary" id="bw-enviar"{% if usuario.ver_como %} disabled data-ver-como{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
     </div>
   </form>
   {# Reserva sem JS para tirar um item; com JS, o item sai sem recarregar e o texto digitado fica. #}

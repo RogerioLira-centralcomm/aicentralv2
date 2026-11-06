@@ -101,7 +101,7 @@
   /* ---------- Passos ---------- */
   var passos = $$('.bw-step');
   var atual = 0;
-  function passosVisiveis() { return passos.filter(function (p) { return !p.dataset.skip; }); }
+  function passosVisiveis() { return passos; }
   var nav = $('.bw-nav'), navList = document.getElementById('bw-nav'), navBar = document.getElementById('bw-nav-bar');
   var btVoltar = document.getElementById('bw-voltar'), btSeguir = document.getElementById('bw-seguir'), btEnviar = document.getElementById('bw-enviar');
 
@@ -156,6 +156,7 @@
   }
 
   /* ---------- Reaproveitar histórico ---------- */
+  function isoLocal(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function setRadio(nome, valor) { $$('input[name="' + nome + '"]').forEach(function (i) { i.checked = i.value === valor; }); }
   function setChecks(nome, valores) { $$('input[name="' + nome + '"]').forEach(function (i) { i.checked = valores.indexOf(i.value) >= 0; }); }
   function aplicarOrigem(id) {
@@ -179,8 +180,8 @@
     if (h.dias && !val('inicio')) {
       var ini = new Date(); ini.setDate(ini.getDate() + 21);
       var fim = new Date(ini); fim.setDate(fim.getDate() + h.dias);
-      $('#b-inicio').value = ini.toISOString().slice(0, 10);
-      $('#b-fim').value = fim.toISOString().slice(0, 10);
+      $('#b-inicio').value = isoLocal(ini);
+      $('#b-fim').value = isoLocal(fim);
       feitos.push('período de ' + h.dias + ' dias a partir de daqui a 3 semanas');
     }
     if (aviso) {
@@ -466,6 +467,11 @@
     }
     btEnviar.disabled = true;
     btEnviar.classList.add('is-loading');
+  });
+
+  /* Voltar pelo histórico (bfcache) não deixa o botão de envio travado. */
+  window.addEventListener('pageshow', function (ev) {
+    if (ev.persisted && !btEnviar.hasAttribute('data-ver-como')) { btEnviar.disabled = false; btEnviar.classList.remove('is-loading'); }
   });
 
   /* Itens do Descobrir saem sem recarregar. */

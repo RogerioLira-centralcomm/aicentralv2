@@ -279,7 +279,11 @@ def view_briefing(usuario):
         valores, erros = briefing.validar(request.form)
         if not erros:
             valores["descobrir"] = descobrir.texto_selecao(descobrir.selecao(session))
-            origem = next((h for h in briefing.historico(usuario["cliente_id"]) if h["id"] == valores.get("origem")), None)
+            try:
+                origem = next((h for h in briefing.historico(usuario["cliente_id"]) if h["id"] == valores.get("origem")), None) if valores.get("origem") else None
+            except Exception:
+                current_app.logger.warning("Histórico do briefing indisponível no envio.", exc_info=True)
+                origem = None
             if origem:
                 valores["origem_rotulo"] = f"{origem['fonte']} {origem['titulo']}" + (f" ({origem['quando']})" if origem["quando"] else "")
             novo_id = briefing.enviar(usuario, valores)

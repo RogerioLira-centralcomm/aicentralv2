@@ -26,7 +26,7 @@ def _sem_coluna(conn, exc) -> bool:
     """Coluna ainda não migrada: desfaz a transação e sinaliza o fallback."""
     if isinstance(exc, psycopg.errors.UndefinedColumn):
         conn.rollback()
-        logger.warning("area_cliente_acesso ainda não existe neste banco.")
+        logger.warning("Colunas de bloqueio da Área do Cliente ainda não existem neste banco.")
         return True
     return False
 

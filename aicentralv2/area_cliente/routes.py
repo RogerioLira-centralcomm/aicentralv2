@@ -49,7 +49,7 @@ ROTAS = Map([
 # (senha, cadastro, Google), estáticos. O resto dá 404.
 PASSAGEM_EXATA = {"/login", "/logout", "/acesso-confirmado", "/favicon.ico",
                   "/forgot-password", "/signup", "/bem-vindo"}
-PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/")
+PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/", "/campanha/p/")
 
 # Menu: Início pelo logo; Descobrir (título com as vitrines abertas); depois
 # Briefing, Campanhas, Relatórios e PIs. Equipe fica no menu do usuário e a
@@ -62,7 +62,6 @@ NAV_PRINCIPAL = (
 )
 
 EM_PREPARACAO = {
-    "relatorios": ("Relatórios", "chart", "Dashboards de entrega atualizados diariamente e as prestações de contas de cada projeto."),
     "equipe": ("Equipe", "users", "Quem da sua empresa tem acesso a esta área e o time Centralcomm que cuida da sua conta."),
 }
 
@@ -117,6 +116,7 @@ def _render(template, usuario, ativo, **ctx):
         usuario=usuario, nav=nav, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
         pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
+        n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),
         ver_como_opcoes=_opcoes_ver_como() if usuario.get("pode_ver_como") else [],
         ver_como_ano=date.today().year, **ctx,
     ))
@@ -338,9 +338,27 @@ def _drawer_campanha(c, status) -> dict:
     }
 
 
+def view_relatorios(usuario):
+    return _render("relatorios.html", usuario, "relatorios", pis=dados.relatorios(usuario["cliente_id"]))
+
+
+PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados", "todos": "Todos"}
+
+
 def view_pis(usuario):
     termo = request.args.get("q", "").strip()[:80]
-    pis = dados.listar_pis(usuario["cliente_id"])
+    filtro = request.args.get("status", "abertos" if not termo else "todos")
+    filtro = filtro if filtro in PIS_FILTROS else "abertos"
+    todos = dados.listar_pis(usuario["cliente_id"])
+    contagem = {"abertos": sum(1 for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS),
+                "finalizados": sum(1 for p in todos if p["status_id"] not in dados.SUB_STATUS_ABERTOS),
+                "todos": len(todos)}
+    if filtro == "abertos":
+        pis = [p for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS]
+    elif filtro == "finalizados":
+        pis = [p for p in todos if p["status_id"] not in dados.SUB_STATUS_ABERTOS]
+    else:
+        pis = todos
     if termo:
         t = termo.lower()
         pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()]
@@ -349,7 +367,8 @@ def view_pis(usuario):
         por_pi.setdefault(c["id_pi"], []).append(c)
     for p in pis:
         p["plataformas"] = plataformas.resumo(por_pi.get(p["id"], []))
-    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo)
+    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo,
+                   filtro=filtro, filtros=PIS_FILTROS, contagem=contagem)
 
 
 def view_pi(usuario, id_pi):
@@ -412,6 +431,8 @@ def despachar():
         return view_campanhas(usuario)
     if endpoint == "pis":
         return view_pis(usuario)
+    if endpoint == "relatorios":
+        return view_relatorios(usuario)
     if endpoint == "pi":
         return view_pi(usuario, **args)
     if endpoint == "descobrir":

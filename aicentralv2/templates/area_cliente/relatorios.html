@@ -1,0 +1,47 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, periodo, status_badge, barra, plat %}
+{% block title %}Relatórios{% endblock %}
+{% block content %}
+<h1 class="ac-h1 ac-page-title">Relatórios</h1>
+
+{% if pis %}
+<div class="ac-reports">
+  {% for p in pis %}
+  <section class="ac-panel" aria-labelledby="rel-{{ p.id }}">
+    <header class="ac-panel__head ac-report__head">
+      <div class="ac-row__main">
+        <a class="ac-row__link" href="{{ area_url('pi', id_pi=p.id) }}"><b id="rel-{{ p.id }}">{{ p.titulo }}</b></a>
+        <small>{{ p.pi }} · {{ periodo(p.periodo) }}</small>
+      </div>
+      {{ status_badge(p.status) }}
+    </header>
+    <div class="ac-report__links">
+      {% if p.link_publico %}
+      <a class="ac-report__link" href="{{ p.link_publico }}" target="_blank" rel="noopener"><span class="ac-report__icon">{{ icon('globe', 16) }}</span><span><b>Acompanhamento do PI</b><small>Link público com resultados, cronograma e documentos</small></span>{{ icon('external', 14) }}</a>
+      {% endif %}
+      {% if p.prestacao %}
+      <a class="ac-report__link" href="{{ p.prestacao }}" target="_blank" rel="noopener"><span class="ac-report__icon">{{ icon('file', 16) }}</span><span><b>Prestação de contas</b><small>Relatório de resultados e entregas</small></span>{{ icon('external', 14) }}</a>
+      {% endif %}
+      {% if not p.link_publico and not p.prestacao and not p.dashboards %}
+      <p class="ac-panel__empty">Os relatórios deste PI aparecem aqui quando a operação publicar o dashboard.</p>
+      {% endif %}
+    </div>
+    {% if p.dashboards %}
+    <ul class="ac-rows">
+      {% for c in p.dashboards %}
+      <li class="ac-row">
+        <span class="ac-row__icon">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
+        <div class="ac-row__main"><b>{{ c.nome }}</b><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small></div>
+        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}</div>
+        <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b><a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Abrir dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a></div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% else %}
+<div class="ac-panel"><p class="ac-panel__empty">Nenhum PI em andamento. Os relatórios aparecem aqui enquanto as campanhas estiverem no ar.</p></div>
+{% endif %}
+{% endblock %}

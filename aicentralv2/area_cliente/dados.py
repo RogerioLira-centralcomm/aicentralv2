@@ -204,7 +204,7 @@ def resumo_inicio(cliente_id) -> dict:
             "campanhas_no_ar": sum(1 for c in campanhas if c["no_ar"]),
             "campanhas_total": len(campanhas),
             "entrega_media": round(sum(pcts) / len(pcts)) if pcts else None,
-            "dashboards": sum(1 for c in campanhas if c["dash_abrir"]),
+            "dashboards": sum(1 for c in campanhas if c["dash_abrir"] and c["no_ar"]),
         },
         "performance": performance,
         "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}),
@@ -387,3 +387,56 @@ def ritmo_campanhas(cliente_id) -> dict:
             "finalizadas": len(grupos["finalizadas"]),
         },
     }
+
+
+# ---------- Relatórios: só PIs e campanhas em andamento ----------
+
+SUB_STATUS_ABERTOS = (1, 2, 3, 4)  # Em aprovação, configuração, andamento, faturamento
+
+
+def relatorios(cliente_id) -> list[dict]:
+    """Por PI em aberto: link público de acompanhamento, prestação de contas e dashboards no ar."""
+    from datetime import datetime
+    projetos = [p for p in listar_projetos(cliente_id) if p["status_id"] in SUB_STATUS_ABERTOS]
+    if not projetos:
+        return []
+    rows = _fetch(
+        """
+        SELECT id_pi, link_publico_token, link_publico_ativo, link_publico_expires_at, googled_pi_financ
+          FROM cadu_pi WHERE id_pi = ANY(%s)
+        """,
+        ([p["id"] for p in projetos],),
+    )
+    extras = {r["id_pi"]: r for r in rows}
+    saida = []
+    for p in projetos:
+        e = extras.get(p["id"]) or {}
+        expira = e.get("link_publico_expires_at")
+        link = ""
+        if e.get("link_publico_token") and e.get("link_publico_ativo") and not (expira and expira < datetime.now()):
+            link = f"/campanha/p/{e['link_publico_token']}"
+        financ = _limpo(e.get("googled_pi_financ"))
+        dashboards = [c for c in p["campanhas"] if c["dash_abrir"] and c["no_ar"]]
+        saida.append({**p, "link_publico": link,
+                      "prestacao": financ if financ and financ.startswith(("http://", "https://")) else "",
+                      "dashboards": dashboards})
+    return saida
+
+
+_CACHE_CONTAGEM: dict = {}
+
+
+def campanhas_em_andamento(cliente_id) -> int:
+    """Contagem para o selo do menu (cache de 60 s por cliente)."""
+    import time
+    agora = time.time()
+    em, n = _CACHE_CONTAGEM.get(cliente_id, (0.0, 0))
+    if agora - em < 60:
+        return n
+    try:
+        n = sum(1 for p in listar_projetos(cliente_id) for c in p["campanhas"] if c["no_ar"])
+    except Exception:
+        logger.warning("Contagem de campanhas indisponível.", exc_info=True)
+        n = 0
+    _CACHE_CONTAGEM[cliente_id] = (agora, n)
+    return n

@@ -824,3 +824,41 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-auth__foot { margin: 0; color: var(--muted); font-size: 12px; }
 .ac-auth__foot a { color: inherit; }
 .ac-gate__card form { margin: 0; }
+
+/* ---------- Selo de campanhas no ar e brilho do Briefing ---------- */
+.ac-nav__count--live { background: var(--colors-success-50); color: var(--colors-success-700); border: 1px solid var(--colors-success-200); }
+.ac-nav__link--shine { position: relative; overflow: hidden; }
+.ac-nav__link--shine .ac-icon { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) {
+  .ac-nav__link--shine::after {
+    content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 50%; pointer-events: none;
+    background: linear-gradient(100deg, transparent, rgba(61, 174, 153, .28), transparent);
+    animation: ac-brilho 15s ease-in-out infinite;
+  }
+  .ac-nav__link--shine .ac-icon { animation: ac-brilho-icone 15s ease-in-out infinite; }
+  @keyframes ac-brilho { 0%, 90% { left: -60%; } 96%, 100% { left: 120%; } }
+  @keyframes ac-brilho-icone { 0%, 90%, 100% { transform: none; } 93% { transform: scale(1.18) rotate(-8deg); } }
+}
+
+/* ---------- Barra de progresso: cor pelo ritmo e marca do período ---------- */
+.ac-progress { position: relative; overflow: visible; height: 6px; }
+.ac-progress__fill { position: relative; z-index: 1; }
+.ac-progress--adiantado .ac-progress__fill { background: var(--colors-success-500); }
+.ac-progress--no_ritmo .ac-progress__fill { background: var(--accent); }
+.ac-progress--atencao .ac-progress__fill { background: var(--colors-warning-500); }
+.ac-progress.is-over .ac-progress__fill { background: var(--colors-success-500); }
+.ac-progress__mark { position: absolute; z-index: 2; top: -3px; width: 2px; height: 12px; margin-left: -1px; border-radius: 1px; background: var(--ink); opacity: .55; }
+.ac-progress { border-radius: var(--radius-full); }
+.ac-progress__fill { border-radius: var(--radius-full); }
+
+/* ---------- Relatórios ---------- */
+.ac-reports { display: grid; gap: 12px; }
+.ac-report__head { align-items: center; }
+.ac-report__links { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; padding: 12px 16px; }
+.ac-report__links:empty { display: none; }
+.ac-report__link { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; text-decoration: none; color: var(--colors-gray-500); }
+.ac-report__link:hover { border-color: var(--colors-brand-200); background: var(--colors-brand-25); }
+.ac-report__link > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ac-report__link b { color: var(--ink); font-size: 13px; font-weight: 600; }
+.ac-report__link small { font-size: 12px; color: var(--muted); }
+.ac-report__icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }

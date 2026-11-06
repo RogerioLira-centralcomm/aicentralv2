@@ -163,7 +163,7 @@ def test_projeto_360_sem_custos(app, monkeypatch):
 def test_pagina_em_preparacao(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     client = _client(app, {"user_id": 501})
-    resp = client.get("/relatorios", base_url=HOST)
+    resp = client.get("/equipe", base_url=HOST)
     assert resp.status_code == 200 and "Em preparação" in resp.get_data(as_text=True)
     antigo = client.get("/planejamento", base_url=HOST)
     assert antigo.status_code == 301 and antigo.headers["Location"] == "/descobrir"
@@ -546,3 +546,57 @@ def test_login_no_host_de_clientes_usa_tela_centralcomm(app):
     assert "Use o e-mail e a senha do Cadu" in html and "Área do Cliente" in html
     html = app.test_client().get("/forgot-password", base_url=HOST).get_data(as_text=True)
     assert "Criar nova senha" in html
+
+
+
+def _camp(**extra):
+    base = {"id": 1, "nome": "Verão Meta", "plataforma": "Meta Ads", "plataforma_logo": "", "plataforma_iniciais": "MA",
+            "objetivo": "Alcance", "status": "Ativa", "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"},
+            "meta": 1000.0, "meta_label": "1.000", "atingido": 500.0, "atingido_label": "500", "pct": 50, "tempo_pct": 40,
+            "dias_restantes": 18, "ritmo": "adiantado", "dash_embed": "", "dash_abrir": "https://lookerstudio.google.com/x",
+            "atual": False, "id_pi": 12, "no_ar": True, "responsavel": "Ana Op"}
+    return {**base, **extra}
+
+
+def test_relatorios_so_pis_abertos_com_link_publico(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    projetos = [
+        {"id": 12, "titulo": "PI Verão", "pi": "CC-123", "status": "Em andamento", "status_id": 3, "ativo": True,
+         "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "campanhas": [_camp(), _camp(id=2, nome="Encerrada", no_ar=False)]},
+        {"id": 13, "titulo": "PI Antigo", "pi": "CC-100", "status": "Finalizado", "status_id": 5, "ativo": False,
+         "periodo": {"inicio": "2025-01-01", "fim": "2025-02-01"}, "campanhas": [_camp(id=3, nome="Velha")]},
+    ]
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [
+        {"id_pi": 12, "link_publico_token": "cliente-pi-abc123", "link_publico_ativo": True,
+         "link_publico_expires_at": None, "googled_pi_financ": "https://drive.google.com/x"}])
+    html = _client(app, {"user_id": 501}).get("/relatorios", base_url=HOST).get_data(as_text=True)
+    assert "PI Verão" in html and "PI Antigo" not in html
+    assert 'href="/campanha/p/cliente-pi-abc123"' in html and "Prestação de contas" in html
+    assert "Verão Meta" in html and "Encerrada" not in html
+    assert "ac-progress--adiantado" in html and "ac-progress__mark" in html
+
+
+def test_pis_abre_em_andamento(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    base = {"periodo": {"inicio": "", "fim": ""}, "bruto": 1.0, "liquido": 1.0, "comissao": None, "n_notas": 0, "n_pagas": 0,
+            "agencia": "", "cliente": "", "atualizado_em": "", "documentos": []}
+    monkeypatch.setattr(dados, "listar_pis", lambda c, id_pi=None: [
+        {**base, "id": 1, "pi": "CC-1", "titulo": "Aberto", "status": "Em andamento", "status_id": 3},
+        {**base, "id": 2, "pi": "CC-2", "titulo": "Fechado", "status": "Finalizado", "status_id": 5}])
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
+    client = _client(app, {"user_id": 501})
+    html = client.get("/pis", base_url=HOST).get_data(as_text=True)
+    assert "Aberto" in html and "Fechado" not in html and "Em andamento<span>1</span>" in html
+    assert "Fechado" in client.get("/pis?status=todos", base_url=HOST).get_data(as_text=True)
+
+
+def test_selo_de_campanhas_e_brilho_do_briefing(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    monkeypatch.setattr(dados, "campanhas_em_andamento", lambda c: 7)
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [])
+    html = _client(app, {"user_id": 501}).get("/", base_url=HOST).get_data(as_text=True)
+    assert 'aria-label="7 campanhas em andamento">7<' in html and "ac-nav__link--shine" in html

@@ -98,7 +98,7 @@
         <div><dt>Entregue</dt><dd>{{ c.atingido_label }}</dd></div>
         <div><dt>Entrega</dt><dd>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</dd></div>
       </dl>
-      {{ barra(c.pct, 'Entrega de ' ~ c.nome) }}
+      {{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}
       {% if c.tempo_pct is not none %}<p class="ac-perf__meta">{{ c.tempo_pct }}% do período decorrido</p>{% endif %}
       {% if c.dash_abrir %}<a class="ac-link" href="{{ c.dash_abrir }}" target="_blank" rel="noopener">Ver dashboard{{ icon('external', 14) }}</a>{% endif %}
     </article>

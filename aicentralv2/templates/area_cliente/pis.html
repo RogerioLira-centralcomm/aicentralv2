@@ -8,6 +8,13 @@
   </div>
 </div>
 
+<div class="ac-toolbar2">
+  <nav class="ac-seg" aria-label="Situação dos PIs">
+    {% for id, rotulo in filtros.items() %}
+    <a class="ac-seg__item{% if id == filtro %} is-active{% endif %}" href="{{ area_url('pis') }}?status={{ id }}"{% if id == filtro %} aria-current="page"{% endif %}>{{ rotulo }}<span>{{ contagem[id] }}</span></a>
+    {% endfor %}
+  </nav>
+</div>
 {% if termo %}<p class="ac-toolbar__note ac-enter">Resultados para “{{ termo }}” · <a class="ac-link" href="{{ area_url('pis') }}">limpar busca</a></p>{% endif %}
 {% if pis %}
 <div class="ac-card ac-table-card ac-enter">

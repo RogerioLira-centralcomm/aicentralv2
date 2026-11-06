@@ -64,7 +64,7 @@
         <td><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 16) }}{{ c.plataforma or '—' }}</span></td>
         <td class="ac-num">{{ c.atingido_label }}</td>
         <td class="ac-num">{{ c.meta_label }}</td>
-        <td class="ac-grid__pct"><span class="ac-grid__pctrow"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ barra(c.pct, 'Entrega de ' ~ c.nome) }}</span></td>
+        <td class="ac-grid__pct"><span class="ac-grid__pctrow"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}</span></td>
         <td>{% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% else %}<span class="ac-muted">—</span>{% endif %}</td>
         <td class="ac-num">{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</td>
         <td>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</td>

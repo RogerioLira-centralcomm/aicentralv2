@@ -67,10 +67,12 @@
 {% endif %}
 {%- endmacro %}
 
-{% macro barra(pct, rotulo) -%}
+{# Barra de entrega. Com `tempo`, mostra a marca do período decorrido; a cor segue o ritmo. #}
+{% macro barra(pct, rotulo, tempo=None, ritmo='') -%}
 {% set largura = [[pct or 0, 0]|max, 100]|min %}
-<div class="ac-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct or 0 }}" aria-label="{{ rotulo }}">
+<div class="ac-progress{% if ritmo %} ac-progress--{{ ritmo }}{% endif %}{% if (pct or 0) > 100 %} is-over{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct or 0 }}" aria-label="{{ rotulo }}{% if tempo is not none %}, {{ tempo }}% do período{% endif %}">
   <span class="ac-progress__fill" style="width: {{ largura }}%"></span>
+  {% if tempo is not none %}<span class="ac-progress__mark" style="left: {{ [[tempo, 0]|max, 100]|min }}%" title="{{ tempo }}% do período"></span>{% endif %}
 </div>
 {%- endmacro %}
 

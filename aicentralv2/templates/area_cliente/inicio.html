@@ -10,7 +10,7 @@
   <div class="ac-stat"><span class="ac-stat__label">PIs ativos</span><b class="ac-stat__value">{{ k.projetos_ativos }}</b><span class="ac-stat__hint">de {{ k.projetos_total }}</span></div>
   <div class="ac-stat"><span class="ac-stat__label">Campanhas no ar</span><b class="ac-stat__value">{{ k.campanhas_no_ar }}</b><span class="ac-stat__hint">de {{ k.campanhas_total }}</span></div>
   <div class="ac-stat"><span class="ac-stat__label">Entrega média</span><b class="ac-stat__value">{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b><span class="ac-stat__hint">sobre a meta</span></div>
-  <div class="ac-stat"><span class="ac-stat__label">Dashboards</span><b class="ac-stat__value">{{ k.dashboards }}</b><span class="ac-stat__hint">diários</span></div>
+  <div class="ac-stat"><span class="ac-stat__label">Dashboards no ar</span><b class="ac-stat__value">{{ k.dashboards }}</b><span class="ac-stat__hint"><a class="ac-link" href="{{ area_url('relatorios') }}">ver</a></span></div>
 </section>
 
 <div class="ac-panels">
@@ -28,7 +28,7 @@
           <b>{{ c.nome }}</b>
           <small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small>
         </div>
-        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome) }}</div>
+        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}</div>
         <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ ritmo_badge(c.ritmo) }}</div>
       </li>
       {% endfor %}

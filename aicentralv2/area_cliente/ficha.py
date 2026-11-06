@@ -351,6 +351,11 @@ def _demografia_canal(valor) -> list[dict]:
 _FRASE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])")
 
 
+def _url_web(valor) -> str:
+    url = str(valor or "").strip()
+    return url if re.match(r"^https?://", url, re.I) else ""
+
+
 def _catalogo(secao) -> list[dict]:
     from ..cadu_family import repository
     try:
@@ -422,7 +427,8 @@ def _formato(secao, item_id):
         "layout": "formato", "interativo": interativo, "previa": f.get("image_url") or "",
         "quadro": quadros[0] if len(quadros) == 1 else None, "resumo": frases[0] if frases else "",
         "texto": " ".join(frases[1:]), "specs": specs,
-        "demo_url": f.get("creative_url") or "", "galeria_url": f.get("gallery_url") or "",
+        # Só http(s): a URL do demo vai para um iframe, e "javascript:" rodaria na página da área.
+        "demo_url": _url_web(f.get("creative_url")), "galeria_url": _url_web(f.get("gallery_url")),
         "chips": [x for x in (f.get("purpose"), objetivo if interativo else _maiuscula(_arrumar(f.get("format_type") or ""))) if x],
         "marca_nome": f.get("platform") or "",
     }

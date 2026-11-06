@@ -742,3 +742,8 @@ def test_descobrir_sem_pagina_geral_abre_canais(app, monkeypatch):
 def test_quadro_ignora_medida_zero():
     from aicentralv2.area_cliente.ficha import _quadro
     assert _quadro("00x250") is None and _quadro("300x250")["rotulo"] == "300×250"
+
+
+def test_demo_de_formato_so_aceita_http():
+    from aicentralv2.area_cliente.ficha import _url_web
+    assert _url_web("javascript:alert(1)") == "" and _url_web(" https://ads.centralcomm.media/x ") == "https://ads.centralcomm.media/x"

@@ -11,6 +11,7 @@ de programática) ficam de fora, como no Planner.
 from __future__ import annotations
 
 import re
+import time
 from datetime import date, datetime
 
 from werkzeug.exceptions import BadRequest, NotFound
@@ -120,6 +121,14 @@ def _data(valor) -> str:
     return d.strftime("%d/%m/%Y")
 
 
+def _float(valor) -> float:
+    """Número do catálogo ou 0 quando o campo traz texto ("n/d", "")."""
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _numero(valor) -> str:
     try:
         return f"{int(float(valor)):,}".replace(",", ".")
@@ -156,7 +165,7 @@ def _quadro(dimensoes) -> dict | None:
 def _metricas(itens):
     """Separa números de faixa (curtos) de notas longas sobre o método."""
     cheias = [i for i in itens if tem(i.get("valor"))]
-    faixa = [i for i in cheias if not isinstance(i["valor"], str) or len(i["valor"].strip()) <= METRICA_MAX][:6]
+    faixa = [i for i in cheias if not isinstance(i["valor"], str) or len(i["valor"].strip()) <= METRICA_MAX][:8]
     notas = [i for i in cheias if i not in faixa and isinstance(i["valor"], str) and len(i["valor"].strip()) > METRICA_MAX]
     return faixa, notas
 
@@ -440,7 +449,7 @@ def _portal(item_id):
     demo = p.get("demographics") if isinstance(p.get("demographics"), dict) else None
     lugar = str(atributo("localizacao") or "").strip()
     editorias = p.get("site_sections") if isinstance(p.get("site_sections"), list) else []
-    selo = "Top 10 nacional" if 1 <= int(p.get("featured_rank") or 0) <= 10 else (f"Top 10 · {p.get('uf')}" if p.get("uf_top") else "")
+    selo = "Top 10 nacional" if 1 <= _float(p.get("featured_rank")) <= 10 else (f"Top 10 · {p.get('uf')}" if p.get("uf_top") else "")
     cobertura = "Nacional" if p.get("scope") == "nacional_premium" else " · ".join(x for x in (lugar.split("·")[0].strip(), p.get("uf")) if x)
     formatos_brutos = ((p.get("formats") or {}).get("own") or []) + ((p.get("formats") or {}).get("observed") or [])
     formatos, vistos = [], set()
@@ -497,12 +506,16 @@ def _portal(item_id):
                   {"rotulo": "Editorias", "valor": _numero(len(editorias)) if editorias else None},
                   {"rotulo": "Cobertura", "valor": cobertura or None},
                   {"rotulo": "Audiência pública", "valor": p.get("audience_estimate"), "fonte": p.get("audience_source_url") or ""},
-                  {"rotulo": "Acessos por mês", "valor": _numero(p["monthly_visits"]) if float(p.get("monthly_visits") or 0) > 0 else None,
+                  {"rotulo": "Acessos por mês", "valor": _numero(p["monthly_visits"]) if _float(p.get("monthly_visits")) > 0 else None,
                    "fonte": p.get("metrics_source_url") or ""},
                   {"rotulo": "Tempo médio na página",
-                   "valor": f"{int(float(p['avg_time_seconds']) // 60)}min {round(float(p['avg_time_seconds']) % 60):02d}s"
-                   if float(p.get("avg_time_seconds") or 0) > 0 else None}],
+                   "valor": f"{int(_float(p.get('avg_time_seconds')) // 60)}min {round(_float(p.get('avg_time_seconds')) % 60):02d}s"
+                   if _float(p.get("avg_time_seconds")) > 0 else None}],
         sessoes=sessoes)
+
+
+_CACHE: dict = {}
+CACHE_SEGUNDOS, CACHE_MAX = 600, 300  # catálogo muda pouco; a ficha de canal faz várias consultas
 
 
 def montar(secao: str, item_id) -> dict:
@@ -510,6 +523,18 @@ def montar(secao: str, item_id) -> dict:
         item_id = int(item_id)
     except (TypeError, ValueError):
         raise NotFound()
+    chave = (secao, item_id)
+    guardado = _CACHE.get(chave)
+    if guardado and time.time() - guardado[0] < CACHE_SEGUNDOS:
+        return guardado[1]
+    ficha = _montar_sem_cache(secao, item_id)
+    if len(_CACHE) >= CACHE_MAX:
+        _CACHE.pop(next(iter(_CACHE)))
+    _CACHE[chave] = (time.time(), ficha)
+    return ficha
+
+
+def _montar_sem_cache(secao: str, item_id: int) -> dict:
     try:
         if secao == "canais":
             return _canal(item_id)

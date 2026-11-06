@@ -22,7 +22,7 @@
 
 {% macro leia(texto, limite=180) -%}
 {% set t = (texto or '')|trim %}
-{% if t|length > limite + 40 %}<details class="ac-fmore"><summary><span class="ac-fmore__short">{{ t[:limite]|trim }}…</span> <span class="ac-fmore__btn">Ler mais</span></summary><p>{{ t }}</p></details>
+{% if t|length > limite + 40 %}<details class="ac-fmore"><summary><span class="ac-fmore__short">{{ t|truncate(limite, False, '…', 0) }}</span> <span class="ac-fmore__btn"><span class="ac-fmore__mais">Ler mais</span><span class="ac-fmore__menos">Mostrar menos</span></span></summary><p>{{ t }}</p></details>
 {% else %}<p class="ac-ftext">{{ t }}</p>{% endif %}
 {%- endmacro %}
 

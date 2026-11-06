@@ -680,3 +680,17 @@ def test_grupo_da_pagina_atual_abre_mesmo_recolhido(app):
         estado = routes._estado_menu("pis")
     assert estado["recolhidos"] == {"descobrir"} and estado["grupo_atual"] == "acompanhar"
     assert estado["sidebar_aberta"] is False and estado["tem_cookie_sidebar"] is False
+
+
+def test_portal_com_numeros_em_texto_nao_quebra(monkeypatch):
+    from aicentralv2.cadu_planner import portals
+    from aicentralv2.area_cliente import descobrir, ficha
+    ficha._CACHE.clear()
+    monkeypatch.setattr(portals, "detail", lambda value: {
+        "id": 8, "name": "Portal X", "domain": "x.com.br", "featured_rank": "", "monthly_visits": "n/d",
+        "avg_time_seconds": None, "traffic_tier": "medio", "uf": "MG", "site_sections": ["Política"],
+        "formats": {"own": [{"id": 1, "nome": "Billboard", "dimensoes": "970x250"}], "observed": []}})
+    item = descobrir.detalhe("portais", 8)
+    rotulos = [m["rotulo"] for m in item["metricas"]]
+    assert "Acessos por mês" not in rotulos and "Porte" in rotulos
+    assert item["sessoes"][0]["dados"][0]["quadro"]["rotulo"] == "970×250"

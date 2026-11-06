@@ -1110,7 +1110,9 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-fmore summary { cursor: pointer; list-style: none; }
 .ac-fmore summary::-webkit-details-marker { display: none; }
 .ac-fmore__btn { color: var(--accent-strong); font-weight: 600; white-space: nowrap; }
-.ac-fmore[open] summary { display: none; }
+.ac-fmore__menos, .ac-fmore[open] .ac-fmore__short, .ac-fmore[open] .ac-fmore__mais { display: none; }
+.ac-fmore[open] .ac-fmore__menos { display: inline; }
+.ac-fmore[open] summary { margin-bottom: 4px; }
 .ac-fmore p { margin: 0; }
 
 .ac-fnav { position: sticky; top: calc(var(--top-h) + 0px); z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 8px 0; margin: 0 0 -8px; background: var(--bg); border-bottom: 1px solid var(--line); }

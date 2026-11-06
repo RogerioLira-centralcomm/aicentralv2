@@ -522,7 +522,8 @@ def relatorios(cliente_id) -> list[dict]:
         no_ar = [c for c in p["campanhas"] if c["no_ar"]] if aberto else []
         # Sem nada no ar (finalizado ou já em faturamento): as campanhas com meta, para ver como terminaram.
         ativas = no_ar or [c for c in p["campanhas"] if c["meta"]]
-        ritmos = {r: sum(1 for c in ativas if c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")}
+        # Ritmo só faz sentido no que está no ar: campanha encerrada não "precisa de atenção".
+        ritmos = {r: sum(1 for c in no_ar if c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")}
         saida.append({**p, "aberto": aberto, "no_ar": bool(no_ar), "link_publico": link,
                       "dashboards": sum(1 for c in ativas if c["dash_abrir"]),
                       "prestacao": financ if financ and financ.startswith(("http://", "https://")) else "",

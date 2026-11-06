@@ -657,7 +657,7 @@ def _projetos_relatorio():
         {**base, "id": 14, "titulo": "PI Inverno", "pi": "CC-140", "status": "Em andamento", "status_id": 3, "ativo": True,
          "campanhas": [_camp(id=5, nome="Inverno Google", ritmo="atencao", id_pi=14), _camp(id=6, nome="Inverno Meta", ritmo="no_ritmo", id_pi=14)]},
         {**base, "id": 13, "titulo": "PI Antigo", "pi": "CC-100", "status": "Finalizado", "status_id": 5, "ativo": False,
-         "periodo": {"inicio": "2025-01-01", "fim": "2025-02-01"}, "campanhas": [_camp(id=3, nome="Velha", no_ar=False)]},
+         "periodo": {"inicio": "2025-01-01", "fim": "2025-02-01"}, "campanhas": [_camp(id=3, nome="Velha", no_ar=False, ritmo="atencao")]},
     ]
 
 
@@ -677,6 +677,7 @@ def test_relatorios_lista_pis_por_situacao_com_cliente_ou_agencia(app, monkeypat
     assert 'href="/campanha/p/cliente-pi-abc123"' in html and "1 em atenção" in html
     finalizados = client.get("/relatorios?status=finalizados", base_url=HOST).get_data(as_text=True)
     assert "PI Antigo" in finalizados and "PI Verão" not in finalizados
+    assert "precisa de atenção" not in finalizados and "precisam de atenção" not in finalizados   # encerradas não contam
 
 
 def test_relatorios_abre_o_pi_pela_query(app, monkeypatch):

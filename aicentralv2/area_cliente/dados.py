@@ -90,10 +90,12 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
         tuple(params),
     )
     campanhas = campanhas_dos_pis([r["id_pi"] for r in rows])
+    from ..campanha_pi_metrics import calcular_periodo_progresso
     projetos = []
     for row in rows:
         das_campanhas = [c for c in campanhas if c["id_pi"] == row["id_pi"]]
         pcts = [c["pct"] for c in das_campanhas if c["pct"] is not None]
+        prog = calcular_periodo_progresso(row["periodo_inicio"], row["periodo_fim"])
         projetos.append({
             "id": row["id_pi"],
             "titulo": _pi_titulo(row),
@@ -107,8 +109,11 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
             "n_campanhas": len(das_campanhas),
             "plataformas": sorted({c["plataforma"] for c in das_campanhas if c["plataforma"]}),
             "pct": round(sum(pcts) / len(pcts)) if pcts else None,
+            "tempo_pct": prog.get("periodo_pct_elapsed"),
+            "dias_restantes": prog.get("periodo_dias_restantes"),
             "campanhas": das_campanhas,
         })
+        projetos[-1]["ritmo"] = _ritmo(projetos[-1]["pct"], projetos[-1]["tempo_pct"])
     return projetos
 
 

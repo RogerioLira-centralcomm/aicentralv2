@@ -38,7 +38,7 @@
       <li class="ac-row">
         <span class="ac-row__icon">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
         <div class="ac-row__main"><b>{{ c.nome }}</b><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small></div>
-        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}</div>
+        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo, c.dias_restantes if c.tempo_pct is not none else None) }}</div>
         <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b><small>{{ c.status or '—' }}</small></div>
       </li>
       {% endfor %}

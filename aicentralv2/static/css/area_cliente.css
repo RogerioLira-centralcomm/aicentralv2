@@ -980,3 +980,26 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-stat__bar .ac-progress { height: 4px; }
 .ac-stat__bar .ac-progress__mark { top: -3px; height: 10px; }
 @media (max-width: 720px) { .ac-stats--links .ac-stat { border-radius: 0 !important; } }
+
+/* ---------- Barra estilo slider de tempo ---------- */
+.ac-meter { display: grid; gap: 4px; min-width: 0; }
+.ac-meter .ac-progress { height: 6px; background: var(--colors-gray-100); overflow: visible; }
+.ac-progress__time { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-full); background: repeating-linear-gradient(135deg, var(--colors-gray-200) 0 4px, var(--colors-gray-100) 4px 8px); }
+.ac-meter .ac-progress__fill { position: absolute; left: 0; top: 0; bottom: 0; }
+.ac-meter .ac-progress__mark { top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #fff; border: 2px solid var(--ink-2); opacity: 1; box-shadow: 0 1px 2px rgba(16, 24, 40, .2); }
+.ac-meter__cap { font-size: 12px; line-height: 14px; color: var(--muted); text-align: right; white-space: nowrap; }
+.ac-row__bar .ac-meter { width: 100%; }
+.ac-stat__bar .ac-meter .ac-progress { height: 4px; }
+.ac-stat__bar .ac-meter .ac-progress__mark { width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ac-meter .ac-progress__fill { animation: ac-encher 900ms cubic-bezier(.2, .8, .2, 1) both; }
+  .ac-meter .ac-progress__time { animation: ac-encher-tempo 700ms ease-out both; }
+  .ac-meter .ac-progress__mark { animation: ac-deslizar 900ms cubic-bezier(.2, .8, .2, 1) both; }
+  @keyframes ac-encher { from { width: 0; } }
+  @keyframes ac-encher-tempo { from { width: 0; opacity: 0; } }
+  @keyframes ac-deslizar { from { left: 0; opacity: 0; } }
+}
+.ac-row { grid-template-columns: minmax(0, 1fr) minmax(130px, 220px) auto; }
+.ac-row:has(.ac-row__icon) { grid-template-columns: 24px minmax(0, 1fr) minmax(130px, 220px) auto; }
+.ac-meter__cap { text-align: left; }
+@media (max-width: 720px) { .ac-row:has(.ac-row__icon) { grid-template-columns: 24px minmax(0, 1fr) auto; } .ac-row { grid-template-columns: minmax(0, 1fr) auto; } }

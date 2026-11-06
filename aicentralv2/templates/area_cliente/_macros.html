@@ -67,12 +67,19 @@
 {% endif %}
 {%- endmacro %}
 
-{# Barra de entrega. Com `tempo`, mostra a marca do período decorrido; a cor segue o ritmo. #}
-{% macro barra(pct, rotulo, tempo=None, ritmo='') -%}
+{# Barra de entrega estilo slider de tempo.
+   pct: entrega sobre a meta; tempo: % do período decorrido (faixa clara + marcador);
+   ritmo: cor da entrega; dias: dias que faltam (texto embaixo). #}
+{% macro barra(pct, rotulo, tempo=None, ritmo='', dias=None) -%}
 {% set largura = [[pct or 0, 0]|max, 100]|min %}
-<div class="ac-progress{% if ritmo %} ac-progress--{{ ritmo }}{% endif %}{% if (pct or 0) > 100 %} is-over{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct or 0 }}" aria-label="{{ rotulo }}{% if tempo is not none %}, {{ tempo }}% do período{% endif %}">
-  <span class="ac-progress__fill" style="width: {{ largura }}%"></span>
-  {% if tempo is not none %}<span class="ac-progress__mark" style="left: {{ [[tempo, 0]|max, 100]|min }}%" title="{{ tempo }}% do período"></span>{% endif %}
+{% set t = [[tempo or 0, 0]|max, 100]|min %}
+<div class="ac-meter{% if dias is not none %} ac-meter--cap{% endif %}">
+  <div class="ac-progress{% if ritmo %} ac-progress--{{ ritmo }}{% endif %}{% if (pct or 0) > 100 %} is-over{% endif %}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pct or 0 }}" aria-label="{{ rotulo }}{% if tempo is not none %}, {{ tempo }}% do período{% endif %}">
+    {% if tempo is not none %}<span class="ac-progress__time" style="width: {{ t }}%"></span>{% endif %}
+    <span class="ac-progress__fill" style="--w: {{ largura }}%; width: {{ largura }}%"></span>
+    {% if tempo is not none %}<span class="ac-progress__mark" style="--t: {{ t }}%; left: {{ t }}%" title="Hoje: {{ tempo }}% do período"></span>{% endif %}
+  </div>
+  {% if dias is not none %}<span class="ac-meter__cap">{% if dias > 1 %}faltam {{ dias }} dias{% elif dias == 1 %}falta 1 dia{% elif dias == 0 %}termina hoje{% else %}encerrada{% endif %}</span>{% endif %}
 </div>
 {%- endmacro %}
 

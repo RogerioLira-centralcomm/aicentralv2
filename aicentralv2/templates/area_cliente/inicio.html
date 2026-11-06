@@ -42,7 +42,7 @@
           <b>{{ c.nome }}</b>
           <small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small>
         </div>
-        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo) }}</div>
+        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo, c.dias_restantes if c.tempo_pct is not none else None) }}</div>
         <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{{ ritmo_badge(c.ritmo) }}</div>
       </li>
       {% endfor %}
@@ -88,7 +88,7 @@
         <a class="ac-row__link" href="{{ area_url('pi', id_pi=p.id) }}"><b>{{ p.titulo }}</b></a>
         <small>{{ p.pi }} · {{ periodo(p.periodo) }} · {{ p.n_campanhas }} {{ 'campanha' if p.n_campanhas == 1 else 'campanhas' }}</small>
       </div>
-      <div class="ac-row__bar">{{ barra(p.pct, 'Entrega de ' ~ p.titulo) }}</div>
+      <div class="ac-row__bar">{{ barra(p.pct, 'Entrega de ' ~ p.titulo, p.tempo_pct, p.ritmo, p.dias_restantes if p.tempo_pct is not none else None) }}</div>
       <div class="ac-row__end"><b>{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</b>{{ status_badge(p.status) }}</div>
     </li>
     {% endfor %}

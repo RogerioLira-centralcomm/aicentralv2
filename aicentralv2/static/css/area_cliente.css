@@ -1599,7 +1599,10 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-camp-sum__alert:hover { text-decoration: underline; }
 .ac-camp-sum__alert.is-on { background: var(--colors-warning-50); box-shadow: inset 0 0 0 1px var(--colors-warning-200); text-decoration: none; }
 
-.ac-camp-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl); box-shadow: var(--shadow-xs); overflow: hidden; }
+/* overflow visível: a largura fixa das colunas já garante que a tabela cabe, e a dica do Ritmo não é cortada. */
+.ac-camp-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl); box-shadow: var(--shadow-xs); overflow: visible; }
+.ac-camp thead th:first-child { border-top-left-radius: var(--radius-xl); }
+.ac-camp thead th:last-child { border-top-right-radius: var(--radius-xl); }
 /* Largura fixa por coluna: a tabela nunca passa da caixa (sem rolagem lateral); o nome quebra linha. */
 .ac-camp { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .ac-camp thead th:nth-child(2) { width: 112px; }

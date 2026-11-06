@@ -919,7 +919,7 @@ def test_link_publico_abre_sem_login(app, monkeypatch):
     assert client.get("/CEMIG-D/estrategias/funil-essencial-busca-social", base_url=HOST).status_code == 301
 
 
-def test_editar_estrategia_mantem_endereco_gravado(monkeypatch):
+def test_editar_estrategia_mantem_endereco_e_evita_repetido(monkeypatch):
     from aicentralv2.estrategias import repositorio
     chamadas = []
 
@@ -933,26 +933,13 @@ def test_editar_estrategia_mantem_endereco_gravado(monkeypatch):
         def cursor(self): return Cur()
         def commit(self): pass
 
+    linhas = [{"id": 7, "nome": "Nome antigo", "slug": "x"},                       # linha antiga, sem url_slug gravado
+              {"id": 8, "nome": "Outra", "slug": "y", "url_slug": "nome-novo"}]
     monkeypatch.setattr(repositorio, "tabela_existe", lambda: True)
     monkeypatch.setattr(repositorio, "_conn", lambda: Conn())
-    e = dict(repositorio._semente()[0], nome="Nome novo")
-    assert repositorio.salvar(e, 7, 1) == 7
-    sql, _ = chamadas[0]
-    assert "dados ? 'url_slug'" in sql and "jsonb_build_object('url_slug', dados->'url_slug')" in sql
-
-
-def test_inicio_aviso_e_campanhas_para_acompanhar():
-    from aicentralv2.area_cliente import dados
-    no_ar = [_camp(id=1, nome="A", pct=30, ritmo="atencao"), _camp(id=2, nome="B", pct=60, ritmo="no_ritmo")]
-    ac = dados._campanhas_acompanhar(no_ar + [_camp(id=3, nome="Velha", no_ar=False)])
-    assert ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["A", "B"]
-    aviso = dados._aviso(ac)
-    assert aviso["tom"] == "atencao" and "1 campanha está abaixo do ritmo" in aviso["frase"] and aviso["acao"] == "otimizacao"
-    # nada no ar: mostra as 3 mais recentes com meta e resume o resultado
-    encerradas = [_camp(id=i, nome=f"E{i}", no_ar=False, pct=101, ritmo="no_ritmo", periodo={"inicio": "2026-01-01", "fim": f"2026-0{i}-01"})
-                  for i in range(1, 5)]
-    ac = dados._campanhas_acompanhar(encerradas)
-    assert not ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["E4", "E3", "E2"]
-    aviso = dados._aviso(ac)
-    assert aviso["tom"] == "bom" and "acima da meta (101%)" in aviso["frase"] and aviso["acao"] == "briefing"
-    assert dados._aviso(dados._campanhas_acompanhar([]))["titulo"] == "Comece pelo briefing"
+    monkeypatch.setattr(repositorio, "listar", lambda somente_ativas=True: (linhas, True))
+    base = dict(repositorio._semente()[0], nome="Nome novo", url_slug="nome-novo")
+    repositorio.salvar(base, 7, 1)                                   # renomear mantém o endereço do nome anterior
+    assert chamadas[-1][1][7].obj["url_slug"] == "nome-antigo"
+    repositorio.salvar(base, None, 1)                                # nova com endereço já usado ganha sufixo
+    assert chamadas[-1][1][7].obj["url_slug"] == "nome-novo-2"

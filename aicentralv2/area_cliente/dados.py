@@ -456,8 +456,7 @@ def ritmo_campanhas(cliente_id) -> dict:
     """Painel de campanhas no espírito da "Central de ritmo" interna, sem gasto nem previsto."""
     grupos = listar_campanhas(cliente_id)
     # No ar: as que pedem atenção primeiro; dentro de cada ritmo, a menor entrega antes.
-    grupos["andamento"].sort(key=lambda c: ({"atencao": 0, "no_ritmo": 1, "adiantado": 2}.get(c["ritmo"] or "", 3),
-                                            c["pct"] if c["pct"] is not None else -1))
+    grupos["andamento"].sort(key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["pct"] if c["pct"] is not None else -1))
     no_ar = grupos["andamento"]
     pcts = [c["pct"] for c in no_ar if c["pct"] is not None]
     return {

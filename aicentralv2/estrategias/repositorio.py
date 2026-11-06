@@ -216,7 +216,7 @@ def normalizar(bruto: dict, slugs_validos: set[str]) -> dict:
 
     return {
         "slug": slug, "nome": _txt(bruto.get("nome"), "nome", True), "objetivo": objetivo,
-        # Só vale na criação: ao editar, salvar() mantém o endereço já gravado (links compartilhados não quebram).
+        # Sugestão para a criação; salvar() decide o endereço final (mantém o atual na edição, evita repetido).
         "url_slug": catalogo.slug_url(bruto.get("nome")),
         "resumo": _txt(bruto.get("resumo"), "resumo", True), "verba_minima": verba_minima,
         "ativo": bool(bruto.get("ativo", True)), "ordem": _int(bruto.get("ordem") or 100, "ordem", 0, 10_000),
@@ -246,21 +246,32 @@ def _separar(e: dict) -> tuple[dict, dict]:
     return colunas, dados
 
 
+def _endereco(e: dict, estrategia_id: int | None) -> str:
+    """Endereço público a gravar. Na edição vale o que já estava no ar (o gravado ou, em linha
+    antiga sem ele, o do nome anterior), para links compartilhados não quebrarem ao renomear.
+    Endereço já usado por outra estratégia ganha sufixo (-2, -3...)."""
+    todas, _ = listar(somente_ativas=False)
+    atual = next((x for x in todas if estrategia_id and x["id"] == int(estrategia_id)), None)
+    base = catalogo.url_slug(atual) if atual else (e.get("url_slug") or catalogo.slug_url(e.get("nome")))
+    usados = {catalogo.url_slug(x) for x in todas if x is not atual}
+    candidato, n = base, 2
+    while candidato in usados:
+        candidato, n = f"{base}-{n}", n + 1
+    return candidato
+
+
 def salvar(e: dict, estrategia_id: int | None, usuario_id: int | None) -> int:
     if not tabela_existe():
         raise TabelaAusente(TABELA_AUSENTE)
+    e = dict(e, url_slug=_endereco(e, estrategia_id))
     colunas, dados = _separar(e)
     conn = _conn()
     try:
         with conn.cursor() as cur:
             if estrategia_id:
                 cur.execute("""UPDATE cadu_estrategias SET slug=%s, nome=%s, objetivo=%s, resumo=%s, verba_minima=%s,
-                               ativo=%s, ordem=%s,
-                               dados = CASE WHEN dados ? 'url_slug'
-                                            THEN %s::jsonb || jsonb_build_object('url_slug', dados->'url_slug')
-                                            ELSE %s::jsonb END,
-                               atualizado_em=now(), atualizado_por=%s WHERE id=%s RETURNING id""",
-                            (*[colunas[k] for k in _COLUNAS], Json(dados), Json(dados), usuario_id, estrategia_id))
+                               ativo=%s, ordem=%s, dados=%s, atualizado_em=now(), atualizado_por=%s WHERE id=%s RETURNING id""",
+                            (*[colunas[k] for k in _COLUNAS], Json(dados), usuario_id, estrategia_id))
             else:
                 cur.execute("""INSERT INTO cadu_estrategias (slug, nome, objetivo, resumo, verba_minima, ativo, ordem, dados,
                                atualizado_por) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",

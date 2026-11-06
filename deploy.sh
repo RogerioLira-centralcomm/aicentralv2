@@ -457,8 +457,10 @@ step_done "nginx e systemd"
 INTERACTIVES_SOURCE="${CENTRALCOMM_INTERACTIVES_SOURCE:-/var/www/aicentralv2/data/html-slides-pt}"
 INTERACTIVES_STATE_FILE="${INTERACTIVES_STATE_FILE:-logs/.last-interactives-fingerprint}"
 if [ -f "$INTERACTIVES_SOURCE/creative-format-overview.html" ]; then
-    INTERACTIVES_FINGERPRINT="$( { find "$INTERACTIVES_SOURCE" -type f -printf '%P %s %T@\n' 2>/dev/null | sort; \
-        git rev-parse HEAD:scripts/import_centralcomm_interactives.py 2>/dev/null; } | md5sum | cut -d' ' -f1)"
+    # "|| true": falha ao calcular a impressão digital só força a importação, nunca derruba o deploy (set -e + pipefail).
+    INTERACTIVES_FINGERPRINT="$( { find "$INTERACTIVES_SOURCE" -type f -printf '%P %s %T@\n' 2>/dev/null | sort || true; \
+        git rev-parse HEAD:scripts/import_centralcomm_interactives.py 2>/dev/null || true; } | md5sum | cut -d' ' -f1)" || INTERACTIVES_FINGERPRINT=""
+    [ -n "$INTERACTIVES_FINGERPRINT" ] || INTERACTIVES_FINGERPRINT="sem-impressao-$(date +%s)"
     if [ "${FORCE_INTERACTIVES:-0}" = "1" ] || [ "$(cat "$INTERACTIVES_STATE_FILE" 2>/dev/null)" != "$INTERACTIVES_FINGERPRINT" ]; then
         echo "  > Importando catálogo de interativos..."
         "$VENV_PYTHON" scripts/import_centralcomm_interactives.py --source "$INTERACTIVES_SOURCE" >> "$DEPLOY_LOG" 2>&1

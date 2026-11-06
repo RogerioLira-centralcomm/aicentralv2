@@ -405,7 +405,8 @@ def _estrategia_publica(empresa, endereco):
     from ..estrategias import catalogo
     empresa_n = (empresa or "").strip().lower()
     slug, _, codigo = (endereco or "").lower().rpartition("-")
-    if not slug or len(codigo) != CODIGO_PUBLICO_TAM:
+    # compare_digest recusa str não ASCII (TypeError -> 500): código fora do formato é 404 direto.
+    if not slug or len(codigo) != CODIGO_PUBLICO_TAM or not (codigo.isascii() and codigo.isalnum()):
         abort(404)
     e = descobrir.estrategia_por_url(slug)
     if not secrets.compare_digest(codigo, _codigo_publico(empresa_n, e["id"])):

@@ -934,6 +934,7 @@ def test_link_publico_abre_sem_login_so_com_codigo_certo(app, monkeypatch):
                  f"/cliente-teste/estrategias/{SLUG_FUNIL}-{codigo}", f"/cemig-d/estrategias/{SLUG_FUNIL}-bbbbbbbb/simulacao"):
         assert client.get(ruim, base_url=HOST).status_code == 404, ruim
     assert consultas == []
+    assert client.get(f"/cemig-d/estrategias/{SLUG_FUNIL}-çççççççç", base_url=HOST).status_code == 404   # não ASCII: 404, não 500
     # código certo para uma empresa que não está no cadastro: 404
     assert client.get(f"/empresa-x/estrategias/{SLUG_FUNIL}-{_codigo(app, 'empresa-x')}", base_url=HOST).status_code == 404
     # maiúsculas e slug antigo com código válido levam ao endereço certo

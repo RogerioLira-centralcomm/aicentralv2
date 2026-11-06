@@ -86,7 +86,7 @@ def test_contato_sem_liberacao_ve_aviso_com_executivo(app, monkeypatch):
     resp = _client(app, {"user_id": 501}).get("/", base_url=HOST)
     assert resp.status_code == 403
     html = resp.get_data(as_text=True)
-    assert "Acesso ainda não liberado" in html
+    assert "Acesso indisponível" in html
     assert "wa.me/5531999990000" in html
 
 
@@ -747,3 +747,68 @@ def test_quadro_ignora_medida_zero():
 def test_demo_de_formato_so_aceita_http():
     from aicentralv2.area_cliente.ficha import _url_web
     assert _url_web("javascript:alert(1)") == "" and _url_web(" https://ads.centralcomm.media/x ") == "https://ads.centralcomm.media/x"
+
+
+class _CursorFalso:
+    def __init__(self, linha):
+        self.linha, self.sql = linha, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, sql, params=None):
+        self.sql.append(sql)
+
+    def fetchone(self):
+        return self.linha
+
+
+class _ConexaoFalsa:
+    def __init__(self, linha):
+        self.cur = _CursorFalso(linha)
+
+    def cursor(self):
+        return self.cur
+
+    def rollback(self):
+        pass
+
+
+def _linha_contato(**extra):
+    base = {"id_contato_cliente": 501, "nome_completo": "Ana Souza", "email": "ana@cliente.test", "foto_url": "",
+            "status": True, "user_type": "client", "pk_id_tbl_cliente": 900, "contato_bloqueado": False,
+            "cliente_bloqueado": False, "nome_fantasia": "Cliente Teste", "cliente_status": True, "executivo_nome": None}
+    base.update(extra)
+    return base
+
+
+def test_area_aberta_para_quem_entra_no_cadu_com_bloqueio(monkeypatch):
+    from aicentralv2.area_cliente import acesso
+    casos = [({}, True), ({"contato_bloqueado": True}, False), ({"cliente_bloqueado": True}, False),
+             ({"status": False}, False), ({"cliente_status": False}, False)]
+    for extra, esperado in casos:
+        conn = _ConexaoFalsa(_linha_contato(**extra))
+        monkeypatch.setattr(acesso, "_db", lambda conn=conn: type("D", (), {"get_db": staticmethod(lambda: conn)}))
+        assert acesso.contexto_usuario(501)["liberado"] is esperado, extra
+    assert "area_cliente_bloqueado" in conn.cur.sql[0] and "area_cliente_bloqueada" in conn.cur.sql[0]
+
+
+def test_crm_bloqueia_empresa_inteira_so_equipe(app, monkeypatch):
+    from aicentralv2.area_cliente import acesso
+    chamadas = []
+    monkeypatch.setattr(acesso, "definir_acesso_cliente",
+                        lambda cid, ativo, autor: chamadas.append((cid, ativo, autor)) or {"cliente_id": cid, "ativo": ativo})
+    cliente = app.test_client()
+    with cliente.session_transaction() as sess:
+        sess.update({"user_id": 501, "is_centralcomm": False})
+    assert cliente.put("/crm-v3/api/clientes/900/area-cliente", json={"ativo": False}).status_code == 403
+    equipe = app.test_client()
+    with equipe.session_transaction() as sess:
+        sess.update({"user_id": 7, "is_centralcomm": True})
+    assert equipe.put("/crm-v3/api/clientes/900/area-cliente", json={"ativo": "nao"}).status_code == 400
+    assert equipe.put("/crm-v3/api/clientes/x9/area-cliente", json={"ativo": False}).status_code == 404
+    resp = equipe.put("/crm-v3/api/clientes/900/area-cliente", json={"ativo": False})
+    assert resp.status_code == 200 and chamadas == [("900", False, 7)]

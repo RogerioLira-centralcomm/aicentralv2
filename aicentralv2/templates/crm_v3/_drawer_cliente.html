@@ -179,5 +179,16 @@
         </section>
       </aside>
     </div>
+    {# Área do Cliente da empresa: salva na hora, fora do "Salvar". Aberta por padrão. #}
+    <section class="cx-drawer-section crm-v3-area-cliente" data-area-cliente-empresa hidden>
+      <label class="cx-drawer-toggle">
+        <input type="checkbox" data-area-cliente-empresa-toggle />
+        <span class="cx-drawer-toggle-switch" aria-hidden="true"></span>
+        <span class="cx-drawer-toggle-label">
+          <strong>Área do Cliente</strong>
+          <small data-area-cliente-empresa-copy>Todos os contatos com acesso ao Cadu entram em clientes.centralcomm.media. Desligue para bloquear a empresa inteira.</small>
+        </span>
+      </label>
+    </section>
   </form>
 </template>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 {% include 'area_cliente/_og.html' %}
-<title>Acesso ainda não liberado · Centralcomm</title>
+<title>Acesso indisponível · Centralcomm</title>
 <link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,8 +16,8 @@
 <main class="ac-gate__card ac-enter">
   <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="Centralcomm" width="40" height="28" style="object-fit:contain">
   <span class="ac-gate__icon">{{ icon('lock', 24) }}</span>
-  <h1 class="ac-h1">Acesso ainda não liberado</h1>
-  <p class="ac-lead">Olá, {{ usuario.primeiro_nome }}. Sua conta de {{ usuario.cliente_nome }} entrou, mas a Área do Cliente ainda não foi liberada para o seu usuário.</p>
+  <h1 class="ac-h1">Acesso indisponível</h1>
+  <p class="ac-lead">Olá, {{ usuario.primeiro_nome }}. Sua conta de {{ usuario.cliente_nome }} entrou, mas a Área do Cliente está fechada para o seu usuário no momento.</p>
   {% if pedido_enviado %}
   <p class="ac-auth__msg ac-auth__msg--ok" role="status">Pedido enviado{% if usuario.executivo %} para {{ usuario.executivo.nome }}{% endif %}. Você recebe um e-mail quando o acesso for liberado.</p>
   {% else %}

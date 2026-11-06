@@ -266,6 +266,14 @@
               </label>
             </div>
           </div>
+          {# Área do Cliente: aberta por padrão; salva na hora (fora do "Salvar"), só ao editar. #}
+          <div id="area_cliente_container" class="cx-field col-span-1" style="display:none;">
+            <span class="cx-label" title="clientes.centralcomm.media para os contatos que entram no Cadu">Área do Cliente</span>
+            <div class="clientes-segmented clientes-segmented--radio" role="group" aria-label="Área do Cliente">
+              <label id="label_area_liberada" class="is-active" onclick="definirAreaCliente(true)"><span>Liberada</span></label>
+              <label id="label_area_bloqueada" onclick="definirAreaCliente(false)"><span>Bloqueada</span></label>
+            </div>
+          </div>
           <div class="cx-field col-span-1">
             <span class="cx-label">Pessoa*</span>
             <div class="clientes-segmented clientes-segmented--radio pessoa-toggle-group" role="group" aria-label="Tipo de pessoa">
@@ -529,7 +537,7 @@
   window.__CLIENTES_CONFIG = JSON.parse(document.getElementById('clientes-config').textContent);
 </script>
 <script src="{{ url_for('static', filename='js/agencias_vinculadas_form.js') }}"></script>
-<script src="{{ url_for('static', filename='js/clientes.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/clientes.js') }}?v=3"></script>
 <!-- Modal de Busca de Cliente -->
 {% include 'modal_busca_cliente.html' %}
 {% endblock %}

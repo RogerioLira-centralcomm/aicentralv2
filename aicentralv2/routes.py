@@ -1933,7 +1933,8 @@ def init_routes(app):
             cliente = db.obter_cliente_por_id(cliente_id)
             if not cliente:
                 return jsonify({'error': 'Cliente não encontrado'}), 404
-            return jsonify(cliente)
+            from .area_cliente.acesso import cliente_bloqueado
+            return jsonify({**cliente, 'area_cliente_ativa': not cliente_bloqueado(cliente_id)})
         except Exception as e:
             app.logger.error(f"Erro ao buscar cliente {cliente_id}: {e}")
             return jsonify({'error': str(e)}), 500

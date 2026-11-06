@@ -685,6 +685,9 @@ class CrmV3Repository:
         if not row:
             return None
         mapped = _map_cliente(row)
+        # Área do Cliente: aberta por padrão; a equipe pode bloquear a empresa inteira.
+        from .area_cliente.acesso import cliente_bloqueado
+        mapped["area_cliente_ativa"] = not cliente_bloqueado(cliente_id)
         uf_capital = uf_por_capital_operacao(mapped.get("cidade"))
         sigla_db = (row.get("estado_sigla") or "").strip().upper()
         if not sigla_db:
@@ -869,12 +872,14 @@ class CrmV3Repository:
             return None
         rows = _db().obter_contatos_por_cliente(cliente_id) or []
         contatos = [self._map_contato(r) for r in rows]
-        # Área do Cliente: flag por contato + última liberação (tolera banco sem migração).
-        from .area_cliente.acesso import flags_por_cliente, liberacoes_por_cliente
+        # Área do Cliente: aberta por padrão; bloqueio por contato ou da empresa (tolera banco sem migração).
+        from .area_cliente.acesso import cliente_bloqueado, flags_por_cliente, liberacoes_por_cliente
         flags = flags_por_cliente(cliente_id)
-        liberacoes = liberacoes_por_cliente(cliente_id) if any(flags.values()) else {}
+        empresa_bloqueada = cliente_bloqueado(cliente_id)
+        liberacoes = liberacoes_por_cliente(cliente_id)
         for contato in contatos:
-            contato["area_cliente_acesso"] = bool(flags.get(contato["id"]))
+            contato["area_cliente_acesso"] = bool(flags.get(contato["id"], True))
+            contato["area_cliente_empresa_bloqueada"] = empresa_bloqueada
             contato["area_cliente_liberacao"] = liberacoes.get(contato["id"])
         return contatos
 

@@ -465,9 +465,9 @@ def api_update_contato(contato_id):
 @bp.route("/api/contatos/<contato_id>/area-cliente", methods=["PUT"])
 @login_required_api
 def api_area_cliente_contato(contato_id):
-    """Libera ou revoga a Área do Cliente (clientes.centralcomm.media) do contato."""
+    """Libera ou bloqueia a Área do Cliente (clientes.centralcomm.media) de um contato."""
     if not session.get("is_centralcomm"):
-        return _err("Só a equipe CentralComm libera a Área do Cliente.", 403)
+        return _err("Só a equipe CentralComm controla a Área do Cliente.", 403)
     if not str(contato_id).isdigit():
         return _err("Contato não encontrado", 404)
     data = request.get_json(silent=True) or {}
@@ -481,6 +481,27 @@ def api_area_cliente_contato(contato_id):
     if not resultado:
         return _err("Contato não encontrado", 404)
     return _ok(resultado, area_cliente=resultado, liberacao=ultima_liberacao(contato_id))
+
+
+@bp.route("/api/clientes/<cliente_id>/area-cliente", methods=["PUT"])
+@login_required_api
+def api_area_cliente_empresa(cliente_id):
+    """Libera ou bloqueia a Área do Cliente para a empresa inteira (todos os contatos)."""
+    if not session.get("is_centralcomm"):
+        return _err("Só a equipe CentralComm controla a Área do Cliente.", 403)
+    if not str(cliente_id).isdigit():
+        return _err("Cliente não encontrado", 404)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("ativo"), bool):
+        return _err("Informe ativo como verdadeiro ou falso.")
+    from .area_cliente.acesso import definir_acesso_cliente
+    try:
+        resultado = definir_acesso_cliente(cliente_id, data["ativo"], session.get("user_id"))
+    except RuntimeError as e:
+        return _err(str(e), 409)
+    if not resultado:
+        return _err("Cliente não encontrado", 404)
+    return _ok(resultado, area_cliente=resultado)
 
 
 @bp.route("/api/clientes/<cliente_id>/atividades")

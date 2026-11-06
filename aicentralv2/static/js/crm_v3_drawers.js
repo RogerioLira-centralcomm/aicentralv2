@@ -209,6 +209,7 @@
             wireClienteAddressSummary(wrapper);
 
             renderAgenciaRows(wrapper.querySelector('#cx-drawer-cliente-agencias'), cliente);
+            bindAreaClienteEmpresa(wrapper, cliente);
             wireAgenciaSearch(wrapper);
 
             cxDrawer.open({
@@ -2853,13 +2854,15 @@
         var input = section.querySelector('[data-area-cliente-toggle]');
         var copy = section.querySelector('[data-area-cliente-copy]');
         var warn = section.querySelector('[data-area-cliente-warn]');
+        var warnEmpresa = section.querySelector('[data-area-cliente-empresa-warn]');
         var padrao = copy ? copy.textContent : '';
         function pintar(info) {
-            input.checked = !!contato.area_cliente_acesso;
+            input.checked = contato.area_cliente_acesso !== false;
             if (warn) warn.hidden = !(input.checked && !contato.cadu_access_enabled);
+            if (warnEmpresa) warnEmpresa.hidden = !contato.area_cliente_empresa_bloqueada;
             if (copy) {
                 copy.textContent = info && info.autor
-                    ? (info.acao === 'REVOKE' ? 'Revogado por ' : 'Liberado por ') + info.autor + ' em ' + info.em + '.'
+                    ? (info.acao === 'REVOKE' ? 'Bloqueado por ' : 'Liberado por ') + info.autor + ' em ' + info.em + '.'
                     : padrao;
             }
         }
@@ -2875,11 +2878,35 @@
                 contato.area_cliente_acesso = ativo;
                 contato.area_cliente_liberacao = resp && resp.liberacao;
                 pintar(contato.area_cliente_liberacao);
-                toast(ativo ? 'Área do Cliente liberada' : 'Acesso à Área do Cliente revogado');
+                toast(ativo ? 'Área do Cliente liberada para o contato' : 'Área do Cliente bloqueada para o contato');
                 notifyEntityUpdated('cliente', clienteId);
                 if (window.crmV3 && typeof window.crmV3.reloadClientes === 'function') {
                     window.crmV3.reloadClientes();
                 }
+            }).catch(function (err) {
+                input.checked = !ativo;
+                toast(err.message || 'Não foi possível alterar o acesso.', true);
+            }).then(function () { input.disabled = false; });
+        });
+    }
+
+    // Área do Cliente da empresa inteira: liga/desliga na hora (sem e-mail em massa).
+    function bindAreaClienteEmpresa(wrapper, cliente) {
+        var section = wrapper.querySelector('[data-area-cliente-empresa]');
+        if (!section || !cliente || !cliente.id) return;
+        var input = section.querySelector('[data-area-cliente-empresa-toggle]');
+        section.hidden = false;
+        input.checked = cliente.area_cliente_ativa !== false;
+        input.addEventListener('change', function () {
+            var ativo = input.checked;
+            input.disabled = true;
+            apiFetch('/clientes/' + encodeURIComponent(cliente.id) + '/area-cliente', {
+                method: 'PUT',
+                body: { ativo: ativo }
+            }).then(function () {
+                cliente.area_cliente_ativa = ativo;
+                toast(ativo ? 'Área do Cliente liberada para a empresa' : 'Área do Cliente bloqueada para a empresa');
+                notifyEntityUpdated('cliente', cliente.id);
             }).catch(function (err) {
                 input.checked = !ativo;
                 toast(err.message || 'Não foi possível alterar o acesso.', true);

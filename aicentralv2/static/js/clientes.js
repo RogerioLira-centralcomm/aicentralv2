@@ -289,6 +289,7 @@ function abrirModalNovo() {
 
   // Ocultar status, abas e botão excluir (modo novo)
   document.getElementById('status_toggle_container').style.display = 'none';
+  document.getElementById('area_cliente_container').style.display = 'none';
   document.getElementById('tabs_container').style.display = 'none';
   document.getElementById('btn_excluir_cliente').style.display = 'none';
 
@@ -394,6 +395,8 @@ async function abrirModalEditar(clienteId) {
     document.getElementById('status_toggle_container').style.display = '';
     document.getElementById('btn_excluir_cliente').style.display = '';
     toggleStatusField(!!cliente.status);
+    pintarAreaCliente(cliente.area_cliente_ativa !== false);
+    document.getElementById('area_cliente_container').style.display = '';
 
     _ultimoCepBuscado = cliente.cep ? cliente.cep.replace(/\D/g, '') : '';
 
@@ -570,6 +573,37 @@ function atualizarHintMargemCc() {
     hint.textContent = 'Vazio/inválido: será salva como 0.';
   } else {
     hint.textContent = '';
+  }
+}
+
+// Área do Cliente (clientes.centralcomm.media): liga/desliga a empresa inteira na hora.
+function pintarAreaCliente(ativo) {
+  const lib = document.getElementById('label_area_liberada');
+  const blq = document.getElementById('label_area_bloqueada');
+  lib.classList.toggle('is-active', ativo);
+  blq.classList.toggle('is-active', !ativo);
+  blq.classList.toggle('is-danger', !ativo);
+}
+
+async function definirAreaCliente(ativo) {
+  const clienteId = document.getElementById('cliente_id').value;
+  if (!clienteId) return;
+  const container = document.getElementById('area_cliente_container');
+  container.style.pointerEvents = 'none';
+  try {
+    const resp = await fetch(`/crm-v3/api/clientes/${clienteId}/area-cliente`, {
+      method: 'PUT', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ ativo: ativo })
+    });
+    const dados = await resp.json().catch(() => ({}));
+    if (!resp.ok || dados.ok === false || dados.success === false) throw new Error(dados.error || dados.message || 'Não foi possível alterar a Área do Cliente.');
+    pintarAreaCliente(ativo);
+    if (typeof showToast === 'function') showToast(ativo ? 'Área do Cliente liberada para a empresa' : 'Área do Cliente bloqueada para a empresa', 'success');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast(e.message, 'error');
+  } finally {
+    container.style.pointerEvents = '';
   }
 }
 

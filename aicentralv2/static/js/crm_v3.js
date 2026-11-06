@@ -2438,8 +2438,9 @@
             muito_uso: 'Cadu: muito uso'
         }[level] || 'Cadu sem acesso';
         var icon = level === 'sem_acesso' ? 'fa-lock' : 'fa-wand-magic-sparkles';
-        var area = contato.area_cliente_acesso
-            ? '<span class="crm-v3-area-cliente-badge" title="Acesso liberado à Área do Cliente"><i class="fa-solid fa-door-open" aria-hidden="true"></i><span>Área do Cliente</span></span>'
+        // Área do Cliente é aberta por padrão: o selo só aparece quando o contato está bloqueado.
+        var area = (contato.area_cliente_acesso === false || contato.area_cliente_empresa_bloqueada)
+            ? '<span class="crm-v3-area-cliente-badge is-blocked" title="Sem acesso à Área do Cliente"><i class="fa-solid fa-door-closed" aria-hidden="true"></i><span>Área bloqueada</span></span>'
             : '';
         return '<span class="crm-v3-cadu-usage is-' + escapeHtml(level) + '" title="' + escapeHtml(label) + '"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(label) + '</span></span>' + area;
     }

@@ -1,9 +1,11 @@
 """Quem pode entrar na Área do Cliente.
 
-A liberação é por contato (``tbl_contato_cliente.area_cliente_acesso``), feita
-pela equipe CentralComm no CRM v3. Enquanto a migração
-``add_area_cliente_acesso_contato.sql`` não roda num banco, tudo aqui trata a
-coluna como ``FALSE`` em vez de quebrar o CRM ou a área.
+Aberta por padrão: todo contato ativo de cliente ativo (quem já entra no Cadu)
+acessa a área. A equipe CentralComm só bloqueia, no CRM v3 ou na edição do
+cliente no CentralX: o cliente inteiro (``tbl_cliente.area_cliente_bloqueada``)
+ou um contato (``tbl_contato_cliente.area_cliente_bloqueado``). Enquanto a
+migração ``add_area_cliente_bloqueio.sql`` não roda num banco, ninguém está
+bloqueado, em vez de quebrar o CRM ou a área.
 """
 
 from __future__ import annotations
@@ -30,19 +32,22 @@ def _sem_coluna(conn, exc) -> bool:
 
 
 def flags_por_cliente(cliente_id) -> dict[str, bool]:
-    """{id_contato: liberado} dos contatos de um cliente (vazio sem a coluna)."""
+    """{id_contato: tem acesso} dos contatos de um cliente, pelo bloqueio do contato.
+
+    O bloqueio do cliente inteiro fica em ``cliente_bloqueado``; sem a coluna, todos têm acesso.
+    """
     conn = _db().get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id_contato_cliente, area_cliente_acesso
+                SELECT id_contato_cliente, area_cliente_bloqueado
                   FROM tbl_contato_cliente
                  WHERE pk_id_tbl_cliente = %s
                 """,
                 (cliente_id,),
             )
-            return {str(r["id_contato_cliente"]): bool(r["area_cliente_acesso"]) for r in cursor.fetchall()}
+            return {str(r["id_contato_cliente"]): not r["area_cliente_bloqueado"] for r in cursor.fetchall()}
     except Exception as exc:
         if _sem_coluna(conn, exc):
             return {}
@@ -50,8 +55,35 @@ def flags_por_cliente(cliente_id) -> dict[str, bool]:
         raise
 
 
+def cliente_bloqueado(cliente_id) -> bool:
+    """True se a área está desligada para o cliente inteiro (False sem a coluna)."""
+    conn = _db().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT area_cliente_bloqueada FROM tbl_cliente WHERE id_cliente = %s", (cliente_id,))
+            row = cursor.fetchone()
+            return bool(row and row["area_cliente_bloqueada"])
+    except Exception as exc:
+        if _sem_coluna(conn, exc):
+            return False
+        conn.rollback()
+        raise
+
+
+def _auditar(autor_id, ativo, descricao, registro_id, registro_tipo, antes, depois):
+    try:
+        from ..audit import registrar_acao_admin
+        registrar_acao_admin(
+            user_id=autor_id, acao="APPROVE" if ativo else "REVOKE", modulo="area_cliente",
+            descricao=descricao, registro_id=int(registro_id), registro_tipo=registro_tipo,
+            dados_anteriores=antes, dados_novos=depois,
+        )
+    except Exception:
+        logger.warning("Não foi possível auditar o acesso à Área do Cliente.", exc_info=True)
+
+
 def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
-    """Liga/desliga o acesso de um contato e registra na auditoria.
+    """Libera (desbloqueia) ou bloqueia um contato e registra na auditoria.
 
     Devolve ``{"id", "cliente_id", "ativo"}`` ou ``None`` se o contato não existe.
     Levanta ``RuntimeError`` se a migração ainda não foi aplicada.
@@ -62,7 +94,7 @@ def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
             cursor.execute(
                 """
                 SELECT id_contato_cliente, pk_id_tbl_cliente, nome_completo, email,
-                       area_cliente_acesso
+                       area_cliente_bloqueado
                   FROM tbl_contato_cliente
                  WHERE id_contato_cliente = %s
                 """,
@@ -74,10 +106,10 @@ def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
             cursor.execute(
                 """
                 UPDATE tbl_contato_cliente
-                   SET area_cliente_acesso = %s, data_modificacao = NOW()
+                   SET area_cliente_bloqueado = %s, data_modificacao = NOW()
                  WHERE id_contato_cliente = %s
                 """,
-                (bool(ativo), contato_id),
+                (not ativo, contato_id),
             )
         conn.commit()
     except Exception as exc:
@@ -86,35 +118,47 @@ def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
         conn.rollback()
         raise
 
-    if bool(antes["area_cliente_acesso"]) != bool(ativo):
-        try:
-            from ..audit import registrar_acao_admin
-            registrar_acao_admin(
-                user_id=autor_id,
-                acao="APPROVE" if ativo else "REVOKE",
-                modulo="area_cliente",
-                descricao=(
-                    f"{'Liberou' if ativo else 'Revogou'} a Área do Cliente para "
-                    f"{antes['nome_completo'] or antes['email']}"
-                ),
-                registro_id=int(contato_id),
-                registro_tipo="contato",
-                dados_anteriores={"area_cliente_acesso": bool(antes["area_cliente_acesso"])},
-                dados_novos={"area_cliente_acesso": bool(ativo)},
-            )
-        except Exception:
-            logger.warning("Não foi possível auditar a liberação da Área do Cliente.", exc_info=True)
-
-    if ativo and not bool(antes["area_cliente_acesso"]):
+    tinha = not antes["area_cliente_bloqueado"]
+    if tinha != bool(ativo):
+        _auditar(autor_id, ativo,
+                 f"{'Liberou' if ativo else 'Bloqueou'} a Área do Cliente para {antes['nome_completo'] or antes['email']}",
+                 contato_id, "contato", {"area_cliente_bloqueado": not tinha}, {"area_cliente_bloqueado": not ativo})
+    # Só quem estava bloqueado e voltou recebe o aviso; a liberação padrão é silenciosa.
+    if ativo and not tinha:
         try:
             from . import emails
             contato = _contato_para_email(contato_id)
-            if contato.get("status") and contato.get("email"):
+            if contato.get("status") and contato.get("email") and not cliente_bloqueado(antes["pk_id_tbl_cliente"]):
                 emails.acesso_liberado(contato)
         except Exception:
             logger.warning("E-mail de acesso liberado não enviado.", exc_info=True)
 
     return {"id": str(contato_id), "cliente_id": str(antes["pk_id_tbl_cliente"]), "ativo": bool(ativo)}
+
+
+def definir_acesso_cliente(cliente_id, ativo: bool, autor_id=None) -> dict | None:
+    """Liga/desliga a área para o cliente inteiro (todos os contatos). Sem e-mail em massa."""
+    conn = _db().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_cliente, nome_fantasia, area_cliente_bloqueada FROM tbl_cliente WHERE id_cliente = %s",
+                           (cliente_id,))
+            antes = cursor.fetchone()
+            if not antes:
+                return None
+            cursor.execute("UPDATE tbl_cliente SET area_cliente_bloqueada = %s WHERE id_cliente = %s", (not ativo, cliente_id))
+        conn.commit()
+    except Exception as exc:
+        if _sem_coluna(conn, exc):
+            raise RuntimeError("A Área do Cliente ainda não foi habilitada neste banco.") from exc
+        conn.rollback()
+        raise
+    tinha = not antes["area_cliente_bloqueada"]
+    if tinha != bool(ativo):
+        _auditar(autor_id, ativo,
+                 f"{'Liberou' if ativo else 'Bloqueou'} a Área do Cliente para a empresa {antes['nome_fantasia']}",
+                 cliente_id, "cliente", {"area_cliente_bloqueada": not tinha}, {"area_cliente_bloqueada": not ativo})
+    return {"cliente_id": str(cliente_id), "ativo": bool(ativo)}
 
 
 def liberacoes_por_cliente(cliente_id) -> dict[str, dict]:
@@ -129,7 +173,7 @@ def liberacoes_por_cliente(cliente_id) -> dict[str, dict]:
                   FROM tbl_admin_audit_log l
                   JOIN tbl_contato_cliente c ON c.id_contato_cliente = l.registro_id
                   LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = l.fk_id_usuario
-                 WHERE l.modulo = 'area_cliente' AND c.pk_id_tbl_cliente = %s
+                 WHERE l.modulo = 'area_cliente' AND l.registro_tipo = 'contato' AND c.pk_id_tbl_cliente = %s
                  ORDER BY l.registro_id, l.data_acao DESC
                 """,
                 (cliente_id,),
@@ -179,7 +223,7 @@ def ultima_liberacao(contato_id) -> dict | None:
                 SELECT l.data_acao, l.acao, u.nome_completo AS autor_nome
                   FROM tbl_admin_audit_log l
                   LEFT JOIN tbl_contato_cliente u ON u.id_contato_cliente = l.fk_id_usuario
-                 WHERE l.modulo = 'area_cliente' AND l.registro_id = %s
+                 WHERE l.modulo = 'area_cliente' AND l.registro_tipo = 'contato' AND l.registro_id = %s
                  ORDER BY l.data_acao DESC
                  LIMIT 1
                 """,
@@ -195,7 +239,7 @@ def ultima_liberacao(contato_id) -> dict | None:
 
 _CONTEXTO_SQL = """
     SELECT c.id_contato_cliente, c.nome_completo, c.email, c.foto_url, c.status, c.user_type,
-           c.pk_id_tbl_cliente, {flag} AS area_cliente_acesso,
+           c.pk_id_tbl_cliente, {contato} AS contato_bloqueado, {cliente} AS cliente_bloqueado,
            cli.nome_fantasia, cli.status AS cliente_status,
            vend.nome_completo AS executivo_nome, vend.email AS executivo_email,
            vend.telefone AS executivo_telefone, vend.foto_url AS executivo_foto_url
@@ -209,7 +253,7 @@ _CONTEXTO_SQL = """
 def contexto_usuario(user_id) -> dict | None:
     """Dados do contato logado, do cliente e do executivo, com o estado do acesso.
 
-    ``liberado`` só é verdadeiro com contato ativo, cliente ativo e flag ligada.
+    ``liberado``: contato ativo, cliente ativo e nenhum dos dois bloqueado.
     O ``cliente_id`` vem do cadastro atual do contato, nunca da sessão ou da URL.
     """
     if not user_id:
@@ -217,14 +261,14 @@ def contexto_usuario(user_id) -> dict | None:
     conn = _db().get_db()
     try:
         with conn.cursor() as cursor:
-            cursor.execute(_CONTEXTO_SQL.format(flag="c.area_cliente_acesso"), (user_id,))
+            cursor.execute(_CONTEXTO_SQL.format(contato="c.area_cliente_bloqueado", cliente="cli.area_cliente_bloqueada"), (user_id,))
             row = cursor.fetchone()
     except Exception as exc:
         if not _sem_coluna(conn, exc):
             conn.rollback()
             raise
         with conn.cursor() as cursor:
-            cursor.execute(_CONTEXTO_SQL.format(flag="FALSE"), (user_id,))
+            cursor.execute(_CONTEXTO_SQL.format(contato="FALSE", cliente="FALSE"), (user_id,))
             row = cursor.fetchone()
     if not row:
         return None
@@ -234,7 +278,8 @@ def contexto_usuario(user_id) -> dict | None:
     iniciais = ((partes[0][:1] + (partes[-1][:1] if len(partes) > 1 else "")) if partes else "?").upper()
     from ..auth import ADMIN_ROLES, is_reserved_org_name
 
-    liberado = bool(row["status"] and row["cliente_status"] and row["area_cliente_acesso"])
+    liberado = bool(row["status"] and row["cliente_status"]
+                    and not row["contato_bloqueado"] and not row["cliente_bloqueado"])
     return {
         "user_id": int(row["id_contato_cliente"]),
         "nome": nome,

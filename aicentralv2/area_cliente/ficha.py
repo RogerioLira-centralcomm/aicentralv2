@@ -167,6 +167,8 @@ def _quadro(dimensoes) -> dict | None:
     if not t:
         return None
     w, h = t
+    if not w or not h:  # "00x00" vira divisão por zero na prévia
+        return None
     return {"w": w, "h": h, "proporcao": f"{w} / {h}", "rotulo": f"{w}×{h}"}
 
 

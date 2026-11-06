@@ -84,6 +84,7 @@ def vitrine_formatos(secao: str, busca: str = "", canal: str = "", visao: str = 
             chip["total"] += 1
     if canal:
         todos = [r for r in todos if r.get("platform") == canal]
+    from .ficha import _maiuscula
     if secao == "interativos":
         chave, ordem = (lambda r: _maiuscula(r.get("creative_category") or "Outros")), None
         visao = "objetivo"
@@ -100,11 +101,6 @@ def vitrine_formatos(secao: str, busca: str = "", canal: str = "", visao: str = 
     lista = sorted(grupos.values(), key=lambda g: (ordem.get(g["titulo"], 99) if ordem else -len(g["cartoes"]), g["titulo"]))
     return {"grupos": lista, "total": sum(len(g["cartoes"]) for g in lista), "busca": busca, "canal": canal, "visao": visao,
             "chips": sorted(chips.values(), key=lambda c: (-c["total"], c["valor"])) if secao == "formatos" or len(chips) > 1 else []}
-
-
-def _maiuscula(valor):
-    texto = str(valor or "").strip()
-    return texto[:1].upper() + texto[1:] if texto else ""
 
 
 def listar(secao: str, busca: str = "", categoria: str = "", pagina: int = 1) -> dict:

@@ -737,3 +737,8 @@ def test_descobrir_sem_pagina_geral_abre_canais(app, monkeypatch):
     resp = client.get("/descobrir", base_url=HOST)
     assert resp.status_code == 302 and resp.headers["Location"] == "/descobrir/canais"
     assert "Ver tudo" not in client.get("/", base_url=HOST).get_data(as_text=True)
+
+
+def test_quadro_ignora_medida_zero():
+    from aicentralv2.area_cliente.ficha import _quadro
+    assert _quadro("00x250") is None and _quadro("300x250")["rotulo"] == "300×250"

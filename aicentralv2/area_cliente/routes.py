@@ -23,6 +23,7 @@ from . import acesso, briefing, dados, descobrir, emails, plataformas
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
     Rule("/briefing", endpoint="briefing", methods=["GET", "HEAD", "POST"]),
+    Rule("/briefing/pracas", endpoint="briefing_pracas", methods=["POST"]),
     Rule("/projetos", endpoint="projetos"),
     Rule("/projetos/<int:id_pi>", endpoint="projeto"),
     Rule("/campanhas", endpoint="campanhas"),
@@ -278,6 +279,9 @@ def view_briefing(usuario):
         valores, erros = briefing.validar(request.form)
         if not erros:
             valores["descobrir"] = descobrir.texto_selecao(descobrir.selecao(session))
+            origem = next((h for h in briefing.historico(usuario["cliente_id"]) if h["id"] == valores.get("origem")), None)
+            if origem:
+                valores["origem_rotulo"] = f"{origem['fonte']} {origem['titulo']}" + (f" ({origem['quando']})" if origem["quando"] else "")
             novo_id = briefing.enviar(usuario, valores)
             session.pop("area_cliente_descobrir", None)
             try:
@@ -287,9 +291,19 @@ def view_briefing(usuario):
                 current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
             return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
     status = 422 if erros else 200
+    try:
+        historico = briefing.historico(usuario["cliente_id"])
+    except Exception:
+        current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
+        historico = []
+    opcoes = {
+        "objetivos": [{"id": o[0], "rotulo": o[1], "kpis": list(o[2]), "conversao": o[3]} for o in briefing.OBJETIVOS],
+        "historico": historico, "base_pracas": briefing.base_pracas(),
+    }
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
+        b=briefing, opcoes=opcoes, historico=historico,
         itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),
         enviado_id=request.args.get("enviado", type=int),
@@ -417,6 +431,28 @@ def view_em_preparacao(usuario, endpoint):
     return _render("em_preparacao.html", usuario, endpoint, titulo=titulo, icone=icone, texto=texto)
 
 
+LIMITE_IA_PRACAS = (20, 600)  # chamadas por janela de segundos, por sessão
+
+
+def view_briefing_pracas():
+    """Autocompletar de praças com IA: normaliza o texto e sugere praças próximas."""
+    _checar_csrf()
+    agora = time.time()
+    janela = [t for t in session.get("area_cliente_ia_pracas", []) if agora - t < LIMITE_IA_PRACAS[1]]
+    if len(janela) >= LIMITE_IA_PRACAS[0]:
+        return jsonify(erro="Muitas consultas seguidas. Tente de novo em alguns minutos."), 429
+    texto = (request.form.get("texto") or "").strip()
+    escolhidas = request.form.getlist("escolhidas")
+    if len(texto) < 2 and not escolhidas:
+        return jsonify(pracas=[], sugestoes=[], observacao="")
+    session["area_cliente_ia_pracas"] = janela + [agora]
+    try:
+        return jsonify(briefing.pracas_ia(texto, escolhidas))
+    except Exception:
+        current_app.logger.warning("IA de praças indisponível.", exc_info=True)
+        return jsonify(erro="A IA não respondeu agora. Você pode digitar as praças à mão."), 503
+
+
 def view_sair():
     session.clear()
     return redirect(f"/login?{urlencode({'next': '/'})}")
@@ -433,7 +469,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -454,6 +490,8 @@ def despachar():
         return view_emails_previa(usuario, args.get("modelo"))
     if endpoint == "briefing":
         return view_briefing(usuario)
+    if endpoint == "briefing_pracas":
+        return view_briefing_pracas()
     if endpoint == "planejamento_antigo":
         return redirect(area_url("descobrir_secao", secao="canais"), code=301)
     if endpoint == "midia_antigo":

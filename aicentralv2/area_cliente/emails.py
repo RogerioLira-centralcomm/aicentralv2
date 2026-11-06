@@ -160,10 +160,14 @@ def _resumo_briefing(valores: dict) -> dict:
     if ini or fim:
         periodo = f"{ini.strftime('%d/%m/%Y') if ini else 'a definir'} a {fim.strftime('%d/%m/%Y') if fim else 'a definir'}"
     itens = (valores.get("descobrir") or "").split("\n", 1)[1].replace("- ", "") if valores.get("descobrir") else ""
+    from .briefing import qualidade, resumo
+    secoes = [(r, t) for r, t in resumo(valores) if r not in ("Objetivo", "Mais detalhes")] if "objetivo_tipo" in valores else []
     return {"titulo": valores.get("titulo"), "objetivo": valores.get("objetivo"), "publico": valores.get("publico"),
             "periodo": periodo, "verba": valores.get("verba"), "descricao": valores.get("descricao"),
             "canais": ", ".join(rotulos[c] for c in valores.get("canais") or [] if c in rotulos),
-            "itens_descobrir": itens}
+            "itens_descobrir": itens, "secoes": secoes, "origem": valores.get("origem_rotulo") or "",
+            "objetivo_completo": dict(resumo(valores)).get("Objetivo", valores.get("objetivo")) if secoes else valores.get("objetivo"),
+            "qualidade": (valores.get("qualidade") or qualidade(valores)) if secoes else None}
 
 
 def briefing_recebido(usuario: dict, valores: dict) -> bool:
@@ -212,7 +216,15 @@ def previa(modelo: str) -> str:
     exemplo_briefing = {"titulo": "Lançamento da coleção de verão", "objetivo": "Gerar visitas às lojas de BH e vender pelo site.",
                         "publico": "Mulheres de 25 a 45 anos, Belo Horizonte e região", "periodo": "01/12/2026 a 15/01/2027",
                         "verba": "até R$ 50 mil", "canais": "Redes sociais, Busca", "itens_descobrir": "Canal: Spotify\nAudiência: Alta Renda",
-                        "descricao": "Já temos as peças da campanha de inverno como referência."}
+                        "descricao": "Já temos as peças da campanha de inverno como referência.",
+                        "secoes": [("Público", "Mulheres de 25 a 45 anos\nRecorte: Mulheres; idades 25-34, 35-44; classes A, B"),
+                                   ("Praças", "Abrangência: Cidades\nBelo Horizonte - MG; Contagem - MG; Nova Lima - MG"),
+                                   ("Período", "01/12/2026 a 15/01/2027\nDatas-chave: Black Friday, Natal"),
+                                   ("Verba prevista", "R$ 20 a 50 mil"), ("Canais de interesse", "Redes sociais, Busca"),
+                                   ("Materiais e mensuração", "Tenho as peças prontas\nSite/destino: loja.exemplo.com.br\nMensuração: Pixel da Meta, Google Analytics 4")],
+                        "objetivo_completo": "Tipo: Vender pelo site ou app\nKPI principal: Vendas (meta: 300 pedidos)\nGerar visitas às lojas de BH e vender pelo site.",
+                        "origem": "PI Coleção de inverno (05/2026)",
+                        "qualidade": {"nota": 88, "pendencias": ["Informar a verba ou uma faixa."], "avisos": []}}
     ctx = {
         "novo-acesso": {"primeiro_nome": "Ana", "email": "ana@cliente.com.br", "cliente": "CLIENTE EXEMPLO", "quando": _agora_br(),
                         "dispositivo": "Chrome em macOS", "ip": "187.0.0.1", "link_senha": _url("/forgot-password"), "executivo": executivo},

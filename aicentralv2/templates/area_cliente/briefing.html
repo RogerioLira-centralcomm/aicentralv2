@@ -2,10 +2,24 @@
 {% from 'area_cliente/_macros.html' import icon, vazio %}
 {% block title %}Briefing{% endblock %}
 {% macro erro(campo) -%}{% if erros.get(campo) %}<p class="ac-field__error" id="erro-{{ campo }}">{{ erros[campo] }}</p>{% endif %}{%- endmacro %}
+{% macro chip(nome, valor, rotulo, marcado, tipo='checkbox') -%}
+<label class="ac-chip"><input type="{{ tipo }}" name="{{ nome }}" value="{{ valor }}"{% if marcado %} checked{% endif %}><span>{{ rotulo }}</span></label>
+{%- endmacro %}
+{% macro passo_head(n, titulo, texto) -%}
+<header class="bw-step__head">
+  <p class="bw-step__eyebrow">Passo <span data-bw-num>{{ n }}</span></p>
+  <h2 class="ac-h2">{{ titulo }}</h2>
+  {% if texto %}<p class="bw-step__text">{{ texto }}</p>{% endif %}
+</header>
+{%- endmacro %}
+{% set v = valores %}
+{% set primeira_vez = not enviados and not erros and not enviado_id %}
 {% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
 <div class="ac-page-head ac-enter">
   <div>
     <h1 class="ac-h1">Briefing</h1>
+    <p class="ac-page-sub">Conte o que você precisa. A equipe da Centralcomm devolve o planejamento de mídia.</p>
   </div>
 </div>
 
@@ -14,18 +28,74 @@
   <span class="ac-notice__icon">{{ icon('check', 18) }}</span>
   <div>
     <p class="ac-notice__title">Briefing enviado</p>
-    <p>O briefing está com a equipe da Centralcomm{% if usuario.executivo %}, aos cuidados de {{ usuario.executivo.nome }}{% endif %}. Você acompanha o andamento aqui embaixo.</p>
+    <p>O briefing está com a equipe da Centralcomm{% if usuario.executivo %}, aos cuidados de {{ usuario.executivo.nome }}{% endif %}. Você acompanha o andamento na lista ao lado.</p>
   </div>
 </div>
 {% endif %}
 
-<div class="ac-briefing">
-  <form class="ac-card ac-form ac-enter" method="post" action="{{ area_url('briefing') }}" novalidate>
+{% if primeira_vez %}
+<section class="ac-card bw-intro ac-enter" id="bw-intro" aria-labelledby="bw-intro-titulo">
+  <div class="bw-intro__top">
+    <div>
+      <p class="bw-step__eyebrow">Seu primeiro briefing</p>
+      <h2 class="bw-intro__title" id="bw-intro-titulo">Em poucos passos, um briefing que vira planejamento</h2>
+      <p class="bw-intro__text">O assistente pergunta só o que muda a proposta. Leva uns 5 minutos e você pode pular o que ainda não sabe.</p>
+    </div>
+    <a class="ac-btn ac-btn--primary" href="#bw" data-bw-start>{{ icon('sparkles', 18) }}Começar briefing</a>
+  </div>
+  <ol class="bw-intro__steps">
+    <li class="bw-ill">
+      <svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
+        <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
+        <circle cx="70" cy="52" r="32" class="i-soft"/><circle cx="70" cy="52" r="21" class="i-mid"/><circle cx="70" cy="52" r="10" class="i-strong"/>
+        <path d="M128 18 74 50" class="i-line"/><path d="m128 18-10 1 2 8z" class="i-strong"/>
+        <rect x="104" y="64" width="44" height="22" rx="6" class="i-card"/><path d="M111 78l7-6 6 4 9-9" class="i-line-thin"/>
+      </svg>
+      <b>1. Objetivo</b><span>O que a campanha precisa entregar e como medir.</span>
+    </li>
+    <li class="bw-ill">
+      <svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
+        <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
+        <circle cx="52" cy="40" r="11" class="i-mid"/><path d="M32 78a20 20 0 0 1 40 0z" class="i-mid"/>
+        <circle cx="82" cy="34" r="13" class="i-strong"/><path d="M58 80a24 24 0 0 1 48 0z" class="i-strong"/>
+        <circle cx="112" cy="40" r="11" class="i-soft2"/><path d="M92 78a20 20 0 0 1 40 0z" class="i-soft2"/>
+        <rect x="18" y="12" width="40" height="14" rx="7" class="i-card"/><rect x="104" y="12" width="40" height="14" rx="7" class="i-card"/>
+      </svg>
+      <b>2. Público</b><span>Para quem: idade, perfil e se é B2B.</span>
+    </li>
+    <li class="bw-ill">
+      <svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
+        <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
+        <path d="M30 26c14-8 26 4 40-2s24-10 34 0 14 20 28 22c-4 14-18 26-36 28s-26 4-40-2-34-8-34-22 0-20 8-24z" class="i-soft"/>
+        <path d="M62 50s-10-9-10-17a10 10 0 0 1 20 0c0 8-10 17-10 17z" class="i-strong"/><circle cx="62" cy="33" r="3.5" class="i-bg"/>
+        <path d="M100 62s-8-7-8-13a8 8 0 0 1 16 0c0 6-8 13-8 13z" class="i-mid"/><circle cx="100" cy="49" r="3" class="i-bg"/>
+        <path d="M118 30s-6-5-6-10a6 6 0 0 1 12 0c0 5-6 10-6 10z" class="i-mid"/>
+        <path d="M66 46q16 14 30 14" class="i-dash"/>
+      </svg>
+      <b>3. Praças</b><span>Onde anunciar. A IA organiza as cidades e sugere vizinhas.</span>
+    </li>
+    <li class="bw-ill">
+      <svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
+        <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
+        <rect x="24" y="18" width="58" height="68" rx="8" class="i-card"/>
+        <path d="M34 34h38M34 46h30M34 58h34M34 70h22" class="i-line-thin"/>
+        <circle cx="76" cy="72" r="12" class="i-strong"/><path d="m70 72 4 4 8-8" class="i-check"/>
+        <path d="M100 58 140 22 128 76 116 64 104 72z" class="i-mid"/><path d="M116 64 140 22" class="i-line-thin"/>
+      </svg>
+      <b>4. Período, verba e envio</b><span>Revise o resumo e envie. O planejamento volta com seu executivo.</span>
+    </li>
+  </ol>
+  <p class="bw-intro__flow">{{ icon('activity', 16) }}Briefing → Planejamento → PI → Campanhas no ar, tudo acompanhado aqui.</p>
+</section>
+{% endif %}
+
+<div class="bw-layout">
+  <form class="ac-card ac-form bw ac-enter" id="bw" method="post" action="{{ area_url('briefing') }}" novalidate{% if primeira_vez %} data-intro="1"{% endif %}>
     <input type="hidden" name="csrf" value="{{ csrf }}">
     {% if usuario.ver_como %}
     <div class="ac-notice ac-notice--warning" role="status">
       <span class="ac-notice__icon">{{ icon('lock', 18) }}</span>
-      <p>Modo de validação: você vê o formulário como {{ usuario.cliente_nome }}, mas o envio fica desativado.</p>
+      <p>Modo de validação: você vê o briefing como {{ usuario.cliente_nome }}, mas o envio fica desativado.</p>
     </div>
     {% elif erros %}
     <div class="ac-notice ac-notice--warning" role="alert">
@@ -34,121 +104,290 @@
     </div>
     {% endif %}
 
-    <div class="ac-field">
-      <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
-      <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ valores.titulo or '' }}"
-             placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
-      {{ erro('titulo') }}
-    </div>
+    <nav class="bw-nav" aria-label="Passos do briefing" hidden>
+      <ol class="bw-nav__list" id="bw-nav"></ol>
+      <div class="bw-nav__bar" aria-hidden="true"><span id="bw-nav-bar"></span></div>
+    </nav>
 
-    <div class="ac-field">
-      <label for="b-objetivo">Objetivo <span class="ac-req" aria-hidden="true">*</span></label>
-      <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
-                placeholder="O que você quer alcançar? Ex.: gerar visitas às lojas, vender pelo site, tornar a marca conhecida em uma região."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ valores.objetivo or '' }}</textarea>
-      {{ erro('objetivo') }}
-    </div>
+    {# ---------- 0. Ponto de partida (só com histórico) ---------- #}
+    {% if historico %}
+    <section class="bw-step" data-step="origem" data-label="Ponto de partida">
+      {{ passo_head(1, 'Quer aproveitar algo que já fizemos juntos?', 'Escolha um projeto anterior para trazer público, praças, objetivo e canais. Você revisa tudo depois.') }}
+      <div class="bw-origens" role="radiogroup" aria-label="Ponto de partida">
+        <label class="bw-origem">
+          <input type="radio" name="origem" value=""{% if not v.origem %} checked{% endif %}>
+          <span class="bw-origem__box">
+            <span class="bw-origem__icon">{{ icon('plus', 18) }}</span>
+            <b>Começar do zero</b>
+            <small>Um briefing novo, sem dados anteriores.</small>
+          </span>
+        </label>
+        {% for h in historico %}
+        <label class="bw-origem">
+          <input type="radio" name="origem" value="{{ h.id }}"{% if v.origem == h.id %} checked{% endif %}>
+          <span class="bw-origem__box">
+            <span class="bw-origem__meta"><span class="ac-badge ac-badge--{{ 'brand' if h.fonte == 'PI' else 'gray' }}">{{ h.fonte }}</span>{% if h.quando %}<small>{{ h.quando }}</small>{% endif %}</span>
+            <b>{{ h.titulo|truncate(60) }}</b>
+            <small class="bw-origem__tags">
+              {% if h.pracas %}<span>{{ icon('pin', 13) }}{{ h.pracas|length }} praça{{ 's' if h.pracas|length > 1 }}</span>{% endif %}
+              {% if h.publico %}<span>{{ icon('users', 13) }}público</span>{% endif %}
+              {% if h.plataformas %}<span>{{ icon('megaphone', 13) }}{{ h.plataformas[:3]|join(', ') }}{% if h.plataformas|length > 3 %} +{{ h.plataformas|length - 3 }}{% endif %}</span>{% endif %}
+            </small>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="bw-filled" id="bw-filled" role="status" hidden></p>
+    </section>
+    {% endif %}
 
-    <div class="ac-field">
-      <label for="b-publico">Público e praças</label>
-      <textarea id="b-publico" name="publico" rows="2" maxlength="1000" placeholder="Quem você quer atingir e onde. Ex.: mulheres de 25 a 45 anos, Belo Horizonte e região.">{{ valores.publico or '' }}</textarea>
-    </div>
-
-    <div class="ac-field-row">
+    {# ---------- 1. Objetivo ---------- #}
+    <section class="bw-step" data-step="objetivo" data-label="Objetivo">
+      {{ passo_head(2 if historico else 1, 'O que a campanha precisa entregar?', 'O tipo de objetivo define como a mídia é comprada e o que a proposta promete.') }}
       <div class="ac-field">
-        <label for="b-inicio">Início desejado</label>
-        <input id="b-inicio" name="inicio" type="date" value="{{ valores.inicio or '' }}">
+        <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
+        <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ v.titulo or '' }}"
+               placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
+        {{ erro('titulo') }}
+      </div>
+      <fieldset class="ac-field">
+        <legend>Tipo de objetivo</legend>
+        <div class="bw-cards">
+          {% for o in b.OBJETIVOS %}
+          <label class="bw-card"><input type="radio" name="objetivo_tipo" value="{{ o[0] }}"{% if v.objetivo_tipo == o[0] %} checked{% endif %}><span>{{ o[1] }}</span></label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="ac-field-row bw-row-2">
+        <div class="ac-field">
+          <label for="b-kpi">KPI principal</label>
+          <input id="b-kpi" name="kpi" type="text" maxlength="80" list="bw-kpis" value="{{ v.kpi or '' }}" placeholder="Ex.: Leads">
+          <datalist id="bw-kpis">{% for o in b.OBJETIVOS %}{% for k in o[2] %}<option value="{{ k }}">{% endfor %}{% endfor %}</datalist>
+          <div class="ac-chips__list" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
+        </div>
+        <div class="ac-field">
+          <label for="b-kpi-meta">Meta, se já tiver</label>
+          <input id="b-kpi-meta" name="kpi_meta" type="text" maxlength="160" value="{{ v.kpi_meta or '' }}" placeholder="Ex.: 500 leads no mês">
+        </div>
       </div>
       <div class="ac-field">
-        <label for="b-fim">Fim desejado</label>
-        <input id="b-fim" name="fim" type="date" value="{{ valores.fim or '' }}"{% if erros.fim %} aria-invalid="true" aria-describedby="erro-fim"{% endif %}>
-        {{ erro('fim') }}
+        <label for="b-objetivo">Conte com suas palavras <span class="ac-req" aria-hidden="true">*</span></label>
+        <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
+                  placeholder="O que você quer alcançar e por quê agora? Ex.: abrir a temporada de verão e vender a nova coleção pelo site."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ v.objetivo or '' }}</textarea>
+        {{ erro('objetivo') }}
       </div>
+    </section>
+
+    {# ---------- 2. Público ---------- #}
+    <section class="bw-step" data-step="publico" data-label="Público">
+      {{ passo_head(3 if historico else 2, 'Para quem é a campanha?', 'Recortes simples já ajudam a montar a segmentação.') }}
+      <div class="bw-reuse" data-reuse="publico" hidden>
+        <p class="ac-field__label">{{ icon('sparkles', 14) }}Públicos que você já usou</p>
+        <div class="ac-chips__list" id="bw-reuse-publico"></div>
+      </div>
+      <div class="ac-field">
+        <label for="b-publico">Quem você quer atingir</label>
+        <textarea id="b-publico" name="publico" rows="3" maxlength="1000" placeholder="Ex.: mulheres que compram moda online, interessadas em praia e viagens.">{{ v.publico or '' }}</textarea>
+      </div>
+      <fieldset class="ac-field ac-chips">
+        <legend>Idade</legend>
+        <div class="ac-chips__list">{% for i in b.IDADES %}{{ chip('idades', i, i, i in (v.idades or [])) }}{% endfor %}</div>
+      </fieldset>
+      <div class="ac-field-row bw-row-2">
+        <fieldset class="ac-field ac-chips">
+          <legend>Gênero</legend>
+          <div class="ac-chips__list">{% for g, r in b.GENEROS %}{{ chip('genero', g, r, v.genero == g, 'radio') }}{% endfor %}</div>
+        </fieldset>
+        <fieldset class="ac-field ac-chips">
+          <legend>Classe social</legend>
+          <div class="ac-chips__list">{% for c in b.CLASSES %}{{ chip('classes', c, c, c in (v.classes or [])) }}{% endfor %}</div>
+        </fieldset>
+      </div>
+      <label class="bw-switch"><input type="checkbox" name="b2b" value="1"{% if v.b2b %} checked{% endif %}><span>É uma campanha para empresas (B2B)</span></label>
+      <div class="ac-field" data-show-when="b2b:1">
+        <label for="b-b2b">Cargos, setores ou porte das empresas</label>
+        <input id="b-b2b" name="publico_b2b" type="text" maxlength="400" value="{{ v.publico_b2b or '' }}" placeholder="Ex.: diretores de RH de indústrias com mais de 200 funcionários">
+      </div>
+    </section>
+
+    {# ---------- 3. Praças ---------- #}
+    <section class="bw-step" data-step="pracas" data-label="Praças">
+      {{ passo_head(4 if historico else 3, 'Onde a campanha vai rodar?', 'Digite do seu jeito ("BH e região", "capitais do Sul"). A IA organiza em cidades e estados e sugere praças próximas.') }}
+      <fieldset class="ac-field ac-chips">
+        <legend>Abrangência</legend>
+        <div class="ac-chips__list">{% for a, r in b.ABRANGENCIAS %}{{ chip('abrangencia', a, r, v.abrangencia == a, 'radio') }}{% endfor %}</div>
+      </fieldset>
+      <div class="bw-pracas" data-show-unless="abrangencia:nacional">
+        <div class="bw-reuse" data-reuse="pracas" hidden>
+          <p class="ac-field__label">{{ icon('sparkles', 14) }}Praças que você já usou</p>
+          <div class="ac-chips__list" id="bw-reuse-pracas"></div>
+        </div>
+        <div class="ac-field">
+          <label for="b-praca-busca">Praças</label>
+          <div class="bw-tokens" id="bw-tokens">
+            <ul class="bw-tokens__list" id="bw-tokens-list">
+              {% for p in v.pracas or [] %}<li class="ac-tag">{{ p }}<input type="hidden" name="pracas" value="{{ p }}"><button type="button" class="ac-tag__remove" aria-label="Tirar {{ p }}">{{ icon('close', 14) }}</button></li>{% endfor %}
+            </ul>
+            <div class="bw-combo">
+              <input id="b-praca-busca" name="pracas" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="bw-sugestoes-locais"
+                     aria-autocomplete="list" placeholder="Cidade, estado ou região. Enter adiciona.">
+              <ul class="bw-combo__list" id="bw-sugestoes-locais" role="listbox" hidden></ul>
+            </div>
+          </div>
+          <div class="bw-ia">
+            <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-ia-pracas" hidden>{{ icon('sparkles', 16) }}<span>Organizar e sugerir com IA</span></button>
+            <p class="ac-form__hint" id="bw-ia-status" role="status"></p>
+          </div>
+          <div class="bw-ia__sugestoes" id="bw-ia-sugestoes" hidden>
+            <p class="ac-field__label">Praças próximas sugeridas</p>
+            <div class="ac-chips__list" id="bw-ia-sugestoes-lista"></div>
+          </div>
+        </div>
+      </div>
+      <div class="ac-field" data-show-when="abrangencia:raio">
+        <label for="b-raio">Lojas e raio de interesse</label>
+        <textarea id="b-raio" name="raio_detalhe" rows="2" maxlength="1000" placeholder="Ex.: 12 lojas em BH e Contagem, raio de 3 km. Se tiver, cole os endereços ou o link da planilha.">{{ v.raio_detalhe or '' }}</textarea>
+      </div>
+    </section>
+
+    {# ---------- 4. Período e verba ---------- #}
+    <section class="bw-step" data-step="periodo" data-label="Período e verba">
+      {{ passo_head(5 if historico else 4, 'Quando e com quanto?', 'Pode ser aproximado. Com uma faixa de verba o planejamento já sai no tamanho certo.') }}
+      <div class="ac-field-row">
+        <div class="ac-field">
+          <label for="b-inicio">Início desejado</label>
+          <input id="b-inicio" name="inicio" type="date" value="{{ v.inicio or '' }}">
+        </div>
+        <div class="ac-field">
+          <label for="b-fim">Fim desejado</label>
+          <input id="b-fim" name="fim" type="date" value="{{ v.fim or '' }}"{% if erros.fim %} aria-invalid="true" aria-describedby="erro-fim"{% endif %}>
+          {{ erro('fim') }}
+        </div>
+        <div class="ac-field">
+          <label for="b-datas" data-label-when="objetivo_tipo:lancamento" data-label-alt="Data do lançamento ou evento">Datas importantes</label>
+          <input id="b-datas" name="datas_chave" type="text" maxlength="400" value="{{ v.datas_chave or '' }}" placeholder="Ex.: Black Friday, Dia das Mães">
+        </div>
+      </div>
+      <p class="bw-hint" id="bw-periodo-hint" role="status"></p>
       <div class="ac-field">
         <label for="b-verba">Verba prevista</label>
-        <input id="b-verba" name="verba" type="text" maxlength="120" value="{{ valores.verba or '' }}" placeholder="Ex.: até R$ 50 mil">
+        <input id="b-verba" name="verba" type="text" maxlength="120" value="{{ v.verba or '' }}" placeholder="Ex.: até R$ 50 mil">
+        <div class="ac-chips__list" id="bw-verbas">
+          {% for x in b.VERBAS %}<button type="button" class="bw-pill" data-fill="b-verba" data-value="{{ x }}">{{ x }}</button>{% endfor %}
+        </div>
       </div>
-    </div>
+    </section>
 
-    <fieldset class="ac-field ac-chips">
-      <legend>Canais de interesse</legend>
-      <div class="ac-chips__list">
-        {% for valor, rotulo in canais %}
-        <label class="ac-chip"><input type="checkbox" name="canais" value="{{ valor }}"{% if valor in (valores.canais or []) %} checked{% endif %}><span>{{ rotulo }}</span></label>
-        {% endfor %}
+    {# ---------- 5. Canais e materiais ---------- #}
+    <section class="bw-step" data-step="canais" data-label="Canais e materiais">
+      {{ passo_head(6 if historico else 5, 'Canais, peças e mensuração', 'Se não souber os canais, peça sugestão: é para isso que estamos aqui.') }}
+      <fieldset class="ac-field ac-chips">
+        <legend>Canais de interesse</legend>
+        <div class="ac-chips__list">{% for valor, rotulo in canais %}{{ chip('canais', valor, rotulo, valor in (v.canais or [])) }}{% endfor %}</div>
+      </fieldset>
+      <fieldset class="ac-field ac-chips">
+        <legend>Peças da campanha</legend>
+        <div class="ac-chips__list">{% for m, r in b.MATERIAIS %}{{ chip('materiais', m, r, v.materiais == m, 'radio') }}{% endfor %}</div>
+      </fieldset>
+      <div class="ac-field" data-show-when="materiais:prontas,adaptar">
+        <label for="b-mat">Quais formatos você já tem?</label>
+        <input id="b-mat" name="materiais_detalhe" type="text" maxlength="600" value="{{ v.materiais_detalhe or '' }}" placeholder="Ex.: vídeo de 30s, banners estáticos, spot de rádio">
       </div>
-    </fieldset>
+      <div class="bw-conv" data-show-when="objetivo_tipo:{{ b.OBJETIVOS|selectattr(3)|map(attribute=0)|join(',') }}">
+        <p class="bw-conv__title">{{ icon('target', 16) }}Como medir a conversão</p>
+        <div class="ac-field">
+          <label for="b-site">Site, loja ou app de destino</label>
+          <input id="b-site" name="site" type="text" maxlength="300" value="{{ v.site or '' }}" placeholder="Ex.: loja.suamarca.com.br">
+        </div>
+        <fieldset class="ac-field ac-chips">
+          <legend>O que já está instalado</legend>
+          <div class="ac-chips__list">{% for m in b.MENSURACAO %}{{ chip('mensuracao', m, m, m in (v.mensuracao or [])) }}{% endfor %}</div>
+        </fieldset>
+      </div>
+      <div class="ac-field">
+        <label for="b-conc">Concorrentes e referências</label>
+        <input id="b-conc" name="concorrentes" type="text" maxlength="600" value="{{ v.concorrentes or '' }}" placeholder="Marcas que disputam o mesmo cliente, campanhas que você gostou">
+      </div>
+      <div class="ac-field">
+        <label for="b-descricao">Mais detalhes</label>
+        <textarea id="b-descricao" name="descricao" rows="3" maxlength="6000" placeholder="Contexto, links de referência, restrições da marca.">{{ v.descricao or '' }}</textarea>
+      </div>
+      <div class="ac-field">
+        <p class="ac-field__label">Do Descobrir</p>
+        {% if itens_descobrir %}
+        <ul class="ac-tags">
+          {% for i in itens_descobrir %}
+          <li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}
+            <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ac-form__hint">Nenhum item separado. <a class="ac-link" href="{{ area_url('descobrir_secao', secao='canais') }}">Explore o Descobrir</a> e inclua canais, formatos, audiências ou portais.</p>
+        {% endif %}
+      </div>
+    </section>
 
-    <div class="ac-field">
-      <label for="b-descricao">Mais detalhes</label>
-      <textarea id="b-descricao" name="descricao" rows="5" maxlength="6000" placeholder="Contexto, concorrentes, peças que você já tem, links de referência, datas importantes.">{{ valores.descricao or '' }}</textarea>
-    </div>
+    {# ---------- 6. Revisão (montada pelo JS) ---------- #}
+    <section class="bw-step" data-step="revisao" data-label="Revisão" data-js-only hidden>
+      {{ passo_head(7 if historico else 6, 'Confira o que vai para a Centralcomm', 'É este resumo que o seu executivo recebe. Clique em um bloco para ajustar.') }}
+      <div class="bw-review" id="bw-review"></div>
+    </section>
 
-    <div class="ac-field">
-      <p class="ac-field__label">Do Descobrir</p>
-      {% if itens_descobrir %}
-      <ul class="ac-tags">
-        {% for i in itens_descobrir %}
-        <li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}
-          <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="ac-form__hint">Nenhum item separado. <a class="ac-link" href="{{ area_url('descobrir_secao', secao='canais') }}">Explore o Descobrir</a> e inclua canais, formatos, audiências ou portais.</p>
-      {% endif %}
-    </div>
-
-    <div class="ac-form__actions">
-      <p class="ac-form__hint">Sem custo. O planejamento chega com o seu executivo.</p>
-      <button type="submit" class="ac-btn ac-btn--primary"{% if usuario.ver_como %} disabled{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
+    <div class="ac-form__actions bw-actions">
+      <button type="button" class="ac-btn ac-btn--secondary" id="bw-voltar" hidden>{{ icon('arrow-left', 18) }}Voltar</button>
+      <p class="ac-form__hint" id="bw-dica">Sem custo. O planejamento chega com o seu executivo.</p>
+      <button type="button" class="ac-btn ac-btn--primary" id="bw-seguir" hidden>Continuar{{ icon('chevron-right', 18) }}</button>
+      <button type="submit" class="ac-btn ac-btn--primary" id="bw-enviar"{% if usuario.ver_como %} disabled{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
     </div>
   </form>
   {# Reserva sem JS para tirar um item; com JS, o item sai sem recarregar e o texto digitado fica. #}
   <form id="ac-remover-item" method="post" action="{{ area_url('briefing') }}" hidden><input type="hidden" name="csrf" value="{{ csrf }}"></form>
 
-  <section class="ac-card ac-enter" aria-labelledby="enviados-titulo">
-    <header class="ac-card__head">
-      <div>
-        <h2 class="ac-h2" id="enviados-titulo">Briefings enviados</h2>
-        <p class="ac-card__sub">Briefing → Planejamento → PI → Campanhas.</p>
-      </div>
-    </header>
-    {% if enviados %}
-    <ul class="ac-briefs">
-      {% for b in enviados %}
-      <li class="ac-brief{% if b.id == enviado_id %} is-new{% endif %}">
-        <div class="ac-brief__top">
-          <b>{{ b.titulo }}</b>
-          <span class="ac-badge ac-badge--{{ b.tom }}">{{ b.status }}</span>
+  <aside class="bw-side">
+    <section class="ac-card bw-score" aria-labelledby="bw-score-titulo" hidden>
+      <header class="bw-score__head">
+        <div>
+          <h2 class="ac-h2" id="bw-score-titulo">Qualidade do briefing</h2>
+          <p class="ac-card__sub">Quanto mais completo, mais rápido vem a proposta.</p>
         </div>
-        {% if b.objetivo %}<p class="ac-brief__text">{{ b.objetivo|truncate(140) }}</p>{% endif %}
-        <p class="ac-brief__meta">Enviado em {{ b.em }}{% if b.autor %} por {{ b.autor }}{% endif %}</p>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    {{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
-    {% endif %}
-  </section>
+        <span class="bw-score__nota" id="bw-nota">0</span>
+      </header>
+      <div class="bw-meter" aria-hidden="true"><span id="bw-meter"></span></div>
+      <ul class="bw-check" id="bw-check"></ul>
+      <ul class="bw-avisos" id="bw-avisos"></ul>
+    </section>
+
+    <section class="ac-card" aria-labelledby="enviados-titulo">
+      <header class="ac-card__head">
+        <div>
+          <h2 class="ac-h2" id="enviados-titulo">Briefings enviados</h2>
+          <p class="ac-card__sub">Briefing → Planejamento → PI → Campanhas.</p>
+        </div>
+      </header>
+      {% if enviados %}
+      <ul class="ac-briefs">
+        {% for e in enviados %}
+        <li class="ac-brief{% if e.id == enviado_id %} is-new{% endif %}">
+          <div class="ac-brief__top">
+            <b>{{ e.titulo }}</b>
+            <span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span>
+          </div>
+          {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(140) }}</p>{% endif %}
+          <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      {{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
+      {% endif %}
+    </section>
+  </aside>
 </div>
-<script>
-document.querySelectorAll('.ac-tag__remove').forEach(function (btn) {
-  btn.addEventListener('click', function (ev) {
-    ev.preventDefault();
-    var dados = new FormData();
-    dados.append('csrf', {{ csrf|tojson }});
-    dados.append('secao', btn.dataset.secao);
-    dados.append('id', btn.dataset.id);
-    btn.disabled = true;
-    fetch({{ area_url('descobrir_selecao')|tojson }}, { method: 'POST', body: dados, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
-      .then(function (r) {
-        if (!r.ok) throw new Error();
-        var li = btn.closest('li'), lista = li.parentNode;
-        li.remove();
-        if (!lista.children.length) lista.outerHTML = '<p class="ac-form__hint">Nenhum item separado.</p>';
-      })
-      .catch(function () { btn.disabled = false; btn.form.requestSubmit(btn); });
-  });
-});
-</script>
+<script type="application/json" id="bw-dados">{{ {
+  'opcoes': opcoes, 'csrf': csrf, 'urlPracas': area_url('briefing_pracas'), 'urlSelecao': area_url('descobrir_selecao'),
+  'canais': canais|map('first')|list, 'canaisRotulo': dict(canais), 'abrangencias': dict(b.ABRANGENCIAS),
+  'materiais': dict(b.MATERIAIS), 'generos': dict(b.GENEROS), 'comErros': erros|length > 0
+}|tojson }}</script>
+<script src="{{ url_for('static', filename='js/area_cliente_briefing.js') }}?v={{ static_fingerprint('js/area_cliente_briefing.js') }}" defer></script>
 {% endblock %}

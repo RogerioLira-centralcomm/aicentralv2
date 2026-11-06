@@ -862,3 +862,100 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-report__link b { color: var(--ink); font-size: 13px; font-weight: 600; }
 .ac-report__link small { font-size: 12px; color: var(--muted); }
 .ac-report__icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
+
+/* =====================================================================
+   Refino responsivo (celular e tablet) e correções do menu
+   ===================================================================== */
+/* Barra recolhida: "html.ac-rail" vence o ":root" da camada de densidade. */
+@media (min-width: 1024px) {
+  html.ac-rail { --side-w: 72px; }
+  html.ac-rail .ac-side { width: 72px; padding: 14px 10px; }
+  html.ac-rail .ac-nav__group { margin-bottom: 10px; }
+}
+.ac-side { width: var(--side-w); }
+
+/* Menu sem linhas: grupos separados só por espaço */
+.ac-nav__sep { display: none; }
+.ac-nav__group { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 2px; }
+.ac-nav__group:last-child { margin-bottom: 0; }
+.ac-nav__label--link { margin-top: 2px; }
+
+/* Tablet (até 1023 px): sidebar em gaveta, conteúdo na largura toda */
+@media (max-width: 1023px) {
+  .ac-side { width: 264px; }
+  .ac-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ac-grid-wrap { max-height: none; }
+}
+@media (max-width: 860px) {
+  .ac-panels { grid-template-columns: minmax(0, 1fr); }
+  .ac-search { max-width: none; }
+}
+
+/* Celular (até 600 px): escala menor, topo enxuto, listas adaptadas */
+@media (max-width: 600px) {
+  body { font-size: 13px; }
+  :root { --top-h: 48px; }
+  .ac-top { gap: 6px; padding: 0 10px; }
+  .ac-top .ac-search { display: none; }
+  .ac-top__actions { margin-left: auto; gap: 4px; }
+  .ac-icon-btn { width: 32px; height: 32px; }
+  .ac-user { padding: 0 2px; gap: 4px; }
+  .ac-user .ac-icon { display: none; }
+  .ac-avatar { width: 28px; height: 28px; }
+  .ac-content { padding: 12px 12px 28px; }
+  .ac-h1 { font-size: 18px; line-height: 24px; }
+  .ac-h2 { font-size: 14px; line-height: 20px; }
+  .ac-page-title { margin-bottom: 10px; }
+  .ac-stat { padding: 10px 12px; }
+  .ac-stat__value { font-size: 18px; line-height: 24px; }
+  .ac-stat__value--money { font-size: 15px; }
+  .ac-panel__head { padding: 10px 12px; }
+  .ac-row { padding: 9px 12px; gap: 8px; min-height: 0; }
+  .ac-row__end { gap: 6px; }
+  .ac-row__end .ac-badge { display: none; }
+  .ac-row--nf .ac-row__end .ac-badge, .ac-row:has(.ac-row__money) .ac-row__end .ac-badge { display: inline-flex; }
+  .ac-detail-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .ac-detail-head .ac-h1 { white-space: normal; }
+  .ac-track { gap: 6px 10px; padding: 8px 10px; }
+  .ac-track__step { flex: 0 0 auto; font-size: 12px; }
+  .ac-platstrip { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .ac-toolbar2 { gap: 8px; }
+  .ac-seg { width: 100%; }
+  .ac-seg__item { flex: 1 0 auto; justify-content: center; padding: 6px 10px; }
+  .ac-inline-stats { gap: 10px; }
+  .ac-grid .ac-grid__sticky { min-width: 170px; max-width: 200px; }
+  .ac-grid th, .ac-grid td { padding: 8px 10px; }
+  .ac-catalog { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ac-item__body { padding: 10px 10px 4px; }
+  .ac-item__text { display: none; }
+  .ac-item__foot { padding: 4px 10px 10px; }
+  .ac-item__foot .ac-btn { width: 100%; padding: 4px 6px; font-size: 12px; }
+  .ac-discover-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .ac-discover-card { flex-direction: row; align-items: center; padding: 12px; }
+  .ac-discover-card__body span { display: none; }
+  .ac-discover-card__foot { margin: 0 0 0 auto; }
+  .ac-filters { gap: 6px; }
+  .ac-filters .ac-btn { display: none; }
+  .ac-card { padding: 12px; }
+  .ac-briefing { gap: 12px; }
+  .ac-form__actions { padding-top: 12px; }
+  .ac-menu__panel { position: fixed; top: calc(var(--top-h) + 4px); left: 8px; right: 8px; width: auto; max-height: calc(100vh - var(--top-h) - 16px); overflow-y: auto; }
+  .ac-menu__panel:has(.ac-viewas-pick) { width: auto; }
+  .ac-drawer { width: 100vw; }
+  .ac-report__links { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; }
+  .ac-hero__meta { gap: 8px; }
+  .ac-campaigns { grid-template-columns: minmax(0, 1fr); }
+}
+/* Campanhas no celular: só Campanha, Entrega, Tempo e ações; o resto fica no painel lateral. */
+@media (max-width: 600px) {
+  .ac-grid th:nth-child(2), .ac-grid td:nth-child(2), .ac-grid th:nth-child(3), .ac-grid td:nth-child(3),
+  .ac-grid th:nth-child(4), .ac-grid td:nth-child(4), .ac-grid th:nth-child(5), .ac-grid td:nth-child(5),
+  .ac-grid th:nth-child(7), .ac-grid td:nth-child(7), .ac-grid th:nth-child(9), .ac-grid td:nth-child(9),
+  .ac-grid th:nth-child(10), .ac-grid td:nth-child(10), .ac-grid th:nth-child(11), .ac-grid td:nth-child(11) { display: none; }
+  .ac-grid .ac-grid__sticky { position: static; min-width: 0; max-width: 46vw; border-right: 0; }
+  .ac-grid__pct { min-width: 96px; }
+  .ac-grid__pctrow { grid-template-columns: 34px 1fr; gap: 6px; }
+  .ac-grid__actions .ac-icon-btn[title="Dashboard"] { display: none; }
+  .ac-grid-wrap { overflow-x: hidden; }
+}
+@media (max-width: 600px) { .ac-grid .ac-grid__sticky { max-width: 38vw; } .ac-grid__actions { padding-left: 4px !important; padding-right: 6px !important; } }

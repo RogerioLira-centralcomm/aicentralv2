@@ -54,6 +54,7 @@ PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/", "/campanha/p/")
 # Menu: Início pelo logo; Descobrir (título com as vitrines abertas); depois
 # Briefing, Campanhas, Relatórios e PIs. Equipe fica no menu do usuário e a
 # visão 360° do PI (antigo "Projetos") é aberta a partir de cada PI.
+NAV_INICIO = ("inicio", "Início", "home")
 NAV_PRINCIPAL = (
     ("briefing", "Briefing", "send"),
     ("campanhas", "Campanhas", "megaphone"),
@@ -106,6 +107,7 @@ def _render(template, usuario, ativo, **ctx):
         {"id": e, "rotulo": r, "icone": i, "url": area_url(e), "ativo": e == ativo}
         for e, r, i in NAV_PRINCIPAL
     ]
+    inicio = {"id": "inicio", "rotulo": "Início", "icone": "home", "url": area_url("inicio"), "ativo": ativo == "inicio"}
     nav_descobrir = [
         {"id": s, "rotulo": t, "icone": i, "url": area_url("descobrir_secao", secao=s),
          "ativo": ativo == "descobrir" and ctx.get("secao") == s}
@@ -113,7 +115,7 @@ def _render(template, usuario, ativo, **ctx):
     ]
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
-        usuario=usuario, nav=nav, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
+        usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
         pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),

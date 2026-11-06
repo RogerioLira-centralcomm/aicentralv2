@@ -102,8 +102,9 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 1
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
-    ordem = [nav.index(t) for t in ("Descobrir", "Canais", "Portais", "Briefing", "Campanhas", "Relatórios", "PIs")]
-    assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav and "Início" not in nav
+    ordem = [nav.index(t) for t in ("Início", "Descobrir", "Canais", "Portais", "Briefing", "Campanhas", "Relatórios", "PIs")]
+    assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav
+    assert "ac-nav__sep" not in nav  # menu sem linhas
     assert "R$" not in html
 
 

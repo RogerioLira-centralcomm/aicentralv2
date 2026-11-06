@@ -168,7 +168,7 @@ def test_pagina_em_preparacao(app, monkeypatch):
     resp = client.get("/equipe", base_url=HOST)
     assert resp.status_code == 200 and "Em preparação" in resp.get_data(as_text=True)
     antigo = client.get("/planejamento", base_url=HOST)
-    assert antigo.status_code == 301 and antigo.headers["Location"] == "/descobrir"
+    assert antigo.status_code == 301 and antigo.headers["Location"] == "/descobrir/canais"
 
 
 def test_sair_limpa_a_sessao(app):
@@ -309,7 +309,7 @@ def test_descobrir_selecao_exige_token_e_voltar_local(app, monkeypatch):
     assert client.post("/descobrir/selecao", base_url=HOST, data={"secao": "canais", "id": "5"}).status_code == 400
     resp = client.post("/descobrir/selecao", base_url=HOST, data={
         "csrf": "tok", "secao": "canais", "id": "5", "nome": "X", "voltar": "//evil.test/x"})
-    assert resp.headers["Location"] == "/descobrir"
+    assert resp.headers["Location"] == "/descobrir/canais"
     assert client.post("/descobrir/selecao", base_url=HOST, data={"csrf": "tok", "secao": "places", "id": "1"}).status_code == 404
     assert client.get("/descobrir/places", base_url=HOST).status_code == 404
 
@@ -339,9 +339,20 @@ def test_detalhe_de_audiencia_sem_custos(monkeypatch):
                 {"label": "Mercado", "value": "R$ 2 bi", "variable": "tamanho_mercado_brl"},
                 {"label": "Alcance incremental", "value": "+12%", "variable": "alcance_incremental"}]},
         ]})
+    monkeypatch.setattr(catalog, "detail", lambda kind, value: {
+        "titulo_chamativo": "C-Level Digitais", "storytelling": "Entre reuniões estratégicas, este público vive no celular.",
+        "is_premium": True, "perfil_socioeconomico": "A", "cpm_venda": "R$ 45", "ticket_medio_estimado": "15000.00",
+        "perfil_consumo": {"horarios_pico": ["06h-08h"], "triggers_compra": ["ROI comprovado"], "ticket_medio_mensal": 15000,
+                           "frequencia_compra": "trimestral"}})
     item = descobrir.detalhe("audiencias", 3)
-    assert [s["id"] for s in item["sessoes"]] == ["perfil"]
-    assert {m["rotulo"] for m in item["metricas"]} == {"Público estimado", "Onde comprar", "Alcance incremental"}
+    assert [s["id"] for s in item["sessoes"]] == ["perfil", "consumo"]
+    consumo = item["sessoes"][1]["dados"]
+    assert [l["titulo"] for l in consumo["listas"]] == ["Horários de pico", "Gatilhos de compra"]
+    assert consumo["fatos"] == [{"rotulo": "Frequência de compra", "valor": "Trimestral"}]
+    assert item["subtitulo"] == "C-Level Digitais" and item["selos"] == ["Premium", "LinkedIn"]
+    assert item["destaques"][0]["titulo"] == "Retrato"
+    assert {m["rotulo"] for m in item["metricas"]} == {"Público estimado", "Onde comprar", "Perfil socioeconômico", "Alcance incremental"}
+    assert "15000" not in str(item) and "45" not in str(item)
     assert item["relacionados"]["itens"][0]["id"] == 4
     assert "R$" not in str(item) and "CPA" not in str(item)
 
@@ -694,3 +705,35 @@ def test_portal_com_numeros_em_texto_nao_quebra(monkeypatch):
     rotulos = [m["rotulo"] for m in item["metricas"]]
     assert "Acessos por mês" not in rotulos and "Porte" in rotulos
     assert item["sessoes"][0]["dados"][0]["quadro"]["rotulo"] == "970×250"
+
+
+def test_vitrine_de_formatos_agrupa_por_canal_e_por_tipo(monkeypatch):
+    from aicentralv2.area_cliente import descobrir
+    fake = [{"id": 1, "name": "Search", "platform": "Google Ads", "platform_logo": "/g.png", "family": "Performance", "family_order": 8, "purpose": "Conversão"},
+            {"id": 2, "name": "Billboard", "platform": "Programática (IAB)", "platform_logo": "/static/images/canais/programatica.svg",
+             "family": "Display", "family_order": 1, "dimensions": "970x250", "purpose": "Alcance"},
+            {"id": 3, "name": "Half Page", "platform": "Programática (IAB)", "platform_logo": "/p.svg", "family": "Display", "family_order": 1, "dimensions": "300x600"}]
+
+    class Repo:
+        @staticmethod
+        def catalog(secao, busca):
+            return [r for r in fake if busca.lower() in r["name"].lower()]
+    monkeypatch.setattr(descobrir, "_repo", lambda: Repo)
+    v = descobrir.vitrine_formatos("formatos")
+    assert [g["titulo"] for g in v["grupos"]] == ["Programática (IAB)", "Google Ads"] and v["total"] == 3
+    assert v["grupos"][0]["cartoes"][0]["quadro"]["rotulo"] == "970×250"
+    assert [c["valor"] for c in v["chips"]] == ["Programática (IAB)", "Google Ads"]
+    v = descobrir.vitrine_formatos("formatos", visao="tipo")
+    assert [g["titulo"] for g in v["grupos"]] == ["Display", "Performance"]
+    v = descobrir.vitrine_formatos("formatos", canal="Google Ads")
+    assert v["total"] == 1 and len(v["chips"]) == 2
+
+
+def test_descobrir_sem_pagina_geral_abre_canais(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    monkeypatch.setattr(dados, "listar_projetos", lambda cliente_id, busca="": [])
+    client = _client(app, {"user_id": 501})
+    resp = client.get("/descobrir", base_url=HOST)
+    assert resp.status_code == 302 and resp.headers["Location"] == "/descobrir/canais"
+    assert "Ver tudo" not in client.get("/", base_url=HOST).get_data(as_text=True)

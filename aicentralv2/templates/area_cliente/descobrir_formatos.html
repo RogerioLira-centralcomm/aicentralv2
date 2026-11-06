@@ -1,0 +1,79 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, marca, vazio %}
+{% block title %}{{ titulo }} · Descobrir{% endblock %}
+{% block content %}
+{% set voltar = request.full_path.rstrip('?') %}
+{% set v = vitrine %}
+{% macro url_para(canal=None, ver=None) -%}
+{%- set pares = [] -%}
+{%- for k, val in [('q', v.busca), ('canal', v.canal if canal is none else canal), ('ver', v.visao if ver is none else ver)] if val and not (k == 'ver' and val in ('canal', 'objetivo')) -%}{%- set _ = pares.append((k, val)) -%}{%- endfor -%}
+{{ area_url('descobrir_secao', secao=secao) }}{% if pares %}?{{ pares|urlencode }}{% endif %}
+{%- endmacro %}
+
+<div class="ac-page-head ac-enter">
+  <div><h1 class="ac-h1">{{ titulo }}</h1></div>
+</div>
+
+<form class="ac-filters" method="get" action="{{ area_url('descobrir_secao', secao=secao) }}" role="search">
+  <div class="ac-search ac-search--inline">
+    {{ icon('search', 18) }}
+    <label class="ac-sr" for="d-busca">Buscar em {{ titulo }}</label>
+    <input id="d-busca" name="q" type="search" value="{{ v.busca }}" placeholder="Buscar em {{ titulo|lower }}">
+  </div>
+  {% if v.canal %}<input type="hidden" name="canal" value="{{ v.canal }}">{% endif %}
+  {% if secao == 'formatos' %}<input type="hidden" name="ver" value="{{ v.visao }}">{% endif %}
+  <button type="submit" class="ac-btn ac-btn--secondary">Buscar</button>
+  {% if secao == 'formatos' %}
+  <div class="ac-seg" role="group" aria-label="Agrupar formatos">
+    {% for chave, rotulo in visoes.items() %}<a class="ac-seg__opt{% if v.visao == chave %} is-on{% endif %}" href="{{ url_para(ver=chave) }}"{% if v.visao == chave %} aria-current="true"{% endif %}>{{ rotulo }}</a>{% endfor %}
+  </div>
+  {% endif %}
+  <p class="ac-filters__count">{{ v.total }} {{ 'formato' if v.total == 1 else 'formatos' }}</p>
+</form>
+
+{% if v.chips %}
+<nav class="ac-bchips" aria-label="Filtrar por canal">
+  <a class="ac-bchip{% if not v.canal %} is-on{% endif %}" href="{{ url_para(canal='') }}">Todos</a>
+  {% for c in v.chips %}
+  <a class="ac-bchip{% if v.canal == c.valor %} is-on{% endif %}" href="{{ url_para(canal='' if v.canal == c.valor else c.valor) }}"{% if v.canal == c.valor %} aria-current="true"{% endif %}>{{ marca(c.logo, c.valor, 'xs') }}{{ c.valor }}<span>{{ c.total }}</span></a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% if v.grupos %}
+{% if v.grupos|length > 1 %}
+<nav class="ac-fnav ac-fnav--groups" aria-label="Ir para" data-ac-fnav>
+  {% for g in v.grupos %}<a href="#g-{{ loop.index }}"{% if loop.first %} class="is-active" aria-current="true"{% endif %}>{{ g.titulo }}<span>{{ g.cartoes|length }}</span></a>{% endfor %}
+</nav>
+{% endif %}
+{% for g in v.grupos %}
+<section class="ac-shelf" id="g-{{ loop.index }}" aria-labelledby="g-{{ loop.index }}-t">
+  <header class="ac-shelf__head">
+    {% if v.visao == 'canal' %}{{ marca(g.logo, g.titulo, 'md') }}{% endif %}
+    <h2 class="ac-h2" id="g-{{ loop.index }}-t">{{ g.titulo }}</h2>
+    <span class="ac-panel__count">{{ g.cartoes|length }}</span>
+  </header>
+  <div class="ac-catalog ac-catalog--dense">
+    {% for c in g.cartoes %}{% include 'area_cliente/_descobrir_cartao.html' %}{% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% else %}
+<div class="ac-card">{{ vazio('search', 'Nada encontrado', 'Tente outra palavra ou tire o filtro.') }}</div>
+{% endif %}
+
+<script>
+(function () {
+  var nav = document.querySelector('[data-ac-fnav]');
+  if (!nav || !('IntersectionObserver' in window)) return;
+  var links = {};
+  nav.querySelectorAll('a').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  var obs = new IntersectionObserver(function (entradas) {
+    var topo = entradas.filter(function (e) { return e.isIntersecting; }).sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; })[0];
+    if (!topo) return;
+    Object.keys(links).forEach(function (k) { var on = k === topo.target.id; links[k].classList.toggle('is-active', on); if (on) { links[k].setAttribute('aria-current', 'true'); if (nav.scrollWidth > nav.clientWidth) nav.scrollTo({left: links[k].offsetLeft - 16, behavior: 'smooth'}); } else links[k].removeAttribute('aria-current'); });
+  }, {rootMargin: '-120px 0px -60% 0px'});
+  Object.keys(links).forEach(function (id) { var el = document.getElementById(id); if (el) obs.observe(el); });
+})();
+</script>
+{% endblock %}

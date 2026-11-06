@@ -47,7 +47,6 @@
         <button type="button" class="ac-nav__label ac-nav__toggle" aria-expanded="{{ 'false' if fechado else 'true' }}" aria-controls="ac-nav-{{ g }}" data-ac-grupo="{{ g }}">
           <span>{{ rotulo }}</span>{% if resumo %}<span class="ac-nav__peek{% if g == 'acompanhar' %} ac-nav__peek--live{% endif %}" aria-hidden="true">{{ resumo }}</span>{% endif %}{{ icon('chevron-down', 14) }}
         </button>
-        {% if g == 'descobrir' %}<a class="ac-nav__hub{% if pagina_ativa == 'descobrir' and not secao is defined %} is-active{% endif %}" href="{{ area_url('descobrir') }}">Ver tudo</a>{% endif %}
       </div>
       <ul class="ac-nav__group{% if fechado %} is-collapsed{% endif %}" id="ac-nav-{{ g }}">
         {% for item in itens %}{{ nav_link(item) }}{% endfor %}

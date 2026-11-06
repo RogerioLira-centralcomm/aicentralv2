@@ -299,19 +299,24 @@ def view_briefing(usuario):
 
 
 def view_descobrir(usuario):
-    return _render("descobrir.html", usuario, "descobrir", secoes=descobrir.resumo_secoes(),
-                   itens=descobrir.selecao(session))
+    # Sem página geral: o Descobrir começa pelos canais (os itens ficam abertos no menu).
+    return redirect(area_url("descobrir_secao", secao="canais"))
 
 
 def view_descobrir_secao(usuario, secao):
     if secao not in descobrir.SECOES:
         abort(404)
+    titulo, icone, texto = descobrir.SECOES[secao]
+    comum = dict(secao=secao, titulo=titulo, icone=icone, texto=texto, secoes=descobrir.SECOES, csrf=_csrf_token(),
+                 marcados=descobrir.selecionados(session))
+    if secao in ("formatos", "interativos"):
+        vitrine = descobrir.vitrine_formatos(secao, request.args.get("q", ""), request.args.get("canal", ""),
+                                             request.args.get("ver", "canal"))
+        return _render("descobrir_formatos.html", usuario, "descobrir", vitrine=vitrine,
+                       visoes=descobrir.VISOES_FORMATOS, **comum)
     pagina = request.args.get("pagina", 1, type=int) or 1
     lista = descobrir.listar(secao, request.args.get("q", ""), request.args.get("categoria", ""), pagina)
-    titulo, icone, texto = descobrir.SECOES[secao]
-    return _render("descobrir_secao.html", usuario, "descobrir", secao=secao, titulo=titulo, icone=icone,
-                   texto=texto, lista=lista, secoes=descobrir.SECOES, csrf=_csrf_token(),
-                   marcados=descobrir.selecionados(session))
+    return _render("descobrir_secao.html", usuario, "descobrir", lista=lista, **comum)
 
 
 def view_descobrir_item(usuario, secao, item_id):
@@ -328,9 +333,9 @@ def view_descobrir_selecao():
     if request.headers.get("X-Requested-With") == "fetch":
         # O botão troca de estado sem recarregar; "total" atualiza os contadores do menu e do CTA.
         return jsonify(incluido=incluido, total=len(descobrir.selecao(session)), limite=descobrir.LIMITE_SELECAO)
-    destino = request.form.get("voltar") or area_url("descobrir")
+    destino = request.form.get("voltar") or area_url("descobrir_secao", secao="canais")
     if not destino.startswith("/") or destino.startswith("//"):
-        destino = area_url("descobrir")
+        destino = area_url("descobrir_secao", secao="canais")
     return redirect(destino, code=303)
 
 
@@ -450,7 +455,7 @@ def despachar():
     if endpoint == "briefing":
         return view_briefing(usuario)
     if endpoint == "planejamento_antigo":
-        return redirect(area_url("descobrir"), code=301)
+        return redirect(area_url("descobrir_secao", secao="canais"), code=301)
     if endpoint == "midia_antigo":
         return redirect(area_url("campanhas"), code=301)
     if endpoint == "arquivos_antigo":

@@ -29,19 +29,7 @@
 {% if lista.cartoes %}
 <div class="ac-catalog ac-enter">
   {% for c in lista.cartoes %}
-  <article class="ac-item">
-    <a class="ac-item__media{% if not c.imagem %} is-empty{% endif %}" href="{{ area_url('descobrir_item', secao=secao, item_id=c.id) }}" tabindex="-1" aria-hidden="true">
-      {% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy">{% elif c.logo %}<img class="ac-item__logo-big" src="{{ c.logo }}" alt="" loading="lazy">{% else %}{{ icon('layout', 28) }}{% endif %}
-    </a>
-    <div class="ac-item__body">
-      <h2 class="ac-item__title"><a href="{{ area_url('descobrir_item', secao=secao, item_id=c.id) }}">{{ c.nome }}</a></h2>
-      {% if c.meta %}<p class="ac-item__meta">{{ c.meta|join(' · ') }}</p>{% endif %}
-      {% if c.descricao %}<p class="ac-item__text">{{ c.descricao }}</p>{% endif %}
-    </div>
-    <div class="ac-item__foot">
-      {% with item_id=c.id, nome=c.nome, marcado=(secao, c.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
-    </div>
-  </article>
+  {% include 'area_cliente/_descobrir_cartao.html' %}
   {% endfor %}
 </div>
 

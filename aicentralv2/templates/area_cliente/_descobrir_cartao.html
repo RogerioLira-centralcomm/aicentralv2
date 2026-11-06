@@ -1,0 +1,23 @@
+{# Cartão da vitrine: capa com o selo da marca por cima; sem capa, o selo grande (ou a prévia em escala, nos formatos).
+   Precisa de: c (cartão), secao, marcados, csrf, voltar. #}
+{% from 'area_cliente/_macros.html' import icon, marca %}
+{% set href = area_url('descobrir_item', secao=secao, item_id=c.id) %}
+<article class="ac-item">
+  <a class="ac-item__media{% if not c.imagem %} is-empty{% endif %}" href="{{ href }}" tabindex="-1" aria-hidden="true">
+    {% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy">
+    {% elif c.quadro %}{% set k = [140 / c.quadro.w, 72 / c.quadro.h]|min %}<span class="ac-item__scale"><span style="width: {{ [c.quadro.w * k, 8]|max|round|int }}px; height: {{ [c.quadro.h * k, 8]|max|round|int }}px"></span><small>{{ c.quadro.rotulo }}</small></span>
+    {% elif c.logo or c.marca %}<span class="ac-item__brand">{{ marca(c.logo, c.marca or c.nome, 'xl') }}</span>
+    {% else %}{{ icon('layout', 28) }}{% endif %}
+    {% if c.imagem %}<span class="ac-item__badge">{{ marca(c.logo, c.marca or c.nome, 'md') }}</span>
+    {% elif c.quadro %}<span class="ac-item__badge ac-item__badge--top">{{ marca(c.logo, c.marca or c.nome, 'sm') }}</span>{% endif %}
+  </a>
+  <div class="ac-item__body">
+    <h2 class="ac-item__title"><a href="{{ href }}">{{ c.nome }}</a></h2>
+    {% set meta = ([c.marca] if (c.marca and c.marca != c.nome and secao not in ('canais', 'interativos')) else []) + c.meta %}
+    {% if meta %}<p class="ac-item__meta">{{ meta|join(' · ') }}</p>{% endif %}
+    {% if c.descricao %}<p class="ac-item__text">{{ c.descricao }}</p>{% endif %}
+  </div>
+  <div class="ac-item__foot">
+    {% with item_id=c.id, nome=c.nome, marcado=(secao, c.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+  </div>
+</article>

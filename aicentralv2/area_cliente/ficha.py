@@ -21,7 +21,15 @@ METRICA_MAX = 28  # número de faixa é número; frase longa vira nota sobre o m
 
 # Audiência: grupos e campos que o cliente não vê (custos) ou que já aparecem em outro lugar.
 _AUDIENCIA_FORA = {"cpa_estimado_min", "cpa_estimado_max", "tamanho_mercado_brl", "descricao_ia", "storytelling"}
-_AUDIENCIA_JA_MOSTRADO = {"publico_estimado", "publico_numero", "descricao", "descricao_curta"}
+# Hábitos de consumo (perfil_consumo): rótulos para o cliente. Ticket médio fica de fora (valor em R$).
+_CONSUMO = (("horarios_pico", "Horários de pico"), ("canais_preferidos", "Canais preferidos"),
+            ("triggers_compra", "Gatilhos de compra"), ("influenciadores", "Quem influencia"),
+            ("barreiras_conversao", "Barreiras para converter"), ("metodos_pagamento", "Como pagam"),
+            ("frequencia_compra", "Frequência de compra"), ("sensibilidade_preco", "Sensibilidade a preço"),
+            ("propensao_fidelidade", "Fidelidade"))
+_AUDIENCIA_JA_MOSTRADO = {"publico_estimado", "publico_numero", "descricao", "descricao_curta",
+                          # já na faixa de números ou nos destaques
+                          "perfil_socioeconomico", "propensao_compra", "tamanho", "sazonalidade"}
 _AUDIENCIA_LISTAS = {"tags", "interesses_correlatos", "momentos_chave", "categorias_alto_desempenho", "diferenciais_competitivos"}
 _GRUPO_PERFIL = "Público, perfil e comportamento"
 _GRUPO_DEMOGRAFIA = "Demografia e dispositivos"
@@ -244,7 +252,7 @@ def _canal(item_id):
                  for f in formatos],
                 "Escolha o formato ideal para o seu objetivo.", len(formatos), True) if formatos else None,
         _sessao("audiencias", "Audiências neste canal", "audiencias",
-                [{"secao": "audiencias", "id": a["id"], "nome": a.get("name"),
+                [{"secao": "audiencias", "id": a["id"], "nome": a.get("name"), "imagem": a.get("image_url") or "",
                   "texto": " · ".join(x for x in (a.get("category"), _tamanho_publico(a.get("audience"))) if x)} for a in audiencias],
                 "Segmente por interesses, comportamentos e contextos.", len(audiencias), True) if audiencias else None,
         _sessao("anuncios", "Anúncios neste canal", "anuncios",
@@ -270,7 +278,7 @@ def _canal(item_id):
     ]
     relacionados = {"titulo": "Canais parecidos", "itens": [
         {"secao": "canais", "id": r["id"], "nome": r.get("name"), "sub": r.get("alcance") or r.get("category") or "",
-         "logo": r.get("logo_url") or "", "imagem": r.get("image_url") or ""} for r in c.get("related") or []]}
+         "logo": r.get("logo_url") or "", "marca": r.get("name") or "", "imagem": r.get("image_url") or ""} for r in c.get("related") or []]}
     return _montar(
         secao="canais", item_id=c.get("id") or item_id, nome=c.get("name"), logo=c.get("logo_url"),
         eyebrow=" · ".join(x for x in (c.get("categoria"), tipo) if x) or "Canal",
@@ -401,18 +409,53 @@ def _demografia_audiencia(grupo) -> list[dict]:
     return saida
 
 
+def _consumo(perfil) -> dict:
+    """perfil_consumo → listas (tags) e fatos curtos, nos rótulos do cliente."""
+    if not isinstance(perfil, dict):
+        return {"listas": [], "fatos": []}
+    listas, fatos = [], []
+    for chave, rotulo in _CONSUMO:
+        valor = perfil.get(chave)
+        if not tem(valor):
+            continue
+        if isinstance(valor, list):
+            listas.append({"titulo": rotulo, "itens": [_maiuscula(str(v)) for v in valor if tem(v)]})
+        elif isinstance(valor, (str, int, float)) and not isinstance(valor, bool):
+            fatos.append({"rotulo": rotulo, "valor": _maiuscula(str(valor))})
+    return {"listas": [l for l in listas if l["itens"]], "fatos": fatos}
+
+
+def _imagens_audiencias(ids) -> dict:
+    """Capa de cada audiência (as listas de parecidas não trazem a imagem)."""
+    ids = [int(i) for i in ids if i]
+    if not ids:
+        return {}
+    from ..cadu_family import repository
+    try:
+        linhas = repository.rows("SELECT id, imagem_url FROM cadu_audiencias WHERE id = ANY(%s)", (ids,))
+    except Exception:
+        return {}
+    return {r["id"]: r.get("imagem_url") or "" for r in linhas}
+
+
 def _audiencia(item_id):
     from ..cadu_planner import catalog
     a = catalog.audience_profile(item_id)
+    bruto = catalog.detail("audiencias", item_id)  # campos que a projeção do Planner não traz (sem custos)
     grupos = {g.get("title"): g for g in a.get("data_groups") or []}
     campo = lambda var: next((c.get("value") for g in a.get("data_groups") or [] for c in g.get("fields") or [] if c.get("variable") == var), None)
     perfil, uso = _narrativa(grupos.get(_GRUPO_PERFIL)), _narrativa(grupos.get(_GRUPO_NARRATIVA))
     demografia = _demografia_audiencia(grupos.get(_GRUPO_DEMOGRAFIA))
+    consumo = _consumo(bruto.get("perfil_consumo"))
     canal = a.get("channel_ref")
     formatos = a.get("channel_formats") or []
+    relacionados = a.get("related") or []
+    capas = _imagens_audiencias([r.get("id") for r in relacionados])
     cheio = lambda n: bool(n["cartoes"] or n["listas"] or n["fatos"])
     sessoes = [
         _sessao("perfil", "Quem são", "narrativa", perfil) if cheio(perfil) else None,
+        _sessao("consumo", "Hábitos de consumo", "narrativa", {"cartoes": [], **consumo},
+                "Como esta audiência decide, compra e se informa.") if (consumo["listas"] or consumo["fatos"]) else None,
         _sessao("demografia", "Demografia", "demografia", demografia) if demografia else None,
         _sessao("uso", "Como usar no plano", "narrativa", uso) if cheio(uso) else None,
         _sessao("onde", "Onde comprar", "trilho",
@@ -423,19 +466,28 @@ def _audiencia(item_id):
                   "quadro": _quadro(f.get("dimensions")), "dimensoes": f.get("dimensions") or ""} for f in formatos],
                 "Peças que este canal aceita para alcançar o público.", len(formatos), True) if formatos else None,
     ]
-    relacionados = {"titulo": "Audiências parecidas", "itens": [
-        {"secao": "audiencias", "id": r["id"], "nome": r.get("name"), "sub": " · ".join(x for x in (r.get("platform"), r.get("audience")) if x),
-         "logo": r.get("platform_logo") or "", "imagem": ""} for r in a.get("related") or []]}
+    titulo = str(bruto.get("titulo_chamativo") or "").strip()
+    retrato = str(bruto.get("storytelling") or "").strip()
+    selos = [x for x in ("Premium" if bruto.get("is_premium") else "", a.get("channel") or "") if x]
     return _montar(
         secao="audiencias", item_id=a.get("id") or item_id, nome=a.get("name"), logo=a.get("platform_logo"),
         eyebrow=" · ".join(x for x in (a.get("category"), a.get("subcategory")) if x) or "Audiência",
-        descricao=a.get("description"), imagens=[a.get("image_url")],
+        descricao=a.get("description"), imagens=[a.get("image_url") or bruto.get("imagem_url")],
         metricas=[{"rotulo": "Público estimado", "valor": a.get("audience")},
                   {"rotulo": "Onde comprar", "valor": a.get("channel") or "Portais e programática"},
-                  {"rotulo": "CTR médio", "valor": campo("ctr_medio_estimado"), "dica": "Estimativa", "estimativa": True},
-                  {"rotulo": "Conversão", "valor": campo("taxa_conversao_estimada"), "dica": "Estimativa", "estimativa": True},
+                  {"rotulo": "Perfil socioeconômico", "valor": f"Classe {bruto['perfil_socioeconomico']}" if tem(bruto.get("perfil_socioeconomico")) else None},
+                  {"rotulo": "Propensão de compra", "valor": _maiuscula(bruto.get("propensao_compra"))},
+                  {"rotulo": "Tamanho", "valor": _maiuscula(bruto.get("tamanho"))},
+                  {"rotulo": "CTR médio", "valor": campo("ctr_medio_estimado") or bruto.get("ctr_medio_estimado"), "dica": "Estimativa", "estimativa": True},
+                  {"rotulo": "Conversão", "valor": campo("taxa_conversao_estimada") or bruto.get("taxa_conversao_estimada"), "dica": "Estimativa", "estimativa": True},
                   {"rotulo": "Alcance incremental", "valor": campo("alcance_incremental")}],
-        sessoes=sessoes, relacionados=relacionados)
+        destaques=[("Retrato", retrato), ("Sazonalidade", bruto.get("sazonalidade"))],
+        sessoes=sessoes,
+        relacionados={"titulo": "Audiências parecidas", "itens": [
+            {"secao": "audiencias", "id": r["id"], "nome": r.get("name"), "sub": " · ".join(x for x in (r.get("platform"), r.get("audience")) if x),
+             "logo": r.get("platform_logo") or "", "marca": r.get("platform") or "", "imagem": capas.get(r["id"], "")} for r in relacionados]},
+    ) | {"subtitulo": titulo if titulo and titulo.lower() != str(a.get("name") or "").lower() else "", "selos": selos,
+         "marca_nome": a.get("channel") or ""}
 
 
 # ---------- portais ----------

@@ -1038,8 +1038,6 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-nav__peek { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 12px; line-height: 18px; text-align: center; letter-spacing: 0; background: var(--colors-gray-100); color: var(--ink-2); }
 .ac-nav__peek--live { background: var(--colors-success-50); color: var(--colors-success-700); }
 .ac-nav__toggle[aria-expanded="false"] .ac-nav__peek { display: inline-block; }
-.ac-nav__hub { flex: none; font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; padding: 0 10px 6px 4px; }
-.ac-nav__hub:hover, .ac-nav__hub.is-active { color: var(--accent-strong); }
 .ac-nav .ac-nav__group.is-collapsed { display: none; }
 @media (min-width: 1024px) {
   html.ac-rail .ac-nav__head { height: 0; overflow: hidden; }
@@ -1268,4 +1266,50 @@ a.ac-fformats__card:hover { border-color: var(--colors-brand-200); background: v
   .ac-fgallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ac-fbars li { grid-template-columns: 80px minmax(0, 1fr) 40px; }
   .ac-fnav { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; }
+}
+
+/* =====================================================================
+   Vitrines com marca: capa + selo do canal/portal/plataforma, selo próprio
+   de Programática e vitrine de formatos agrupada por canal (ou por tipo).
+   ===================================================================== */
+.ac-fmark--xs { width: 20px; height: 20px; border-radius: 5px; font-size: 11px; }
+.ac-fmark--xs img { padding: 8%; }
+.ac-fmark--xl { width: 72px; height: 72px; border-radius: 16px; font-size: 26px; box-shadow: var(--shadow-sm); }
+.ac-fmark--prog { background: linear-gradient(135deg, var(--colors-brand-500), var(--colors-brand-700)); border-color: transparent; color: #fff; }
+.ac-fmark--prog svg { width: 62%; height: 62%; }
+.ac-item__media { position: relative; }
+.ac-item__media.is-empty { background: linear-gradient(135deg, var(--colors-gray-50), var(--colors-brand-25)); }
+.ac-item__badge { position: absolute; left: 10px; bottom: 10px; display: block; line-height: 0; }
+.ac-item__badge .ac-fmark { box-shadow: 0 2px 6px rgba(16, 24, 40, .18); }
+.ac-item__brand { display: grid; place-items: center; }
+.ac-item__scale { display: grid; justify-items: center; gap: 6px; align-content: center; }
+.ac-item__scale > span { display: block; border: 1.5px solid var(--colors-brand-400); background: var(--colors-brand-50); border-radius: 3px; }
+.ac-item__badge--top { top: 8px; bottom: auto; left: 8px; }
+.ac-item__media { text-decoration: none; }
+.ac-item__scale small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.ac-seg { display: inline-flex; padding: 2px; border-radius: 9px; background: var(--colors-gray-100); }
+.ac-seg__opt { padding: 5px 12px; border-radius: 7px; font-size: 13px; font-weight: 500; color: var(--muted); text-decoration: none; }
+.ac-seg__opt:hover { color: var(--ink); }
+.ac-seg__opt.is-on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-xs); }
+.ac-bchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.ac-bchip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 10px 0 6px; border: 1px solid var(--colors-gray-200); border-radius: 999px; background: var(--surface); font-size: 13px; font-weight: 500; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.ac-bchip:first-child { padding-left: 12px; }
+.ac-bchip span { font-size: 12px; color: var(--muted); }
+.ac-bchip:hover { border-color: var(--colors-brand-200); }
+.ac-bchip.is-on { background: var(--accent-soft); border-color: var(--colors-brand-300); color: var(--accent-strong); }
+.ac-fnav--groups { margin: 0 0 8px; }
+.ac-shelf { margin: 0 0 24px; scroll-margin-top: calc(var(--top-h) + 56px); }
+.ac-shelf__head { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; }
+.ac-catalog--dense { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ac-catalog--dense .ac-item__media { aspect-ratio: 16 / 10; }
+
+.ac-fpick__img { flex: none; width: 40px; height: 40px; border-radius: 8px; object-fit: cover; }
+.ac-fbanner__sub { margin: 4px 0 0; font-size: 14px; color: rgba(255, 255, 255, .86); }
+.ac-fbanner__chips { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-fbanner__chips span { padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; background: rgba(255, 255, 255, .16); color: #fff; backdrop-filter: blur(6px); }
+.ac-fbanner__chips .is-premium { background: #f5c451; color: #3d2c00; }
+@media (max-width: 600px) {
+  .ac-bchips { flex-wrap: nowrap; overflow-x: auto; margin-left: -12px; margin-right: -12px; padding: 0 12px; scrollbar-width: none; }
+  .ac-catalog--dense { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

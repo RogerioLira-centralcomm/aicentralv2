@@ -1,12 +1,6 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon %}
+{% from 'area_cliente/_macros.html' import icon, marca %}
 {% block title %}{{ item.nome }} · {{ secao_titulo }}{% endblock %}
-
-{% macro marca(logo, nome, tam='md') -%}
-{%- if logo -%}<span class="ac-fmark ac-fmark--{{ tam }}"><img src="{{ logo }}" alt="" loading="lazy" onerror="this.parentNode.classList.add('is-txt');this.remove()"><b aria-hidden="true">{{ (nome or '?')[:1]|upper }}</b></span>
-{%- else -%}<span class="ac-fmark ac-fmark--{{ tam }} is-txt"><b aria-hidden="true">{{ (nome or '?')[:1]|upper }}</b></span>{%- endif -%}
-{%- endmacro %}
-
 {% macro escolher(sec, iid, nome) -%}
 {% with secao=sec, item_id=iid, nome=nome, marcado=(sec, iid) in marcados, compacto=True, voltar=request.path %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
 {%- endmacro %}
@@ -44,10 +38,12 @@
   <header class="ac-fbanner{% if item.banner and not item.banner_contain %} has-image{% endif %}"{% if item.banner and not item.banner_contain %} style="--fb-img: url('{{ item.banner }}')"{% endif %}>
     {% if item.banner and item.ilustrativo and not item.banner_contain %}<span class="ac-fbanner__badge">Ilustração</span>{% endif %}
     <div class="ac-fbanner__inner">
-      {{ marca(item.logo, item.nome, 'lg') }}
+      {{ marca(item.logo, item.marca_nome or item.nome, 'lg') }}
       <div class="ac-fbanner__title">
         {% if item.eyebrow %}<p class="ac-fbanner__eyebrow">{{ item.eyebrow }}</p>{% endif %}
         <h1>{{ item.nome }}</h1>
+        {% if item.subtitulo %}<p class="ac-fbanner__sub">{{ item.subtitulo }}</p>{% endif %}
+        {% if item.selos %}<p class="ac-fbanner__chips">{% for x in item.selos %}<span{% if x == 'Premium' %} class="is-premium"{% endif %}>{{ x }}</span>{% endfor %}</p>{% endif %}
       </div>
       <div class="ac-fbanner__cta">
         {% with item_id=item.id, nome=item.nome, marcado=(secao, item.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
@@ -122,7 +118,7 @@
 
         {% elif s.tipo == 'audiencias' %}
         <ul class="ac-fpick">{% for a in d %}
-          <li><a href="{{ area_url('descobrir_item', secao=a.secao, item_id=a.id) }}"><span class="ac-fpick__icon">{{ icon('users', 16) }}</span><span><strong>{{ a.nome }}</strong>{% if a.texto %}<small>{{ a.texto }}</small>{% endif %}</span></a>{{ escolher(a.secao, a.id, a.nome) }}</li>
+          <li><a href="{{ area_url('descobrir_item', secao=a.secao, item_id=a.id) }}">{% if a.imagem %}<img class="ac-fpick__img" src="{{ a.imagem }}" alt="" loading="lazy">{% else %}<span class="ac-fpick__icon">{{ icon('users', 16) }}</span>{% endif %}<span><strong>{{ a.nome }}</strong>{% if a.texto %}<small>{{ a.texto }}</small>{% endif %}</span></a>{{ escolher(a.secao, a.id, a.nome) }}</li>
         {% endfor %}</ul>
 
         {% elif s.tipo == 'anuncios' %}
@@ -191,7 +187,7 @@
       <ul>{% for r in item.relacionados.itens %}
         <li>
           <a class="ac-frel{% if r.imagem %} has-photo{% endif %}" href="{{ area_url('descobrir_item', secao=r.secao, item_id=r.id) }}">
-            {% if r.imagem %}<span class="ac-frel__photo"><img src="{{ r.imagem }}" alt="" loading="lazy">{{ marca(r.logo, r.nome, 'sm') }}</span>{% else %}{{ marca(r.logo, r.nome, 'sm') }}{% endif %}
+            {% if r.imagem %}<span class="ac-frel__photo"><img src="{{ r.imagem }}" alt="" loading="lazy">{{ marca(r.logo, r.marca or r.nome, 'sm') }}</span>{% else %}{{ marca(r.logo, r.marca or r.nome, 'sm') }}{% endif %}
             <span class="ac-frel__text"><strong>{{ r.nome }}</strong>{% if r.sub %}<small>{{ r.sub }}</small>{% endif %}</span>
           </a>
           {{ escolher(r.secao, r.id, r.nome) }}

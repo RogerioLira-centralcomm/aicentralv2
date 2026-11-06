@@ -8,7 +8,6 @@ O cliente pode separar itens para mandar junto com o briefing.
 
 from __future__ import annotations
 
-import time
 
 from werkzeug.exceptions import NotFound
 
@@ -24,7 +23,6 @@ TIPO_ROTULO = {"canais": "Canal", "formatos": "Formato", "interativos": "Formato
 POR_PAGINA = 24
 LIMITE_SELECAO = 20  # a seleção fica no cookie de sessão (limite de ~4 KB)
 NOME_MAX = 60
-_CACHE_RESUMO = {"em": 0.0, "dados": None}
 
 
 def _repo():
@@ -38,22 +36,75 @@ def _texto(valor, limite=400):
 
 
 def _cartao(secao, r) -> dict:
-    """Formato único de cartão para as cinco vitrines."""
+    """Formato único de cartão para as cinco vitrines: capa, selo da marca e textos."""
     if secao == "canais":
         meta = [r.get("category")] + ([f"{r['reach_figure']} {r.get('reach_unit') or ''}".strip()] if r.get("reach_figure") else [])
         return {"id": r["id"], "nome": r.get("name"), "descricao": _texto(r.get("description"), 180),
-                "imagem": r.get("image_url") or "", "logo": r.get("logo_path") or "", "meta": [m for m in meta if m]}
+                "imagem": r.get("image_url") or "", "logo": r.get("logo_path") or "", "marca": r.get("name") or "",
+                "meta": [m for m in meta if m]}
     if secao in ("formatos", "interativos"):
-        meta = [r.get("platform"), r.get("purpose"), r.get("dimensions")]
-        return {"id": r["id"], "nome": r.get("name"), "descricao": _texto(r.get("description"), 180),
-                "imagem": r.get("image_url") or "", "logo": r.get("platform_logo") or "", "meta": [m for m in meta if m]}
+        from .ficha import _quadro
+        meta = [r.get("purpose"), r.get("dimensions") if len(str(r.get("dimensions") or "")) <= 40 else None]
+        return {"id": r["id"], "nome": r.get("name"), "descricao": _texto(r.get("description"), 140),
+                "imagem": r.get("image_url") or "", "logo": r.get("platform_logo") or "", "marca": r.get("platform") or "",
+                "quadro": _quadro(r.get("dimensions")), "familia": r.get("family") or "", "meta": [m for m in meta if m]}
     if secao == "audiencias":
-        meta = [r.get("platform"), r.get("category"), r.get("audience")]
+        meta = [r.get("category"), r.get("audience")]
         return {"id": r["id"], "nome": r.get("name"), "descricao": _texto(r.get("description"), 180),
-                "imagem": r.get("image_url") or "", "logo": r.get("platform_logo") or "", "meta": [m for m in meta if m]}
+                "imagem": r.get("image_url") or "", "logo": r.get("platform_logo") or "", "marca": r.get("platform") or "",
+                "meta": [m for m in meta if m]}
     meta = [r.get("category"), r.get("domain"), r.get("uf")]
+    logo = r.get("favicon_url") or (f"https://{r['domain']}/favicon.ico" if r.get("domain") else "")
     return {"id": r["id"], "nome": r.get("name") or r.get("domain"), "descricao": _texto(r.get("description"), 180),
-            "imagem": r.get("thumb_url") or "", "logo": r.get("favicon_url") or "", "meta": [m for m in meta if m]}
+            "imagem": r.get("thumb_url") or "", "logo": logo, "marca": r.get("name") or r.get("domain") or "",
+            "meta": [m for m in meta if m]}
+
+
+# Vitrine de formatos: blocos por canal (padrão) ou por tipo; interativos por objetivo criativo.
+VISOES_FORMATOS = {"canal": "Por canal", "tipo": "Por tipo"}
+
+
+def vitrine_formatos(secao: str, busca: str = "", canal: str = "", visao: str = "canal") -> dict:
+    """Formatos e interativos agrupados, sem paginação (o catálogo cabe numa página).
+
+    canal filtra por plataforma (chips com logo); visao escolhe o agrupamento dos formatos.
+    """
+    if secao not in ("formatos", "interativos"):
+        raise NotFound()
+    busca, canal = (busca or "").strip()[:80], (canal or "").strip()[:100]
+    visao = visao if visao in VISOES_FORMATOS else "canal"
+    repo = _repo()
+    todos = repo.catalog(secao, busca)
+    base = repo.catalog(secao, "") if busca else todos
+    chips = {}
+    for r in base:
+        nome = str(r.get("platform") or "")
+        if nome:
+            chip = chips.setdefault(nome, {"valor": nome, "logo": r.get("platform_logo") or "", "total": 0})
+            chip["total"] += 1
+    if canal:
+        todos = [r for r in todos if r.get("platform") == canal]
+    if secao == "interativos":
+        chave, ordem = (lambda r: _maiuscula(r.get("creative_category") or "Outros")), None
+        visao = "objetivo"
+    elif visao == "tipo":
+        chave = lambda r: r.get("family") or "Outros"
+        ordem = {r.get("family") or "Outros": r.get("family_order") or 99 for r in todos}
+    else:
+        chave, ordem = (lambda r: r.get("platform") or "Outros"), None
+    grupos = {}
+    for r in todos:
+        g = grupos.setdefault(chave(r), {"titulo": chave(r), "logo": r.get("platform_logo") if visao == "canal" else "",
+                                         "cartoes": []})
+        g["cartoes"].append(_cartao(secao, r))
+    lista = sorted(grupos.values(), key=lambda g: (ordem.get(g["titulo"], 99) if ordem else -len(g["cartoes"]), g["titulo"]))
+    return {"grupos": lista, "total": sum(len(g["cartoes"]) for g in lista), "busca": busca, "canal": canal, "visao": visao,
+            "chips": sorted(chips.values(), key=lambda c: (-c["total"], c["valor"])) if secao == "formatos" or len(chips) > 1 else []}
+
+
+def _maiuscula(valor):
+    texto = str(valor or "").strip()
+    return texto[:1].upper() + texto[1:] if texto else ""
 
 
 def listar(secao: str, busca: str = "", categoria: str = "", pagina: int = 1) -> dict:
@@ -94,22 +145,6 @@ def listar(secao: str, busca: str = "", categoria: str = "", pagina: int = 1) ->
         "total": total, "pagina": min(pagina, paginas), "paginas": paginas,
         "categorias": categorias[:60], "busca": busca, "categoria": categoria,
     }
-
-
-def resumo_secoes() -> list[dict]:
-    """Contagem por vitrine para a página inicial do Descobrir (cache de 10 minutos)."""
-    if _CACHE_RESUMO["dados"] is not None and time.time() - _CACHE_RESUMO["em"] < 600:
-        return _CACHE_RESUMO["dados"]
-    saida = []
-    for secao, (titulo, icone, texto) in SECOES.items():
-        try:
-            total = listar(secao)["total"]
-        except Exception:
-            total = None
-        saida.append({"id": secao, "titulo": titulo, "icone": icone, "texto": texto, "total": total})
-    if all(s["total"] is not None for s in saida):
-        _CACHE_RESUMO.update(em=time.time(), dados=saida)
-    return saida
 
 
 def detalhe(secao: str, item_id) -> dict:

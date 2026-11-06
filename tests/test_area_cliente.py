@@ -441,7 +441,7 @@ def test_campanhas_por_status_sem_custos(app, monkeypatch):
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [camp]}])
     client = _client(app, {"user_id": 501})
     html = client.get("/campanhas?status=aguardando", base_url=HOST).get_data(as_text=True)
-    assert "Verão Meta" in html and "Ana Op" in html and "Aguardando criativos" in html
+    assert "Verão Meta" in html and "Ana Op" not in html and "Aguardando criativos" in html  # responsável interno não aparece
     for termo in ("Gasto", "Previsto", "Investimento", "Mídia e Veiculação", "Arquivos"):
         assert termo not in html
     assert client.get("/midia", base_url=HOST).headers["Location"] == "/campanhas"
@@ -545,7 +545,7 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
     d = json.loads(dados_json)[0]
     assert d["tempo"] == "40% · 18 dias restantes" and d["pi_url"] == "/pis/12" and d["pi_360"] == "/projetos/12"
     # resumo, diferença em p.p. sobre a meta proporcional ao tempo e coluna de responsável
-    assert "+10 p.p. da meta" in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" in html
+    assert "+10 p.p. da meta" in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" not in html
 
 
 def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch):
@@ -648,46 +648,48 @@ def _camp(**extra):
     return {**base, **extra}
 
 
-def test_relatorios_so_pis_abertos_com_link_publico(app, monkeypatch):
+def _projetos_relatorio():
+    base = {"periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "tempo_pct": 40, "dias_restantes": 18, "ritmo": "adiantado",
+            "contraparte": {"rotulo": "Agência", "nome": "Agência X"}}
+    return [
+        {**base, "id": 12, "titulo": "PI Verão", "pi": "CC-123", "status": "Em andamento", "status_id": 3, "ativo": True,
+         "campanhas": [_camp(), _camp(id=2, nome="Encerrada", no_ar=False)]},
+        {**base, "id": 14, "titulo": "PI Inverno", "pi": "CC-140", "status": "Em andamento", "status_id": 3, "ativo": True,
+         "campanhas": [_camp(id=5, nome="Inverno Google", ritmo="atencao", id_pi=14), _camp(id=6, nome="Inverno Meta", ritmo="no_ritmo", id_pi=14)]},
+        {**base, "id": 13, "titulo": "PI Antigo", "pi": "CC-100", "status": "Finalizado", "status_id": 5, "ativo": False,
+         "periodo": {"inicio": "2025-01-01", "fim": "2025-02-01"}, "campanhas": [_camp(id=3, nome="Velha", no_ar=False)]},
+    ]
+
+
+def test_relatorios_lista_pis_por_situacao_com_cliente_ou_agencia(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     from aicentralv2.area_cliente import dados
-    projetos = [
-        {"id": 12, "titulo": "PI Verão", "pi": "CC-123", "status": "Em andamento", "status_id": 3, "ativo": True,
-         "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "campanhas": [_camp(), _camp(id=2, nome="Encerrada", no_ar=False)]},
-        {"id": 13, "titulo": "PI Antigo", "pi": "CC-100", "status": "Finalizado", "status_id": 5, "ativo": False,
-         "periodo": {"inicio": "2025-01-01", "fim": "2025-02-01"}, "campanhas": [_camp(id=3, nome="Velha")]},
-    ]
-    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: _projetos_relatorio())
     monkeypatch.setattr(dados, "_fetch", lambda sql, params: [
         {"id_pi": 12, "link_publico_token": "cliente-pi-abc123", "link_publico_ativo": True,
          "link_publico_expires_at": None, "googled_pi_financ": "https://drive.google.com/x"}])
-    html = _client(app, {"user_id": 501}).get("/relatorios", base_url=HOST).get_data(as_text=True)
-    assert "PI Verão" in html and "PI Antigo" not in html
-    assert 'href="/campanha/p/cliente-pi-abc123"' in html and "Prestação de contas" in html
-    assert "Verão Meta" in html and "Encerrada" not in html
-    assert "ac-progress--adiantado" in html and "Campanhas ativas" in html and "Adiantada" in html
-    assert 'href="https://lookerstudio.google.com/x"' in html and 'data-ac-sort' in html
-
-
-def test_relatorios_escolhe_o_pi_pela_query(app, monkeypatch):
-    _logado(monkeypatch, _usuario())
-    from aicentralv2.area_cliente import dados
-    base = {"status": "Em andamento", "status_id": 3, "ativo": True, "periodo": {"inicio": "2026-11-01", "fim": "2026-12-01"}, "tempo_pct": 40}
-    projetos = [
-        {**base, "id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [_camp()]},
-        {**base, "id": 14, "titulo": "PI Inverno", "pi": "CC-140", "campanhas": [_camp(id=5, nome="Inverno Google", ritmo="atencao", id_pi=14),
-                                                                                  _camp(id=6, nome="Inverno Meta", ritmo="no_ritmo", id_pi=14)]},
-    ]
-    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
-    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
     client = _client(app, {"user_id": 501})
     html = client.get("/relatorios", base_url=HOST).get_data(as_text=True)
-    # Sem escolha, abre o PI com mais campanhas no ar.
-    assert ">PI Inverno</a>" in html
-    assert "Inverno Google" in html and "Verão Meta" not in html and '<option value="12"' in html
+    assert "PI Verão" in html and "PI Inverno" in html and "PI Antigo" not in html
+    assert 'class="ac-utabs"' in html and "Finalizados<span>1</span>" in html and "Em andamento<span>2</span>" in html
+    assert ">Agência</th>" in html and "Agência X" in html                     # coluna da outra parte
+    assert html.index(">CC-123<") < html.index("PI Verão")                    # PI na primeira coluna
+    assert 'href="/campanha/p/cliente-pi-abc123"' in html and "1 em atenção" in html
+    finalizados = client.get("/relatorios?status=finalizados", base_url=HOST).get_data(as_text=True)
+    assert "PI Antigo" in finalizados and "PI Verão" not in finalizados
+
+
+def test_relatorios_abre_o_pi_pela_query(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: _projetos_relatorio())
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
+    client = _client(app, {"user_id": 501})
     html = client.get("/relatorios?pi=12", base_url=HOST).get_data(as_text=True)
-    assert "Verão Meta" in html and "Inverno Google" not in html
-    assert '<option value="12" selected' in html
+    assert "Verão Meta" in html and "Encerrada" not in html and "Campanhas ativas" in html and "data-ac-sort" in html
+    assert 'href="/relatorios?status=abertos"' in html                         # volta para a lista
+    antigo = client.get("/relatorios?pi=13", base_url=HOST).get_data(as_text=True)
+    assert "Velha" in antigo and ">Campanhas<" in antigo                       # finalizado mostra as campanhas com meta
 
 
 def test_pis_abre_em_andamento(app, monkeypatch):
@@ -966,3 +968,11 @@ def test_editar_estrategia_mantem_endereco_e_evita_repetido(monkeypatch):
     assert chamadas[-1][1][7].obj["url_slug"] == "nome-antigo"
     repositorio.salvar(base, None, 1)                                # nova com endereço já usado ganha sufixo
     assert chamadas[-1][1][7].obj["url_slug"] == "nome-novo-2"
+
+
+def test_contraparte_mostra_cliente_para_agencia_e_agencia_para_cliente():
+    from aicentralv2.area_cliente import dados
+    row = {"id_cliente": 10, "id_agencia": 20, "pi_tem_agencia": True, "cliente_nome": "CEMIG D", "agencia_nome": "Lapis Raro"}
+    assert dados.contraparte(row, 20) == {"rotulo": "Cliente", "nome": "CEMIG D"}        # quem vê é a agência
+    assert dados.contraparte(row, 10) == {"rotulo": "Agência", "nome": "Lapis Raro"}     # quem vê é o cliente
+    assert dados.contraparte(dict(row, pi_tem_agencia=False, id_agencia=None), 10) == {"rotulo": "Agência", "nome": "Direto"}

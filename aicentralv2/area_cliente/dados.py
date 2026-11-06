@@ -72,6 +72,20 @@ def _pi_titulo(row):
     return _limpo(row.get("titulo_pi")) or _pi_label(row)
 
 
+def contraparte(row, cliente_id) -> dict:
+    """A outra parte do PI para quem está vendo: a agência vê o cliente; o cliente vê a agência
+    (ou "Direto", quando o PI não tem agência)."""
+    try:
+        sou_agencia = row.get("id_agencia") is not None and int(row["id_agencia"]) == int(cliente_id) \
+            and row.get("id_cliente") != row.get("id_agencia")
+    except (TypeError, ValueError):
+        sou_agencia = False
+    if sou_agencia:
+        return {"rotulo": "Cliente", "nome": row.get("cliente_nome") or "—"}
+    agencia = row.get("agencia_nome") if row.get("pi_tem_agencia") else ""
+    return {"rotulo": "Agência", "nome": agencia or "Direto"}
+
+
 def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
     """PIs do cliente (como cliente final ou como agência), sem os cancelados."""
     params: list = [cliente_id, cliente_id, SUB_STATUS_CANCELADO]
@@ -88,10 +102,12 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
         SELECT pi.id_pi, pi.codigo_pi_cc, pi.codigo_pi_ag, pi.titulo_pi,
                pi.periodo_inicio, pi.periodo_fim, pi.updated_at, pi.created_at,
                pi.id_sub_status_pi, ss.display AS sub_status,
-               cli.nome_fantasia AS cliente_nome
+               pi.id_cliente, pi.id_agencia, pi.pi_tem_agencia,
+               cli.nome_fantasia AS cliente_nome, ag.nome_fantasia AS agencia_nome
           FROM cadu_pi pi
           LEFT JOIN cadu_pi_sub_status ss ON ss.key = pi.id_sub_status_pi
           LEFT JOIN tbl_cliente cli ON cli.id_cliente = pi.id_cliente
+          LEFT JOIN tbl_cliente ag ON ag.id_cliente = pi.id_agencia
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
            AND COALESCE(pi.id_sub_status_pi, 0) <> %s
            {filtro}
@@ -111,6 +127,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
             "titulo": _pi_titulo(row),
             "pi": _pi_label(row),
             "cliente": row["cliente_nome"] or "",
+            "contraparte": contraparte(row, cliente_id),
             "status": row["sub_status"] or "Em preparação",
             "status_id": row["id_sub_status_pi"],
             "ativo": row["id_sub_status_pi"] in SUB_STATUS_ATIVOS,
@@ -337,7 +354,7 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
         f"""
         SELECT pi.id_pi, pi.codigo_pi_cc, pi.codigo_pi_ag, pi.titulo_pi, pi.periodo_inicio, pi.periodo_fim,
                pi.created_at, pi.updated_at, pi.id_sub_status_pi, ss.display AS sub_status,
-               pi.vr_bruto_pi, pi.vr_cms_agencia, pi.vr_liquido_pi, pi.pi_tem_agencia,
+               pi.vr_bruto_pi, pi.vr_cms_agencia, pi.vr_liquido_pi, pi.pi_tem_agencia, pi.id_cliente, pi.id_agencia,
                pi.googled_pi_princ, pi.googled_pi_pecas, pi.googled_pi_arq_ass,
                cli.nome_fantasia AS cliente_nome, ag.nome_fantasia AS agencia_nome,
                COUNT(nf.id) AS n_notas,
@@ -356,7 +373,7 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
         """,
         params,
     )
-    return [_pi_resumo(r) for r in rows]
+    return [dict(_pi_resumo(r), contraparte=contraparte(r, cliente_id)) for r in rows]
 
 
 def _pi_resumo(r) -> dict:
@@ -448,7 +465,8 @@ def listar_campanhas(cliente_id, projetos=None) -> dict:
             chave = next((k for k, (_r, valores) in GRUPOS_CAMPANHA.items() if status in valores), None)
             if chave is None:
                 continue
-            grupos[chave].append({**c, "projeto": p["titulo"], "projeto_id": p["id"], "pi": p["pi"]})
+            grupos[chave].append({**c, "projeto": p["titulo"], "projeto_id": p["id"], "pi": p["pi"],
+                                  "contraparte": p.get("contraparte") or {"rotulo": "Agência", "nome": "—"}})
     return grupos
 
 
@@ -478,9 +496,10 @@ SUB_STATUS_ABERTOS = (1, 2, 3, 4)  # Em aprovação, configuração, andamento, 
 
 
 def relatorios(cliente_id) -> list[dict]:
-    """Por PI em aberto: link público de acompanhamento, prestação de contas e dashboards no ar."""
+    """Por PI (abertos e finalizados): link público de acompanhamento, prestação de contas, dashboards
+    e as campanhas do relatório (no PI aberto, as que estão no ar; no finalizado, todas com meta)."""
     from datetime import datetime
-    projetos = [p for p in listar_projetos(cliente_id) if p["status_id"] in SUB_STATUS_ABERTOS]
+    projetos = listar_projetos(cliente_id)
     if not projetos:
         return []
     rows = _fetch(
@@ -499,9 +518,13 @@ def relatorios(cliente_id) -> list[dict]:
         if e.get("link_publico_token") and e.get("link_publico_ativo") and not (expira and expira < datetime.now()):
             link = f"/campanha/p/{e['link_publico_token']}"
         financ = _limpo(e.get("googled_pi_financ"))
-        ativas = [c for c in p["campanhas"] if c["no_ar"]]
+        aberto = p["status_id"] in SUB_STATUS_ABERTOS
+        no_ar = [c for c in p["campanhas"] if c["no_ar"]] if aberto else []
+        # Sem nada no ar (finalizado ou já em faturamento): as campanhas com meta, para ver como terminaram.
+        ativas = no_ar or [c for c in p["campanhas"] if c["meta"]]
         ritmos = {r: sum(1 for c in ativas if c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")}
-        saida.append({**p, "link_publico": link,
+        saida.append({**p, "aberto": aberto, "no_ar": bool(no_ar), "link_publico": link,
+                      "dashboards": sum(1 for c in ativas if c["dash_abrir"]),
                       "prestacao": financ if financ and financ.startswith(("http://", "https://")) else "",
                       "ativas": sorted(ativas, key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["nome"])),
                       "kpis": {"ativas": len(ativas),
@@ -509,8 +532,10 @@ def relatorios(cliente_id) -> list[dict]:
                                "no_ritmo": ritmos["no_ritmo"] + ritmos["adiantado"],
                                "adiantadas": ritmos["adiantado"],
                                "atencao": ritmos["atencao"]}})
-    # PIs em andamento primeiro; dentro deles, os com mais campanhas no ar.
-    saida.sort(key=lambda p: (not p["ativo"], -p["kpis"]["ativas"]))
+    # Abertos primeiro (os com mais campanhas no ar antes); finalizados pelo fim do período, mais recentes antes.
+    abertos = sorted((p for p in saida if p["aberto"]), key=lambda p: (not p["ativo"], -p["kpis"]["ativas"]))
+    fechados = sorted((p for p in saida if not p["aberto"]), key=lambda p: p["periodo"]["fim"] or "", reverse=True)
+    saida = abertos + fechados
     return saida
 
 

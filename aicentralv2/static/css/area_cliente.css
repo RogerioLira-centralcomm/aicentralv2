@@ -1584,20 +1584,21 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-nav .ac-nav__toggle { padding-left: 12px; }
 
 /* ---------- Campanhas: abas sublinhadas, resumo e tabela sem rolagem lateral ---------- */
-.ac-utabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.ac-utabs__item { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; white-space: nowrap; }
-.ac-utabs__item span { font-size: 12px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Abas sublinhadas (subcabeçalho padrão): sem fundo; a ativa ganha texto escuro e traço verde. */
+.ac-utabs { display: flex; gap: 24px; border-bottom: 1px solid var(--line); margin: 0 0 14px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.ac-utabs__item { display: inline-flex; align-items: center; gap: 8px; padding: 10px 0 11px; margin-bottom: -1px; border-bottom: 2px solid transparent; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; white-space: nowrap; }
+.ac-utabs__item span { min-width: 22px; height: 20px; padding: 0 7px; border-radius: 10px; display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--colors-gray-100); font-variant-numeric: tabular-nums; }
 .ac-utabs__item:hover { color: var(--ink-2); }
-.ac-utabs__item.is-active { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); background: var(--accent-soft); border-radius: 8px 8px 0 0; }
-.ac-utabs__item.is-active span { color: var(--ink); }
-.ac-camp-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.ac-camp-sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 15px; color: var(--ink-2); }
-.ac-camp-sum b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-.ac-camp-sum .ac-dot { margin: 0; }
-.ac-camp-sum__sep { color: var(--colors-gray-300); }
-.ac-camp-sum__alert { font-weight: 600; color: var(--colors-warning-700); text-decoration: none; border-radius: 6px; padding: 0 4px; }
-.ac-camp-sum__alert:hover { text-decoration: underline; }
-.ac-camp-sum__alert.is-on { background: var(--colors-warning-50); box-shadow: inset 0 0 0 1px var(--colors-warning-200); text-decoration: none; }
+.ac-utabs__item.is-active { color: var(--ink); font-weight: 600; border-bottom-color: var(--accent); }
+.ac-utabs__item.is-active span { color: var(--accent-strong); background: var(--accent-soft); }
+.ac-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ac-subbar__sum { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 15px; color: var(--ink-2); }
+.ac-subbar__sum b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.ac-subbar__sum .ac-dot { margin: 0; }
+.ac-subbar__sep { color: var(--colors-gray-300); }
+.ac-subbar__alert { font-weight: 600; color: var(--colors-warning-700); text-decoration: none; border-radius: 6px; padding: 0 4px; }
+.ac-subbar__alert:hover { text-decoration: underline; }
+.ac-subbar__alert.is-on { background: var(--colors-warning-50); box-shadow: inset 0 0 0 1px var(--colors-warning-200); text-decoration: none; }
 
 /* overflow visível: a largura fixa das colunas já garante que a tabela cabe, e a dica do Ritmo não é cortada. */
 .ac-camp-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl); box-shadow: var(--shadow-xs); overflow: visible; }
@@ -1605,13 +1606,15 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-camp thead th:last-child { border-top-right-radius: var(--radius-xl); }
 /* Largura fixa por coluna: a tabela nunca passa da caixa (sem rolagem lateral); o nome quebra linha. */
 .ac-camp { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
-.ac-camp thead th:nth-child(2) { width: 112px; }
-.ac-camp thead th:nth-child(3) { width: 20%; }
-.ac-camp thead th:nth-child(4) { width: 132px; }
-.ac-camp thead th:nth-child(5) { width: 152px; }
-.ac-camp thead th:nth-child(6) { width: 92px; }
-.ac-camp thead th:nth-child(7) { width: 124px; }
+/* Colunas: 1 PI, 2 campanha (resto), 3 cliente/agência, 4 plataforma, 5 entrega, 6 ritmo, 7 tempo, 8 ações. */
+.ac-camp thead th:nth-child(1) { width: 92px; }
+.ac-camp thead th:nth-child(3) { width: 150px; }
+.ac-camp thead th:nth-child(4) { width: 112px; }
+.ac-camp thead th:nth-child(5) { width: 20%; }
+.ac-camp thead th:nth-child(6) { width: 132px; }
+.ac-camp thead th:nth-child(7) { width: 152px; }
 .ac-camp thead th:nth-child(8) { width: 72px; }
+.ac-camp__parte { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
 .ac-camp tbody th, .ac-camp tbody td { overflow: hidden; }
 .ac-camp .ac-grid__name { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
 .ac-camp .ac-platname { overflow: hidden; text-overflow: ellipsis; }
@@ -1641,7 +1644,6 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-camp__tempo b { font-weight: 600; color: var(--ink); }
 .ac-camp__pi { font-weight: 600; color: var(--accent-strong); text-decoration: none; white-space: nowrap; }
 .ac-camp__pi:hover { text-decoration: underline; }
-.ac-camp__resp { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-camp__acts { white-space: nowrap; text-align: right; }
 .ac-camp__acts .ac-icon-btn { display: inline-grid; }
 .ac-badge--ritmo { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
@@ -1653,26 +1655,28 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
   width: 260px; padding: 8px 10px; border-radius: 8px; background: var(--colors-gray-900); color: #fff;
   font-size: 12px; font-weight: 400; line-height: 16px; letter-spacing: 0; text-transform: none; white-space: normal; box-shadow: var(--shadow-lg);
 }
-@media (max-width: 1280px) {
-  .ac-camp th:nth-child(7), .ac-camp td:nth-child(7) { display: none; }   /* Responsável fica no painel lateral */
-}
 @media (max-width: 1366px) {
-  .ac-camp th:nth-child(2), .ac-camp td:nth-child(2) { display: none; }   /* plataforma já aparece no logo do nome */
+  .ac-camp th:nth-child(4), .ac-camp td:nth-child(4) { display: none; }   /* plataforma já aparece no logo do nome */
+}
+@media (max-width: 1200px) {
+  .ac-camp thead th:nth-child(3) { width: 118px; }
+  .ac-camp thead th:nth-child(7) { width: 134px; }
 }
 @media (max-width: 900px) {
   .ac-camp { table-layout: auto; }
   .ac-camp thead { display: none; }
-  .ac-camp, .ac-camp tbody, .ac-camp tr, .ac-camp tbody th, .ac-camp tbody td { display: block; width: 100%; }
-  .ac-camp tr { padding: 12px 14px; border-bottom: 1px solid var(--line); }
-  .ac-camp tbody th, .ac-camp tbody td { padding: 4px 0; border: 0; }
-  .ac-camp td:nth-child(2), .ac-camp td:nth-child(7) { display: none; }
-  .ac-camp__entrega { min-width: 0; }
-  .ac-camp td:nth-child(4) { display: flex; align-items: center; gap: 8px; }
-  .ac-camp td:nth-child(4) .ac-camp__dif { margin: 0; }
-  .ac-camp td:nth-child(5), .ac-camp td:nth-child(6) { display: inline-block; width: auto; margin-right: 16px; }
-  .ac-camp tbody td.ac-camp__acts { position: absolute; top: 10px; right: 12px; width: auto; padding: 0; }
-  .ac-camp tr { position: relative; }
+  .ac-camp, .ac-camp tbody { display: block; width: 100%; }
+  .ac-camp tr { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .ac-camp tbody th, .ac-camp tbody td { display: block; padding: 0; border: 0; overflow: visible; }
+  .ac-camp tbody th { order: -1; flex: 1 1 100%; }
   .ac-camp__name { padding-right: 72px; min-width: 0; }
+  .ac-camp td:nth-child(4) { display: none; }
+  .ac-camp__picol, .ac-camp__parte { font-size: 12px; }
+  .ac-camp__parte { max-width: 60%; }
+  .ac-camp__entrega { flex: 1 1 100%; min-width: 0; }
+  .ac-camp td:nth-child(6) { display: flex; align-items: center; gap: 8px; }
+  .ac-camp td:nth-child(6) .ac-camp__dif { margin: 0; }
+  .ac-camp tbody td.ac-camp__acts { position: absolute; top: 10px; right: 12px; width: auto; }
 }
 
 /* Topo: nomes de cliente longos (ex.: SICOOB CENTRAL CREDIMINAS) encurtam com reticências em vez de empurrar a barra para fora da tela. */
@@ -1685,4 +1689,41 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 @media (max-width: 1280px) {
   .ac-viewas { max-width: 240px; }
   .ac-user__text { max-width: 130px; }
+}
+
+/* Relatórios: lista de PIs com o mesmo subcabeçalho e a mesma tabela de Campanhas.
+   Colunas: 1 PI, 2 título (resto), 3 cliente/agência, 4 entrega, 5 ritmo, 6 período, 7 relatórios, 8 abrir. */
+.ac-rlist thead th:nth-child(1) { width: 92px; }
+.ac-rlist thead th:nth-child(3) { width: 150px; }
+.ac-rlist thead th:nth-child(4) { width: 20%; }
+.ac-rlist thead th:nth-child(5) { width: 140px; }
+.ac-rlist thead th:nth-child(6) { width: 170px; }
+.ac-rlist thead th:nth-child(7) { width: 96px; }
+.ac-rlist thead th:nth-child(8) { width: 52px; }
+.ac-rlist__titulo { display: flex; flex-direction: column; gap: 2px; color: inherit; text-decoration: none; min-width: 0; }
+.ac-rlist__titulo b { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.ac-rlist__titulo:hover b { color: var(--accent-strong); }
+.ac-rlist__links { white-space: nowrap; }
+.ac-rlist__links .ac-icon-btn { display: inline-grid; }
+.ac-rlist .ac-camp__tempo small { white-space: nowrap; }
+.ac-pis__pi { font-weight: 600; white-space: nowrap; }
+@media (max-width: 1366px) { .ac-rlist thead th:nth-child(6) { width: 140px; } }
+@media (max-width: 1200px) { .ac-rlist thead th:nth-child(3) { width: 118px; } }
+@media (max-width: 900px) {
+  .ac-rlist tbody td:nth-child(4) { display: block; flex: 1 1 100%; }
+  .ac-rlist tbody td:nth-child(5) { display: block; }
+}
+
+/* PIs: mesmo cabeçalho de tabela das demais listas (Campanhas, Relatórios). */
+.ac-table-card { border-radius: var(--radius-xl); }
+.ac-table-card .ac-table thead th { padding: 10px 12px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ac-table-card .ac-table td { vertical-align: middle; padding: 12px; }
+
+/* Sem rolagem lateral entre 1024 e 1280 px (menu aberto): colunas secundárias saem.
+   PIs: 3 Plataformas e 6 Valor bruto (fica o líquido). Detalhe do relatório: 2 Plataforma. */
+@media (min-width: 901px) and (max-width: 1280px) {
+  .ac-pis-table th:nth-child(3), .ac-pis-table td:nth-child(3),
+  .ac-pis-table th:nth-child(6), .ac-pis-table td:nth-child(6) { display: none; }
+  .ac-rel-table .ac-table th:nth-child(2), .ac-rel-table .ac-table td:nth-child(2) { display: none; }
+  .ac-rel-bar { min-width: 120px; gap: 8px; }
 }

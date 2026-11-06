@@ -66,6 +66,20 @@
 <span class="ac-badge ac-badge--{{ tom }}"><span class="ac-badge__dot" aria-hidden="true"></span>{{ texto or 'Em preparação' }}</span>
 {%- endmacro %}
 
+{# Subcabeçalho padrão das listas (Campanhas, Relatórios, PIs): abas por situação.
+   itens: [(id, rótulo, contagem)]; o link troca ?status=, mantendo extra (ex.: "&q=..."). #}
+{% macro abas(itens, ativo, base_url, rotulo, extra='') -%}
+<nav class="ac-utabs" aria-label="{{ rotulo }}">
+  {% for id, nome, n in itens %}<a class="ac-utabs__item{% if id == ativo %} is-active{% endif %}" href="{{ base_url }}?status={{ id }}{{ extra }}"{% if id == ativo %} aria-current="page"{% endif %}>{{ nome }}<span>{{ n }}</span></a>{% endfor %}
+</nav>
+{%- endmacro %}
+
+{# Rótulo da coluna da outra parte do PI: "Cliente" (quem vê é agência), "Agência" ou os dois. #}
+{% macro rotulo_contraparte(lista) -%}
+{%- set r = lista|map(attribute='contraparte.rotulo', default='Agência')|unique|list -%}
+{{ r[0] if r|length == 1 else 'Cliente / agência' }}
+{%- endmacro %}
+
 {% macro ritmo_badge(ritmo) -%}
 {% if ritmo == 'adiantado' %}<span class="ac-badge ac-badge--success ac-badge--ritmo">{{ icon('trend', 12) }}Adiantada</span>
 {% elif ritmo == 'no_ritmo' %}<span class="ac-badge ac-badge--brand ac-badge--ritmo">{{ icon('check', 12) }}No ritmo</span>

@@ -483,7 +483,8 @@ def view_campanhas(usuario):
         filtro = "andamento"
     ritmo = dados.ritmo_campanhas(usuario["cliente_id"])
     rotulos = {k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()}
-    return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro, grupos_rotulo=rotulos,
+    abas_itens = [(k, rotulos[k], len(ritmo["grupos"][k])) for k in rotulos]
+    return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro, grupos_rotulo=rotulos, abas_itens=abas_itens,
                    drawer_dados=[_drawer_campanha(c, rotulos[filtro]) for c in ritmo["grupos"][filtro]])
 
 
@@ -499,7 +500,9 @@ def _drawer_campanha(c, status) -> dict:
             tempo += f" · {c['dias_restantes']} dias restantes"
     return {
         "nome": c["nome"], "status": status, "objetivo": c.get("objetivo") or "—", "logo": c.get("plataforma_logo") or "",
-        "plataforma": c.get("plataforma") or "—", "responsavel": c.get("responsavel") or "Centralcomm",
+        "plataforma": c.get("plataforma") or "—",
+        "parte_rotulo": (c.get("contraparte") or {}).get("rotulo") or "Agência",
+        "parte": (c.get("contraparte") or {}).get("nome") or "—",
         "pct": f"{c['pct']}%" if c.get("pct") is not None else "—", "pct_num": c.get("pct") or 0,
         "atingido": c.get("atingido_label") or "—", "meta": c.get("meta_label") or "—",
         "ritmo": ritmos.get(c.get("ritmo"), "—"), "tempo": tempo,
@@ -510,10 +513,15 @@ def _drawer_campanha(c, status) -> dict:
 
 
 def view_relatorios(usuario):
+    """Lista de PIs por situação (abas iguais às de PIs); ?pi=<id> abre o relatório do PI."""
     pis = dados.relatorios(usuario["cliente_id"])
     escolhido = request.args.get("pi", type=int)
-    atual = next((p for p in pis if p["id"] == escolhido), pis[0] if pis else None)
-    return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=atual)
+    atual = next((p for p in pis if p["id"] == escolhido), None) if escolhido else None
+    filtro = request.args.get("status", "abertos")
+    filtro = filtro if filtro in PIS_FILTROS else "abertos"
+    grupos = {"abertos": [p for p in pis if p["aberto"]], "finalizados": [p for p in pis if not p["aberto"]], "todos": pis}
+    return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=atual, filtro=filtro, filtros=PIS_FILTROS,
+                   lista=grupos[filtro], abas_itens=[(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()])
 
 
 PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados", "todos": "Todos"}
@@ -535,14 +543,16 @@ def view_pis(usuario):
         pis = todos
     if termo:
         t = termo.lower()
-        pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()]
+        pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()
+               or t in ((p.get("contraparte") or {}).get("nome") or "").lower()]
     por_pi: dict = {}
     for c in dados.campanhas_dos_pis([p["id"] for p in pis]):
         por_pi.setdefault(c["id_pi"], []).append(c)
     for p in pis:
         p["plataformas"] = plataformas.resumo(por_pi.get(p["id"], []))
     return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo,
-                   filtro=filtro, filtros=PIS_FILTROS, contagem=contagem)
+                   filtro=filtro, filtros=PIS_FILTROS, contagem=contagem,
+                   abas_itens=[(k, v, contagem[k]) for k, v in PIS_FILTROS.items()])
 
 
 def view_pi(usuario, id_pi):

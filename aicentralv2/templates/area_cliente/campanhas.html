@@ -1,5 +1,5 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat, abas, rotulo_contraparte %}
 {% block title %}Campanhas{% endblock %}
 {% block content %}
 {% set k = ritmo.kpis %}
@@ -7,20 +7,16 @@
 {% set plataformas = lista|map(attribute='plataforma')|reject('none')|reject('equalto', '')|unique|sort|list %}
 <h1 class="ac-h1 ac-page-title">Campanhas</h1>
 
-<nav class="ac-utabs" aria-label="Status de veiculação">
-  {% for id, rotulo in grupos_rotulo.items() %}
-  <a class="ac-utabs__item{% if id == filtro %} is-active{% endif %}" href="{{ area_url('campanhas') }}?status={{ id }}"{% if id == filtro %} aria-current="page"{% endif %}>{{ rotulo }}<span>{{ ritmo.grupos[id]|length }}</span></a>
-  {% endfor %}
-</nav>
+{{ abas(abas_itens, filtro, area_url('campanhas'), 'Status de veiculação') }}
 
 {% set n_atencao = lista|selectattr('ritmo', 'equalto', 'atencao')|list|length %}
 {% set pcts = lista|selectattr('pct', 'number')|map(attribute='pct')|list %}
-<div class="ac-camp-bar">
-  <p class="ac-camp-sum">
+<div class="ac-subbar">
+  <p class="ac-subbar__sum">
     <span class="ac-dot ac-dot--{{ filtro }}"></span><span><b>{{ lista|length }}</b> {{ grupos_rotulo[filtro]|lower }}</span>
-    {% if pcts %}<span class="ac-camp-sum__sep" aria-hidden="true">·</span><span><b>{{ (pcts|sum / pcts|length)|round|int }}%</b> entrega média</span>{% endif %}
-    {% if n_atencao %}<span class="ac-camp-sum__sep" aria-hidden="true">·</span><a class="ac-camp-sum__alert" href="#" data-camp-so-atencao>{{ n_atencao }} {{ 'precisa' if n_atencao == 1 else 'precisam' }} de atenção</a>{% endif %}
-    {% if filtro == 'andamento' and k.encerram_7d %}<span class="ac-camp-sum__sep" aria-hidden="true">·</span><span>{{ k.encerram_7d }} {{ 'encerra' if k.encerram_7d == 1 else 'encerram' }} em 7 dias</span>{% endif %}
+    {% if pcts %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span><b>{{ (pcts|sum / pcts|length)|round|int }}%</b> entrega média</span>{% endif %}
+    {% if n_atencao %}<span class="ac-subbar__sep" aria-hidden="true">·</span><a class="ac-subbar__alert" href="#" data-camp-so-atencao>{{ n_atencao }} {{ 'precisa' if n_atencao == 1 else 'precisam' }} de atenção</a>{% endif %}
+    {% if filtro == 'andamento' and k.encerram_7d %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span>{{ k.encerram_7d }} {{ 'encerra' if k.encerram_7d == 1 else 'encerram' }} em 7 dias</span>{% endif %}
   </p>
   <div class="ac-toolbar2__tools">
     <div class="ac-search ac-search--inline ac-search--sm">
@@ -43,23 +39,25 @@
   <table class="ac-camp" data-camp-tabela>
     <thead>
       <tr>
+        <th scope="col">PI</th>
         <th scope="col">Campanha e formato</th>
+        <th scope="col">{{ rotulo_contraparte(lista) }}</th>
         <th scope="col">Plataforma</th>
         <th scope="col">Entrega <small>(alcançado / meta)</small></th>
         <th scope="col"><span class="ac-camp__th-tip">Ritmo<span class="ac-tip" tabindex="0" role="img" aria-label="Ritmo compara a entrega com o tempo já decorrido do período. A diferença em pontos percentuais (p.p.) mostra quanto a campanha está à frente ou atrás da meta proporcional.">{{ icon('info', 14) }}</span></span></th>
         <th scope="col">Tempo / período</th>
-        <th scope="col">PI</th>
-        <th scope="col">Responsável</th>
         <th scope="col"><span class="ac-sr">Ações</span></th>
       </tr>
     </thead>
     <tbody>
       {% for c in lista %}
       {% set dif = (c.pct - c.tempo_pct) if (c.pct is not none and c.tempo_pct is not none) else none %}
-      <tr data-camp="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto)|lower }}">
+      <tr data-camp="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto ~ ' ' ~ (c.contraparte or {}).nome or '—')|lower }}">
+        <td class="ac-camp__picol"><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a></td>
         <th scope="row">
           <span class="ac-camp__name">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span><button type="button" class="ac-grid__name" data-camp-abrir="{{ loop.index0 }}">{{ c.nome }}</button><small>{{ c.objetivo }}</small></span></span>
         </th>
+        <td class="ac-camp__parte" title="{{ (c.contraparte or {}).rotulo or 'Agência' }}: {{ (c.contraparte or {}).nome or '—' }}">{{ (c.contraparte or {}).nome or '—' }}</td>
         <td><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 16) }}{{ c.plataforma or '—' }}</span></td>
         <td class="ac-camp__entrega">
           <span class="ac-camp__nums"><span>{{ c.atingido_label }} / {{ c.meta_label }}</span><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b></span>
@@ -76,8 +74,6 @@
         <td>
           <span class="ac-camp__tempo">{{ icon('calendar', 16) }}<span><b>{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</b><small>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</small></span></span>
         </td>
-        <td><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a></td>
-        <td class="ac-camp__resp">{{ c.responsavel or 'Centralcomm' }}</td>
         <td class="ac-camp__acts">
           {% if c.dash_abrir %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}
           <button type="button" class="ac-icon-btn ac-icon-btn--xs" data-camp-abrir="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes de {{ c.nome }}">{{ icon('chevron-right', 16) }}</button>
@@ -117,7 +113,7 @@
       <div><dt>Plataforma</dt><dd data-d="plataforma"></dd></div>
       <div><dt>Objetivo</dt><dd data-d="objetivo"></dd></div>
       <div><dt>PI</dt><dd><a class="ac-link" data-d-href="pi_url" data-d="pi"></a></dd></div>
-      <div><dt>Responsável</dt><dd data-d="responsavel"></dd></div>
+      <div><dt data-d="parte_rotulo"></dt><dd data-d="parte"></dd></div>
     </dl>
   </div>
   <footer class="ac-drawer__foot">

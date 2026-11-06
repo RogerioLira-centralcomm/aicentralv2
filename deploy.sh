@@ -58,6 +58,25 @@ restore_service_on_error() {
     exit "$exit_code"
 }
 trap restore_service_on_error ERR
+
+# Unidades antigas que sobem o mesmo app na mesma porta (:8001). Se uma delas for
+# iniciada (à mão ou por engano), o Restart=always a recria a cada poucos segundos:
+# cada tentativa importa o app inteiro, perde a porta para o gunicorn.service e cai,
+# e a VPS fica em carga 60. O deploy sempre as para e desabilita.
+COMPETING_SERVICES="aicentralv2.service gunicorn-aicentralv2.service"
+stop_competing_services() {
+    local unit
+    for unit in $COMPETING_SERVICES; do
+        [ "$unit" = "$APP_SERVICE" ] && continue
+        if sudo systemctl is-active --quiet "$unit" 2>/dev/null \
+           || [ "$(sudo systemctl show "$unit" --property=ActiveState --value 2>/dev/null)" = "activating" ] \
+           || sudo systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+            echo "  > Parando $unit (disputa a porta 8001 com $APP_SERVICE)"
+            sudo systemctl disable --now "$unit" >> "$DEPLOY_LOG" 2>&1 || true
+        fi
+        sudo systemctl reset-failed "$unit" >> "$DEPLOY_LOG" 2>&1 || true
+    done
+}
 export SYSTEMD_PAGER=""
 export PAGER="cat"
 export SYSTEMD_LESS=""
@@ -99,6 +118,7 @@ stop_service_for_deploy() {
     echo ""
     echo "[parada] Parando servico (codigo, build e dependencias prontos)..."
     sudo systemctl stop "$APP_SERVICE" 2>/dev/null || true
+    stop_competing_services
     SERVICE_STOPPED=1
     SERVICE_STOPPED_AT=$SECONDS
     sleep 2

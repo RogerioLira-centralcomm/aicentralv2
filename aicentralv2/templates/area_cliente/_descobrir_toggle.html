@@ -1,4 +1,4 @@
-{# Botão "Incluir no briefing" (form simples, funciona sem JS). Precisa de: secao, item_id, nome, marcado, voltar. #}
+{# Botão "Incluir no briefing" (form simples, funciona sem JS). Precisa de: secao, item_id, nome, marcado, voltar; compacto = só o ícone. #}
 {% from 'area_cliente/_macros.html' import icon %}
 <form class="ac-pick" method="post" action="{{ area_url('descobrir_selecao') }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
@@ -6,7 +6,9 @@
   <input type="hidden" name="id" value="{{ item_id }}">
   <input type="hidden" name="nome" value="{{ nome }}">
   <input type="hidden" name="voltar" value="{{ voltar }}">
-  {% if marcado %}
+  {% if compacto %}
+  <button type="submit" class="ac-pick__mini{% if marcado %} is-on{% endif %}" aria-pressed="{{ 'true' if marcado else 'false' }}" title="{{ 'No briefing (clique para tirar)' if marcado else 'Incluir no briefing' }}" aria-label="{{ ('Tirar do briefing: ' if marcado else 'Incluir no briefing: ') ~ nome }}">{{ icon('check' if marcado else 'plus', 16) }}</button>
+  {% elif marcado %}
   <button type="submit" class="ac-btn ac-btn--sm ac-pick--on" aria-pressed="true">{{ icon('check', 16) }}No briefing</button>
   {% else %}
   <button type="submit" class="ac-btn ac-btn--sm ac-btn--secondary" aria-pressed="false">{{ icon('plus', 16) }}Incluir no briefing</button>

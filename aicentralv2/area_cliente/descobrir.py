@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from werkzeug.exceptions import BadRequest, NotFound
+from werkzeug.exceptions import NotFound
 
 SECOES = {
     "canais": ("Canais", "broadcast", "Onde a mídia roda: apps, plataformas, TV, áudio e OOH, com alcance e uso indicado."),
@@ -26,10 +26,6 @@ LIMITE_SELECAO = 20  # a seleção fica no cookie de sessão (limite de ~4 KB)
 NOME_MAX = 60
 _CACHE_RESUMO = {"em": 0.0, "dados": None}
 
-# Fatias de audiência que não aparecem para o cliente (custos e preços).
-_AUDIENCIA_GRUPOS_FORA = {"Indicadores estimados"}
-_AUDIENCIA_VARIAVEIS_FORA = {"cpa_estimado_min", "cpa_estimado_max", "tamanho_mercado_brl"}
-
 
 def _repo():
     from ..cadu_family import repository
@@ -39,14 +35,6 @@ def _repo():
 def _texto(valor, limite=400):
     texto = " ".join(str(valor or "").split())
     return texto if len(texto) <= limite else texto[: limite - 1].rstrip() + "…"
-
-
-def _pct(valor):
-    try:
-        numero = float(valor)
-    except (TypeError, ValueError):
-        return None
-    return f"{numero:.0f}%" if numero > 1 else f"{numero * 100:.0f}%"
 
 
 def _cartao(secao, r) -> dict:
@@ -124,77 +112,12 @@ def resumo_secoes() -> list[dict]:
     return saida
 
 
-def _fatos(pares):
-    return [{"rotulo": r, "valor": _texto(v, 300)} for r, v in pares if v not in (None, "", [], {})]
-
-
 def detalhe(secao: str, item_id) -> dict:
-    """Página de um item, só com campos que o cliente pode ver."""
+    """Ficha completa do item, na organização do Planner e sem custos (ver ficha.py)."""
     if secao not in SECOES:
         raise NotFound()
-    try:
-        item_id = int(item_id)
-    except (TypeError, ValueError):
-        raise NotFound()
-    from ..cadu_planner import catalog
-    try:
-        if secao == "canais":
-            from ..cadu_planner import channels
-            c = channels.detail(item_id)
-            listas = c.get("diferenciais") if isinstance(c.get("diferenciais"), list) else []
-            return {"id": item_id, "nome": c.get("name"), "descricao": c.get("descricao") or "",
-                    "imagem": c.get("hero_image_url") or "", "logo": c.get("logo_url") or "",
-                    "subtitulo": c.get("categoria") or "",
-                    "fatos": _fatos([("Alcance", c.get("alcance")), ("Usuários únicos", c.get("usuarios_unicos")),
-                                     ("Tempo médio", c.get("tempo_medio")), ("Viewability", _pct(c.get("viewability"))),
-                                     ("Taxa de conclusão", _pct(c.get("completion_rate"))), ("Melhor uso", c.get("melhor_uso"))]),
-                    "grupos": [{"titulo": "Diferenciais", "itens": [{"rotulo": "", "valor": _texto(d, 200)} for d in listas[:8]]}] if listas else []}
-        if secao in ("formatos", "interativos"):
-            f = catalog.detail(secao, item_id)
-            return {"id": item_id, "nome": f.get("name"), "descricao": f.get("description") or "",
-                    "imagem": f.get("image_url") or "", "logo": "", "subtitulo": f.get("purpose") or "",
-                    "fatos": _fatos([("Plataforma", f.get("plataforma_slug", "").replace("_", " ").title() if f.get("plataforma_slug") else None),
-                                     ("Objetivo", f.get("purpose")), ("Tipo", f.get("format_type")),
-                                     ("Dimensões", f.get("dimensions")), ("Arquivos", f.get("files"))]),
-                    "grupos": []}
-        if secao == "audiencias":
-            a = catalog.client_detail("audiencias", item_id)
-            grupos, vistos = [], {_texto(a.get("description"), 80)}
-            for g in a.get("data_groups") or []:
-                if g.get("title") in _AUDIENCIA_GRUPOS_FORA:
-                    continue
-                itens = []
-                for f in g.get("fields") or []:
-                    rotulo = str(f.get("label") or "")
-                    if (f.get("variable") in _AUDIENCIA_VARIAVEIS_FORA or f.get("variable") in ("descricao", "descricao_curta")
-                            or " IA" in f" {rotulo}" or "storytelling" in rotulo.lower()):
-                        continue
-                    chave = _texto(f.get("value"), 80)  # textos longos repetidos em vários campos aparecem uma vez
-                    if len(chave) >= 40:
-                        if chave in vistos:
-                            continue
-                        vistos.add(chave)
-                    itens.append({"rotulo": rotulo, "valor": _texto(f.get("value"), 300)})
-                if itens:
-                    grupos.append({"titulo": g.get("title"), "itens": itens[:12]})
-            return {"id": item_id, "nome": a.get("name"), "descricao": a.get("description") or "",
-                    "imagem": a.get("image_url") or "", "logo": "", "subtitulo": " · ".join(x for x in (a.get("channel"), a.get("category")) if x),
-                    "fatos": _fatos([("Público estimado", a.get("audience")), ("Subcategoria", a.get("subcategory"))]),
-                    "grupos": grupos}
-        from ..cadu_planner import portals
-        encontrados = portals.records([item_id])
-        if not encontrados:
-            raise NotFound()
-        p = encontrados[0]
-        formatos = [str(f.get("format")) for f in p.get("ad_formats") or [] if isinstance(f, dict) and f.get("format")]
-        return {"id": item_id, "nome": p.get("name") or p.get("domain"), "descricao": p.get("description") or "",
-                "imagem": "", "logo": p.get("favicon_url") or "", "subtitulo": p.get("domain") or "",
-                "fatos": _fatos([("Categoria", p.get("category")), ("Abrangência", p.get("scope")), ("UF", p.get("uf")),
-                                 ("Porte de tráfego", p.get("traffic_tier")), ("Visitas mensais", p.get("monthly_visits")),
-                                 ("Formatos de anúncio", ", ".join(dict.fromkeys(formatos)) if formatos else None)]),
-                "grupos": []}
-    except BadRequest:
-        raise NotFound()
+    from .ficha import montar
+    return montar(secao, item_id)
 
 
 # ---------- Seleção para o briefing (fica na sessão) ----------

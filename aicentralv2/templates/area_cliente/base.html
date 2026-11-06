@@ -1,14 +1,17 @@
 {% from 'area_cliente/_macros.html' import icon %}<!doctype html>
-<html lang="pt-BR" class="ac-rail">
+<html lang="pt-BR"{% if not menu.sidebar_aberta %} class="ac-rail"{% endif %}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 {% include 'area_cliente/_og.html' %}
 <title>{% block title %}Área do Cliente{% endblock %} · Centralcomm</title>
-<script>
-  /* Sidebar recolhida em ícones por padrão; a escolha do usuário fica lembrada. */
-  try { if (localStorage.getItem('ac-sidebar') === 'aberta') document.documentElement.classList.remove('ac-rail'); } catch (e) {}
+{% if not menu.tem_cookie_sidebar %}<script>
+  /* Escolha antiga (localStorage) passa para o cookie lido pelo servidor; depois disso o HTML já vem certo. */
+  try { if (localStorage.getItem('ac-sidebar') === 'aberta') { document.documentElement.classList.remove('ac-rail'); document.cookie = 'ac_side=aberta; path=/; max-age=31536000; samesite=lax'; } } catch (e) {}
+</script>{% endif %}
+<script type="speculationrules">
+{"prefetch": [{"where": {"and": [{"href_matches": "/*"}, {"not": {"href_matches": "/sair"}}, {"not": {"href_matches": "/logout"}}, {"not": {"selector_matches": "[target=_blank], [download]"}}]}, "eagerness": "moderate"}]}
 </script>
 <link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,22 +31,26 @@
       <button type="button" class="ac-icon-btn ac-side__close" data-ac-close aria-label="Fechar menu">{{ icon('close') }}</button>
     </div>
 
+    {% macro nav_link(item) -%}
+    <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}{% if item.id == 'briefing' and not item.ativo %} ac-nav__link--shine{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}{% if item.id == 'campanhas' and n_campanhas_no_ar %}<span class="ac-nav__count ac-nav__count--live" aria-label="{{ n_campanhas_no_ar }} campanhas em andamento">{{ n_campanhas_no_ar }}</span>{% endif %}</a></li>
+    {%- endmacro %}
     <nav class="ac-nav" aria-label="Seções">
       <ul class="ac-nav__group">
         <li><a class="ac-nav__link{% if nav_inicio.ativo %} is-active{% endif %}" href="{{ nav_inicio.url }}" title="Início"{% if nav_inicio.ativo %} aria-current="page"{% endif %}>{{ icon('home') }}<span class="ac-nav__text">Início</span></a></li>
       </ul>
-      <a class="ac-nav__label ac-nav__label--link{% if pagina_ativa == 'descobrir' and not secao is defined %} is-active{% endif %}" href="{{ area_url('descobrir') }}">Descobrir</a>
-      <ul class="ac-nav__group">
-        {% for item in nav_descobrir %}
-        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span></a></li>
-        {% endfor %}
-      </ul>
-      {% for grupo, ids in [('Planejar', ['briefing']), ('Acompanhar', ['campanhas', 'relatorios', 'pis'])] %}
-      <p class="ac-nav__label">{{ grupo }}</p>
-      <ul class="ac-nav__group">
-        {% for item in nav if item.id in ids %}
-        <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}{% if item.id == 'briefing' and not item.ativo %} ac-nav__link--shine{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}{% if item.id == 'campanhas' and n_campanhas_no_ar %}<span class="ac-nav__count ac-nav__count--live" aria-label="{{ n_campanhas_no_ar }} campanhas em andamento">{{ n_campanhas_no_ar }}</span>{% endif %}</a></li>
-        {% endfor %}
+      {% for g, rotulo, itens, resumo in [
+          ('descobrir', 'Descobrir', nav_descobrir, 0),
+          ('planejar', 'Planejar', nav|selectattr('id', 'in', ['briefing'])|list, n_selecao),
+          ('acompanhar', 'Acompanhar', nav|selectattr('id', 'in', ['campanhas', 'relatorios', 'pis'])|list, n_campanhas_no_ar)] %}
+      {% set fechado = g in menu.recolhidos %}
+      <div class="ac-nav__head">
+        <button type="button" class="ac-nav__label ac-nav__toggle" aria-expanded="{{ 'false' if fechado else 'true' }}" aria-controls="ac-nav-{{ g }}" data-ac-grupo="{{ g }}">
+          <span>{{ rotulo }}</span>{% if resumo %}<span class="ac-nav__peek{% if g == 'acompanhar' %} ac-nav__peek--live{% endif %}" aria-hidden="true">{{ resumo }}</span>{% endif %}{{ icon('chevron-down', 14) }}
+        </button>
+        {% if g == 'descobrir' %}<a class="ac-nav__hub{% if pagina_ativa == 'descobrir' and not secao is defined %} is-active{% endif %}" href="{{ area_url('descobrir') }}">Ver tudo</a>{% endif %}
+      </div>
+      <ul class="ac-nav__group{% if fechado %} is-collapsed{% endif %}" id="ac-nav-{{ g }}">
+        {% for item in itens %}{{ nav_link(item) }}{% endfor %}
       </ul>
       {% endfor %}
     </nav>
@@ -147,9 +154,79 @@
     if (mobile.matches) { setDrawer(true); return; }
     var recolher = !root.classList.contains('ac-rail');
     root.classList.toggle('ac-rail', recolher);
-    try { localStorage.setItem('ac-sidebar', recolher ? 'recolhida' : 'aberta'); } catch (e) {}
+    lembrar('ac_side', recolher ? 'recolhida' : 'aberta');
+    try { localStorage.removeItem('ac-sidebar'); } catch (e) {}
     syncExpanded();
   });
+
+  /* Preferências do menu em cookie: o servidor já entrega o HTML no estado certo, sem piscar. */
+  function lembrar(nome, valor) { document.cookie = nome + '=' + valor + '; path=/; max-age=31536000; samesite=lax'; }
+  var grupos = Array.prototype.slice.call(document.querySelectorAll('[data-ac-grupo]'));
+  grupos.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var lista = document.getElementById(btn.getAttribute('aria-controls'));
+      var abrir = btn.getAttribute('aria-expanded') !== 'true';
+      btn.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+      lista.classList.toggle('is-collapsed', !abrir);
+      lembrar('ac_nav', grupos.filter(function (b) { return b.getAttribute('aria-expanded') === 'false'; })
+        .map(function (b) { return b.getAttribute('data-ac-grupo'); }).join(','));
+    });
+  });
+
+  /* "Incluir no briefing" sem recarregar: o botão troca na hora e os contadores acompanham. */
+  document.addEventListener('submit', function (ev) {
+    var form = ev.target.closest('.ac-pick');
+    if (!form || !window.fetch || ev.defaultPrevented) return;
+    ev.preventDefault();
+    var btn = form.querySelector('button');
+    var queriaIncluir = btn.getAttribute('aria-pressed') !== 'true';
+    btn.disabled = true;
+    fetch(form.action, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function (d) {
+        var id = form.querySelector('[name=secao]').value + ':' + form.querySelector('[name=id]').value;
+        document.querySelectorAll('.ac-pick').forEach(function (f) {
+          if (f.querySelector('[name=secao]').value + ':' + f.querySelector('[name=id]').value === id) marcarPick(f, d.incluido);
+        });
+        if (queriaIncluir && !d.incluido) aviso('Limite de ' + d.limite + ' itens no briefing. Tire algum para incluir outro.');
+        contar(d.total);
+      })
+      .catch(function () { form.submit(); })
+      .then(function () { btn.disabled = false; });
+  });
+  function marcarPick(form, on) {
+    var b = form.querySelector('button'), mini = b.classList.contains('ac-pick__mini');
+    var nome = form.querySelector('[name=nome]').value;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var ic = function (n) { return '<svg class="ac-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (n === 'check' ? '<path d="m5 12.5 4.5 4.5L19 7.5"/>' : '<path d="M12 5v14M5 12h14"/>') + '</svg>'; };
+    if (mini) {
+      b.classList.toggle('is-on', on);
+      b.title = on ? 'No briefing (clique para tirar)' : 'Incluir no briefing';
+      b.setAttribute('aria-label', (on ? 'Tirar do briefing: ' : 'Incluir no briefing: ') + nome);
+      b.innerHTML = ic(on ? 'check' : 'plus');
+    } else {
+      b.className = on ? 'ac-btn ac-btn--sm ac-pick--on' : 'ac-btn ac-btn--sm ac-btn--secondary';
+      b.innerHTML = ic(on ? 'check' : 'plus') + (on ? 'No briefing' : 'Incluir no briefing');
+    }
+  }
+  function contar(total) {
+    var link = document.querySelector('.ac-nav__link[href="{{ area_url('briefing') }}"]');
+    [[link, 'ac-nav__count'], [document.querySelector('.ac-top__cta'), 'ac-top__cta-count']].forEach(function (par) {
+      if (!par[0]) return;
+      var el = par[0].querySelector('.' + par[1]);
+      if (!total) { if (el) el.remove(); return; }
+      if (!el) { el = document.createElement('span'); el.className = par[1]; par[0].appendChild(el); }
+      el.textContent = total;
+    });
+    var peek = document.querySelector('[data-ac-grupo=planejar] .ac-nav__peek');
+    if (peek) { if (total) peek.textContent = total; else peek.remove(); }
+  }
+  var avisoEl;
+  function aviso(texto) {
+    if (!avisoEl) { avisoEl = document.createElement('p'); avisoEl.className = 'ac-toast'; avisoEl.setAttribute('role', 'status'); document.body.appendChild(avisoEl); }
+    avisoEl.textContent = texto; avisoEl.classList.add('is-on');
+    clearTimeout(avisoEl._t); avisoEl._t = setTimeout(function () { avisoEl.classList.remove('is-on'); }, 3500);
+  }
   document.querySelectorAll('[data-ac-close]').forEach(function (el) {
     el.addEventListener('click', function () { setDrawer(false); });
   });

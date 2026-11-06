@@ -14,7 +14,7 @@ import time
 from datetime import date
 from urllib.parse import urlencode, urlparse
 
-from flask import abort, current_app, redirect, render_template, request, session
+from flask import abort, current_app, jsonify, redirect, render_template, request, session
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
@@ -116,6 +116,7 @@ def _render(template, usuario, ativo, **ctx):
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
         usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
+        menu=_estado_menu(ativo),
         pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),
@@ -125,6 +126,28 @@ def _render(template, usuario, ativo, **ctx):
     resp.headers["Cache-Control"] = "no-store"
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
     return resp
+
+
+# Grupos do menu e as páginas de cada um (para abrir sozinho o grupo da página atual).
+GRUPOS_MENU = {"descobrir": ("descobrir",), "planejar": ("briefing",), "acompanhar": ("campanhas", "relatorios", "pis")}
+COOKIE_SIDEBAR, COOKIE_GRUPOS = "ac_side", "ac_nav"
+
+
+def _estado_menu(ativo) -> dict:
+    """Estado do menu lido dos cookies e aplicado já no HTML do servidor (sem piscar no carregamento).
+
+    ac_side: "aberta" ou "recolhida" (padrão: recolhida em ícones).
+    ac_nav: grupos que o usuário recolheu, separados por vírgula. O grupo da página
+    atual fica sempre aberto, mesmo se recolhido antes.
+    """
+    recolhidos = {g for g in (request.cookies.get(COOKIE_GRUPOS) or "").split(",") if g in GRUPOS_MENU}
+    atual = next((g for g, paginas in GRUPOS_MENU.items() if ativo in paginas), None)
+    return {
+        "sidebar_aberta": request.cookies.get(COOKIE_SIDEBAR) == "aberta",
+        "tem_cookie_sidebar": COOKIE_SIDEBAR in request.cookies,
+        "recolhidos": recolhidos - {atual},
+        "grupo_atual": atual,
+    }
 
 
 def _exigir_acesso():
@@ -296,14 +319,15 @@ def view_descobrir_item(usuario, secao, item_id):
     titulo, _icone, _texto = descobrir.SECOES[secao]
     return _render("descobrir_item.html", usuario, "descobrir", secao=secao, secao_titulo=titulo, item=item,
                    tipo=descobrir.TIPO_ROTULO[secao], csrf=_csrf_token(),
-                   marcado=(secao, item_id) in descobrir.selecionados(session))
+                   marcados=descobrir.selecionados(session))
 
 
 def view_descobrir_selecao():
     _checar_csrf()
-    descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), request.form.get("nome", ""))
+    incluido = descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), request.form.get("nome", ""))
     if request.headers.get("X-Requested-With") == "fetch":
-        return current_app.response_class(status=204)
+        # O botão troca de estado sem recarregar; "total" atualiza os contadores do menu e do CTA.
+        return jsonify(incluido=incluido, total=len(descobrir.selecao(session)), limite=descobrir.LIMITE_SELECAO)
     destino = request.form.get("voltar") or area_url("descobrir")
     if not destino.startswith("/") or destino.startswith("//"):
         destino = area_url("descobrir")

@@ -329,26 +329,85 @@ def test_alternar_tira_e_respeita_limite():
 def test_detalhe_de_audiencia_sem_custos(monkeypatch):
     from aicentralv2.cadu_planner import catalog
     from aicentralv2.area_cliente import descobrir
-    monkeypatch.setattr(catalog, "client_detail", lambda kind, value: {
-        "name": "Executivos", "description": "Líderes", "audience": "992K", "channel": "LinkedIn", "category": "B2B",
+    monkeypatch.setattr(catalog, "audience_profile", lambda value: {
+        "id": 3, "name": "Executivos", "description": "Líderes", "audience": "992K", "channel": "LinkedIn", "category": "B2B",
+        "related": [{"id": 4, "name": "Diretores", "platform": "LinkedIn", "audience": "500K"}], "channel_ref": None, "channel_formats": [],
         "data_groups": [
             {"title": "Público, perfil e comportamento", "fields": [{"label": "Idade", "value": "30-50", "variable": "idade"}]},
-            {"title": "Indicadores estimados", "fields": [{"label": "CPA mínimo", "value": "R$ 10", "variable": "cpa_estimado_min"}]},
+            {"title": "Indicadores estimados", "fields": [
+                {"label": "CPA mínimo", "value": "R$ 10", "variable": "cpa_estimado_min"},
+                {"label": "Mercado", "value": "R$ 2 bi", "variable": "tamanho_mercado_brl"},
+                {"label": "Alcance incremental", "value": "+12%", "variable": "alcance_incremental"}]},
         ]})
     item = descobrir.detalhe("audiencias", 3)
-    assert [g["titulo"] for g in item["grupos"]] == ["Público, perfil e comportamento"]
-    assert "R$" not in str(item)
+    assert [s["id"] for s in item["sessoes"]] == ["perfil"]
+    assert {m["rotulo"] for m in item["metricas"]} == {"Público estimado", "Onde comprar", "Alcance incremental"}
+    assert item["relacionados"]["itens"][0]["id"] == 4
+    assert "R$" not in str(item) and "CPA" not in str(item)
 
 
-def test_tirar_item_por_fetch_responde_204(app, monkeypatch):
+def test_ficha_de_canal_na_organizacao_do_planner(monkeypatch):
+    from aicentralv2.cadu_planner import catalog
+    from aicentralv2.area_cliente import descobrir
+    monkeypatch.setattr(catalog, "channel_profile", lambda value: {
+        "id": 9, "name": "Spotify", "categoria": "Áudio", "tipo": "streaming", "logo_url": "/l.svg", "hero_image_url": "/capa.webp",
+        "gallery": [{"url": "/g1.webp"}], "description": "Streaming de áudio", "alcance": "40M", "viewability": "92",
+        "formats": [{"id": 7, "name": "Audio Ad", "dimensions": "640x640", "format_type": "audio"}],
+        "audiences": [{"id": 11, "name": "Jovens", "category": "Lifestyle", "audience": "3M"}],
+        "segmentacoes": [{"nome": "Capitais", "quando": "lançamento", "exemplo": "SP"}],
+        "demografia": {"homens": 48, "mulheres": 52, "faixas": {"18_24": 30}},
+        "related": [{"id": 10, "name": "Deezer", "alcance": "10M"}]})
+    item = descobrir.detalhe("canais", 9)
+    assert item["banner"] == "/capa.webp" and item["metricas"][0] == {"rotulo": "Alcance", "valor": "40M", "dica": "Declarado pelo canal"}
+    assert {"rotulo": "Viewability", "valor": "92%"} in item["metricas"]
+    ids = [s["id"] for s in item["sessoes"]]
+    assert ids == ["ficha", "formatos", "audiencias", "publico", "estrategias", "fotos"]
+    formatos = next(s for s in item["sessoes"] if s["id"] == "formatos")["dados"]
+    assert formatos[0]["quadro"]["rotulo"] == "640×640"
+    demografia = next(s for s in item["sessoes"] if s["id"] == "publico")["dados"]
+    assert [g["titulo"] for g in demografia] == ["Gênero", "Faixas"]
+
+
+def test_item_inexistente_da_404(monkeypatch):
+    from werkzeug.exceptions import BadRequest, NotFound
+    from aicentralv2.cadu_planner import catalog
+    from aicentralv2.area_cliente import descobrir
+
+    def falha(value):
+        raise BadRequest()
+    monkeypatch.setattr(catalog, "channel_profile", falha)
+    import pytest
+    with pytest.raises(NotFound):
+        descobrir.detalhe("canais", 99)
+    with pytest.raises(NotFound):
+        descobrir.detalhe("canais", "abc")
+
+
+def test_tirar_item_por_fetch_responde_json(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok",
                            "area_cliente_descobrir": [["canais", 5, "Uber Ads"]]})
     resp = client.post("/descobrir/selecao", base_url=HOST, headers={"X-Requested-With": "fetch"},
                        data={"csrf": "tok", "secao": "canais", "id": "5"})
-    assert resp.status_code == 204
+    assert resp.status_code == 200 and resp.get_json() == {"incluido": False, "total": 0, "limite": 20}
     with client.session_transaction(base_url=HOST) as sess:
         assert sess["area_cliente_descobrir"] == []
+
+
+def test_menu_lembra_sidebar_e_grupos_pelo_cookie(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    monkeypatch.setattr(dados, "listar_projetos", lambda cliente_id, busca="": [])
+    client = _client(app, {"user_id": 501})
+    html = client.get("/", base_url=HOST).get_data(as_text=True)
+    assert '<html lang="pt-BR" class="ac-rail">' in html and 'id="ac-nav-descobrir"' in html
+    client.set_cookie("ac_side", "aberta", domain=HOST.split("//")[1])
+    client.set_cookie("ac_nav", "descobrir,acompanhar,xss", domain=HOST.split("//")[1])
+    html = client.get("/", base_url=HOST).get_data(as_text=True)
+    assert '<html lang="pt-BR">' in html
+    assert 'class="ac-nav__group is-collapsed" id="ac-nav-descobrir"' in html
+    assert 'class="ac-nav__group is-collapsed" id="ac-nav-acompanhar"' in html
+    assert 'class="ac-nav__group" id="ac-nav-planejar"' in html
 
 
 def test_selecao_cabe_no_cookie():
@@ -613,3 +672,11 @@ def test_periodo_encerrado_nao_diz_termina_hoje(app):
         from flask import render_template_string
         html = render_template_string("{% from 'area_cliente/_macros.html' import barra %}{{ barra(100, 'x', 100, '', -1) }}{{ barra(50, 'y', 90, '', 0) }}")
     assert "encerrada" in html and "termina hoje" in html
+
+
+def test_grupo_da_pagina_atual_abre_mesmo_recolhido(app):
+    from aicentralv2.area_cliente import routes
+    with app.test_request_context("/pis", headers={"Cookie": "ac_nav=descobrir,acompanhar"}):
+        estado = routes._estado_menu("pis")
+    assert estado["recolhidos"] == {"descobrir"} and estado["grupo_atual"] == "acompanhar"
+    assert estado["sidebar_aberta"] is False and estado["tem_cookie_sidebar"] is False

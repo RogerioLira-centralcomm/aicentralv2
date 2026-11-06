@@ -1,44 +1,235 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon %}
 {% block title %}{{ item.nome }} · {{ secao_titulo }}{% endblock %}
+
+{% macro marca(logo, nome, tam='md') -%}
+{%- if logo -%}<span class="ac-fmark ac-fmark--{{ tam }}"><img src="{{ logo }}" alt="" loading="lazy" onerror="this.parentNode.classList.add('is-txt');this.remove()"><b aria-hidden="true">{{ (nome or '?')[:1]|upper }}</b></span>
+{%- else -%}<span class="ac-fmark ac-fmark--{{ tam }} is-txt"><b aria-hidden="true">{{ (nome or '?')[:1]|upper }}</b></span>{%- endif -%}
+{%- endmacro %}
+
+{% macro escolher(sec, iid, nome) -%}
+{% with secao=sec, item_id=iid, nome=nome, marcado=(sec, iid) in marcados, compacto=True, voltar=request.path %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+{%- endmacro %}
+
+{% macro fatos(lista) -%}
+<dl class="ac-ffacts">{% for f in lista %}<div><dt>{{ f.rotulo }}</dt><dd>{{ f.valor }}</dd></div>{% endfor %}</dl>
+{%- endmacro %}
+
+{% macro tags(itens) -%}
+{% if itens|length == 1 and itens[0]|length > 60 %}<p class="ac-ftext">{{ itens[0] }}</p>
+{% else %}<ul class="ac-ftags">{% for t in itens %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+{%- endmacro %}
+
+{% macro leia(texto, limite=180) -%}
+{% set t = (texto or '')|trim %}
+{% if t|length > limite + 40 %}<details class="ac-fmore"><summary><span class="ac-fmore__short">{{ t[:limite]|trim }}…</span> <span class="ac-fmore__btn">Ler mais</span></summary><p>{{ t }}</p></details>
+{% else %}<p class="ac-ftext">{{ t }}</p>{% endif %}
+{%- endmacro %}
+
+{% macro barras(grupos) -%}
+<div class="ac-fdemo">{% for g in grupos %}<div><h3 class="ac-fsub">{{ g.titulo }}</h3>
+<ul class="ac-fbars">{% for b in g.barras %}<li><span>{{ b.rotulo }}</span><i><b style="width: {{ b.pct }}%"></b></i><strong>{{ b.valor }}</strong></li>{% endfor %}</ul></div>{% endfor %}</div>
+{%- endmacro %}
+
+{% macro quadro(q) -%}
+{% if q %}<span class="ac-fprev"><span style="aspect-ratio: {{ q.proporcao }}{% if q.w >= q.h %}; width: 100%{% else %}; height: 100%{% endif %}"></span></span>
+{% else %}<span class="ac-fprev ac-fprev--icon">{{ icon('layout', 22) }}</span>{% endif %}
+{%- endmacro %}
+
 {% block content %}
 {% set voltar = request.path %}
-<a class="ac-back" href="{{ area_url('descobrir_secao', secao=secao) }}">{{ icon('arrow-left', 16) }}{{ secao_titulo }}</a>
+<a class="ac-back" href="{{ area_url('descobrir_secao', secao=secao) }}">{{ icon('arrow-left', 14) }}{{ secao_titulo }}</a>
 
-<header class="ac-hero ac-enter">
-  <div class="ac-hero__main ac-hero__main--logo">
-    {% if item.logo %}<img class="ac-hero__logo" src="{{ item.logo }}" alt="" width="48" height="48">{% endif %}
-    <div>
-      <p class="ac-eyebrow">{{ tipo }}{% if item.subtitulo %} · {{ item.subtitulo }}{% endif %}</p>
-      <h1 class="ac-h1">{{ item.nome }}</h1>
+<article class="ac-ficha">
+  <header class="ac-fbanner{% if item.banner and not item.banner_contain %} has-image{% endif %}"{% if item.banner and not item.banner_contain %} style="--fb-img: url('{{ item.banner }}')"{% endif %}>
+    {% if item.banner and item.ilustrativo and not item.banner_contain %}<span class="ac-fbanner__badge">Ilustração</span>{% endif %}
+    <div class="ac-fbanner__inner">
+      {{ marca(item.logo, item.nome, 'lg') }}
+      <div class="ac-fbanner__title">
+        {% if item.eyebrow %}<p class="ac-fbanner__eyebrow">{{ item.eyebrow }}</p>{% endif %}
+        <h1>{{ item.nome }}</h1>
+      </div>
+      <div class="ac-fbanner__cta">
+        {% with item_id=item.id, nome=item.nome, marcado=(secao, item.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+      </div>
     </div>
-  </div>
-  {% with item_id=item.id, nome=item.nome %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
-</header>
+    {% if item.banner and item.banner_contain %}<figure class="ac-fbanner__preview"><img src="{{ item.banner }}" alt="Prévia: {{ item.nome }}"></figure>{% endif %}
+  </header>
 
-<div class="ac-grid-2 ac-grid-2--top">
-  <section class="ac-card ac-enter" aria-labelledby="sobre-titulo">
-    {% if item.imagem %}<img class="ac-detail__image" src="{{ item.imagem }}" alt="">{% endif %}
-    <h2 class="ac-h2" id="sobre-titulo">Sobre</h2>
-    <p class="ac-detail__text">{{ item.descricao or 'Sem descrição por enquanto.' }}</p>
-    {% for g in item.grupos %}
-    <h3 class="ac-h3 ac-detail__group">{{ g.titulo }}</h3>
-    {% if g.itens and not g.itens[0].rotulo %}
-    <ul class="ac-detail__list">{% for i in g.itens %}<li>{{ i.valor }}</li>{% endfor %}</ul>
-    {% else %}
-    <dl class="ac-defs">{% for i in g.itens %}<div><dt>{{ i.rotulo }}</dt><dd>{{ i.valor }}</dd></div>{% endfor %}</dl>
-    {% endif %}
+  {% if item.metricas %}
+  <dl class="ac-fmetrics" style="--n: {{ item.metricas|length }}">
+    {% for m in item.metricas %}
+    <div{% if m.dica %} title="{{ m.dica }}"{% endif %}>
+      <dt>{{ m.rotulo }}{% if m.estimativa %} <span class="ac-forigin">Estimativa</span>{% endif %}</dt>
+      <dd{% if (m.valor|string)|length > 12 %} class="is-long"{% endif %}>{{ m.valor }}</dd>
+      {% if m.fonte %}<a class="ac-fmetrics__src" href="{{ m.fonte }}" target="_blank" rel="noopener">Ver fonte</a>
+      {% elif m.dica and not m.estimativa %}<small>{{ m.dica }}</small>{% endif %}
+    </div>
     {% endfor %}
-  </section>
+  </dl>
+  {% endif %}
 
-  <aside class="ac-card ac-enter" aria-labelledby="fatos-titulo">
-    <h2 class="ac-h2" id="fatos-titulo">Em resumo</h2>
-    {% if item.fatos %}
-    <dl class="ac-defs ac-defs--stack">{% for f in item.fatos %}<div><dt>{{ f.rotulo }}</dt><dd>{{ f.valor }}</dd></div>{% endfor %}</dl>
-    {% else %}
-    <p class="ac-detail__text">A Centralcomm detalha este item no planejamento.</p>
+  <div class="ac-fbody{% if item.relacionados %} has-side{% endif %}">
+    <div class="ac-fmain">
+      {% if item.notas %}
+      <aside class="ac-fnotes" aria-label="Sobre os números">
+        {% for n in item.notas %}<div><strong>{{ n.rotulo }}</strong>{{ leia(n.valor) }}</div>{% endfor %}
+      </aside>
+      {% endif %}
+
+      {% if item.descricao or item.destaques %}
+      <section class="ac-fintro" aria-label="Resumo">
+        {% if item.descricao %}<p class="ac-fintro__lead">{{ item.descricao }}</p>{% endif %}
+        {% if item.destaques %}
+        <div class="ac-fhigh">
+          {% for d in item.destaques %}<section><h2>{{ d.titulo }}</h2>{{ leia(d.texto, 220) }}</section>{% endfor %}
+        </div>
+        {% if item.fonte_nota %}<small class="ac-fintro__src">{{ item.fonte_nota }}</small>{% endif %}
+        {% endif %}
+      </section>
+      {% endif %}
+
+      {% if item.sessoes|length > 1 %}
+      <nav class="ac-fnav" aria-label="Nesta página" data-ac-fnav>
+        {% for s in item.sessoes %}<a href="#f-{{ s.id }}"{% if loop.first %} class="is-active" aria-current="true"{% endif %}>{{ s.titulo }}{% if s.contagem %}<span>{{ s.contagem }}</span>{% endif %}</a>{% endfor %}
+      </nav>
+      {% endif %}
+
+      {% for s in item.sessoes %}
+      <section class="ac-fsec{% if s.larga %} is-wide{% endif %}" id="f-{{ s.id }}" aria-labelledby="f-{{ s.id }}-t">
+        <header class="ac-fsec__head"><h2 id="f-{{ s.id }}-t">{{ s.titulo }}</h2>{% if s.dica %}<p>{{ s.dica }}</p>{% endif %}</header>
+        {% set d = s.dados %}
+        {% if s.tipo == 'fatos' %}{{ fatos(d) }}
+
+        {% elif s.tipo == 'tags' %}{{ tags(d) }}
+
+        {% elif s.tipo == 'grupos_tags' %}
+        <div class="ac-fgroups">{% for g in d %}<div><h3 class="ac-fsub">{{ g.titulo }}</h3>{{ tags(g.itens) }}</div>{% endfor %}</div>
+
+        {% elif s.tipo == 'papeis' %}
+        <ul class="ac-froles">{% for p in d %}<li><span class="ac-froles__icon">{{ icon(p.icone, 20) }}</span><span><strong>{{ p.titulo }}</strong><small>{{ p.texto }}</small></span></li>{% endfor %}</ul>
+
+        {% elif s.tipo == 'formatos' %}
+        <ul class="ac-fformats">{% for f in d %}
+          <li>
+            {% if f.secao %}<a class="ac-fformats__card" href="{{ area_url('descobrir_item', secao=f.secao, item_id=f.id) }}">{% else %}<div class="ac-fformats__card">{% endif %}
+              {{ quadro(f.quadro) }}
+              <span class="ac-fformats__text"><strong>{{ f.nome }}</strong><small>{{ [f.tipo, f.quadro.rotulo if f.quadro else f.dimensoes]|select|join(' · ') }}</small>{% if f.texto %}<em>{{ f.texto|truncate(110) }}</em>{% endif %}</span>
+            {% if f.secao %}</a>{% else %}</div>{% endif %}
+            {% if f.secao %}{{ escolher(f.secao, f.id, f.nome) }}{% endif %}
+          </li>{% endfor %}
+        </ul>
+
+        {% elif s.tipo == 'audiencias' %}
+        <ul class="ac-fpick">{% for a in d %}
+          <li><a href="{{ area_url('descobrir_item', secao=a.secao, item_id=a.id) }}"><span class="ac-fpick__icon">{{ icon('users', 16) }}</span><span><strong>{{ a.nome }}</strong>{% if a.texto %}<small>{{ a.texto }}</small>{% endif %}</span></a>{{ escolher(a.secao, a.id, a.nome) }}</li>
+        {% endfor %}</ul>
+
+        {% elif s.tipo == 'anuncios' %}
+        <ul class="ac-fads">{% for a in d %}
+          <li>
+            <button type="button" class="ac-fads__img" data-ac-zoom="{{ a.url }}" data-ac-legenda="{{ a.titulo }}" aria-label="Ampliar: {{ a.titulo }}"><img src="{{ a.url }}" alt="{{ a.titulo }}: simulação de anúncio" loading="lazy"></button>
+            {% if a.formato %}<span class="ac-fads__fmt">{{ a.formato }}</span>{% endif %}
+            <strong>{{ a.titulo }}</strong>
+            {% if a.texto %}<p>{{ a.texto }}</p>{% endif %}
+          </li>{% endfor %}
+        </ul>
+
+        {% elif s.tipo == 'galeria' %}
+        <div class="ac-fgallery">{% for g in d %}
+          <figure{% if loop.first %} class="is-lead"{% endif %}>
+            <button type="button" data-ac-zoom="{{ g.url }}" data-ac-legenda="{{ g.legenda }}" aria-label="Ampliar foto {{ loop.index }}"><img src="{{ g.url }}" alt="{{ g.legenda or ('Foto ' ~ loop.index ~ ' de ' ~ item.nome) }}" loading="lazy"></button>
+            {% if g.legenda %}<figcaption>{{ g.legenda }}</figcaption>{% endif %}
+          </figure>{% endfor %}
+        </div>
+
+        {% elif s.tipo == 'demografia' %}{{ barras(d) }}
+
+        {% elif s.tipo == 'compra' %}
+        {% if d.fatos %}{{ fatos(d.fatos) }}{% endif %}
+        {% if d.produtos %}<h3 class="ac-fsub">Produtos</h3><ul class="ac-fbullets">{% for p in d.produtos %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
+        {% if d.segmentacao %}<h3 class="ac-fsub">Segmentação disponível</h3>
+        <dl class="ac-fsegs">{% for g in d.segmentacao %}<div><dt>{{ g.titulo }}</dt><dd>{{ tags(g.itens) }}</dd></div>{% endfor %}</dl>{% endif %}
+        {% if d.fontes %}<h3 class="ac-fsub">Fontes dos formatos</h3><ul class="ac-fbullets">{% for f in d.fontes %}<li><a href="{{ f.url }}" target="_blank" rel="noopener">{{ f.host }}</a></li>{% endfor %}</ul>{% endif %}
+
+        {% elif s.tipo == 'estrategias' %}
+        <ul class="ac-fplay">{% for e in d %}
+          <li><span class="ac-fplay__icon">{{ icon(e.icone, 20) }}</span><div><strong>{{ e.titulo }}</strong>{% if e.quando %}<p><b>Use quando</b> {{ e.quando }}</p>{% endif %}{% if e.exemplo %}<p class="ac-fplay__ex"><b>Por exemplo</b> {{ e.exemplo }}</p>{% endif %}</div></li>
+        {% endfor %}</ul>
+
+        {% elif s.tipo == 'noticias' %}
+        <ul class="ac-fnews">{% for n in d %}
+          <li>{% if n.meta %}<small>{{ n.meta }}</small>{% endif %}<strong>{% if n.url %}<a href="{{ n.url }}" target="_blank" rel="noopener">{{ n.titulo }}</a>{% else %}{{ n.titulo }}{% endif %}</strong>{% if n.resumo %}{{ leia(n.resumo, 160) }}{% endif %}</li>
+        {% endfor %}</ul>
+
+        {% elif s.tipo == 'tamanhos' %}
+        <ul class="ac-fsizes">{% for q in d %}<li><span class="ac-fsizes__box" style="width: {{ q.px_w }}px; height: {{ q.px_h }}px"></span><strong>{{ q.rotulo }}</strong>{% if q.extra %}<small>{{ q.extra }}</small>{% endif %}</li>{% endfor %}</ul>
+
+        {% elif s.tipo == 'specs' %}
+        {% if d.fatos %}{{ fatos(d.fatos) }}{% endif %}
+        {% if d.links %}<ul class="ac-flinks">{% for l in d.links %}<li><a href="{{ l.url }}" target="_blank" rel="noopener">{{ icon('external', 16) }}{{ l.rotulo }}</a></li>{% endfor %}</ul>{% endif %}
+
+        {% elif s.tipo == 'trilho' %}
+        {% if d %}
+        <div class="ac-frail">{% for c in d %}<a href="{{ area_url('descobrir_item', secao=c.secao, item_id=c.id) }}">{{ marca(c.logo, c.nome, 'sm') }}<span><strong>{{ c.nome }}</strong>{% if c.sub %}<small>{{ c.sub }}</small>{% endif %}</span></a>{% endfor %}</div>
+        {% endif %}
+
+        {% elif s.tipo == 'narrativa' %}
+        {% if d.cartoes %}<div class="ac-fcards">{% for c in d.cartoes %}<div><h3 class="ac-fsub">{{ c.titulo }}</h3>{{ leia(c.texto, 160) }}</div>{% endfor %}</div>{% endif %}
+        {% for l in d.listas %}<h3 class="ac-fsub">{{ l.titulo }}</h3>{{ tags(l.itens) }}{% endfor %}
+        {% if d.fatos %}{{ fatos(d.fatos) }}{% endif %}
+        {% endif %}
+      </section>
+      {% endfor %}
+
+      <p class="ac-fhint">{{ icon('send', 16) }}Gostou? Inclua no briefing e a Centralcomm considera no seu planejamento.</p>
+    </div>
+
+    {% if item.relacionados %}
+    <aside class="ac-fside" aria-label="{{ item.relacionados.titulo }}">
+      <h2>{{ item.relacionados.titulo }}<span>{{ item.relacionados.itens|length }}</span></h2>
+      <ul>{% for r in item.relacionados.itens %}
+        <li>
+          <a class="ac-frel{% if r.imagem %} has-photo{% endif %}" href="{{ area_url('descobrir_item', secao=r.secao, item_id=r.id) }}">
+            {% if r.imagem %}<span class="ac-frel__photo"><img src="{{ r.imagem }}" alt="" loading="lazy">{{ marca(r.logo, r.nome, 'sm') }}</span>{% else %}{{ marca(r.logo, r.nome, 'sm') }}{% endif %}
+            <span class="ac-frel__text"><strong>{{ r.nome }}</strong>{% if r.sub %}<small>{{ r.sub }}</small>{% endif %}</span>
+          </a>
+          {{ escolher(r.secao, r.id, r.nome) }}
+        </li>{% endfor %}
+      </ul>
+    </aside>
     {% endif %}
-    <p class="ac-form__hint ac-detail__hint">Gostou? Inclua no briefing e a Centralcomm considera no seu planejamento.</p>
-  </aside>
-</div>
+  </div>
+</article>
+
+<dialog class="ac-lightbox" data-ac-lightbox aria-label="Imagem ampliada">
+  <form method="dialog"><button class="ac-lightbox__close" aria-label="Fechar">{{ icon('close', 20) }}</button></form>
+  <figure><img src="" alt=""><figcaption></figcaption></figure>
+</dialog>
+<script>
+(function () {
+  var box = document.querySelector('[data-ac-lightbox]');
+  if (box && box.showModal) {
+    var img = box.querySelector('img'), cap = box.querySelector('figcaption');
+    document.addEventListener('click', function (ev) {
+      var alvo = ev.target.closest('[data-ac-zoom]');
+      if (alvo) { img.src = alvo.getAttribute('data-ac-zoom'); img.alt = cap.textContent = alvo.getAttribute('data-ac-legenda') || ''; box.showModal(); return; }
+      if (ev.target === box) box.close();
+    });
+  }
+  var nav = document.querySelector('[data-ac-fnav]');
+  if (!nav || !('IntersectionObserver' in window)) return;
+  var links = {};
+  nav.querySelectorAll('a').forEach(function (a) { links[a.getAttribute('href').slice(1)] = a; });
+  function marcar(id) {
+    Object.keys(links).forEach(function (k) { var on = k === id; links[k].classList.toggle('is-active', on); if (on) links[k].setAttribute('aria-current', 'true'); else links[k].removeAttribute('aria-current'); });
+    var a = links[id]; if (a && nav.scrollWidth > nav.clientWidth) nav.scrollTo({left: a.offsetLeft - 16, behavior: 'smooth'});
+  }
+  var obs = new IntersectionObserver(function (entradas) {
+    var topo = entradas.filter(function (e) { return e.isIntersecting; }).sort(function (a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; })[0];
+    if (topo) marcar(topo.target.id);
+  }, {rootMargin: '-120px 0px -60% 0px'});
+  Object.keys(links).forEach(function (id) { var el = document.getElementById(id); if (el) obs.observe(el); });
+})();
+</script>
 {% endblock %}

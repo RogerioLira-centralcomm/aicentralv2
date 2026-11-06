@@ -159,7 +159,7 @@ frontend_build_step() {
            vite.auth.config.mjs vite.conversations.config.mjs \
            vite.reports.config.mjs vite.planner.config.mjs \
            vite.studio-editor.config.mjs vite.studio-audio.config.mjs vite.studio-ui.config.mjs vite.studio-home.config.mjs \
-           ':(exclude)aicentralv2/templates/area_cliente' ':(exclude)aicentralv2/static/css/area_cliente.css' \
+           ':(exclude)aicentralv2/templates/area_cliente' ':(exclude)aicentralv2/static/css/area_cliente*.css' \
            ':(exclude)aicentralv2/templates/emails' \
        || [ ! -f "aicentralv2/static/css/tailwind/output.css" ]; then
         if [ -x "./build_frontend_fast.sh" ]; then

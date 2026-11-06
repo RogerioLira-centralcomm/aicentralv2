@@ -812,3 +812,14 @@ def test_crm_bloqueia_empresa_inteira_so_equipe(app, monkeypatch):
     assert equipe.put("/crm-v3/api/clientes/x9/area-cliente", json={"ativo": False}).status_code == 404
     resp = equipe.put("/crm-v3/api/clientes/900/area-cliente", json={"ativo": False})
     assert resp.status_code == 200 and chamadas == [("900", False, 7)]
+
+
+def test_toda_equipe_centralcomm_pode_ver_como(monkeypatch):
+    from aicentralv2.area_cliente import acesso
+    for user_type in ("admin", "client"):
+        conn = _ConexaoFalsa(_linha_contato(nome_fantasia="CENTRALCOMM", pk_id_tbl_cliente=174, user_type=user_type))
+        monkeypatch.setattr(acesso, "_db", lambda conn=conn: type("D", (), {"get_db": staticmethod(lambda: conn)}))
+        assert acesso.contexto_usuario(501)["pode_ver_como"] is True, user_type
+    conn = _ConexaoFalsa(_linha_contato(user_type="admin"))
+    monkeypatch.setattr(acesso, "_db", lambda conn=conn: type("D", (), {"get_db": staticmethod(lambda: conn)}))
+    assert acesso.contexto_usuario(501)["pode_ver_como"] is False  # admin de outro cliente não vê como

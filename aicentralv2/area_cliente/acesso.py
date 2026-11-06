@@ -276,7 +276,7 @@ def contexto_usuario(user_id) -> dict | None:
     nome = (row["nome_completo"] or "").strip() or (row["email"] or "").split("@")[0]
     partes = nome.split()
     iniciais = ((partes[0][:1] + (partes[-1][:1] if len(partes) > 1 else "")) if partes else "?").upper()
-    from ..auth import ADMIN_ROLES, is_reserved_org_name
+    from ..auth import is_reserved_org_name
 
     liberado = bool(row["status"] and row["cliente_status"]
                     and not row["contato_bloqueado"] and not row["cliente_bloqueado"])
@@ -291,8 +291,8 @@ def contexto_usuario(user_id) -> dict | None:
         "cliente_nome": row["nome_fantasia"] or "Cliente",
         "executivo": _executivo(row),
         "liberado": liberado,
-        # Admin da CentralComm pode ver a área como qualquer cliente com PI no ano (validação tela a tela).
-        "pode_ver_como": liberado and is_reserved_org_name(row["nome_fantasia"]) and row["user_type"] in ADMIN_ROLES,
+        # Toda a equipe CentralComm (cliente 174) pode ver a área como qualquer cliente com PI no ano.
+        "pode_ver_como": liberado and is_reserved_org_name(row["nome_fantasia"]),
         "ver_como": False,
     }
 

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light only">
+  <title>{% block title %}Centralcomm · Área do Cliente{% endblock %}</title>
+  <style>
+    html,body{margin:0!important;padding:0!important;background:#f2f4f7!important;color:#101828!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}table{border-spacing:0!important;border-collapse:collapse!important}img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}.shell{width:100%;max-width:600px}.copy{color:#475467!important}.link{overflow-wrap:anywhere}@media only screen and (max-width:620px){.page-pad{padding:12px 8px!important}.head-pad{padding:18px 22px!important}.body-pad{padding:26px 22px!important}.foot-pad{padding:18px 22px!important}.title{font-size:24px!important;line-height:1.2!important}.copy{font-size:15px!important}.button{display:block!important;width:100%!important;text-align:center!important;box-sizing:border-box}.facts td{display:block!important;width:100%!important}}
+  </style>
+</head>
+<body style="margin:0;background:#f2f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Arial,Helvetica,sans-serif">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · Área do Cliente{% endblock %}</div>
+  <table role="presentation" width="100%" bgcolor="#f2f4f7"><tr><td class="page-pad" style="padding:32px 16px">
+    <table role="presentation" class="shell" width="600" align="center"><tr><td bgcolor="#ffffff" style="border:1px solid #eaecf0;border-radius:14px;overflow:hidden;background:#ffffff">
+      <table role="presentation" width="100%">
+        <tr><td class="head-pad" style="padding:20px 32px;border-bottom:1px solid #eaecf0">
+          <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+            <td style="vertical-align:middle"><img src="{{ brand.icon_url }}" width="40" height="28" alt="Centralcomm" style="display:block;width:40px;height:28px;object-fit:contain"></td>
+            <td style="vertical-align:middle;padding-left:12px;border-left:1px solid #eaecf0"><strong style="display:block;color:#101828;font-size:15px;line-height:1.2;letter-spacing:-.2px">Centralcomm</strong><span style="color:#055c50;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Área do Cliente</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td class="body-pad" style="padding:30px 32px 32px">
+          {% block eyebrow %}{% if eyebrow %}<p style="margin:0 0 8px;color:#055c50;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">{{ eyebrow }}</p>{% endif %}{% endblock %}
+          <h1 class="title" style="margin:0 0 14px;color:#101828;font-size:26px;line-height:1.2;letter-spacing:-.5px">{% block headline %}{% endblock %}</h1>
+          <div class="copy" style="color:#475467;font-size:15px;line-height:1.65">{% block content %}{% endblock %}</div>
+        </td></tr>
+        {% if executivo and executivo.nome %}
+        <tr><td style="padding:0 32px 28px">
+          <table role="presentation" width="100%" style="border:1px solid #eaecf0;border-radius:10px"><tr><td style="padding:12px 14px;font-size:13px;line-height:1.5;color:#475467">
+            Dúvidas? Fale com <strong style="color:#101828">{{ executivo.nome }}</strong>, seu executivo na Centralcomm{% if executivo.email %} · <a href="mailto:{{ executivo.email }}" style="color:#055c50">{{ executivo.email }}</a>{% endif %}{% if executivo.whatsapp %} · <a href="{{ executivo.whatsapp }}" style="color:#055c50">WhatsApp</a>{% endif %}
+          </td></tr></table>
+        </td></tr>
+        {% endif %}
+        <tr><td class="foot-pad" bgcolor="#0d171a" style="padding:18px 32px;background:#0d171a">
+          <p style="margin:0 0 4px;color:#ffffff;font-size:13px;font-weight:700">Centralcomm · Área do Cliente</p>
+          <p style="margin:0;color:#91aaa6;font-size:11px;line-height:1.5">{% block footer_note %}Seus PIs, campanhas, entregas e briefings em <a href="{{ area_url }}" style="color:#8de0d3">{{ area_url|replace('https://', '') }}</a>.{% endblock %}</p>
+        </td></tr>
+      </table>
+    </td></tr></table>
+  </td></tr></table>
+</body>
+</html>

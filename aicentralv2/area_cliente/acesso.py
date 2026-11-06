@@ -105,6 +105,15 @@ def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
         except Exception:
             logger.warning("Não foi possível auditar a liberação da Área do Cliente.", exc_info=True)
 
+    if ativo and not bool(antes["area_cliente_acesso"]):
+        try:
+            from . import emails
+            contato = _contato_para_email(contato_id)
+            if contato.get("status") and contato.get("email"):
+                emails.acesso_liberado(contato)
+        except Exception:
+            logger.warning("E-mail de acesso liberado não enviado.", exc_info=True)
+
     return {"id": str(contato_id), "cliente_id": str(antes["pk_id_tbl_cliente"]), "ativo": bool(ativo)}
 
 
@@ -139,6 +148,25 @@ def _liberacao(row) -> dict:
         "autor": row["autor_nome"] or "",
         "em": row["data_acao"].strftime("%d/%m/%Y") if row["data_acao"] else "",
     }
+
+
+def _contato_para_email(contato_id) -> dict:
+    """Dados do contato para o e-mail de acesso; diz só SE há senha, nunca o hash."""
+    conn = _db().get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT email, nome_completo, status, pk_id_tbl_cliente,
+                       (NULLIF(senha, '') IS NOT NULL) AS tem_senha
+                  FROM tbl_contato_cliente WHERE id_contato_cliente = %s
+                """,
+                (contato_id,),
+            )
+            return dict(cursor.fetchone() or {})
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def ultima_liberacao(contato_id) -> dict | None:

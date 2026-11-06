@@ -801,3 +801,26 @@ body { font-size: 14px; }
 .ac-cstats dd { margin: 0; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ac-campaign { gap: 10px; }
 section.ac-stats { gap: 0; margin: 0; }
+
+/* ---------- Telas de acesso (login, senha) ---------- */
+.ac-auth { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px 16px; background: var(--soft); }
+.ac-auth__card { width: 100%; max-width: 400px; display: grid; gap: 14px; padding: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); }
+.ac-auth__brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.ac-auth__brand img { width: 40px; height: 28px; object-fit: contain; }
+.ac-auth__title { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.01em; }
+.ac-auth__lead { margin: -8px 0 0; color: var(--muted); font-size: 14px; }
+.ac-auth__form { display: grid; gap: 14px; }
+.ac-auth__field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+.ac-auth__field > span { display: flex; justify-content: space-between; gap: 8px; }
+.ac-auth__field .ac-link { font-size: 13px; font-weight: 500; }
+.ac-auth__field input { height: 40px; padding: 0 12px; font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--colors-gray-300); border-radius: 8px; box-shadow: var(--shadow-xs); }
+.ac-auth__field input:focus { outline: none; border-color: var(--colors-brand-300); box-shadow: var(--ring-brand); }
+.ac-auth__submit { width: 100%; min-height: 40px; font-size: 14px; }
+.ac-auth__hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
+.ac-auth__msg { margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; }
+.ac-auth__msg--erro { background: #fef3f2; color: #b42318; border: 1px solid #fecdca; }
+.ac-auth__msg--ok { background: var(--colors-success-50); color: var(--colors-success-700); border: 1px solid var(--colors-success-200); }
+.ac-auth__msg--info { background: var(--colors-brand-50); color: var(--accent-strong); border: 1px solid var(--colors-brand-200); }
+.ac-auth__foot { margin: 0; color: var(--muted); font-size: 12px; }
+.ac-auth__foot a { color: inherit; }
+.ac-gate__card form { margin: 0; }

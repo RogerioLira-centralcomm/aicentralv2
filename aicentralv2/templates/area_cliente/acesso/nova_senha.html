@@ -1,0 +1,11 @@
+{% extends 'area_cliente/acesso/_base.html' %}
+{% block title %}Nova senha{% endblock %}
+{% block content %}
+<h1 class="ac-auth__title">Crie sua senha</h1>
+<p class="ac-auth__lead">{% if user and user.nome_completo %}{{ user.nome_completo.split()[0] }}, use{% else %}Use{% endif %} pelo menos 8 caracteres.</p>
+<form class="ac-auth__form" method="post" novalidate>
+  <label class="ac-auth__field"><span>Nova senha</span><input type="password" name="password" autocomplete="new-password" minlength="8" required autofocus></label>
+  <label class="ac-auth__field"><span>Repita a senha</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required></label>
+  <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Salvar senha</button>
+</form>
+{% endblock %}

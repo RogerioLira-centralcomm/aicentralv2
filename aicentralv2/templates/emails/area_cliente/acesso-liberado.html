@@ -1,0 +1,19 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, link_cru %}
+{% set eyebrow = 'Acesso liberado' %}
+{% block title %}Sua Área do Cliente Centralcomm está liberada{% endblock %}
+{% block preheader %}Acompanhe PIs, campanhas e entregas da {{ cliente }} com a Centralcomm.{% endblock %}
+{% block headline %}Sua Área do Cliente está liberada{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. A Centralcomm liberou seu acesso à Área do Cliente da {{ cliente }}.</p>
+  <p style="margin:14px 0 0">Lá você acompanha campanhas no ar, entregas contra a meta, PIs, faturamento e notas fiscais, envia briefings e explora canais, formatos e audiências.</p>
+  {% if link_senha %}
+  <p style="margin:14px 0 0">Para entrar, crie sua senha. O link vale por {{ horas_validade }} horas.</p>
+  {{ botao(link_senha, 'Criar minha senha') }}
+  {{ link_cru(link_senha) }}
+  {% else %}
+  <p style="margin:14px 0 0">Entre com o mesmo e-mail e senha que você já usa no Cadu.</p>
+  {{ botao(area_url, 'Entrar na Área do Cliente') }}
+  {% endif %}
+  {{ fatos([('Endereço', area_url|replace('https://', '')), ('Seu login', email)]) }}
+{% endblock %}

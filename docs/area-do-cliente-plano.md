@@ -40,6 +40,14 @@ Decidido com o usuário em 2026-11-05:
   área passa a mostrar os dados do escolhido, com faixa de aviso e botão para
   voltar; envio de briefing fica desativado. Cada troca vai para a auditoria
   (`VIEW_AS`, módulo `area_cliente`).
+- 2026-11-05: **acesso e e-mails** com identidade Centralcomm Área do Cliente
+  (marca Brevo `clientes`, remetente "Centralcomm · Área do Cliente").
+  Login, "esqueci a senha" e nova senha usam a mesma lógica do Cadu, com
+  telas próprias no host de clientes. E-mails: novo acesso (a cada login),
+  acesso liberado (ao ligar no CRM; sem senha, link para criar, 72 h), nova
+  senha, senha alterada, briefing recebido (cliente) e, para o executivo da
+  conta (ou `AREA_CLIENTE_EMAIL_EQUIPE`), pedido de acesso e novo briefing.
+  Prévia dos modelos em `/emails` para admins da CentralComm.
 - **Não usar `ai.centralcomm.media`**: é o CentralX (cookie interno, login só
   @centralcomm.media, `/clientes` = lista interna) e não será mexido.
 - **Endereço: `https://clientes.centralcomm.media`** (host próprio, área na

@@ -1,0 +1,13 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, nota, link_cru %}
+{% set eyebrow = 'Segurança da conta' %}
+{% block title %}Crie uma nova senha{% endblock %}
+{% block preheader %}Use este link para criar uma nova senha. Ele expira em {{ minutos_validade }} minutos.{% endblock %}
+{% block headline %}Crie uma nova senha{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome }}. Recebemos um pedido para criar uma nova senha da sua Área do Cliente.</p>
+  <p style="margin:14px 0 0">O link pode ser usado uma vez e expira em {{ minutos_validade }} minutos.</p>
+  {{ botao(link_reset, 'Criar nova senha') }}
+  {{ nota('Não foi você? Ignore este e-mail. Sua senha atual continua valendo.') }}
+  {{ link_cru(link_reset) }}
+{% endblock %}

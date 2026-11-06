@@ -518,6 +518,33 @@ def client_accessible_api(f):
     return decorated_function
 
 
+_TELAS_AREA_CLIENTE = {
+    'login_tailwind.html': 'area_cliente/acesso/login.html',
+    'forgot_password_tailwind.html': 'area_cliente/acesso/esqueci_senha.html',
+    'reset_password_tailwind.html': 'area_cliente/acesso/nova_senha.html',
+}
+
+
+def _tela_acesso(nome):
+    """No host da Área do Cliente, login e senha usam a identidade Centralcomm; a lógica é a mesma."""
+    try:
+        from aicentralv2.area_cliente import is_clientes_request
+        if is_clientes_request():
+            return _TELAS_AREA_CLIENTE[nome]
+    except Exception:
+        pass
+    return nome
+
+
+def _area_cliente():
+    """Host da Área do Cliente? (sem quebrar apps reduzidos sem o pacote)."""
+    try:
+        from aicentralv2.area_cliente import is_clientes_request
+        return is_clientes_request()
+    except Exception:
+        return False
+
+
 def init_routes(app):
     from aicentralv2.campanha_pi_metrics import (
         anexar_preco_metrica_campanha as _anexar_preco_metrica_campanha,
@@ -1460,7 +1487,7 @@ def init_routes(app):
                     ) if not email else 'Preencha todos os campos.',
                     'error',
                 )
-                return render_template('login_tailwind.html', **login_context)
+                return render_template(_tela_acesso('login_tailwind.html'), **login_context)
             
             user = db.verificar_credenciais(email, password)
             
@@ -1468,17 +1495,17 @@ def init_routes(app):
                 # Verificar se é um usuário inativo
                 if isinstance(user, dict) and user.get('inactive_user'):
                     flash('Usuário inativo. Entre em contato com o administrador.', 'error')
-                    return render_template('login_tailwind.html', **login_context)
+                    return render_template(_tela_acesso('login_tailwind.html'), **login_context)
                 
                 cliente_id = user.get('pk_id_tbl_cliente')
                 if not cliente_id:
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
-                    return render_template('login_tailwind.html', **login_context)
+                    return render_template(_tela_acesso('login_tailwind.html'), **login_context)
 
                 cliente = db.obter_cliente_por_id(cliente_id)
                 if not cliente or not cliente.get('status'):
                     flash('Acesso restrito. Cliente não autorizado.', 'error')
-                    return render_template('login_tailwind.html', **login_context)
+                    return render_template(_tela_acesso('login_tailwind.html'), **login_context)
 
                 is_centralcomm = cliente.get('nome_fantasia', '').upper() == 'CENTRALCOMM'
 
@@ -1501,10 +1528,18 @@ def init_routes(app):
                 if is_centralx_access and not is_centralcomm:
                     session.clear()
                     flash('O CentralX é restrito à equipe CentralComm.', 'error')
-                    return render_template('login_tailwind.html', **login_context)
+                    return render_template(_tela_acesso('login_tailwind.html'), **login_context)
                 destination_url = authenticated_destination()
                 if is_centralx_access:
                     return redirect(destination_url)
+                if _area_cliente():
+                    # Área do Cliente: aviso de segurança por e-mail a cada acesso.
+                    try:
+                        from aicentralv2.area_cliente import emails as area_emails
+                        area_emails.novo_acesso(user)
+                    except Exception:
+                        app.logger.warning('E-mail de novo acesso não enviado', exc_info=True)
+                    return redirect(destination_url, code=303)
                 session['login_conversion'] = {
                     'event_id': uuid4().hex, 'method': 'form', 'next': destination_url,
                 }
@@ -1513,7 +1548,7 @@ def init_routes(app):
                 flash('Email ou senha incorretos.', 'error')
         
         # GET - mostrar página de login
-        return render_template('login_tailwind.html', **login_context)
+        return render_template(_tela_acesso('login_tailwind.html'), **login_context)
 
     @app.get('/acesso-confirmado')
     def login_confirmed():
@@ -1567,7 +1602,7 @@ def init_routes(app):
             if not email:
                 from aicentralv2.product_domains import is_centralx_request
                 flash('Informe o email cadastrado no CentralX.' if is_centralx_request() else 'Informe o email cadastrado no Cadu.', 'error')
-                return render_template('forgot_password_tailwind.html')
+                return render_template(_tela_acesso('forgot_password_tailwind.html'))
 
             contato = db.obter_contato_por_email(email)
 
@@ -1583,8 +1618,11 @@ def init_routes(app):
                     from aicentralv2.auth import LOGIN_EMAIL_DOMAIN
                     internal = is_centralx_request() and email.endswith('@' + LOGIN_EMAIL_DOMAIN)
                     reset_link = product_url('centralx' if internal else 'auth', url_for('reset_password', token=reset_token))
-                    
-                    if token_saved:
+
+                    if token_saved and _area_cliente():
+                        from aicentralv2.area_cliente import emails as area_emails
+                        area_emails.redefinir_senha(contato, product_url('clientes', url_for('reset_password', token=reset_token)))
+                    elif token_saved:
                         send_password_reset_email(
                             user_email=contato['email'],
                             user_name=contato['nome_completo'],
@@ -1595,9 +1633,9 @@ def init_routes(app):
                     app.logger.error('Falha ao processar recuperação de senha', exc_info=True)
             flash('Se a conta estiver ativa, você receberá instruções de recuperação.', 'info')
 
-            return render_template('forgot_password_tailwind.html', request_sent=True)
+            return render_template(_tela_acesso('forgot_password_tailwind.html'), request_sent=True)
 
-        return render_template('forgot_password_tailwind.html')
+        return render_template(_tela_acesso('forgot_password_tailwind.html'))
     
     @app.route('/reset-password/<string:token>', methods=['GET', 'POST'])
     def reset_password(token):
@@ -1619,15 +1657,15 @@ def init_routes(app):
             # Validações
             if not nova_senha or not confirmar_senha:
                 flash('Preencha todos os campos!', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
+                return render_template(_tela_acesso('reset_password_tailwind.html'), token=token, user=contato)
             
             if nova_senha != confirmar_senha:
                 flash('As senhas não coincidem!', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
+                return render_template(_tela_acesso('reset_password_tailwind.html'), token=token, user=contato)
             
             if len(nova_senha) < 8:
                 flash('A senha deve ter no mínimo 8 caracteres.', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
+                return render_template(_tela_acesso('reset_password_tailwind.html'), token=token, user=contato)
             
             try:
                 # Atualizar senha usando bcrypt (mesmo padrão do sistema)
@@ -1640,10 +1678,14 @@ def init_routes(app):
                 
                 # Enviar email de confirmação
                 try:
-                    send_password_changed_email(
-                        user_email=contato['email'],
-                        user_name=contato['nome_completo']
-                    )
+                    if _area_cliente():
+                        from aicentralv2.area_cliente import emails as area_emails
+                        area_emails.senha_alterada(contato)
+                    else:
+                        send_password_changed_email(
+                            user_email=contato['email'],
+                            user_name=contato['nome_completo']
+                        )
                 except Exception as e:
                     app.logger.warning(f"Erro ao enviar email de confirmação: {e}")
                 
@@ -1654,9 +1696,9 @@ def init_routes(app):
             except Exception as e:
                 app.logger.error(f"Erro ao redefinir senha: {str(e)}", exc_info=True)
                 flash('Erro ao redefinir senha. Tente novamente.', 'error')
-                return render_template('reset_password_tailwind.html', token=token, user=contato)
+                return render_template(_tela_acesso('reset_password_tailwind.html'), token=token, user=contato)
         
-        return render_template('reset_password_tailwind.html', token=token, user=contato)
+        return render_template(_tela_acesso('reset_password_tailwind.html'), token=token, user=contato)
     
     @app.route('/clientes/<int:cliente_id>/editar', methods=['GET', 'POST'])
     @login_required

@@ -1,0 +1,16 @@
+{% extends 'area_cliente/acesso/_base.html' %}
+{% block title %}Esqueci minha senha{% endblock %}
+{% block content %}
+<h1 class="ac-auth__title">Criar nova senha</h1>
+{% if request_sent %}
+<p class="ac-auth__lead">Se o e-mail tiver uma conta ativa, enviamos um link para criar a nova senha. Ele vale por 60 minutos.</p>
+<a class="ac-btn ac-btn--secondary ac-auth__submit" href="/login">Voltar para entrar</a>
+{% else %}
+<p class="ac-auth__lead">Informe seu e-mail. Enviamos um link para você criar a senha.</p>
+<form class="ac-auth__form" method="post" action="/forgot-password" novalidate>
+  <label class="ac-auth__field"><span>E-mail</span><input type="email" name="email" autocomplete="username" required autofocus></label>
+  <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Enviar link</button>
+</form>
+<p class="ac-auth__hint"><a class="ac-link" href="/login">Voltar para entrar</a></p>
+{% endif %}
+{% endblock %}

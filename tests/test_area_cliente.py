@@ -481,3 +481,68 @@ def test_logos_e_resumo_de_plataformas():
         {"plataforma": "DV360", "pct": 40, "no_ar": True}, {"plataforma": "DV360", "pct": 60, "no_ar": False},
         {"plataforma": "Spotify", "pct": None, "no_ar": True}])
     assert [(p["nome"], p["n"], p["no_ar"], p["pct"]) for p in r] == [("DV360", 2, 1, 50), ("Spotify", 1, 1, None)]
+
+
+# ---------- E-mails e telas de acesso ----------
+
+def test_todas_as_previas_de_email_renderizam(app, monkeypatch):
+    from aicentralv2.area_cliente import emails
+    with app.test_request_context("/", base_url=HOST):
+        for modelo in emails.MODELOS:
+            html = emails.previa(modelo)
+            assert "Área do Cliente" in html and "Centralcomm" in html and "Cadu Workspace" not in html, modelo
+
+
+def test_previa_de_email_so_para_admin_cc(app, monkeypatch):
+    _admin_cc(monkeypatch)
+    client = _client(app, {"user_id": 501})
+    assert "Novo acesso à sua conta" in client.get("/emails/novo-acesso", base_url=HOST).get_data(as_text=True)
+    _logado(monkeypatch, dict(_usuario(), pode_ver_como=False))
+    assert client.get("/emails/novo-acesso", base_url=HOST).status_code == 404
+
+
+def test_acesso_liberado_sem_senha_cria_link(app, monkeypatch):
+    from aicentralv2 import db
+    from aicentralv2.area_cliente import emails
+    enviados, tokens = [], []
+    monkeypatch.setattr(emails, "_executivo_do_cliente", lambda cid: {"cliente": "CLIENTE X", "nome": "João", "email": "joao@centralcomm.media", "whatsapp": ""})
+    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None: enviados.append((modelo, para, ctx, reply_to)) or True)
+    monkeypatch.setattr(db, "atualizar_reset_token", lambda email, token, exp: tokens.append(token) or True)
+    with app.test_request_context("/", base_url=HOST):
+        emails.acesso_liberado({"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900, "tem_senha": False})
+        emails.acesso_liberado({"email": "bia@cliente.test", "nome_completo": "Bia", "pk_id_tbl_cliente": 900, "tem_senha": True})
+    (m1, para1, ctx1, reply1), (m2, _p, ctx2, _r) = enviados
+    assert m1 == "acesso-liberado" and para1 == "ana@cliente.test" and ctx1["link_senha"].endswith(f"/reset-password/{tokens[0]}")
+    assert reply1 == {"name": "João", "email": "joao@centralcomm.media"}
+    assert ctx2["link_senha"] == "" and len(tokens) == 1
+
+
+def test_sem_acesso_pede_ao_executivo_uma_vez(app, monkeypatch):
+    _logado(monkeypatch, _usuario(liberado=False))
+    from aicentralv2.area_cliente import emails
+    pedidos = []
+    monkeypatch.setattr(emails, "pedido_acesso", lambda usuario: pedidos.append(usuario["email"]) or True)
+    client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    assert "Solicitar acesso" in client.get("/", base_url=HOST).get_data(as_text=True)
+    client.post("/solicitar-acesso", base_url=HOST, data={"csrf": "tok"})
+    client.post("/solicitar-acesso", base_url=HOST, data={"csrf": "tok"})
+    assert pedidos == ["ana@cliente.test"]
+    assert "Pedido enviado para João Lima" in client.get("/", base_url=HOST).get_data(as_text=True)
+
+
+def test_briefing_dispara_os_dois_emails(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    from aicentralv2.area_cliente import briefing, emails
+    monkeypatch.setattr(briefing, "enviar", lambda usuario, d: 41)
+    chamados = []
+    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i: chamados.append(("novo", i)))
+    monkeypatch.setattr(emails, "briefing_recebido", lambda u, v: chamados.append(("recebido", v["titulo"])))
+    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Coleção", "objetivo": "Gerar visitas às lojas"})
+    assert chamados == [("novo", 41), ("recebido", "Coleção")]
+
+
+def test_login_no_host_de_clientes_usa_tela_centralcomm(app):
+    html = app.test_client().get("/login?next=/", base_url=HOST).get_data(as_text=True)
+    assert "Use o e-mail e a senha do Cadu" in html and "Área do Cliente" in html
+    html = app.test_client().get("/forgot-password", base_url=HOST).get_data(as_text=True)
+    assert "Criar nova senha" in html

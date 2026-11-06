@@ -1,0 +1,13 @@
+{% extends 'area_cliente/acesso/_base.html' %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+<h1 class="ac-auth__title">Entrar</h1>
+<p class="ac-auth__lead">Use o e-mail e a senha do Cadu.</p>
+<form class="ac-auth__form" method="post" action="/login" novalidate>
+  <input type="hidden" name="next" value="{{ next_target }}">
+  <label class="ac-auth__field"><span>E-mail</span><input type="email" name="email" autocomplete="username" required autofocus value="{{ request.form.get('email', '') }}"></label>
+  <label class="ac-auth__field"><span>Senha <a class="ac-link" href="/forgot-password">Esqueci minha senha</a></span><input type="password" name="password" autocomplete="current-password" required></label>
+  <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Entrar</button>
+</form>
+<p class="ac-auth__hint">Ainda não tem acesso? Peça ao seu executivo na Centralcomm.</p>
+{% endblock %}

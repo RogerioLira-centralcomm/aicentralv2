@@ -1,0 +1,29 @@
+{% from 'area_cliente/_macros.html' import icon %}<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}Entrar{% endblock %} · Centralcomm Área do Cliente</title>
+<link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+</head>
+<body data-cadu-skin="workspace" data-cadu-theme="light" class="ac-auth">
+<main class="ac-auth__card">
+  <div class="ac-auth__brand">
+    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="40" height="28">
+    <span class="ac-brand__text"><b>Centralcomm</b><small>Área do Cliente</small></span>
+  </div>
+  {% with mensagens = get_flashed_messages(with_categories=true) %}
+  {% for categoria, texto in mensagens if categoria != 'success' or 'Bem-vindo' not in texto %}
+  <p class="ac-auth__msg ac-auth__msg--{{ 'erro' if categoria == 'error' else ('ok' if categoria == 'success' else 'info') }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ texto }}</p>
+  {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<p class="ac-auth__foot">Centralcomm · <a href="https://centralcomm.media" rel="noopener">centralcomm.media</a></p>
+</body>
+</html>

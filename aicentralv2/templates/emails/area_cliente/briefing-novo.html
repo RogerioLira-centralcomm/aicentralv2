@@ -1,0 +1,13 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos %}
+{% set eyebrow = 'Novo briefing' %}
+{% block title %}Novo briefing de {{ cliente }}: {{ titulo }}{% endblock %}
+{% block preheader %}{{ nome }} enviou um briefing pela Área do Cliente.{% endblock %}
+{% block headline %}Novo briefing de {{ cliente }}{% endblock %}
+{% block content %}
+  <p style="margin:0">Olá, {{ primeiro_nome_executivo }}. {{ nome }} enviou um briefing pela Área do Cliente para a Centralcomm montar o planejamento.</p>
+  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Enviado por', nome ~ ' · ' ~ email)]) }}
+  {% if descricao %}<p style="margin:0 0 6px;color:#101828;font-weight:600">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
+  {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}
+{% endblock %}
+{% block footer_note %}Aviso interno da Área do Cliente. Responda ao cliente pelo seu e-mail ou WhatsApp.{% endblock %}

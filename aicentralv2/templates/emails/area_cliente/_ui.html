@@ -1,0 +1,19 @@
+{% macro botao(url, texto, secundario=False) -%}
+<p style="margin:24px 0"><a class="button" href="{{ url }}" style="display:inline-block;padding:12px 18px;border-radius:8px;{% if secundario %}background:#ffffff;color:#344054;border:1px solid #d0d5dd{% else %}background:#087765;color:#ffffff{% endif %};font-size:14px;font-weight:700;text-decoration:none">{{ texto }}</a></p>
+{%- endmacro %}
+
+{% macro fatos(linhas) -%}
+<table role="presentation" width="100%" class="facts" style="margin:18px 0;border:1px solid #eaecf0;border-radius:10px">
+  {% for rotulo, valor in linhas if valor %}
+  <tr><td width="38%" style="padding:10px 14px;{% if not loop.first %}border-top:1px solid #f2f4f7;{% endif %}color:#667085;font-size:13px;vertical-align:top">{{ rotulo }}</td><td style="padding:10px 14px;{% if not loop.first %}border-top:1px solid #f2f4f7;{% endif %}color:#101828;font-size:13px;font-weight:600;vertical-align:top;white-space:pre-line">{{ valor }}</td></tr>
+  {% endfor %}
+</table>
+{%- endmacro %}
+
+{% macro nota(texto, tom='info') -%}
+<table role="presentation" width="100%" style="margin:18px 0 0;border-radius:10px;background:{{ '#fffaeb' if tom == 'alerta' else '#e8f5f1' }}"><tr><td style="padding:12px 14px;color:{{ '#b54708' if tom == 'alerta' else '#055c50' }};font-size:12px;line-height:1.55">{{ texto }}</td></tr></table>
+{%- endmacro %}
+
+{% macro link_cru(url) -%}
+<p class="link" style="margin:14px 0 0;color:#98a2b3;font-size:11px;line-height:1.5">{{ url }}</p>
+{%- endmacro %}

@@ -18,7 +18,7 @@ from flask import abort, current_app, redirect, render_template, request, sessio
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, dados, descobrir, plataformas
+from . import acesso, briefing, dados, descobrir, emails, plataformas
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -39,6 +39,9 @@ ROTAS = Map([
     Rule("/equipe", endpoint="equipe"),
     Rule("/sair", endpoint="sair"),
     Rule("/ver-como", endpoint="ver_como", methods=["POST"]),
+    Rule("/solicitar-acesso", endpoint="solicitar_acesso", methods=["POST"]),
+    Rule("/emails", endpoint="emails_previa_lista"),
+    Rule("/emails/<modelo>", endpoint="emails_previa"),
     Rule("/ver-como/sair", endpoint="ver_como_sair", methods=["POST"]),
 ], strict_slashes=False)
 
@@ -139,7 +142,8 @@ def _exigir_acesso():
         session.pop("area_cliente_ver_como", None)
     if not usuario["liberado"]:
         resp = current_app.make_response((render_template(
-            "area_cliente/sem_acesso.html", usuario=usuario, area_url=area_url,
+            "area_cliente/sem_acesso.html", usuario=usuario, area_url=area_url, csrf=_csrf_token(),
+            pedido_enviado=_pedido_recente(),
         ), 403))
         resp.headers["Cache-Control"] = "no-store"
         return None, resp
@@ -172,6 +176,39 @@ def _checar_csrf():
     esperado = (session.get("area_cliente_csrf") or "").encode()
     if not esperado or not secrets.compare_digest(enviado, esperado):
         abort(400)
+
+
+PEDIDO_INTERVALO = 12 * 3600
+
+
+def _pedido_recente() -> bool:
+    return time.time() - float(session.get("area_cliente_pedido_em") or 0) < PEDIDO_INTERVALO
+
+
+def view_solicitar_acesso():
+    """Contato com login do Cadu, mas sem liberação: avisa o executivo (uma vez a cada 12 h)."""
+    _checar_csrf()
+    usuario = acesso.contexto_usuario(session.get("user_id"))
+    if not usuario:
+        abort(403)
+    if not usuario["liberado"] and not _pedido_recente():
+        emails.pedido_acesso(usuario)
+        session["area_cliente_pedido_em"] = time.time()
+    return redirect(area_url("inicio"), code=303)
+
+
+def view_emails_previa(usuario, modelo=None):
+    """Prévia dos e-mails da área (sem envio), só para admins da Centralcomm."""
+    if not usuario.get("pode_ver_como"):
+        abort(404)
+    if modelo is None:
+        itens = "".join(f'<li><a href="{area_url("emails_previa", modelo=m)}">{m}</a></li>' for m in emails.MODELOS)
+        return current_app.make_response(f"<!doctype html><meta charset='utf-8'><title>E-mails</title><ul style='font:15px/1.8 sans-serif'>{itens}</ul>")
+    if modelo not in emails.MODELOS:
+        abort(404)
+    resp = current_app.make_response(emails.previa(modelo))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 def view_ver_como(usuario):
@@ -216,6 +253,11 @@ def view_briefing(usuario):
             valores["descobrir"] = descobrir.texto_selecao(descobrir.selecao(session))
             novo_id = briefing.enviar(usuario, valores)
             session.pop("area_cliente_descobrir", None)
+            try:
+                emails.briefing_novo(usuario, valores, novo_id)
+                emails.briefing_recebido(usuario, valores)
+            except Exception:
+                current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
             return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
     status = 422 if erros else 200
     resp = _render(
@@ -339,12 +381,16 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao", "ver_como", "ver_como_sair"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
     if endpoint == "ver_como_sair":
         return view_ver_como_sair()
+    if endpoint == "solicitar_acesso":
+        if "user_id" not in session:
+            return redirect("/login")
+        return view_solicitar_acesso()
     usuario, bloqueio = _exigir_acesso()
     if bloqueio is not None:
         return bloqueio
@@ -352,6 +398,8 @@ def despachar():
         return view_inicio(usuario)
     if endpoint == "ver_como":
         return view_ver_como(usuario)
+    if endpoint in ("emails_previa", "emails_previa_lista"):
+        return view_emails_previa(usuario, args.get("modelo"))
     if endpoint == "briefing":
         return view_briefing(usuario)
     if endpoint == "planejamento_antigo":

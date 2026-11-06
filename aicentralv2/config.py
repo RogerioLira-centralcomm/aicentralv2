@@ -235,6 +235,10 @@ class Config:
 	BREVO_SKILLS_SENDER_EMAIL = BREVO_SENDER_EMAIL
 	BREVO_CONNECT_SENDER_NAME = os.getenv('BREVO_CONNECT_SENDER_NAME', 'Connect CentralComm')
 	BREVO_CONNECT_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	BREVO_CLIENTES_SENDER_NAME = os.getenv('BREVO_CLIENTES_SENDER_NAME', 'Centralcomm · Área do Cliente')
+	BREVO_CLIENTES_SENDER_EMAIL = BREVO_SENDER_EMAIL
+	# Quem recebe pedidos e briefings quando o cliente não tem executivo cadastrado.
+	AREA_CLIENTE_EMAIL_EQUIPE = os.getenv('AREA_CLIENTE_EMAIL_EQUIPE', 'contato@centralcomm.media')
 	# Comercial: endereço real que recebe as respostas aos contatos de onboarding.
 	DEMETRIUS_EMAIL = os.getenv('DEMETRIUS_EMAIL', '')
 	DEMETRIUS_NAME = os.getenv('DEMETRIUS_NAME', 'Demétrius Decottignies')

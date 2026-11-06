@@ -44,6 +44,8 @@ PRODUCT_EMAIL_BRANDS = {
     "planner": {"name": "Planner", "accent": "#087D4D", "deep": "#10213B", "soft": "#E8F7EF", "signal": "#18B978", "icon_url": "/static/images/cadu/brand-icons/planner-192.png"},
     "skills": {"name": "Skills", "accent": "#A94D08", "deep": "#10213B", "soft": "#FFF2E7", "signal": "#E87922", "icon_url": "/static/images/cadu/brand-icons/skills-192.png"},
     "connect": {"name": "Reports", "accent": "#1363C5", "deep": "#10213B", "soft": "#EAF2FD", "signal": "#1976E9", "icon_url": "/static/images/cadu/brand-icons/connect-192.png"},
+    # Área do Cliente (clientes.centralcomm.media): identidade Centralcomm, não Cadu.
+    "clientes": {"name": "Área do Cliente", "accent": "#087765", "deep": "#0D171A", "soft": "#E8F5F1", "signal": "#3DAE99", "icon_url": "/static/images/cc_logo.png"},
 }
 
 

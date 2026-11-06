@@ -150,6 +150,12 @@ stop_service_for_deploy() {
 # Roda antes da parada quando o requirements.txt muda (ver passo 2); no passo 4 só repete se faltou.
 frontend_build_step() {
     FRONTEND_STATE_FILE="${FRONTEND_STATE_FILE:-logs/.last-frontend-build-revision}"
+    if [ "${SKIP_FRONTEND_BUILD:-0}" = "1" ] && [ -f "aicentralv2/static/css/tailwind/output.css" ]; then
+        # Saída de emergência: publica Python e templates sem recompilar Tailwind/Vite.
+        # A revisão não é gravada, então o próximo deploy normal ainda compila.
+        echo "  > SKIP_FRONTEND_BUILD=1: build do frontend pulado; os artefatos atuais continuam."
+        return 0
+    fi
     if should_run "$FRONTEND_STATE_FILE" "${FORCE_FRONTEND_BUILD:-0}" \
            frontend aicentralv2/templates aicentralv2/static/cadu_workspace \
            aicentralv2/static/cadu_studio aicentralv2/static/css package.json \

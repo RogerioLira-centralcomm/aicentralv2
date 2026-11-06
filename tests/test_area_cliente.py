@@ -102,7 +102,7 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 1
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
-    ordem = [nav.index(t) for t in ("Início", "Descobrir", "Canais", "Portais", "Briefing", "Campanhas", "Relatórios", "PIs")]
+    ordem = [nav.index(t) for t in ("Início", "Briefing", "Campanhas", "Relatórios", "PIs", "Descobrir", "Canais", "Portais")]
     assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav
     assert "ac-nav__sep" not in nav  # menu sem linhas
     assert nav.index("Planejar") < nav.index("Briefing") < nav.index("Acompanhar") < nav.index("Campanhas")
@@ -647,7 +647,7 @@ def test_relatorios_so_pis_abertos_com_link_publico(app, monkeypatch):
     assert "PI Verão" in html and "PI Antigo" not in html
     assert 'href="/campanha/p/cliente-pi-abc123"' in html and "Prestação de contas" in html
     assert "Verão Meta" in html and "Encerrada" not in html
-    assert "ac-progress--adiantado" in html and "ac-progress__mark" in html
+    assert "ac-progress--adiantado" in html and "ac-progress--tempo" in html and "ac-progress__mark" not in html
 
 
 def test_pis_abre_em_andamento(app, monkeypatch):

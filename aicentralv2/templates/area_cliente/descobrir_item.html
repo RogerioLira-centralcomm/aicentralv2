@@ -35,8 +35,34 @@
 <a class="ac-back" href="{{ area_url('descobrir_secao', secao=secao) }}">{{ icon('arrow-left', 14) }}{{ secao_titulo }}</a>
 
 <article class="ac-ficha">
+  {% if item.layout == 'formato' %}
+  <header class="ac-fpiece">
+    <div class="ac-fpiece__stage{% if item.interativo %} is-phone{% endif %}">
+      {% if item.previa %}
+      <button type="button" class="ac-fpiece__shot" data-ac-zoom="{{ item.previa }}" data-ac-legenda="{{ item.nome }}" aria-label="Ampliar a prévia de {{ item.nome }}"><img src="{{ item.previa }}" alt="Prévia: {{ item.nome }}"></button>
+      {% elif item.quadro %}
+      {% set k = [300 / item.quadro.w, 240 / item.quadro.h]|min %}
+      <span class="ac-fpiece__scale"><span style="width: {{ [item.quadro.w * k, 12]|max|round|int }}px; height: {{ [item.quadro.h * k, 12]|max|round|int }}px">{{ marca(item.logo, item.marca_nome or item.nome, 'md') }}</span><small>{{ item.quadro.rotulo }} px</small></span>
+      {% else %}
+      <span class="ac-fpiece__mark">{{ marca(item.logo, item.marca_nome or item.nome, 'xl') }}</span>
+      {% endif %}
+      {% if item.demo_url %}<button type="button" class="ac-fpiece__play" data-ac-demo="{{ item.demo_url }}"><span>{{ icon('activity', 16) }}</span>Ver funcionando</button>{% endif %}
+    </div>
+    <div class="ac-fpiece__info">
+      <p class="ac-fpiece__eyebrow">{{ marca(item.logo, item.marca_nome or item.nome, 'xs') }}{{ item.eyebrow }}</p>
+      <h1 class="ac-fpiece__title">{{ item.nome }}</h1>
+      {% if item.chips %}<p class="ac-fpiece__chips">{% for c in item.chips %}<span>{{ c }}</span>{% endfor %}</p>{% endif %}
+      {% if item.resumo %}<p class="ac-fpiece__lead">{{ item.resumo }}</p>{% endif %}
+      {% if item.texto %}<p class="ac-ftext">{{ item.texto }}</p>{% endif %}
+      <div class="ac-fpiece__actions">
+        {% with item_id=item.id, nome=item.nome, marcado=(secao, item.id) in marcados %}{% include 'area_cliente/_descobrir_toggle.html' %}{% endwith %}
+        {% if item.galeria_url %}<a class="ac-btn ac-btn--sm ac-btn--secondary" href="{{ item.galeria_url }}" target="_blank" rel="noopener">{{ icon('external', 16) }}Exemplos de marcas</a>{% endif %}
+      </div>
+      {% if item.specs %}{{ fatos(item.specs) }}{% endif %}
+    </div>
+  </header>
+  {% else %}
   <header class="ac-fbanner{% if item.banner and not item.banner_contain %} has-image{% endif %}"{% if item.banner and not item.banner_contain %} style="--fb-img: url('{{ item.banner }}')"{% endif %}>
-    {% if item.banner and item.ilustrativo and not item.banner_contain %}<span class="ac-fbanner__badge">Ilustração</span>{% endif %}
     <div class="ac-fbanner__inner">
       {{ marca(item.logo, item.marca_nome or item.nome, 'lg') }}
       <div class="ac-fbanner__title">
@@ -63,6 +89,7 @@
     </div>
     {% endfor %}
   </dl>
+  {% endif %}
   {% endif %}
 
   <div class="ac-fbody{% if item.relacionados %} has-side{% endif %}">
@@ -124,7 +151,7 @@
         {% elif s.tipo == 'anuncios' %}
         <ul class="ac-fads">{% for a in d %}
           <li>
-            <button type="button" class="ac-fads__img" data-ac-zoom="{{ a.url }}" data-ac-legenda="{{ a.titulo }}" aria-label="Ampliar: {{ a.titulo }}"><img src="{{ a.url }}" alt="{{ a.titulo }}: simulação de anúncio" loading="lazy"></button>
+            <button type="button" class="ac-fads__img" data-ac-zoom="{{ a.url }}" data-ac-legenda="{{ a.titulo }}" aria-label="Ampliar: {{ a.titulo }}"><img src="{{ a.url }}" alt="{{ a.titulo or 'Anúncio' }}" loading="lazy"></button>
             {% if a.formato %}<span class="ac-fads__fmt">{{ a.formato }}</span>{% endif %}
             <strong>{{ a.titulo }}</strong>
             {% if a.texto %}<p>{{ a.texto }}</p>{% endif %}
@@ -170,6 +197,17 @@
         <div class="ac-frail">{% for c in d %}<a href="{{ area_url('descobrir_item', secao=c.secao, item_id=c.id) }}">{{ marca(c.logo, c.nome, 'sm') }}<span><strong>{{ c.nome }}</strong>{% if c.sub %}<small>{{ c.sub }}</small>{% endif %}</span></a>{% endfor %}</div>
         {% endif %}
 
+        {% elif s.tipo == 'vitrine' %}
+        <ul class="ac-fmini">{% for r in d %}
+          <li>
+            <a href="{{ area_url('descobrir_item', secao=r.secao, item_id=r.id) }}">
+              <span class="ac-fmini__media">{% if r.imagem %}<img src="{{ r.imagem }}" alt="" loading="lazy">{% else %}{{ marca(r.logo, r.marca or r.nome, 'md') }}{% endif %}</span>
+              <strong>{{ r.nome }}</strong>{% if r.sub %}<small>{{ r.sub }}</small>{% endif %}
+            </a>
+            {{ escolher(r.secao, r.id, r.nome) }}
+          </li>{% endfor %}
+        </ul>
+
         {% elif s.tipo == 'narrativa' %}
         {% if d.cartoes %}<div class="ac-fcards">{% for c in d.cartoes %}<div><h3 class="ac-fsub">{{ c.titulo }}</h3>{{ leia(c.texto, 160) }}</div>{% endfor %}</div>{% endif %}
         {% for l in d.listas %}<h3 class="ac-fsub">{{ l.titulo }}</h3>{{ tags(l.itens) }}{% endfor %}
@@ -198,6 +236,12 @@
   </div>
 </article>
 
+<dialog class="ac-demo" data-ac-demo-box aria-label="{{ item.nome }} funcionando">
+  <header><b>{{ item.nome }}</b><span>Role, toque e interaja como no celular.</span>
+    {% if item.demo_url %}<a class="ac-link" href="{{ item.demo_url }}" target="_blank" rel="noopener">Abrir em nova aba{{ icon('external', 14) }}</a>{% endif %}
+    <form method="dialog"><button class="ac-icon-btn" aria-label="Fechar">{{ icon('close', 20) }}</button></form></header>
+  <iframe title="{{ item.nome }} funcionando" allow="autoplay; fullscreen; accelerometer; gyroscope" loading="lazy"></iframe>
+</dialog>
 <dialog class="ac-lightbox" data-ac-lightbox aria-label="Imagem ampliada">
   <form method="dialog"><button class="ac-lightbox__close" aria-label="Fechar">{{ icon('close', 20) }}</button></form>
   <figure><img src="" alt=""><figcaption></figcaption></figure>
@@ -212,6 +256,16 @@
       if (alvo) { img.src = alvo.getAttribute('data-ac-zoom'); img.alt = cap.textContent = alvo.getAttribute('data-ac-legenda') || ''; box.showModal(); return; }
       if (ev.target === box) box.close();
     });
+  }
+  var demo = document.querySelector('[data-ac-demo-box]');
+  if (demo && demo.showModal) {
+    var frame = demo.querySelector('iframe');
+    document.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-ac-demo]');
+      if (b) { frame.src = b.getAttribute('data-ac-demo'); demo.showModal(); return; }
+      if (ev.target === demo) demo.close();
+    });
+    demo.addEventListener('close', function () { frame.src = 'about:blank'; });
   }
   var nav = document.querySelector('[data-ac-fnav]');
   if (!nav || !('IntersectionObserver' in window)) return;

@@ -180,11 +180,19 @@ def _metricas(itens):
     return faixa, notas
 
 
+_AVISO_SIMULACAO = re.compile(r"\s*[—–-]?\s*\(?\b(simula[çc][ãa]o|ilustra[çc][ãa]o)( ilustrativa)?\b\)?\s*", re.I)
+
+
+def _sem_aviso(texto) -> str:
+    """Tira "simulação"/"ilustração" de títulos e legendas vindos do catálogo."""
+    return _AVISO_SIMULACAO.sub(" ", str(texto or "")).strip(" ·—–-")
+
+
 def _sessao(id_, titulo, tipo, dados, dica="", contagem=None, larga=False):
     return {"id": id_, "titulo": titulo, "tipo": tipo, "dados": dados, "dica": dica, "contagem": contagem, "larga": larga}
 
 
-def _montar(*, secao, item_id, nome, logo, eyebrow, descricao, imagens, ilustrativo=False, metricas=(),
+def _montar(*, secao, item_id, nome, logo, eyebrow, descricao, imagens, metricas=(),
             destaques=(), fonte_nota="", sessoes=(), relacionados=None):
     faixa, notas = _metricas(list(metricas))
     imagens = [u for i, u in enumerate(imagens) if u and u not in imagens[:i]]
@@ -195,7 +203,7 @@ def _montar(*, secao, item_id, nome, logo, eyebrow, descricao, imagens, ilustrat
                                contagem=len(extras[:12]), larga=True))
     return {
         "secao": secao, "id": item_id, "nome": nome or "", "logo": logo or "", "eyebrow": eyebrow or "",
-        "descricao": (descricao or "").strip(), "banner": imagens[0] if imagens else "", "ilustrativo": bool(ilustrativo),
+        "descricao": (descricao or "").strip(), "banner": imagens[0] if imagens else "",
         "metricas": faixa, "notas": notas,
         "destaques": [{"titulo": t, "texto": str(x).strip()} for t, x in destaques if tem(x)], "fonte_nota": fonte_nota,
         "sessoes": sessoes, "relacionados": relacionados if relacionados and relacionados.get("itens") else None,
@@ -258,10 +266,10 @@ def _canal(item_id):
                   "texto": " · ".join(x for x in (a.get("category"), _tamanho_publico(a.get("audience"))) if x)} for a in audiencias],
                 "Segmente por interesses, comportamentos e contextos.", len(audiencias), True) if audiencias else None,
         _sessao("anuncios", "Anúncios neste canal", "anuncios",
-                [{"url": x["image_url"], "titulo": x.get("title") or "", "formato": x.get("format") or "", "texto": x.get("description") or ""} for x in conceitos],
-                "Simulações de como a marca apareceria, em cada formato. Demonstrações, não campanhas reais.", len(conceitos), True) if conceitos else None,
+                [{"url": x["image_url"], "titulo": _sem_aviso(x.get("title")), "formato": _sem_aviso(x.get("format")), "texto": _sem_aviso(x.get("description"))} for x in conceitos],
+                "Como a marca aparece em cada formato do canal.", len(conceitos), True) if conceitos else None,
         _sessao("exemplos", "Exemplos", "galeria",
-                [{"url": a["image_url"], "legenda": a.get("title") or a.get("source_domain") or ""} for a in anuncios if a.get("image_url")],
+                [{"url": a["image_url"], "legenda": _sem_aviso(a.get("title") or a.get("source_domain"))} for a in anuncios if a.get("image_url")],
                 contagem=len(reais), larga=True) if reais else None,
         _sessao("diferenciais", "Diferenciais", "tags", dividir(c.get("diferenciais"))) if tem(c.get("diferenciais")) else None,
         _sessao("publico", "Quem está no canal", "demografia", _demografia_canal(c.get("demografia"))) if _demografia_canal(c.get("demografia")) else None,
@@ -285,7 +293,6 @@ def _canal(item_id):
         secao="canais", item_id=c.get("id") or item_id, nome=c.get("name"), logo=c.get("logo_url"),
         eyebrow=" · ".join(x for x in (c.get("categoria"), tipo) if x) or "Canal",
         descricao=c.get("description") or c.get("descricao"), imagens=imagens,
-        ilustrativo=bool(c.get("hero_illustrative")) and not lidera_anuncios,
         metricas=[{"rotulo": "Alcance", "valor": c.get("alcance"), "dica": "Declarado pelo canal"},
                   {"rotulo": "Usuários únicos", "valor": c.get("usuarios_unicos")},
                   {"rotulo": "Tempo médio", "valor": c.get("tempo_medio")},
@@ -341,9 +348,39 @@ def _demografia_canal(valor) -> list[dict]:
 
 # ---------- formatos e interativos ----------
 
+_FRASE = re.compile(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])")
+
+
+def _catalogo(secao) -> list[dict]:
+    from ..cadu_family import repository
+    try:
+        return repository.catalog(secao, "")
+    except Exception:
+        return []
+
+
+def _parecidos(secao, f, todos, limite=6) -> list[dict]:
+    """Outros formatos do mesmo objetivo criativo (interativos) ou da mesma família e canal (padrão)."""
+    meu_id = f.get("id")
+    if secao == "interativos":
+        alvo = lambda r: (r.get("creative_category") == f.get("creative_category"), r.get("purpose") == f.get("purpose"))
+    else:
+        alvo = lambda r: (r.get("platform_slug") == f.get("plataforma_slug"), r.get("family") == f.get("family"))
+    candidatos = sorted((r for r in todos if r.get("id") != meu_id and any(alvo(r))), key=lambda r: tuple(not x for x in alvo(r)))
+    return [{"secao": secao, "id": r["id"], "nome": r.get("name"), "imagem": r.get("image_url") or "",
+             "logo": r.get("platform_logo") or "", "marca": r.get("platform") or "",
+             "sub": " · ".join(x for x in (_maiuscula(r.get("creative_category")) if secao == "interativos" else r.get("platform"),
+                                          r.get("dimensions") if len(str(r.get("dimensions") or "")) <= 20 else "") if x)}
+            for r in candidatos[:limite]]
+
+
 def _formato(secao, item_id):
+    """Formato padrão ou interativo: a peça em destaque (prévia e demo), o que ela faz e onde roda."""
     from ..cadu_planner import catalog
     f = catalog.format_profile(secao, item_id)
+    todos = _catalogo(secao)
+    linha = next((r for r in todos if r.get("id") == f.get("id")), {})  # a ficha não traz canal e família
+    f = {**f, "platform": linha.get("platform"), "family": linha.get("family")}
     interativo = secao == "interativos"
     canais = f.get("channels") or []
     tamanhos = [t for t in re.split(r"\s*[|,;]\s*", str(f.get("dimensions") or "")) if t]
@@ -355,30 +392,40 @@ def _formato(secao, item_id):
         escala = min(180 / alto, 320 / largo)
         for q in quadros:
             q["px_w"], q["px_h"] = max(12, round(q["w"] * escala)), max(12, round(q["h"] * escala))
-    links = [(u, r) for u, r in ((f.get("creative_url"), "Ver a experiência funcionando" if interativo else "Abrir demonstração"),
-                                  (f.get("gallery_url"), "Ver galeria de exemplos")) if u]
+    objetivo = _maiuscula(f.get("creative_category"))
+    descricao = " ".join(str(f.get("description") or "").split())
+    frases = [x.strip() for x in _FRASE.split(descricao) if x.strip()]  # 1ª frase em destaque, o resto logo abaixo
+    specs = _fatos([("Finalidade", f.get("purpose")),
+                    ("Tamanhos", ", ".join(q["rotulo"] for q in quadros) if quadros else f.get("dimensions")),
+                    ("Arquivos aceitos", _texto_lista(f.get("files"))),
+                    ("Tipo", _maiuscula(_arrumar(f.get("format_type"))) if not interativo else None),
+                    ("Plataforma", None if interativo else f.get("platform") or None)])
+    mercados, segmentos = dividir(f.get("markets")), dividir(f.get("segments"))
+    parecidos = _parecidos(secao, f, todos)
     sessoes = [
+        _sessao("ideal", "Ideal para", "grupos_tags",
+                [g for g in ({"titulo": "Mercados", "itens": mercados}, {"titulo": "Momentos de campanha", "itens": segmentos}) if g["itens"]])
+        if (mercados or segmentos) else None,
         _sessao("tamanhos", "Tamanhos em escala", "tamanhos", quadros,
-                "Todos desenhados na mesma escala, para comparar o espaço de cada peça.", larga=True) if quadros else None,
-        _sessao("especificacoes", "Especificações", "specs",
-                {"fatos": _fatos([("Tipo", _maiuscula(f.get("format_type"))), ("Dimensões", None if len(tamanhos) > 1 else f.get("dimensions")),
-                                  ("Arquivos aceitos", _texto_lista(f.get("files"))), ("Categoria criativa", _maiuscula(f.get("creative_category")))]),
-                 "links": [{"url": u, "rotulo": r} for u, r in links]}),
-        _sessao("onde", "Onde usar", "trilho",
+                "Todos desenhados na mesma escala, para comparar o espaço de cada peça.", larga=True) if len(quadros) > 1 else None,
+        _sessao("onde", "Onde roda", "trilho",
                 [{"secao": "canais", "id": c["id"], "nome": c.get("name"), "sub": c.get("category") or "", "logo": c.get("logo_path") or ""} for c in canais],
-                "" if canais else "Os canais compatíveis ainda não foram ligados a este formato.", len(canais), True),
-        _sessao("mercados", "Mercados e segmentos", "grupos_tags",
-                [g for g in ({"titulo": "Mercados", "itens": dividir(f.get("markets"))}, {"titulo": "Segmentos", "itens": dividir(f.get("segments"))}) if g["itens"]])
-        if (tem(f.get("markets")) or tem(f.get("segments"))) else None,
+                contagem=len(canais), larga=True) if canais and not (interativo and all(c.get("slug") == "interativos" for c in canais)) else None,
+        _sessao("parecidos", "Outros formatos interativos" if interativo else "Formatos parecidos", "vitrine", parecidos,
+                contagem=len(parecidos), larga=True) if parecidos else None,
     ]
-    return _montar(
+    item = _montar(
         secao=secao, item_id=f.get("id") or item_id, nome=f.get("name"), logo=f.get("platform_logo"),
-        eyebrow="Formato interativo" if interativo else (_maiuscula(f.get("creative_category")) or "Formato"),
-        descricao=f.get("description"), imagens=[f.get("image_url")],
-        metricas=[{"rotulo": "Finalidade", "valor": f.get("purpose")},
-                  {"rotulo": "Tamanhos", "valor": f"{len(tamanhos)} opções" if len(tamanhos) > 1 else f.get("dimensions")},
-                  {"rotulo": "Canais compatíveis", "valor": len(canais) or None}],
-        sessoes=sessoes) | {"banner_contain": True}
+        eyebrow=" · ".join(x for x in ("Formato interativo" if interativo else (f.get("platform") or "Formato"), objetivo) if x),
+        descricao="", imagens=[], sessoes=sessoes)
+    return item | {
+        "layout": "formato", "interativo": interativo, "previa": f.get("image_url") or "",
+        "quadro": quadros[0] if len(quadros) == 1 else None, "resumo": frases[0] if frases else "",
+        "texto": " ".join(frases[1:]), "specs": specs,
+        "demo_url": f.get("creative_url") or "", "galeria_url": f.get("gallery_url") or "",
+        "chips": [x for x in (f.get("purpose"), objetivo if interativo else _maiuscula(_arrumar(f.get("format_type") or ""))) if x],
+        "marca_nome": f.get("platform") or "",
+    }
 
 
 # ---------- audiências ----------
@@ -542,14 +589,14 @@ def _portal(item_id):
             ("Período da audiência", p.get("audience_period")), ("Audiência conferida em", _data(p.get("audience_checked_at")))])),
         _sessao("exemplos", "Fotos", "galeria",
                 [{"url": e["url"], "legenda": " · ".join(x for x in (p.get("name"), e.get("format"), str(e.get("size") or "").replace("x", "×"),
-                                                                      e.get("brand"), "Simulação ilustrativa") if x)} for e in exemplos],
-                "Simulações ilustrativas de anúncios por formato. As marcas são exemplos de aplicação.", len(exemplos), True) if exemplos else None,
+                                                                      e.get("brand")) if x)} for e in exemplos],
+                "Como os anúncios aparecem em cada formato do portal.", len(exemplos), True) if exemplos else None,
     ]
     return _montar(
         secao="portais", item_id=p.get("id") or item_id, nome=p.get("name") or p.get("domain"),
         logo=p.get("favicon_url") or (f"https://{p['domain']}/favicon.ico" if p.get("domain") else ""),
         eyebrow=" · ".join(x for x in (selo, p.get("category")) if x), descricao=p.get("description"),
-        imagens=[p.get("thumb_url")], ilustrativo=bool(p.get("thumb_url")),
+        imagens=[p.get("thumb_url")],
         destaques=[("Formatos de anúncio", (", ".join(f["nome"] for f in formatos[:4] if f["nome"]) + (" e outros." if len(formatos) > 4 else "."))
                     if formatos else ""),
                    ("Quem lê (estimado)", f"{_maiuscula(publico)}." if publico else "")],

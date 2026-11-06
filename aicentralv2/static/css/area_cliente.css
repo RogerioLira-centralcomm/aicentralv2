@@ -1062,7 +1062,6 @@ section.ac-stats { gap: 0; margin: 0; }
 .ac-fbanner { position: relative; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, #0d171a, #123a35); color: #fff; min-height: 168px; display: grid; align-content: end; }
 .ac-fbanner.has-image { min-height: 260px; background: #0d171a var(--fb-img) center / cover no-repeat; }
 .ac-fbanner.has-image::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(13, 23, 26, .05) 20%, rgba(13, 23, 26, .82) 100%); }
-.ac-fbanner__badge { position: absolute; top: 12px; right: 12px; z-index: 1; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; background: rgba(13, 23, 26, .6); color: #fff; backdrop-filter: blur(6px); }
 .ac-fbanner__inner { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 14px; padding: 20px; }
 .ac-fbanner__title { flex: 1; min-width: 0; }
 .ac-fbanner__title h1 { margin: 2px 0 0; font-size: 26px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; color: #fff; overflow-wrap: anywhere; }
@@ -1275,8 +1274,6 @@ a.ac-fformats__card:hover { border-color: var(--colors-brand-200); background: v
 .ac-fmark--xs { width: 20px; height: 20px; border-radius: 5px; font-size: 11px; }
 .ac-fmark--xs img { padding: 8%; }
 .ac-fmark--xl { width: 72px; height: 72px; border-radius: 16px; font-size: 26px; box-shadow: var(--shadow-sm); }
-.ac-fmark--prog { background: linear-gradient(135deg, var(--colors-brand-500), var(--colors-brand-700)); border-color: transparent; color: #fff; }
-.ac-fmark--prog svg { width: 62%; height: 62%; }
 .ac-item__media { position: relative; }
 .ac-item__media.is-empty { background: linear-gradient(135deg, var(--colors-gray-50), var(--colors-brand-25)); }
 .ac-item__badge { position: absolute; left: 10px; bottom: 10px; display: block; line-height: 0; }
@@ -1312,4 +1309,101 @@ a.ac-fformats__card:hover { border-color: var(--colors-brand-200); background: v
 @media (max-width: 600px) {
   .ac-bchips { flex-wrap: nowrap; overflow-x: auto; margin-left: -12px; margin-right: -12px; padding: 0 12px; scrollbar-width: none; }
   .ac-catalog--dense { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Miniaturas sem distorção: o logo nunca herda o recorte da foto em que está por cima,
+   e anúncios/fotos aparecem inteiros (verticais e horizontais) sobre fundo neutro. */
+span.ac-fmark > img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; object-position: center; padding: 14%; transform: none; background: #fff; }
+.ac-fads__img, .ac-fgallery button { aspect-ratio: 4 / 3; display: grid; place-items: center; background: var(--colors-gray-100); }
+.ac-fads__img img, .ac-fgallery img { width: 100%; height: 100%; aspect-ratio: auto; object-fit: contain; }
+.ac-fgallery figure.is-lead button { aspect-ratio: 4 / 3; }
+.ac-fads__img:hover img, .ac-fgallery button:hover img { transform: none; }
+.ac-fpick__img, .ac-frel__photo img { object-position: center 30%; }
+.ac-item__media > img { object-position: center 30%; }
+
+/* Programática: as duas DSPs lado a lado no mesmo selo */
+span.ac-fmark--duo { display: flex; align-items: center; justify-content: center; gap: 0; }
+span.ac-fmark--duo > img { width: 50%; height: 100%; padding: 12% 6%; }
+span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
+
+/* =====================================================================
+   Ficha de formato e de formato interativo: a peça em destaque (palco com a
+   prévia e o demo), ao lado o que ela faz, as ações e as especificações.
+   ===================================================================== */
+.ac-fpiece { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 28px; align-items: start; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.ac-fpiece__stage { position: relative; display: grid; place-items: center; min-height: 380px; padding: 24px; border-radius: 12px; background: radial-gradient(120% 90% at 50% 0%, var(--colors-brand-25), var(--colors-gray-100)); overflow: hidden; }
+.ac-fpiece__shot { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; max-width: 100%; }
+.ac-fpiece__shot img { display: block; max-width: 100%; max-height: 460px; object-fit: contain; border-radius: 10px; box-shadow: 0 12px 32px rgba(16, 24, 40, .14); }
+.ac-fpiece__stage.is-phone .ac-fpiece__shot img { max-height: 520px; }
+.ac-fpiece__scale { display: grid; justify-items: center; gap: 10px; }
+.ac-fpiece__scale > span { display: grid; place-items: center; border: 2px solid var(--colors-brand-400); background: #fff; border-radius: 6px; box-shadow: 0 8px 24px rgba(16, 24, 40, .08); }
+.ac-fpiece__scale small { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ac-fpiece__mark { display: grid; place-items: center; }
+.ac-fpiece__play { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border: 0; border-radius: 999px; background: rgba(13, 23, 26, .82); color: #fff; font: 600 13px/1 var(--sans); cursor: pointer; backdrop-filter: blur(6px); }
+.ac-fpiece__play span { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); }
+.ac-fpiece__play:hover { background: rgba(13, 23, 26, .92); }
+.ac-fpiece__info { display: grid; gap: 12px; align-content: start; min-width: 0; padding-top: 4px; }
+.ac-fpiece__eyebrow { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ac-fpiece__title { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
+.ac-fpiece__chips { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-fpiece__chips span { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--accent-soft); color: var(--accent-strong); }
+.ac-fpiece__lead { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink); }
+.ac-fpiece__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ac-fpiece .ac-ffacts { padding-top: 14px; border-top: 1px solid var(--line); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+
+.ac-fmini { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.ac-fmini li { position: relative; }
+.ac-fmini a { display: grid; gap: 4px; color: inherit; text-decoration: none; }
+.ac-fmini__media { display: grid; place-items: center; aspect-ratio: 4 / 3; border-radius: 10px; background: var(--colors-gray-100); overflow: hidden; }
+.ac-fmini__media img { width: 100%; height: 100%; object-fit: contain; }
+.ac-fmini a:hover strong { color: var(--accent-strong); }
+.ac-fmini strong { font-size: 13px; color: var(--ink); }
+.ac-fmini small { font-size: 12px; color: var(--muted); }
+.ac-fmini li > .ac-pick { position: absolute; top: 8px; right: 8px; }
+
+.ac-demo { width: min(1180px, 96vw); height: min(860px, 92vh); max-width: none; max-height: none; padding: 0; border: 0; border-radius: 14px; overflow: hidden; background: var(--surface); }
+.ac-demo[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.ac-demo::backdrop { background: rgba(13, 23, 26, .78); }
+.ac-demo header { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--line); }
+.ac-demo header b { font-size: 15px; color: var(--ink); }
+.ac-demo header span { font-size: 13px; color: var(--muted); flex: 1; }
+.ac-demo header form { margin: 0; }
+.ac-demo iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+
+@media (max-width: 900px) {
+  .ac-fpiece { grid-template-columns: minmax(0, 1fr); padding: 14px; gap: 18px; }
+  .ac-fpiece__stage { min-height: 280px; }
+  .ac-fpiece__title { font-size: 22px; }
+}
+@media (max-width: 600px) {
+  .ac-demo { width: 100vw; height: 100dvh; border-radius: 0; }
+  .ac-demo header span { display: none; }
+  .ac-fpiece__actions .ac-btn, .ac-fpiece__actions .ac-pick, .ac-fpiece__actions .ac-pick .ac-btn { width: 100%; justify-content: center; }
+}
+
+/* Entrega e tempo restante como dois gráficos (sem o marcador de "hoje") */
+.ac-meter { display: grid; gap: 5px; min-width: 0; }
+.ac-meter__row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; }
+.ac-meter--full .ac-meter__row { grid-template-columns: 50px minmax(0, 1fr) 46px; }
+.ac-meter__lbl { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.ac-meter__val { font-size: 12px; font-weight: 600; color: var(--ink-2); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ac-meter .ac-progress { height: 6px; overflow: hidden; background: var(--colors-gray-100); }
+.ac-meter .ac-progress__fill { position: static; display: block; height: 100%; }
+.ac-meter--duo:not(.ac-meter--full) .ac-progress { height: 4px; }
+.ac-progress--tempo .ac-progress__fill { background: var(--colors-gray-400) !important; }
+.ac-progress__mark, .ac-progress__time, .ac-meter__cap { display: none; }
+/* Linha com os dois gráficos: nome e % em cima, os gráficos embaixo na largura toda */
+.ac-row:has(.ac-meter--full) { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; }
+.ac-row:has(.ac-row__icon):has(.ac-meter--full) { grid-template-columns: 24px minmax(0, 1fr) auto; }
+.ac-row:has(.ac-meter--full) .ac-row__bar { grid-column: 1 / -1; grid-row: 2; }
+.ac-row:has(.ac-row__icon):has(.ac-meter--full) .ac-row__bar { grid-column: 2 / -1; }
+.ac-row:has(.ac-meter--full) .ac-meter { max-width: 520px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ac-progress--tempo .ac-progress__fill { animation: ac-encher 900ms cubic-bezier(.2, .8, .2, 1) both; }
+}
+/* No celular os dois gráficos continuam: são o principal da linha */
+@media (max-width: 720px) {
+  .ac-row:has(.ac-meter--full) .ac-row__bar { display: block; }
+  .ac-row:has(.ac-meter--full) .ac-row__end { min-width: 0; }
+  .ac-row:has(.ac-row__icon):has(.ac-meter--full) { grid-template-columns: 24px minmax(0, 1fr) auto; }
 }

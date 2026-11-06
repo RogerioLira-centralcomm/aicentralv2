@@ -41,7 +41,7 @@
 {% endif %}
 
 {% if v.grupos %}
-{% if v.grupos|length > 1 %}
+{% if v.grupos|length > 1 and v.visao != 'canal' %}{# por canal, os chips já levam a cada canal #}
 <nav class="ac-fnav ac-fnav--groups" aria-label="Ir para" data-ac-fnav>
   {% for g in v.grupos %}<a href="#g-{{ loop.index }}"{% if loop.first %} class="is-active" aria-current="true"{% endif %}>{{ g.titulo }}<span>{{ g.cartoes|length }}</span></a>{% endfor %}
 </nav>

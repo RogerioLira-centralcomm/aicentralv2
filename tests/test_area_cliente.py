@@ -889,34 +889,56 @@ def test_estrategia_por_id_redireciona_para_o_nome(app, monkeypatch):
     assert resp.headers["Location"].endswith("/descobrir/estrategias/funil-essencial-busca-social-e-remarketing?verba=20000")
 
 
+SLUG_FUNIL = "funil-essencial-busca-social-e-remarketing"
+
+
+def _codigo(app, empresa, estrategia_id=1):
+    from aicentralv2.area_cliente import routes
+    with app.app_context():
+        return routes._codigo_publico(empresa, estrategia_id)
+
+
 def test_ficha_logada_mostra_link_publico_da_empresa(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     _estrategias_sem_banco(monkeypatch)
     client = _client(app, {"user_id": 501})
     # slug interno antigo leva ao endereço novo
     antigo = client.get("/descobrir/estrategias/funil-essencial-busca-social", base_url=HOST)
-    assert antigo.status_code == 301 and antigo.headers["Location"].endswith("funil-essencial-busca-social-e-remarketing")
-    html = client.get("/descobrir/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST).get_data(as_text=True)
-    assert "/cliente-teste/estrategias/funil-essencial-busca-social-e-remarketing" in html
+    assert antigo.status_code == 301 and antigo.headers["Location"].endswith(SLUG_FUNIL)
+    html = client.get(f"/descobrir/estrategias/{SLUG_FUNIL}", base_url=HOST).get_data(as_text=True)
+    assert f"/cliente-teste/estrategias/{SLUG_FUNIL}-{_codigo(app, 'cliente-teste')}" in html
     assert "Incluir no briefing" in html and 'data-url="/descobrir/estrategias/1/simulacao"' in html
     vitrine = client.get("/descobrir/estrategias", base_url=HOST).get_data(as_text=True)
-    assert 'href="/descobrir/estrategias/funil-essencial-busca-social-e-remarketing"' in vitrine
+    assert f'href="/descobrir/estrategias/{SLUG_FUNIL}"' in vitrine
 
 
-def test_link_publico_abre_sem_login(app, monkeypatch):
+def test_link_publico_abre_sem_login_so_com_codigo_certo(app, monkeypatch):
     _estrategias_sem_banco(monkeypatch)
+    from aicentralv2.area_cliente import acesso
+    consultas = []
+    original = acesso.empresa_por_slug
+    monkeypatch.setattr(acesso, "empresa_por_slug", lambda e: consultas.append(e) or original(e))
     client = _client(app)
-    resp = client.get("/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST)
+    codigo = _codigo(app, "cemig-d")
+    url = f"/cemig-d/estrategias/{SLUG_FUNIL}-{codigo}"
+    resp = client.get(url, base_url=HOST)
     html = resp.get_data(as_text=True)
     assert resp.status_code == 200
     assert "Compartilhado por <b>CEMIG D</b>" in html and "Funil essencial: busca, social e remarketing" in html
     assert "Incluir no briefing" not in html and "Ir para o briefing" not in html
-    assert 'data-url="/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing/simulacao"' in html
-    sim = client.get("/cemig-d/estrategias/funil-essencial-busca-social-e-remarketing/simulacao?verba=20000", base_url=HOST)
-    assert sim.status_code == 200
-    assert client.get("/empresa-inexistente/estrategias/funil-essencial-busca-social-e-remarketing", base_url=HOST).status_code == 404
-    assert client.get("/cemig-d/estrategias/nao-existe", base_url=HOST).status_code == 404
-    assert client.get("/CEMIG-D/estrategias/funil-essencial-busca-social", base_url=HOST).status_code == 301
+    assert f'data-url="{url}/simulacao"' in html
+    assert client.get(url + "/simulacao?verba=20000", base_url=HOST).status_code == 200
+    # sem código, código errado ou código de outra empresa: 404, sem nem consultar a empresa
+    consultas.clear()
+    for ruim in (f"/cemig-d/estrategias/{SLUG_FUNIL}", f"/cemig-d/estrategias/{SLUG_FUNIL}-aaaaaaaa",
+                 f"/cliente-teste/estrategias/{SLUG_FUNIL}-{codigo}", f"/cemig-d/estrategias/{SLUG_FUNIL}-bbbbbbbb/simulacao"):
+        assert client.get(ruim, base_url=HOST).status_code == 404, ruim
+    assert consultas == []
+    # código certo para uma empresa que não está no cadastro: 404
+    assert client.get(f"/empresa-x/estrategias/{SLUG_FUNIL}-{_codigo(app, 'empresa-x')}", base_url=HOST).status_code == 404
+    # maiúsculas e slug antigo com código válido levam ao endereço certo
+    r = client.get(f"/CEMIG-D/estrategias/funil-essencial-busca-social-{codigo}", base_url=HOST)
+    assert r.status_code == 301 and r.headers["Location"].endswith(url)
 
 
 def test_editar_estrategia_mantem_endereco_e_evita_repetido(monkeypatch):

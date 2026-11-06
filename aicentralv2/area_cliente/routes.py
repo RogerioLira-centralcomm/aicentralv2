@@ -34,7 +34,7 @@ ROTAS = Map([
     Rule("/descobrir/estrategias/<int:item_id>/simulacao", endpoint="descobrir_simulacao"),
     Rule("/descobrir/estrategias/<int:item_id>", endpoint="descobrir_estrategia_id"),
     Rule("/descobrir/estrategias/<endereco>", endpoint="descobrir_estrategia"),
-    # Link público (sem login): /<empresa de quem compartilhou>/estrategias/<estratégia>.
+    # Link público (sem login): /<empresa de quem compartilhou>/estrategias/<estratégia>-<código>.
     Rule("/<empresa>/estrategias/<endereco>", endpoint="estrategia_publica"),
     Rule("/<empresa>/estrategias/<endereco>/simulacao", endpoint="estrategia_publica_simulacao"),
     Rule("/planejamento", endpoint="planejamento_antigo"),
@@ -370,7 +370,8 @@ def view_descobrir_estrategia(usuario, endereco):
     if endereco != canonico:
         return redirect(_com_query(area_url("descobrir_estrategia", endereco=canonico)), code=301)
     empresa = catalogo.slug_url(usuario.get("cliente_nome"))
-    link_publico = _url_absoluta(area_url("estrategia_publica", empresa=empresa, endereco=canonico)) if empresa else ""
+    link_publico = (_url_absoluta(area_url("estrategia_publica", empresa=empresa, endereco=_endereco_publico(empresa, e)))
+                    if empresa else "")
     return _render("descobrir_estrategia.html", usuario, "descobrir", secao="estrategias", secao_titulo="Estratégias",
                    item=descobrir.detalhe_estrategia(None, request.args.get("verba"), request.args.get("pracas"), estrategia=e),
                    tipo="Estratégia", csrf=_csrf_token(), marcados=descobrir.selecionados(session),
@@ -378,28 +379,57 @@ def view_descobrir_estrategia(usuario, endereco):
                    empresa_nome=usuario.get("cliente_nome") or "")
 
 
-def _estrategia_publica(empresa, endereco):
-    """(nome da empresa, estratégia) do link público, ou a resposta de redirecionamento/404."""
+CODIGO_PUBLICO_TAM = 8
+
+
+def _codigo_publico(empresa: str, estrategia_id) -> str:
+    """Código do fim do link público: HMAC da empresa + id da estratégia com a SECRET_KEY.
+    Só quem recebeu o link conhece; sem ele não dá para descobrir clientes nem forjar
+    "Compartilhado por". Usa o id (não o nome), então renomear a estratégia não invalida o link."""
+    import base64
+    import hashlib
+    import hmac
+    chave = str(current_app.config.get("SECRET_KEY") or current_app.secret_key or "").encode()
+    dig = hmac.new(chave, f"estrategia-publica:{empresa}:{int(estrategia_id)}".encode(), hashlib.sha256).digest()
+    return base64.b32encode(dig).decode().lower()[:CODIGO_PUBLICO_TAM]
+
+
+def _endereco_publico(empresa: str, e: dict) -> str:
     from ..estrategias import catalogo
-    nome_empresa = acesso.empresa_por_slug(empresa)
-    if not nome_empresa:
+    return f"{catalogo.url_slug(e)}-{_codigo_publico(empresa, e['id'])}"
+
+
+def _estrategia_publica(empresa, endereco):
+    """(nome da empresa, estratégia, endereço certo ou None) do link público; 404 sem código válido.
+    O código é conferido antes de consultar a empresa: endereço sem código certo não revela se ela é cliente."""
+    from ..estrategias import catalogo
+    empresa_n = (empresa or "").strip().lower()
+    slug, _, codigo = (endereco or "").lower().rpartition("-")
+    if not slug or len(codigo) != CODIGO_PUBLICO_TAM:
         abort(404)
-    e = descobrir.estrategia_por_url(endereco)
-    canonico, empresa_ok = catalogo.url_slug(e), catalogo.slug_url(nome_empresa)
-    return nome_empresa, e, (canonico, empresa_ok) if (endereco, empresa) != (canonico, empresa_ok) else None
+    e = descobrir.estrategia_por_url(slug)
+    if not secrets.compare_digest(codigo, _codigo_publico(empresa_n, e["id"])):
+        abort(404)
+    nome_empresa = acesso.empresa_por_slug(empresa_n)
+    if not nome_empresa or catalogo.slug_url(nome_empresa) != empresa_n:
+        abort(404)
+    certo = _endereco_publico(empresa_n, e)
+    return nome_empresa, e, (empresa_n, certo) if (empresa, endereco) != (empresa_n, certo) else None
 
 
 def view_estrategia_publica(empresa, endereco):
     """Ficha da estratégia para quem não tem login, com o nome da empresa que compartilhou."""
+    from ..estrategias import catalogo
     nome_empresa, e, corrigir = _estrategia_publica(empresa, endereco)
     if corrigir:
-        return redirect(_com_query(area_url("estrategia_publica", empresa=corrigir[1], endereco=corrigir[0])), code=301)
+        return redirect(_com_query(area_url("estrategia_publica", empresa=corrigir[0], endereco=corrigir[1])), code=301)
     item = descobrir.detalhe_estrategia(None, request.args.get("verba"), request.args.get("pracas"), estrategia=e)
     caminho = area_url("estrategia_publica", empresa=empresa, endereco=endereco)
     resp = current_app.make_response(render_template(
         "area_cliente/estrategia_publica.html", item=item, area_url=area_url, empresa_nome=nome_empresa,
         sim_url=area_url("estrategia_publica_simulacao", empresa=empresa, endereco=endereco),
-        url_publica=_url_absoluta(caminho), login_url="/login?" + urlencode({"next": area_url("descobrir_estrategia", endereco=endereco)}),
+        url_publica=_url_absoluta(caminho),
+        login_url="/login?" + urlencode({"next": area_url("descobrir_estrategia", endereco=catalogo.url_slug(e))}),
     ))
     resp.headers["Cache-Control"] = "public, max-age=300"
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"

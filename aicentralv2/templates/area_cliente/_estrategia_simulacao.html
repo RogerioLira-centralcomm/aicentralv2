@@ -1,0 +1,46 @@
+{# Resultado da simulação (verba + praças). Renderizado na ficha e devolvido sozinho por /descobrir/estrategias/<id>/simulacao. Precisa de: sim. #}
+{% from 'area_cliente/_macros.html' import icon, marca %}
+<div class="es-sim" data-es-sim-verba-atual="{{ sim.verba }}" data-es-sim-ids="{{ sim.ids_txt }}">
+  <div class="es-pop">
+    <div class="es-pop__main">
+      <p class="es-pop__label">{{ icon('users', 16) }}População das praças</p>
+      <p class="es-pop__num">{{ sim.pop_txt }}</p>
+      <p class="es-pop__sub">{% if sim.praca.nacional %}Brasil inteiro{% else %}{{ sim.praca.pct_brasil|string|replace('.', ',') }}% da população do Brasil{% if sim.praca.capitais %} · {{ sim.praca.capitais }} {{ 'capital' if sim.praca.capitais == 1 else 'capitais' }}{% endif %}{% if sim.praca.interior %} · {{ sim.praca.interior }} {{ 'cidade' if sim.praca.interior == 1 else 'cidades' }} do interior{% endif %}{% endif %}</p>
+    </div>
+    <ul class="es-pop__list" aria-label="Praças da simulação">
+      {% for p in sim.praca.itens[:8] %}<li><span>{{ p.nome }}</span><b>{{ '{:,}'.format(p['pop']).replace(',', '.') }}</b></li>{% endfor %}
+      {% if sim.praca.itens|length > 8 %}<li class="is-more"><span>e mais {{ sim.praca.itens|length - 8 }} praças</span></li>{% endif %}
+    </ul>
+  </div>
+
+  <div class="es-est" aria-live="polite">
+    <div class="es-est__card es-est__card--main">
+      <p>{{ sim.resultado_nome|capitalize }}</p>
+      <strong>{{ sim.resultado }}</strong>
+      {% if sim.custo_resultado %}<small>{{ sim.custo_resultado }} por {{ 'lead' if sim.resultado_nome == 'leads' else ('conversa' if 'conversas' in sim.resultado_nome else 'resultado') }}</small>{% endif %}
+    </div>
+    <div class="es-est__card"><p>Pessoas alcançadas</p><strong>{{ sim.alcance }}</strong><small>{{ sim.alcance_pct }} das pessoas alcançáveis</small></div>
+    <div class="es-est__card"><p>Impressões</p><strong>{{ sim.impressoes }}</strong><small>Frequência média de {{ sim.frequencia }}</small></div>
+    <div class="es-est__card"><p>Cliques</p><strong>{{ sim.cliques }}</strong><small>Visitas, toques e aberturas</small></div>
+  </div>
+
+  <div class="es-split">
+    <div class="es-bar" aria-hidden="true">{% for l in sim.linhas %}<span style="flex-basis: {{ l.pct }}%" class="es-bar__seg es-c{{ loop.index0 % 6 }}" title="{{ l.nome }}: {{ l.valor_txt }}"></span>{% endfor %}</div>
+    <table class="es-split__table">
+      <thead><tr><th>Canal</th><th>Verba</th><th>Impressões</th><th>Cliques</th></tr></thead>
+      <tbody>
+      {% for l in sim.linhas %}
+        <tr>
+          <th scope="row"><span class="es-dot es-c{{ loop.index0 % 6 }}" aria-hidden="true"></span>{{ marca(l.logo, l.nome, 'xs') }}<span class="es-split__name">{{ l.nome }}<small>{{ l.papel }}</small></span></th>
+          <td><strong>{{ l.valor_txt }}</strong> <span class="es-split__pct">{{ l.pct|round|int }}%</span></td>
+          <td>{{ l.impressoes }}</td><td>{{ l.cliques }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="es-split__total">Total: <strong>{{ sim.verba_txt }}</strong></p>
+  </div>
+
+  {% for a in sim.avisos %}<p class="es-aviso">{{ icon('bell', 16) }}<span>{{ a }}</span></p>{% endfor %}
+  <p class="es-disclaimer">Estimativa em faixa, com médias de mercado por canal e custos ajustados para capital e interior. Não é garantia: o resultado depende da oferta, dos criativos, do site e da época do ano. A Centralcomm refina os números no planejamento.</p>
+</div>

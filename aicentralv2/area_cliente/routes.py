@@ -31,6 +31,7 @@ ROTAS = Map([
     Rule("/descobrir/selecao", endpoint="descobrir_selecao", methods=["POST"]),
     Rule("/descobrir/<secao>", endpoint="descobrir_secao"),
     Rule("/descobrir/<secao>/<int:item_id>", endpoint="descobrir_item"),
+    Rule("/descobrir/estrategias/<int:item_id>/simulacao", endpoint="descobrir_simulacao"),
     Rule("/planejamento", endpoint="planejamento_antigo"),
     Rule("/pis", endpoint="pis"),
     Rule("/pis/<int:id_pi>", endpoint="pi"),
@@ -327,6 +328,10 @@ def view_descobrir_secao(usuario, secao):
     titulo, icone, texto = descobrir.SECOES[secao]
     comum = dict(secao=secao, titulo=titulo, icone=icone, texto=texto, secoes=descobrir.SECOES, csrf=_csrf_token(),
                  marcados=descobrir.selecionados(session))
+    if secao == "estrategias":
+        vitrine = descobrir.vitrine_estrategias(request.args.get("q", ""), request.args.get("objetivo", ""),
+                                                request.args.get("verba", ""))
+        return _render("descobrir_estrategias.html", usuario, "descobrir", vitrine=vitrine, **comum)
     if secao in ("formatos", "interativos"):
         vitrine = descobrir.vitrine_formatos(secao, request.args.get("q", ""), request.args.get("canal", ""),
                                              request.args.get("ver", "canal"))
@@ -338,6 +343,11 @@ def view_descobrir_secao(usuario, secao):
 
 
 def view_descobrir_item(usuario, secao, item_id):
+    if secao == "estrategias":
+        return _render("descobrir_estrategia.html", usuario, "descobrir", secao=secao, secao_titulo="Estratégias",
+                       item=descobrir.detalhe_estrategia(item_id, request.args.get("verba"), request.args.get("pracas")),
+                       tipo="Estratégia", csrf=_csrf_token(),
+                       marcados=descobrir.selecionados(session))
     item = descobrir.detalhe(secao, item_id)
     titulo, _icone, _texto = descobrir.SECOES[secao]
     return _render("descobrir_item.html", usuario, "descobrir", secao=secao, secao_titulo=titulo, item=item,
@@ -345,9 +355,20 @@ def view_descobrir_item(usuario, secao, item_id):
                    marcados=descobrir.selecionados(session))
 
 
+def view_descobrir_simulacao(item_id):
+    """Fragmento da simulação (verba e praças) que a ficha da estratégia troca sem recarregar."""
+    sim = descobrir.simulacao_estrategia(item_id, request.args.get("verba"), request.args.get("pracas"))
+    resp = current_app.make_response(render_template("area_cliente/_estrategia_simulacao.html", sim=sim))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 def view_descobrir_selecao():
     _checar_csrf()
-    incluido = descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), request.form.get("nome", ""))
+    nome = request.form.get("nome", "")
+    if request.form.get("secao") == "estrategias" and request.form.get("verba"):
+        nome = descobrir.nome_simulacao(request.form.get("id"), request.form.get("verba"), request.form.get("pracas"))
+    incluido = descobrir.alternar(session, request.form.get("secao", ""), request.form.get("id"), nome)
     if request.headers.get("X-Requested-With") == "fetch":
         # O botão troca de estado sem recarregar; "total" atualiza os contadores do menu e do CTA.
         return jsonify(incluido=incluido, total=len(descobrir.selecao(session)), limite=descobrir.LIMITE_SELECAO)
@@ -518,6 +539,8 @@ def despachar():
         return view_descobrir_item(usuario, **args)
     if endpoint == "descobrir_selecao":
         return view_descobrir_selecao()
+    if endpoint == "descobrir_simulacao":
+        return view_descobrir_simulacao(**args)
     if endpoint == "projetos":
         destino = area_url("pis") + (f"?{urlencode({'q': request.args['q']})}" if request.args.get("q") else "")
         return redirect(destino, code=301)

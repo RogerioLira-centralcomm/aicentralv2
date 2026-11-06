@@ -1,0 +1,110 @@
+{% extends "base_erp.html" %}
+{% block title %}{{ estrategia.nome or 'Nova estratégia' }} — Estratégias — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Estratégias de mídia{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estrategias_admin.css') }}?v={{ static_fingerprint('css/estrategias_admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="es-shell es-editor" data-es-editor data-do-banco="{{ '1' if do_banco else '0' }}">
+  <a class="es-back" href="{{ url_for('parametros.estrategias_lista') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Estratégias</a>
+  <header class="es-head">
+    <div>
+      <h1 class="es-h1" data-es-titulo>{{ estrategia.nome or 'Nova estratégia' }}</h1>
+      <p class="es-sub">Pelo menos 2 canais com peso. A divisão por faixa é calculada pelos pesos e pelos mínimos: canal abaixo do mínimo sai da faixa, a não ser que seja essencial.</p>
+    </div>
+    <div class="es-head__actions">
+      {% if estrategia.id %}<a class="cx-btn cx-btn-sm cx-btn-secondary" href="{{ url_for('parametros.estrategias_editar', de=estrategia.id) }}"><i class="fa-regular fa-copy" aria-hidden="true"></i> Duplicar</a>{% endif %}
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-primary" data-es-salvar{% if not do_banco %} disabled title="Migração pendente"{% endif %}><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salvar</button>
+    </div>
+  </header>
+
+  {% if not do_banco %}
+  <div class="es-alert" role="status"><i class="fa-solid fa-database" aria-hidden="true"></i>
+    <div><strong>Migração pendente.</strong> Dá para ver e testar a divisão de verba, mas salvar exige a tabela. {{ aviso_tabela }}</div>
+  </div>
+  {% endif %}
+  <div class="es-feedback" data-es-feedback role="alert" hidden></div>
+
+  <div class="es-grid">
+    <div class="es-col">
+      <section class="es-card" aria-labelledby="es-s-basico">
+        <h2 id="es-s-basico">Básico</h2>
+        <div class="es-fields" data-es-basico></div>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-canais">
+        <h2 id="es-s-canais">Canais e verba</h2>
+        <p class="es-hint">Peso é a parte da verba (proporcional). Mínimo vazio usa o padrão do canal. Destinos e lista de clientes entram no fluxo sem verba.</p>
+        <div data-es-canais></div>
+        <div class="es-add">
+          <select class="cx-select cx-select-sm" data-es-add-canal aria-label="Adicionar canal ou nó"></select>
+          <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-add-canal-btn><i class="fa-solid fa-plus" aria-hidden="true"></i> Adicionar</button>
+        </div>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-fluxo">
+        <h2 id="es-s-fluxo">Fluxo</h2>
+        <p class="es-hint">Etapas na ordem em que o público passa. Marque os canais e nós de cada etapa; é o desenho que o cliente vê.</p>
+        <div data-es-fluxo></div>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-add-etapa><i class="fa-solid fa-plus" aria-hidden="true"></i> Etapa</button>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-efeitos">
+        <h2 id="es-s-efeitos">O que esperar</h2>
+        <p class="es-hint">Fases da campanha e o que costuma acontecer em cada uma. Texto de expectativa, sem prometer número; os números vêm da simulação.</p>
+        <div data-es-efeitos></div>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-add-efeito><i class="fa-solid fa-plus" aria-hidden="true"></i> Fase</button>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-conv">
+        <h2 id="es-s-conv">Conversão, remarketing e lista de clientes</h2>
+        <div data-es-conversao></div>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-pecas">
+        <h2 id="es-s-pecas">Formatos e criativos</h2>
+        <p class="es-hint">Peças que o cliente precisa entregar ou que a Centralcomm produz. Os formatos por canal ficam no bloco de canais.</p>
+        <div data-es-criativos></div>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-add-peca><i class="fa-solid fa-plus" aria-hidden="true"></i> Peça</button>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-kpis">
+        <h2 id="es-s-kpis">Indicadores da operação</h2>
+        <p class="es-hint">O que a operação de mídia mede. Marque os principais (os que decidem se a estratégia deu certo).</p>
+        <div data-es-kpis></div>
+        <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-add-kpi><i class="fa-solid fa-plus" aria-hidden="true"></i> Indicador</button>
+      </section>
+
+      <section class="es-card" aria-labelledby="es-s-otim">
+        <h2 id="es-s-otim">Otimizações da estratégia</h2>
+        <p class="es-hint">Uma por linha. As otimizações de cada canal ficam no bloco de canais.</p>
+        <textarea class="cx-input es-textarea" rows="5" data-es-otimizacoes aria-labelledby="es-s-otim"></textarea>
+      </section>
+    </div>
+
+    <aside class="es-col es-side">
+      <section class="es-card es-sticky" aria-labelledby="es-s-previa">
+        <h2 id="es-s-previa">Divisão por faixa</h2>
+        <div data-es-previa><p class="es-hint">Adicione canais com peso.</p></div>
+        <p class="es-escala" data-es-escala></p>
+      </section>
+      <section class="es-card" aria-labelledby="es-s-img">
+        <h2 id="es-s-img">Imagens</h2>
+        {% if imagens %}
+        <div class="es-imgs">{% for i in imagens %}<figure><img src="{{ i.url }}" alt="{{ i.legenda }}" loading="lazy"><figcaption>{{ i.legenda }}</figcaption></figure>{% endfor %}</div>
+        {% else %}<p class="es-hint">Sem imagens ainda.</p>{% endif %}
+        <p class="es-hint">Geradas por script na OpenRouter a partir do campo "Cena" e do fluxo: <code>scripts/gerar_imagens_estrategias.py --slug {{ estrategia.slug or 'slug' }}</code>. Ficam em <code>static/images/estrategias/&lt;slug&gt;/</code>.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+<script type="application/json" id="es-dados">{{ estrategia|tojson }}</script>
+<script type="application/json" id="es-meta">{{ meta|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/estrategias_admin.js') }}?v={{ static_fingerprint('js/estrategias_admin.js') }}"></script>
+{% endblock %}

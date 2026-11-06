@@ -6,6 +6,7 @@
   <input type="hidden" name="id" value="{{ item_id }}">
   <input type="hidden" name="nome" value="{{ nome }}">
   <input type="hidden" name="voltar" value="{{ voltar }}">
+  {% if simulacao %}<input type="hidden" name="verba" value="{{ simulacao.verba }}" data-es-sim-verba><input type="hidden" name="pracas" value="{{ simulacao.ids_txt }}" data-es-sim-pracas>{% endif %}
   {% if compacto %}
   <button type="submit" class="ac-pick__mini{% if marcado %} is-on{% endif %}" aria-pressed="{{ 'true' if marcado else 'false' }}" title="{{ 'No briefing (clique para tirar)' if marcado else 'Incluir no briefing' }}" aria-label="{{ ('Tirar do briefing: ' if marcado else 'Incluir no briefing: ') ~ nome }}">{{ icon('check' if marcado else 'plus', 16) }}</button>
   {% elif marcado %}

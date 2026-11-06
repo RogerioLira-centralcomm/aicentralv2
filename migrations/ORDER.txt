@@ -259,3 +259,5 @@ migrations/run_sql_migration.py add_pi_link_publico.sql
 migrations/run_sql_migration.py add_area_cliente_acesso_contato.sql
 # Área do Cliente aberta por padrão: bloqueio por cliente e por contato (idempotente).
 migrations/run_sql_migration.py add_area_cliente_bloqueio.sql
+# Estratégias de mídia: tabelas cadu_estrategias e cadu_estrategias_parametros; semente insere slugs novos e só completa campos que faltam (idempotente).
+migrations/run_seed_cadu_estrategias.py

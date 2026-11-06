@@ -12,17 +12,19 @@ from __future__ import annotations
 from werkzeug.exceptions import NotFound
 
 SECOES = {
+    "estrategias": ("Estratégias", "flow", "Combinações de canais prontas por objetivo, com fluxo, verba por faixa, peças e indicadores."),
     "canais": ("Canais", "broadcast", "Onde a mídia roda: apps, plataformas, TV, áudio e OOH, com alcance e uso indicado."),
     "formatos": ("Formatos", "layout", "Os formatos de anúncio de cada plataforma, com objetivo e especificações."),
     "interativos": ("Formatos interativos", "sparkles", "Formatos com interação: jogos, carrosséis, quizzes e experiências ricas."),
     "audiencias": ("Audiências", "users", "Públicos prontos por interesse, perfil e comportamento, com tamanho estimado."),
     "portais": ("Portais", "globe", "Sites de notícia e conteúdo por categoria e região, com tráfego e formatos aceitos."),
 }
-TIPO_ROTULO = {"canais": "Canal", "formatos": "Formato", "interativos": "Formato interativo",
+TIPO_ROTULO = {"estrategias": "Estratégia", "canais": "Canal", "formatos": "Formato", "interativos": "Formato interativo",
                "audiencias": "Audiência", "portais": "Portal"}
 POR_PAGINA = 24
 LIMITE_SELECAO = 20  # a seleção fica no cookie de sessão (limite de ~4 KB)
 NOME_MAX = 60
+NOME_MAX_ESTRATEGIA = 150  # nome · verba · praças da simulação
 
 
 def _repo():
@@ -58,6 +60,84 @@ def _cartao(secao, r) -> dict:
     return {"id": r["id"], "nome": r.get("name") or r.get("domain"), "descricao": _texto(r.get("description"), 180),
             "imagem": r.get("thumb_url") or "", "logo": logo, "marca": r.get("name") or r.get("domain") or "",
             "meta": [m for m in meta if m]}
+
+
+# ---------- Estratégias (verba em R$: exceção pedida pelo usuário à regra de não mostrar preço) ----------
+
+def vitrine_estrategias(busca: str = "", objetivo: str = "", verba: str = "") -> dict:
+    """Cartões das estratégias ativas com filtro por objetivo e verba disponível."""
+    from ..estrategias import catalogo, repositorio, visao
+    busca, objetivo = (busca or "").strip()[:80].lower(), (objetivo or "").strip()
+    try:
+        teto = int(verba) if int(verba) in catalogo.FAIXAS else 0
+    except (TypeError, ValueError):
+        teto = 0
+    todas, _ = repositorio.listar(somente_ativas=True)
+    canais = visao.canais_catalogo()
+    cartoes = []
+    objetivos_usados = {}
+    for e in todas:
+        c = visao.cartao(e, canais)
+        objetivos_usados[e["objetivo"]] = c["objetivo"]
+        if objetivo and e["objetivo"] != objetivo:
+            continue
+        if teto and e["verba_minima"] > teto:
+            continue
+        texto = " ".join([c["nome"], c["resumo"], c["objetivo"]] + [n["nome"] for n in c["canais"]]).lower()
+        if busca and busca not in texto:
+            continue
+        cartoes.append(c)
+    return {"cartoes": cartoes, "total": len(cartoes), "busca": busca, "objetivo": objetivo, "verba": teto,
+            "objetivos": [(k, v) for k, v in catalogo.OBJETIVOS.items() if k in objetivos_usados],
+            "faixas": [(f, catalogo.brl_curto(f)) for f in catalogo.FAIXAS]}
+
+
+def _estrategia(item_id) -> dict:
+    from ..estrategias import repositorio
+    try:
+        e = repositorio.obter(int(item_id), somente_ativas=True)
+    except (TypeError, ValueError):
+        e = None
+    if not e:
+        raise NotFound()
+    return e
+
+
+def _verba_valida(e: dict, verba) -> int:
+    from ..estrategias import catalogo
+    inicial = catalogo.faixa_inicial(e["verba_minima"])
+    try:
+        verba = int(verba)
+    except (TypeError, ValueError):
+        return inicial
+    return verba if verba in catalogo.FAIXAS and verba >= inicial else inicial
+
+
+def _ids_pracas(texto) -> list[str]:
+    return [p for p in str(texto or "").replace(" ", "").split(",") if p][:60]
+
+
+def detalhe_estrategia(item_id, verba=None, pracas=None) -> dict:
+    """Ficha completa com a simulação inicial (verba e praças da URL, se vierem)."""
+    from ..estrategias import visao
+    e = _estrategia(item_id)
+    item = visao.completa(e)
+    item["sim"] = visao.simulacao(e, _verba_valida(e, verba), _ids_pracas(pracas))
+    return item
+
+
+def simulacao_estrategia(item_id, verba=None, pracas=None) -> dict:
+    from ..estrategias import visao
+    e = _estrategia(item_id)
+    return visao.simulacao(e, _verba_valida(e, verba), _ids_pracas(pracas))
+
+
+def nome_simulacao(item_id, verba=None, pracas=None) -> str:
+    """Como a estratégia entra no briefing: nome, verba e praças, montado aqui (não confia no formulário)."""
+    from ..estrategias import catalogo, pracas as mod_pracas
+    e = _estrategia(item_id)
+    praca = mod_pracas.resolver(_ids_pracas(pracas))
+    return f"{e['nome']} · {catalogo.brl_curto(_verba_valida(e, verba))} · {praca['resumo']}"
 
 
 # Vitrine de formatos: blocos por canal (padrão) ou por tipo; interativos por objetivo criativo.
@@ -172,12 +252,21 @@ def alternar(sess, secao: str, item_id, nome: str) -> bool:
         raise NotFound()
     itens = selecao(sess)
     chave = (secao, item_id)
+    if secao == "estrategias" and nome:
+        # Estratégia já no briefing com outra simulação: atualiza em vez de tirar.
+        atual = next((i for i in itens if (i["secao"], i["id"]) == chave), None)
+        novo = _texto(nome, NOME_MAX_ESTRATEGIA)
+        if atual and atual["nome"] != novo:
+            atual["nome"] = novo
+            sess["area_cliente_descobrir"] = [[i["secao"], i["id"], i["nome"]] for i in itens]
+            return True
     restantes = [i for i in itens if (i["secao"], i["id"]) != chave]
     incluido = len(restantes) == len(itens)
     if incluido:
         if len(restantes) >= LIMITE_SELECAO:
             return False
-        restantes.append({"secao": secao, "id": item_id, "nome": _texto(nome, NOME_MAX) or TIPO_ROTULO[secao]})
+        limite = NOME_MAX_ESTRATEGIA if secao == "estrategias" else NOME_MAX
+        restantes.append({"secao": secao, "id": item_id, "nome": _texto(nome, limite) or TIPO_ROTULO[secao]})
     sess["area_cliente_descobrir"] = [[i["secao"], i["id"], i["nome"]] for i in restantes]
     return incluido
 

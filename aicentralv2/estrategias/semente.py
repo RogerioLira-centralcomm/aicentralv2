@@ -1,0 +1,993 @@
+"""Catálogo inicial de estratégias (27).
+
+Entra no banco pela migração (só as que ainda não existem, por slug) e serve
+de leitura enquanto a tabela não existe. Depois disso quem manda é o admin.
+"""
+
+from __future__ import annotations
+
+from copy import deepcopy
+
+from .catalogo import PADRAO_CANAL
+
+LISTA_REQUISITO = ("Arquivo CSV com e-mail e telefone de clientes que deram consentimento (LGPD), "
+                   "atualizado a cada 30 dias. A Centralcomm sobe com hash nas plataformas.")
+
+
+def C(slug, papel, peso, essencial=False, minimo=None, formatos=None, otim=None, nota=""):
+    padrao_fmt, padrao_otim = PADRAO_CANAL.get(slug, ([], []))
+    return {"slug": slug, "papel": papel, "peso": peso, "essencial": essencial, "minimo": minimo,
+            "formatos": list(formatos if formatos is not None else padrao_fmt),
+            "otimizacoes": list(otim if otim is not None else padrao_otim), "nota": nota}
+
+
+def N(slug):
+    """Nó de fluxo sem verba (destino ou dados)."""
+    return {"slug": slug, "papel": "Destino" if slug != "crm" else "Dados", "peso": 0, "essencial": False,
+            "minimo": 0, "formatos": [], "otimizacoes": [], "nota": ""}
+
+
+def E(titulo, descricao, *nos):
+    return {"titulo": titulo, "descricao": descricao, "nos": list(nos)}
+
+
+def K(nome, etapa, fonte, principal=False, como=""):
+    return {"nome": nome, "etapa": etapa, "fonte": fonte, "principal": principal, "como": como}
+
+
+def P(peca, specs, quantidade, *canais):
+    return {"peca": peca, "specs": specs, "quantidade": quantidade, "canais": list(canais)}
+
+
+def RMK(publicos, janela=30, descricao=""):
+    return {"usa": True, "publicos": publicos, "janela_dias": janela, "descricao": descricao}
+
+
+SEM_RMK = {"usa": False, "publicos": [], "janela_dias": 0, "descricao": ""}
+
+
+def LISTA(usos, requisito=LISTA_REQUISITO):
+    return {"usa": True, "usos": usos, "requisito": requisito}
+
+
+SEM_LISTA = {"usa": False, "usos": [], "requisito": ""}
+
+
+def CONV(destino, precisa_link, descricao, eventos):
+    return {"destino": destino, "precisa_link": precisa_link, "descricao": descricao, "eventos": eventos}
+
+
+VIDEO_VERT = ("Vídeo vertical 15s", "1080x1920 (9:16), legenda embutida, gancho nos 2 primeiros segundos")
+VIDEO_HOR = ("Vídeo horizontal 15s e 30s", "1920x1080 (16:9), versão de 6s para bumper")
+ESTATICOS = ("Peças estáticas", "1080x1080, 1080x1350 e 1200x628, 3 mensagens diferentes")
+CARROSSEL = ("Carrossel de produtos ou benefícios", "3 a 6 cards 1080x1080")
+DISPLAY = ("Kit display", "300x250, 300x600, 728x90, 970x250 e 320x50, HTML5 ou estático")
+RSA = ("Anúncios de busca (RSA)", "15 títulos e 4 descrições por grupo, sitelinks e snippets")
+AUDIO = ("Spot de áudio 30s", "Locução com chamada clara, companion banner 640x640")
+CTV = ("Vídeo para TV conectada 30s", "1920x1080, sem depender de som, QR code nos 5s finais")
+
+
+ESTRATEGIAS = [
+    {
+        "slug": "funil-essencial-busca-social",
+        "nome": "Funil essencial: busca, social e remarketing",
+        "objetivo": "consideracao",
+        "resumo": "O ponto de partida para quem começa com verba enxuta: quem procura encontra na busca, "
+                  "quem não conhece descobre no social e quem visitou volta pelo remarketing.",
+        "descricao": "Combina Google Search para capturar a demanda que já existe, Meta e YouTube para gerar demanda "
+                     "nova e remarketing nos dois para trazer de volta quem visitou o site sem converter. A lista de "
+                     "clientes exclui quem já comprou e alimenta públicos semelhantes.",
+        "verba_minima": 10_000, "duracao": "30 dias, renovável", "publico": "Público amplo com interesse na categoria",
+        "cena": "a person on a phone at home browsing, then visiting a website on a laptop",
+        "canais": [C("google-search", "Conversão", 40, True), C("meta-ads", "Alcance", 35, True),
+                   C("youtube", "Alcance", 15), C("google-demand-gen", "Remarketing", 10), N("crm"), N("site")],
+        "fluxo": [E("Descoberta", "Vídeo e imagem no social para quem ainda não conhece a marca.", "meta-ads", "youtube"),
+                  E("Intenção", "Quem procura a categoria encontra o anúncio de busca.", "google-search"),
+                  E("Remarketing", "Quem visitou e não converteu volta com oferta e prova social.", "meta-ads", "google-demand-gen"),
+                  E("Conversão", "Compra ou contato no site.", "site"),
+                  E("Base de clientes", "Exclui compradores e cria públicos semelhantes.", "crm")],
+        "conversao": CONV("site", False, "Usa o site atual; só precisa de pixel, CAPI e GA4 com eventos de conversão.",
+                          ["Lead ou compra", "Início de checkout", "Clique no WhatsApp"]),
+        "remarketing": RMK(["Visitou o site e não converteu", "Assistiu 50% do vídeo", "Interagiu com o perfil"], 30),
+        "lista_clientes": LISTA(["Excluir quem já comprou", "Público semelhante (1% a 3%)"]),
+        "criativos": [P(*VIDEO_VERT, 2, "meta-ads", "youtube"), P(*ESTATICOS, 3, "meta-ads", "google-demand-gen"),
+                      P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por conversão (CPA)", "Conversão", "Pixel e API de conversões", True),
+                 K("Taxa de conversão do site", "Conversão", "GA4"),
+                 K("CPC e CTR da busca", "Intenção", "Plataforma"),
+                 K("Custo por mil (CPM) e alcance", "Descoberta", "Plataforma"),
+                 K("Taxa de visualização do vídeo (VTR)", "Descoberta", "Plataforma")],
+        "otimizacoes": ["Revisar termos de busca toda semana", "Trocar o criativo de menor CTR a cada 15 dias",
+                        "Mover verba para o canal com menor CPA depois de 14 dias"],
+    },
+    {
+        "slug": "lancamento-360-portais",
+        "nome": "Lançamento 360 com portais premium",
+        "objetivo": "lancamento",
+        "resumo": "Impacto concentrado nos primeiros dias: capa de portal, vídeo e social, com busca pronta "
+                  "para capturar quem foi procurar a novidade.",
+        "descricao": "Takeover no G1 no dia do lançamento, vídeo no YouTube e no Meta para frequência, Google Search com "
+                     "termos do lançamento e remarketing programático (DV360) para quem leu a matéria ou viu o vídeo.",
+        "verba_minima": 30_000, "duracao": "21 dias (pico na primeira semana)", "publico": "Público amplo, praças do lançamento",
+        "cena": "a big product launch moment with people noticing a new product on news sites and phones",
+        "canais": [C("g1-globo", "Alcance", 30, True), C("youtube", "Alcance", 20), C("meta-ads", "Alcance", 20, True),
+                   C("google-search", "Conversão", 15, True), C("google-dv360", "Remarketing", 15), N("landing")],
+        "fluxo": [E("Impacto", "Capa do portal e vídeo no dia do lançamento.", "g1-globo", "youtube"),
+                  E("Frequência", "Social mantém a mensagem nos dias seguintes.", "meta-ads"),
+                  E("Busca", "Quem procura o nome do produto encontra a página.", "google-search"),
+                  E("Remarketing", "Leitores e espectadores voltam com a oferta.", "google-dv360", "meta-ads"),
+                  E("Página do lançamento", "Detalhes, onde comprar e cadastro.", "landing")],
+        "conversao": CONV("landing", True, "Landing page do lançamento com onde comprar, vídeo e cadastro de interesse.",
+                          ["Cadastro de interesse", "Clique em onde comprar", "Tempo na página"]),
+        "remarketing": RMK(["Viu o takeover ou o native", "Assistiu 75% do vídeo", "Visitou a landing page"], 14),
+        "lista_clientes": LISTA(["Avisar clientes atuais primeiro (público da base)", "Público semelhante para o social"]),
+        "criativos": [P("Takeover de portal", "Skin 1920x1080, billboard 970x250, 300x250 e versão mobile", 1, "g1-globo"),
+                      P(*VIDEO_HOR, 2, "youtube", "google-dv360"), P(*VIDEO_VERT, 2, "meta-ads"),
+                      P(*DISPLAY, 1, "google-dv360"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Alcance único e frequência", "Impacto", "Plataforma", True),
+                 K("Lift de busca pelo nome do produto", "Busca", "Painel Centralcomm", True, "Google Trends e volume de buscas de marca antes e depois"),
+                 K("Viewability do portal", "Impacto", "Plataforma"),
+                 K("VTR do vídeo", "Frequência", "Plataforma"),
+                 K("Cadastros de interesse", "Página do lançamento", "GA4")],
+        "otimizacoes": ["Concentrar 50% da verba na primeira semana", "Pixel de remarketing nas peças do portal",
+                        "Pesquisa de lembrança (brand lift) a partir de R$ 75 mil"],
+    },
+    {
+        "slug": "leads-b2c-formulario-nativo",
+        "nome": "Leads B2C com formulário nativo",
+        "objetivo": "leads",
+        "resumo": "Cadastro sem sair do app: formulário do Meta pré-preenchido, busca para quem já procura e "
+                  "remarketing para quem abriu e não terminou.",
+        "descricao": "Meta Lead Ads com formulário de alta intenção (com pergunta de qualificação), Google Search para "
+                     "a demanda ativa e TikTok para volume. A lista de clientes remove quem já é cliente e o CRM devolve "
+                     "a qualidade do lead para otimizar.",
+        "verba_minima": 10_000, "duracao": "Contínua, ciclos de 30 dias", "publico": "Pessoas físicas com interesse no serviço",
+        "cena": "a person filling a short form on a smartphone on a couch",
+        "canais": [C("meta-ads", "Conversão", 50, True, formatos=["Lead Ads (Formulário)", "Stories & Reels"]),
+                   C("google-search", "Conversão", 30, True), C("tiktok", "Alcance", 20), N("formulario"), N("crm")],
+        "fluxo": [E("Alcance", "Vídeo curto apresenta a oferta.", "tiktok", "meta-ads"),
+                  E("Formulário", "Cadastro no próprio app, campos pré-preenchidos.", "formulario"),
+                  E("Intenção", "Busca captura quem já procura o serviço.", "google-search"),
+                  E("Qualificação", "CRM marca lead bom e ruim e devolve para a plataforma.", "crm")],
+        "conversao": CONV("formulario", False, "Formulário nativo do Meta; a busca usa uma página simples de cadastro se não houver.",
+                          ["Lead enviado", "Lead qualificado (CRM)", "Venda (CRM)"]),
+        "remarketing": RMK(["Abriu o formulário e não enviou", "Assistiu 50% do vídeo"], 14),
+        "lista_clientes": LISTA(["Excluir clientes atuais", "Público semelhante dos melhores leads"]),
+        "criativos": [P(*VIDEO_VERT, 3, "meta-ads", "tiktok"), P(*ESTATICOS, 2, "meta-ads"), P(*RSA, 1, "google-search"),
+                      P("Formulário", "Até 4 campos, 1 pergunta de qualificação, tela de agradecimento com próximo passo", 1, "meta-ads")],
+        "kpis": [K("Custo por lead (CPL)", "Formulário", "Plataforma", True),
+                 K("Custo por lead qualificado", "Qualificação", "CRM", True),
+                 K("Taxa de conclusão do formulário", "Formulário", "Plataforma"),
+                 K("Tempo até o primeiro contato", "Qualificação", "CRM", como="Lead respondido em até 5 minutos converte mais")],
+        "otimizacoes": ["Integração do formulário com o CRM em tempo real", "Conversões offline do CRM para o Meta (CAPI)",
+                        "Pergunta de qualificação para reduzir lead frio"],
+    },
+    {
+        "slug": "leads-b2b-decisores",
+        "nome": "Leads B2B com decisores",
+        "objetivo": "leads",
+        "resumo": "LinkedIn para chegar no cargo certo, conteúdo no InfoMoney para autoridade e busca para "
+                  "capturar quem pesquisa a solução.",
+        "descricao": "LinkedIn Lead Gen com segmentação por cargo e lista de contas-alvo (ABM), native no InfoMoney para "
+                     "conteúdo, Google Search em termos de solução e remarketing programático para quem leu o conteúdo.",
+        "verba_minima": 20_000, "duracao": "60 a 90 dias (ciclo B2B)", "publico": "Gestores e diretores de empresas-alvo",
+        "cena": "business decision makers in a modern office reviewing a report on a tablet",
+        "canais": [C("linkedin", "Conversão", 45, True), C("google-search", "Conversão", 25, True),
+                   C("infomoney", "Consideração", 15), C("google-dv360", "Remarketing", 15), N("landing"), N("crm")],
+        "fluxo": [E("Autoridade", "Conteúdo patrocinado e documento no feed.", "infomoney", "linkedin"),
+                  E("Intenção", "Busca por termos da solução.", "google-search"),
+                  E("Remarketing", "Quem leu volta com estudo de caso.", "google-dv360", "linkedin"),
+                  E("Lead", "Formulário nativo ou material rico na landing page.", "landing"),
+                  E("Contas-alvo", "Lista de empresas e clientes para ABM e exclusão.", "crm")],
+        "conversao": CONV("landing", True, "Landing page com material rico (e-book, estudo de caso) ou agendamento de demonstração.",
+                          ["Download do material", "Pedido de demonstração", "Oportunidade no CRM"]),
+        "remarketing": RMK(["Leu o conteúdo no portal", "Abriu o formulário do LinkedIn", "Visitou a página de preços"], 60),
+        "lista_clientes": LISTA(["Lista de contas-alvo (ABM)", "Excluir clientes atuais", "Upsell para a base"]),
+        "criativos": [P("Document Ad", "PDF de 6 a 10 páginas com o problema e a solução", 1, "linkedin"),
+                      P("Single Image Ad", "1200x628 e 1080x1080, 3 ângulos de mensagem", 3, "linkedin"),
+                      P("Native de portal", "Imagem 1200x628, título e texto de 300 caracteres", 2, "infomoney"),
+                      P(*DISPLAY, 1, "google-dv360"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por lead qualificado (MQL)", "Lead", "CRM", True),
+                 K("Oportunidades geradas e pipeline", "Lead", "CRM", True),
+                 K("Contas-alvo alcançadas", "Autoridade", "Plataforma"),
+                 K("Taxa de abertura do formulário", "Lead", "Plataforma"),
+                 K("CPC da busca", "Intenção", "Plataforma")],
+        "otimizacoes": ["Conversões offline do CRM (MQL, SQL) para LinkedIn e Google",
+                        "Excluir estudantes e cargos júnior", "Testar Document Ad contra Lead Gen direto"],
+    },
+    {
+        "slug": "ecommerce-performance-catalogo",
+        "nome": "E-commerce com catálogo e remarketing dinâmico",
+        "objetivo": "vendas-online",
+        "resumo": "Performance Max e Meta com catálogo: o anúncio mostra o produto que a pessoa viu, "
+                  "com preço e estoque atualizados.",
+        "descricao": "Google Performance Max com feed do Merchant Center, Meta Advantage+ e anúncios dinâmicos (DPA) para "
+                     "remarketing de produto visto, e busca de marca protegida. A lista de clientes separa novos clientes "
+                     "de recompra.",
+        "verba_minima": 10_000, "duracao": "Contínua", "publico": "Compradores online da categoria",
+        "cena": "online shopping on a smartphone with product cards and a shopping cart",
+        "canais": [C("google-pmax", "Conversão", 45, True), C("meta-ads", "Conversão", 40, True,
+                   formatos=["Advantage+ Shopping", "Dynamic Ads (DPA)", "Collection Ads"]),
+                   C("google-search", "Conversão", 15), N("site"), N("crm")],
+        "fluxo": [E("Descoberta de produto", "Catálogo aparece no Shopping, YouTube e feed.", "google-pmax", "meta-ads"),
+                  E("Busca", "Termos de marca e de produto.", "google-search"),
+                  E("Remarketing dinâmico", "Mostra o produto visto ou deixado no carrinho.", "meta-ads", "google-pmax"),
+                  E("Compra", "Checkout no e-commerce.", "site"),
+                  E("Base", "Novos clientes x recompra.", "crm")],
+        "conversao": CONV("site", False, "Usa o e-commerce; exige feed de produtos, pixel, CAPI e valor de compra no evento.",
+                          ["Compra com valor", "Adição ao carrinho", "Início de checkout"]),
+        "remarketing": RMK(["Viu produto", "Adicionou ao carrinho", "Iniciou checkout"], 14,
+                           "Janela curta: carrinho em 3 dias, produto visto em 14."),
+        "lista_clientes": LISTA(["Otimizar para cliente novo (excluir ou dar lance menor para a base)",
+                                 "Recompra com produtos complementares"]),
+        "criativos": [P("Feed de produtos", "Títulos com marca e atributo, imagem em fundo branco, preço e estoque", 1, "google-pmax", "meta-ads"),
+                      P(*VIDEO_VERT, 2, "meta-ads", "google-pmax"), P(*ESTATICOS, 3, "google-pmax", "meta-ads"),
+                      P("Molduras de catálogo", "Selo de frete grátis ou desconto sobre a foto do produto", 1, "meta-ads")],
+        "kpis": [K("ROAS (receita sobre investimento)", "Compra", "Pixel e API de conversões", True),
+                 K("Custo por aquisição de cliente novo", "Compra", "CRM", True),
+                 K("Ticket médio", "Compra", "GA4"),
+                 K("Taxa de abandono de carrinho", "Remarketing dinâmico", "GA4"),
+                 K("Participação de cliente novo nas vendas", "Base", "CRM")],
+        "otimizacoes": ["ROAS desejado por categoria de margem", "Rótulos personalizados no feed (margem, giro)",
+                        "Excluir produtos sem estoque automaticamente", "Valor de conversão maior para cliente novo"],
+    },
+    {
+        "slug": "vendas-whatsapp-conversa",
+        "nome": "Vendas pelo WhatsApp",
+        "objetivo": "vendas-whatsapp",
+        "resumo": "O anúncio abre a conversa direto no WhatsApp da empresa. Sem landing page, com atendimento "
+                  "rápido e remarketing de quem conversou.",
+        "descricao": "Meta Click-to-WhatsApp como canal principal, Google Search com extensão de mensagem e Kwai para "
+                     "volume popular. Quem conversou e não comprou recebe remarketing; a lista de clientes exclui "
+                     "quem já comprou no mês.",
+        "verba_minima": 10_000, "duracao": "Contínua", "publico": "Consumidores locais ou nacionais com atendimento por chat",
+        "cena": "a smiling customer chatting with a store on WhatsApp on a smartphone",
+        "canais": [C("meta-ads", "Conversão", 60, True, formatos=["Click-to-WhatsApp", "Stories & Reels"]),
+                   C("google-search", "Conversão", 25, True), C("kwai", "Alcance", 15), N("whatsapp"), N("crm")],
+        "fluxo": [E("Anúncio", "Oferta clara com botão de conversa.", "meta-ads", "kwai"),
+                  E("Busca", "Quem procura chama pelo anúncio.", "google-search"),
+                  E("Conversa", "Atendimento e venda no WhatsApp.", "whatsapp"),
+                  E("Remarketing", "Quem conversou e não comprou recebe nova oferta.", "meta-ads"),
+                  E("Base", "Compradores saem da campanha por 30 dias.", "crm")],
+        "conversao": CONV("whatsapp", False, "Sem página: a conversa abre no WhatsApp Business. Precisa de mensagem inicial e atendimento.",
+                          ["Conversa iniciada", "Venda registrada (etiqueta no WhatsApp ou CRM)"]),
+        "remarketing": RMK(["Iniciou conversa e não comprou", "Engajou com o anúncio"], 14),
+        "lista_clientes": LISTA(["Excluir compradores dos últimos 30 dias", "Público semelhante de compradores"]),
+        "criativos": [P(*VIDEO_VERT, 3, "meta-ads", "kwai"), P(*ESTATICOS, 2, "meta-ads"), P(*RSA, 1, "google-search"),
+                      P("Mensagem inicial e respostas rápidas", "Texto de boas-vindas, 3 perguntas frequentes e catálogo no WhatsApp", 1, "whatsapp")],
+        "kpis": [K("Custo por conversa iniciada", "Conversa", "Plataforma", True),
+                 K("Taxa de conversa que vira venda", "Conversa", "CRM", True),
+                 K("Tempo de primeira resposta", "Conversa", "CRM"),
+                 K("Custo por venda", "Conversa", "CRM")],
+        "otimizacoes": ["Otimizar para conversa com compra (evento de venda via API) quando disponível",
+                        "Horário dos anúncios igual ao horário de atendimento", "Testar mensagem inicial com pergunta"],
+    },
+    {
+        "slug": "varejo-visita-loja",
+        "nome": "Varejo local: do celular até a loja",
+        "objetivo": "loja-fisica",
+        "resumo": "Mídia em volta das lojas: tela de rua, app de mobilidade e celular geolocalizado, com "
+                  "busca local para quem procura a loja mais perto.",
+        "descricao": "Eletromidia nas telas próximas às lojas, Uber no trajeto, programática geolocalizada (Logan) com "
+                     "geofence nas lojas e concorrentes e Google Search com extensão de local. A medição é de visita à loja.",
+        "verba_minima": 30_000, "duracao": "30 dias", "publico": "Pessoas num raio de 3 a 5 km das lojas",
+        "cena": "a busy city street with a digital billboard near a retail store and people walking in",
+        "canais": [C("eletromidia", "Alcance", 30, True), C("logan", "Conversão", 25, True), C("uber", "Alcance", 20),
+                   C("google-search", "Conversão", 25, True, otim=["Extensão de local e perfil da empresa atualizado",
+                                                                    "Lances maiores no raio das lojas", "Horário de funcionamento nos anúncios"]),
+                   N("loja")],
+        "fluxo": [E("Rua", "Telas perto das lojas e no trajeto.", "eletromidia", "uber"),
+                  E("Celular", "Anúncio no celular de quem passa pelo raio.", "logan"),
+                  E("Busca local", "Loja mais perto, rota e horário.", "google-search"),
+                  E("Visita", "Cliente vai até a loja.", "loja")],
+        "conversao": CONV("loja", False, "Sem página nova: usa o perfil da empresa no Google e a página de lojas do site.",
+                          ["Visita à loja (medida por geolocalização)", "Clique em rotas", "Ligação"]),
+        "remarketing": RMK(["Passou perto das telas", "Esteve no raio de concorrentes"], 30,
+                           "Remarketing por device ID de quem esteve no raio."),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Peças DOOH", "1920x1080 e 1080x1920, 10s, mensagem com a distância até a loja", 2, "eletromidia"),
+                      P("Banner mobile geolocalizado", "320x50, 300x250 e 320x480 com a loja mais próxima", 1, "logan"),
+                      P("Peças Uber", "Formato de tela da viagem e pós-checkout", 1, "uber"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Visitas à loja e custo por visita", "Visita", "Plataforma", True),
+                 K("Lift de visitas contra período anterior", "Visita", "Painel Centralcomm", True),
+                 K("Cliques em rotas e ligações", "Busca local", "Plataforma"),
+                 K("Impactos estimados na rua", "Rua", "Plataforma")],
+        "otimizacoes": ["Raio por loja ajustado ao fluxo real", "DOOH por horário de pico do público",
+                        "Grupo de controle de lojas sem mídia para medir o lift"],
+    },
+    {
+        "slug": "app-instalacao-reengajamento",
+        "nome": "App: instalação e reengajamento",
+        "objetivo": "app",
+        "resumo": "Campanhas de app no Google e no TikTok trazem usuários novos; a lista de usuários inativos "
+                  "volta pelo reengajamento.",
+        "descricao": "Google App Campaigns otimizadas para ação no app, TikTok e Meta para volume com criativo nativo e "
+                     "reengajamento de inativos com a lista de clientes, por deep link direto na tela certa.",
+        "verba_minima": 20_000, "duracao": "Contínua", "publico": "Usuários de smartphone do perfil do app",
+        "cena": "a phone screen showing an app being installed, with notifications and a happy user",
+        "canais": [C("google-app", "Conversão", 40, True), C("tiktok", "Alcance", 30), C("meta-ads", "Remarketing", 30, True,
+                   formatos=["Stories & Reels", "Feed Ad (Vídeo)"]), N("app"), N("crm")],
+        "fluxo": [E("Descoberta", "Vídeo mostra o app em uso.", "tiktok", "meta-ads"),
+                  E("Instalação", "Loja de apps com campanha otimizada para ação.", "google-app"),
+                  E("Primeira ação", "Cadastro, primeiro pedido ou assinatura.", "app"),
+                  E("Reengajamento", "Inativos voltam por deep link.", "meta-ads", "crm")],
+        "conversao": CONV("app", False, "Loja de apps e deep links; exige SDK do Firebase ou MMP (AppsFlyer, Adjust).",
+                          ["Instalação", "Cadastro", "Primeira compra", "Retenção D7"]),
+        "remarketing": RMK(["Instalou e não fez cadastro", "Inativo há 30 dias"], 30),
+        "lista_clientes": LISTA(["Reengajar inativos por deep link", "Excluir usuários ativos da campanha de instalação"]),
+        "criativos": [P(*VIDEO_VERT, 3, "tiktok", "meta-ads", "google-app"),
+                      P("Gravação de tela do app", "Vídeo 9:16 de 15s mostrando o uso real", 1, "google-app", "tiktok"),
+                      P(*ESTATICOS, 2, "google-app", "meta-ads")],
+        "kpis": [K("Custo por instalação (CPI)", "Instalação", "Plataforma", True),
+                 K("Custo por primeira ação (CPA)", "Primeira ação", "Pixel e API de conversões", True),
+                 K("Retenção D7 e D30", "Primeira ação", "CRM"),
+                 K("Taxa de reativação", "Reengajamento", "CRM")],
+        "otimizacoes": ["Otimizar para evento no app, não para instalação", "Criativos novos a cada 2 semanas no TikTok",
+                        "Deep links para a tela da oferta"],
+    },
+    {
+        "slug": "ctv-halo-busca",
+        "nome": "TV conectada com efeito na busca",
+        "objetivo": "reconhecimento",
+        "resumo": "Vídeo na TV da sala (Netflix, Globoplay, Samsung TV Plus) e busca pronta para capturar "
+                  "o aumento de procura pela marca.",
+        "descricao": "Streaming na TV conectada para alcance qualificado com frequência controlada por domicílio, YouTube "
+                     "no celular para completar a frequência e Google Search com termos de marca para medir e capturar o lift.",
+        "verba_minima": 50_000, "duracao": "30 dias", "publico": "Domicílios com TV conectada, classes A e B",
+        "cena": "a family living room with a large smart TV showing an ad, a phone on the couch",
+        "canais": [C("netflix", "Alcance", 30), C("globoplay", "Alcance", 25), C("samsung-tv-plus", "Alcance", 15),
+                   C("youtube", "Alcance", 15, True), C("google-search", "Conversão", 15, True), N("site")],
+        "fluxo": [E("TV da sala", "Vídeo em streaming com frequência controlada.", "netflix", "globoplay", "samsung-tv-plus"),
+                  E("Celular", "YouTube completa a frequência.", "youtube"),
+                  E("Busca", "Lift de busca pela marca é capturado.", "google-search"),
+                  E("Site", "Visita e conversão.", "site")],
+        "conversao": CONV("site", False, "Site atual; QR code no vídeo leva a uma página com UTM própria.",
+                          ["Visitas vindas de QR code", "Buscas de marca", "Conversões no site"]),
+        "remarketing": RMK(["Domicílio exposto ao CTV (via DSP)", "Visitou pelo QR code"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P(*CTV, 1, "netflix", "globoplay", "samsung-tv-plus"), P(*VIDEO_HOR, 2, "youtube"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Alcance de domicílios e frequência", "TV da sala", "Plataforma", True),
+                 K("Taxa de conclusão do vídeo (VCR)", "TV da sala", "Plataforma"),
+                 K("Lift de buscas de marca", "Busca", "Painel Centralcomm", True, "Comparar buscas de marca nas semanas antes, durante e depois"),
+                 K("Acessos por QR code", "Site", "GA4"),
+                 K("Brand lift (lembrança)", "TV da sala", "Pesquisa de lift")],
+        "otimizacoes": ["Teto de frequência por domicílio", "Mesma criação na TV e no YouTube para reforço",
+                        "Termos de marca com lance alto durante o flight"],
+    },
+    {
+        "slug": "audio-social-jovens",
+        "nome": "Áudio e social para público jovem",
+        "objetivo": "consideracao",
+        "resumo": "Spotify nos momentos do dia (treino, estudo, trânsito), TikTok e Instagram para o visual, "
+                  "remarketing de quem ouviu e clicou.",
+        "descricao": "Spotify com áudio e vídeo segmentados por playlist, TikTok com criadores e Meta Reels, com "
+                     "remarketing de quem engajou. Bom para marcas de consumo, moda, bebidas e educação.",
+        "verba_minima": 20_000, "duracao": "30 dias", "publico": "18 a 34 anos",
+        "cena": "young people with headphones on the go, music and short videos on phones",
+        "canais": [C("spotify", "Alcance", 35, True), C("tiktok", "Alcance", 35, True), C("meta-ads", "Remarketing", 30), N("site")],
+        "fluxo": [E("Momento", "Áudio no treino, estudo e trânsito.", "spotify"),
+                  E("Visual", "Vídeo curto com criadores.", "tiktok", "meta-ads"),
+                  E("Remarketing", "Quem engajou recebe a oferta.", "meta-ads"),
+                  E("Site", "Compra ou cadastro.", "site")],
+        "conversao": CONV("site", False, "Site atual com página de campanha opcional.", ["Visita", "Cadastro ou compra"]),
+        "remarketing": RMK(["Clicou no companion do Spotify", "Assistiu 50% no TikTok ou Reels"], 30),
+        "lista_clientes": LISTA(["Público semelhante de clientes jovens"]),
+        "criativos": [P(*AUDIO, 2, "spotify"), P(*VIDEO_VERT, 3, "tiktok", "meta-ads", "spotify")],
+        "kpis": [K("Alcance e frequência", "Momento", "Plataforma", True), K("Taxa de escuta completa", "Momento", "Plataforma"),
+                 K("Taxa de engajamento", "Visual", "Plataforma"), K("Custo por visita", "Site", "GA4", True)],
+        "otimizacoes": ["Roteiros de áudio diferentes por momento do dia", "Criadores com público semelhante ao da marca"],
+    },
+    {
+        "slug": "delivery-ifood-mobilidade",
+        "nome": "Delivery: iFood, mobilidade e social",
+        "objetivo": "vendas-online",
+        "resumo": "Para restaurantes, bebidas e varejo alimentar: anúncio dentro do iFood, no trajeto da 99 e "
+                  "no social na hora da fome.",
+        "descricao": "iFood com banner e busca patrocinada, 99 no trajeto de volta para casa, Meta nos horários de "
+                     "almoço e jantar e Google Search para a busca por delivery. A venda acontece dentro do iFood.",
+        "verba_minima": 20_000, "duracao": "30 dias", "publico": "Moradores da região de entrega",
+        "cena": "food delivery app on a phone at dinner time, a delivery bag at the door",
+        "canais": [C("ifood", "Conversão", 40, True), C("meta-ads", "Alcance", 30, True), C("99", "Alcance", 15),
+                   C("google-search", "Conversão", 15), N("marketplace")],
+        "fluxo": [E("Hora da fome", "Social e mobilidade nos horários de pico.", "meta-ads", "99"),
+                  E("Busca", "Quem procura delivery encontra a marca.", "google-search"),
+                  E("Dentro do app", "Banner e busca patrocinada no iFood.", "ifood"),
+                  E("Pedido", "Venda dentro do iFood.", "marketplace")],
+        "conversao": CONV("marketplace", False, "Sem página nova: o pedido acontece no iFood. Cupom exclusivo mede a venda.",
+                          ["Pedidos com cupom", "Visitas à loja no iFood"]),
+        "remarketing": RMK(["Engajou com o anúncio no social"], 7),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Banners iFood", "Formatos do app, foto do prato e cupom", 2, "ifood"), P(*VIDEO_VERT, 2, "meta-ads"),
+                      P("Banner 99", "Formato do app", 1, "99"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Pedidos com cupom", "Pedido", "Plataforma", True), K("Custo por pedido", "Pedido", "Plataforma", True),
+                 K("Visitas à loja no iFood", "Dentro do app", "Plataforma"), K("Alcance nos horários de pico", "Hora da fome", "Plataforma")],
+        "otimizacoes": ["Dayparting: 11h a 14h e 18h a 22h", "Cupom diferente por canal para atribuir a venda"],
+    },
+    {
+        "slug": "financas-dados-serasa",
+        "nome": "Produtos financeiros com dados Serasa",
+        "objetivo": "leads",
+        "resumo": "Audiências de crédito e renda da Serasa na programática, conteúdo no InfoMoney e busca, "
+                  "levando para uma página com simulador.",
+        "descricao": "Para bancos, fintechs, seguros e consórcios: audiências Serasa ativadas no DV360, native no InfoMoney, "
+                     "Google Search com termos de produto e Meta para remarketing de quem simulou e não contratou.",
+        "verba_minima": 30_000, "duracao": "45 dias", "publico": "Adultos com perfil de crédito ou renda definido",
+        "cena": "a person using a loan simulator on a laptop, calm finance setting",
+        "canais": [C("experian-dmp", "Dados", 15), C("google-dv360", "Alcance", 25, True), C("infomoney", "Consideração", 15),
+                   C("google-search", "Conversão", 30, True), C("meta-ads", "Remarketing", 15), N("landing"), N("crm")],
+        "fluxo": [E("Dados", "Público por renda, crédito e propensão.", "experian-dmp"),
+                  E("Alcance qualificado", "Display e vídeo para o público certo; conteúdo no portal.", "google-dv360", "infomoney"),
+                  E("Busca", "Termos do produto financeiro.", "google-search"),
+                  E("Simulador", "Landing page com simulação e cadastro.", "landing"),
+                  E("Remarketing", "Quem simulou volta para contratar.", "meta-ads", "crm")],
+        "conversao": CONV("landing", True, "Landing page com simulador e formulário curto, aprovada pelo jurídico.",
+                          ["Simulação feita", "Cadastro", "Proposta aprovada (CRM)"]),
+        "remarketing": RMK(["Fez simulação e não concluiu", "Leu o conteúdo no portal"], 30),
+        "lista_clientes": LISTA(["Excluir clientes atuais do produto", "Venda cruzada para a base"]),
+        "criativos": [P(*DISPLAY, 1, "google-dv360"), P("Native de portal", "1200x628, título e texto", 2, "infomoney"),
+                      P(*ESTATICOS, 2, "meta-ads"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por simulação", "Simulador", "GA4", True), K("Custo por proposta aprovada", "Remarketing", "CRM", True),
+                 K("Taxa de simulação para cadastro", "Simulador", "GA4"), K("CTR por audiência Serasa", "Alcance qualificado", "Plataforma")],
+        "otimizacoes": ["Comparar audiências Serasa contra público aberto", "Conversão offline de proposta aprovada",
+                        "Textos revisados por compliance antes de subir"],
+    },
+    {
+        "slug": "branded-content-amplificado",
+        "nome": "Conteúdo de marca no portal, amplificado",
+        "objetivo": "consideracao",
+        "resumo": "Matéria patrocinada no G1 ou no TudoGostoso, distribuída no social e com remarketing para quem leu.",
+        "descricao": "Branded content produzido pelo portal, amplificado no Meta para levar leitores, com pixel na matéria "
+                     "para remarketing programático e busca de marca.",
+        "verba_minima": 30_000, "duracao": "30 dias", "publico": "Leitores com afinidade com o tema",
+        "cena": "a person reading a sponsored article on a tablet in a kitchen",
+        "canais": [C("g1-globo", "Consideração", 40, True, minimo=12_000), C("tudogostoso", "Consideração", 15), C("meta-ads", "Alcance", 25, True),
+                   C("google-dv360", "Remarketing", 10, True), C("google-search", "Conversão", 10), N("site")],
+        "fluxo": [E("Conteúdo", "Matéria patrocinada no portal.", "g1-globo", "tudogostoso"),
+                  E("Amplificação", "Social leva leitores para a matéria.", "meta-ads"),
+                  E("Remarketing", "Quem leu recebe a oferta.", "google-dv360"),
+                  E("Busca e site", "Busca de marca e conversão.", "google-search", "site")],
+        "conversao": CONV("site", False, "Site atual; a matéria leva para a página do produto com UTM.", ["Leitura completa", "Clique para o site", "Conversão"]),
+        "remarketing": RMK(["Leu a matéria (pixel do portal)", "Rolou 75% da página"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Briefing de conteúdo", "Pauta, mensagens-chave e fotos do produto para o portal", 1, "g1-globo", "tudogostoso"),
+                      P(*ESTATICOS, 2, "meta-ads"), P(*DISPLAY, 1, "google-dv360")],
+        "kpis": [K("Leituras e tempo de leitura", "Conteúdo", "Plataforma", True), K("Custo por leitura", "Amplificação", "Plataforma"),
+                 K("Cliques para o site", "Busca e site", "GA4", True), K("Lift de busca de marca", "Busca e site", "Painel Centralcomm")],
+        "otimizacoes": ["Amplificar só os títulos com melhor CTR", "Pixel do portal liberado para remarketing"],
+    },
+    {
+        "slug": "esporte-grandes-eventos",
+        "nome": "Esporte e grandes eventos",
+        "objetivo": "reconhecimento",
+        "resumo": "GE em dia de jogo, YouTube e TikTok com o momento, Twitch nas lives e remarketing de quem engajou.",
+        "descricao": "Daypart em dia de jogo no GE, vídeo no YouTube e TikTok com linguagem de torcida, patrocínio de "
+                     "criador na Twitch e remarketing no Meta com a oferta.",
+        "verba_minima": 30_000, "duracao": "Período do evento", "publico": "Fãs de esporte",
+        "cena": "sports fans cheering while watching a match on phones and a TV",
+        "canais": [C("ge-globo-esporte", "Alcance", 30, True), C("youtube", "Alcance", 25), C("tiktok", "Alcance", 20),
+                   C("twitch", "Alcance", 10), C("meta-ads", "Remarketing", 15, True), N("site")],
+        "fluxo": [E("Dia de jogo", "Portal esportivo e vídeo antes e depois do jogo.", "ge-globo-esporte", "youtube"),
+                  E("Conversa", "Vídeo curto e lives.", "tiktok", "twitch"),
+                  E("Remarketing", "Quem engajou recebe a oferta.", "meta-ads"),
+                  E("Site", "Compra ou cadastro.", "site")],
+        "conversao": CONV("site", False, "Site atual ou página do evento.", ["Visita", "Cadastro ou compra"]),
+        "remarketing": RMK(["Viu o vídeo", "Interagiu na live"], 14),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Peças de portal", "970x250, 300x250 e pre-roll", 1, "ge-globo-esporte"), P(*VIDEO_HOR, 1, "youtube"),
+                      P(*VIDEO_VERT, 3, "tiktok", "meta-ads"), P("Roteiro para criador", "Menção e cupom na live", 1, "twitch")],
+        "kpis": [K("Alcance em dia de jogo", "Dia de jogo", "Plataforma", True), K("VTR", "Dia de jogo", "Plataforma"),
+                 K("Engajamento", "Conversa", "Plataforma"), K("Uso do cupom", "Site", "CRM", True)],
+        "otimizacoes": ["Agenda de mídia pela tabela de jogos", "Criativo pronto para resultado (vitória, empate)"],
+    },
+    {
+        "slug": "tecnologia-reviews-b2b",
+        "nome": "Tecnologia: reviews, vídeo e decisores",
+        "objetivo": "consideracao",
+        "resumo": "Review patrocinado no TechTudo, vídeo demonstrativo no YouTube, LinkedIn para quem decide "
+                  "e busca para comparar.",
+        "descricao": "Para eletrônicos, software e serviços de tecnologia: conteúdo no TechTudo, YouTube com "
+                     "demonstração, LinkedIn para compradores corporativos e Search em termos de comparação.",
+        "verba_minima": 20_000, "duracao": "45 dias", "publico": "Interessados em tecnologia e compradores de TI",
+        "cena": "a tech reviewer testing a gadget on a desk with a laptop",
+        "canais": [C("techtudo", "Consideração", 30, True, minimo=6_000), C("youtube", "Alcance", 20, True), C("linkedin", "Conversão", 20),
+                   C("google-search", "Conversão", 30, True), N("landing")],
+        "fluxo": [E("Review", "Conteúdo e comparativo patrocinado.", "techtudo"),
+                  E("Demonstração", "Vídeo mostrando o produto em uso.", "youtube"),
+                  E("Decisor", "Peças para quem compra na empresa.", "linkedin"),
+                  E("Comparação", "Busca por modelo e concorrentes.", "google-search"),
+                  E("Página", "Especificações, preço e contato.", "landing")],
+        "conversao": CONV("landing", True, "Página de produto com especificações, comparativo e contato comercial.", ["Pedido de contato", "Compra"]),
+        "remarketing": RMK(["Assistiu à demonstração", "Leu o review"], 30),
+        "lista_clientes": LISTA(["Upgrade para clientes atuais"]),
+        "criativos": [P("Briefing de review", "Pontos fortes, especificações e produto para teste", 1, "techtudo"),
+                      P(*VIDEO_HOR, 1, "youtube"), P("Single Image Ad", "1200x628", 2, "linkedin"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por visita qualificada", "Página", "GA4", True), K("VTR da demonstração", "Demonstração", "Plataforma"),
+                 K("Leads corporativos", "Decisor", "CRM", True), K("Share de busca contra concorrentes", "Comparação", "Plataforma")],
+        "otimizacoes": ["Termos de concorrentes em campanha separada", "Vídeo com capítulos por recurso"],
+    },
+    {
+        "slug": "programatica-dados-proprios",
+        "nome": "Programática com dados e lista de clientes",
+        "objetivo": "vendas-online",
+        "resumo": "A lista de clientes vira público na DSP e no Meta, com dados Serasa para achar perfis "
+                  "parecidos, e busca para fechar.",
+        "descricao": "Onboarding da base de clientes no DV360 e no Meta, públicos semelhantes, dados Serasa para "
+                     "expandir e Google Search para capturar a demanda gerada.",
+        "verba_minima": 20_000, "duracao": "Contínua", "publico": "Perfis semelhantes aos melhores clientes",
+        "cena": "abstract data network connecting customer profiles to ads on screens",
+        "canais": [C("google-dv360", "Alcance", 35, True), C("experian-dmp", "Dados", 10), C("meta-ads", "Conversão", 35, True),
+                   C("google-search", "Conversão", 20), N("crm"), N("site")],
+        "fluxo": [E("Base", "Lista de clientes com hash.", "crm"),
+                  E("Expansão", "Semelhantes e dados Serasa.", "experian-dmp", "meta-ads"),
+                  E("Mídia", "Display, vídeo e social para os públicos.", "google-dv360", "meta-ads"),
+                  E("Busca e site", "Busca captura e site converte.", "google-search", "site")],
+        "conversao": CONV("site", False, "Site atual com pixel e CAPI.", ["Compra", "Lead"]),
+        "remarketing": RMK(["Visitou o site", "Clientes inativos"], 30),
+        "lista_clientes": LISTA(["Público semelhante na DSP e no Meta", "Reativar inativos", "Excluir compradores recentes"]),
+        "criativos": [P(*DISPLAY, 1, "google-dv360"), P(*VIDEO_HOR, 1, "google-dv360"), P(*ESTATICOS, 3, "meta-ads"), P(*RSA, 1, "google-search")],
+        "kpis": [K("CPA por público (base, semelhante, Serasa)", "Mídia", "Pixel e API de conversões", True),
+                 K("Taxa de correspondência da lista", "Base", "Plataforma"), K("ROAS", "Busca e site", "GA4", True)],
+        "otimizacoes": ["Atualizar a lista a cada 30 dias", "Separar públicos por valor do cliente (RFM)"],
+    },
+    {
+        "slug": "dooh-geofence-mobile",
+        "nome": "Tela de rua com retargeting no celular",
+        "objetivo": "reconhecimento",
+        "resumo": "Quem passou pela tela Eletromidia recebe o anúncio no celular depois. O impacto de rua "
+                  "vira audiência digital.",
+        "descricao": "Eletromidia em prédios, metrô e ruas, com captura de quem esteve perto das telas e retargeting "
+                     "mobile na programática (Logan) e no Meta.",
+        "verba_minima": 30_000, "duracao": "30 dias", "publico": "Moradores e trabalhadores das regiões escolhidas",
+        "cena": "digital screens in a subway station with commuters holding phones",
+        "canais": [C("eletromidia", "Alcance", 50, True), C("logan", "Remarketing", 30, True), C("meta-ads", "Remarketing", 20), N("site")],
+        "fluxo": [E("Rua", "Telas em elevadores, metrô e ruas.", "eletromidia"),
+                  E("Celular", "Retargeting de quem passou pelas telas.", "logan", "meta-ads"),
+                  E("Site", "Visita e conversão.", "site")],
+        "conversao": CONV("site", False, "Site atual com UTM por região.", ["Visita", "Conversão por região"]),
+        "remarketing": RMK(["Esteve perto das telas"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Peças DOOH", "1920x1080 e 1080x1920, 10s, sem som", 2, "eletromidia"),
+                      P("Banner mobile", "320x50, 300x250 e 320x480 com a mesma ideia da tela", 1, "logan"), P(*ESTATICOS, 2, "meta-ads")],
+        "kpis": [K("Impactos na rua", "Rua", "Plataforma", True), K("Taxa de captura de dispositivos", "Celular", "Plataforma"),
+                 K("CTR do retargeting", "Celular", "Plataforma"), K("Visitas ao site por região", "Site", "GA4", True)],
+        "otimizacoes": ["Mesma criação na rua e no celular", "Programar por horário de fluxo"],
+    },
+    {
+        "slug": "reengajamento-base-clientes",
+        "nome": "Reengajamento da base de clientes",
+        "objetivo": "retencao",
+        "resumo": "A lista de clientes como público principal: quem comprou volta, quem sumiu é reativado e "
+                  "quem abandonou o carrinho é lembrado.",
+        "descricao": "Customer Match no Google (Gmail, YouTube, Demand Gen), públicos personalizados no Meta, remarketing "
+                     "dinâmico e WhatsApp como canal de fechamento.",
+        "verba_minima": 10_000, "duracao": "Contínua", "publico": "Base de clientes da empresa",
+        "cena": "a returning customer receiving a personalized offer on their phone",
+        "canais": [C("meta-ads", "Remarketing", 55, True, formatos=["Dynamic Ads (DPA)", "Click-to-WhatsApp", "Stories & Reels"]),
+                   C("google-demand-gen", "Remarketing", 45, True), N("crm"), N("whatsapp"), N("site")],
+        "fluxo": [E("Base", "Lista segmentada: ativos, inativos, carrinho.", "crm"),
+                  E("Mídia para a base", "Gmail, YouTube e social com oferta por segmento.", "google-demand-gen", "meta-ads"),
+                  E("Fechamento", "Site ou conversa no WhatsApp.", "site", "whatsapp")],
+        "conversao": CONV("site", False, "Site atual e WhatsApp; ofertas por segmento.", ["Recompra", "Reativação", "Conversa"]),
+        "remarketing": RMK(["Carrinho abandonado", "Compradores de 30 a 180 dias atrás"], 180),
+        "lista_clientes": LISTA(["Segmentos por recência e valor (RFM)", "Inativos há mais de 90 dias", "Venda cruzada"]),
+        "criativos": [P(*ESTATICOS, 3, "meta-ads", "google-demand-gen"), P(*CARROSSEL, 1, "meta-ads", "google-demand-gen"),
+                      P(*VIDEO_VERT, 1, "meta-ads", "google-demand-gen")],
+        "kpis": [K("Taxa de recompra", "Fechamento", "CRM", True), K("Clientes reativados", "Fechamento", "CRM", True),
+                 K("Taxa de correspondência da lista", "Base", "Plataforma"), K("Receita por cliente", "Fechamento", "CRM")],
+        "otimizacoes": ["Mensagem diferente por segmento", "Teto de frequência para não cansar a base",
+                        "Grupo de controle sem mídia para medir incrementalidade"],
+    },
+    {
+        "slug": "sazonal-black-friday",
+        "nome": "Datas sazonais: aquecimento, pico e repescagem",
+        "objetivo": "vendas-online",
+        "resumo": "Para Black Friday, Natal, Dia das Mães: aquece antes, concentra no pico e repesca quem quase comprou.",
+        "descricao": "Aquecimento com YouTube e portal UOL para lista de interesse, pico com PMax e Meta Advantage+ e "
+                     "repescagem com remarketing intenso e lista de clientes.",
+        "verba_minima": 30_000, "duracao": "3 a 4 semanas em três fases", "publico": "Compradores da data",
+        "cena": "shopping bags and festive sale atmosphere with phones showing offers",
+        "canais": [C("youtube", "Alcance", 15), C("uol", "Alcance", 10), C("google-pmax", "Conversão", 35, True),
+                   C("meta-ads", "Conversão", 30, True, formatos=["Advantage+ Shopping", "Dynamic Ads (DPA)", "Stories & Reels"]),
+                   C("google-search", "Conversão", 10), N("landing"), N("crm")],
+        "fluxo": [E("Aquecimento", "Lista de interesse e expectativa.", "youtube", "uol"),
+                  E("Pico", "Ofertas com catálogo e alto volume.", "google-pmax", "meta-ads"),
+                  E("Repescagem", "Quem quase comprou recebe última chamada.", "meta-ads", "google-search"),
+                  E("Página da data", "Ofertas e cadastro.", "landing"),
+                  E("Base", "Aviso antecipado para clientes.", "crm")],
+        "conversao": CONV("landing", True, "Página da data com contagem regressiva e cadastro de aviso antes do pico.",
+                          ["Cadastro de aviso", "Compra", "Carrinho"]),
+        "remarketing": RMK(["Cadastrou aviso", "Viu produto", "Carrinho abandonado"], 7),
+        "lista_clientes": LISTA(["Aviso antecipado para a base", "Excluir quem já comprou na data"]),
+        "criativos": [P(*VIDEO_HOR, 1, "youtube"), P("Peças de portal", "Billboard 970x250 e native", 1, "uol"),
+                      P(*VIDEO_VERT, 2, "meta-ads"), P(*ESTATICOS, 3, "meta-ads", "google-pmax"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Receita e ROAS do pico", "Pico", "GA4", True), K("Cadastros de aviso", "Aquecimento", "GA4"),
+                 K("Recuperação de carrinho", "Repescagem", "GA4", True), K("CPM no pico", "Pico", "Plataforma")],
+        "otimizacoes": ["Subir orçamento e ROAS desejado antes do pico (ajuste sazonal)", "Criativos prontos com antecedência para aprovação"],
+    },
+    {
+        "slug": "imobiliario-alto-ticket",
+        "nome": "Imobiliário e alto ticket",
+        "objetivo": "leads",
+        "resumo": "Busca e Meta Leads para gerar visitas ao decorado, native no UOL para autoridade e WhatsApp "
+                  "para o corretor fechar.",
+        "descricao": "Google Search por bairro e tipo de imóvel, Meta Lead Ads e Click-to-WhatsApp, native no UOL "
+                     "e remarketing de quem viu a planta.",
+        "verba_minima": 20_000, "duracao": "60 dias", "publico": "Compradores na região do empreendimento",
+        "cena": "a modern apartment showroom with a couple and a real estate agent",
+        "canais": [C("google-search", "Conversão", 35, True), C("meta-ads", "Conversão", 40, True, formatos=["Lead Ads (Formulário)", "Click-to-WhatsApp", "Carousel Ads"]),
+                   C("uol", "Consideração", 15), C("google-dv360", "Remarketing", 10), N("landing"), N("whatsapp")],
+        "fluxo": [E("Busca", "Bairro, tipo e faixa de imóvel.", "google-search"),
+                  E("Social", "Tour, planta e diferenciais.", "meta-ads", "uol"),
+                  E("Página", "Plantas, localização e agendamento.", "landing"),
+                  E("Corretor", "Conversa no WhatsApp.", "whatsapp"),
+                  E("Remarketing", "Quem viu a planta volta.", "google-dv360")],
+        "conversao": CONV("landing", True, "Landing page do empreendimento com plantas, mapa e agendamento de visita.",
+                          ["Agendamento de visita", "Lead", "Conversa com corretor"]),
+        "remarketing": RMK(["Viu as plantas", "Abriu o formulário"], 60),
+        "lista_clientes": LISTA(["Excluir compradores", "Investidores da base para novos lançamentos"]),
+        "criativos": [P(*CARROSSEL, 1, "meta-ads"), P("Tour em vídeo", "9:16 e 16:9, 30s", 1, "meta-ads"),
+                      P("Native de portal", "1200x628", 1, "uol"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por visita agendada", "Página", "CRM", True), K("Custo por lead", "Social", "Plataforma"),
+                 K("Taxa de lead para visita", "Corretor", "CRM", True), K("Vendas atribuídas", "Corretor", "CRM")],
+        "otimizacoes": ["Raio geográfico do empreendimento", "Conversão offline de visita e venda"],
+    },
+    {
+        "slug": "educacao-matriculas",
+        "nome": "Educação: captação de matrículas",
+        "objetivo": "leads",
+        "resumo": "Busca por curso, YouTube e TikTok para o aluno, Meta Leads para o cadastro e remarketing "
+                  "até a matrícula.",
+        "descricao": "Google Search por curso e cidade, YouTube e TikTok com depoimentos de alunos, Meta Lead Ads e "
+                     "remarketing; a lista de alunos exclui matriculados e gera semelhantes.",
+        "verba_minima": 20_000, "duracao": "Período de captação (60 a 90 dias)", "publico": "Candidatos de 17 a 35 anos",
+        "cena": "students on a modern campus, one looking at a course page on a phone",
+        "canais": [C("google-search", "Conversão", 35, True), C("meta-ads", "Conversão", 30, True, formatos=["Lead Ads (Formulário)", "Stories & Reels"]),
+                   C("youtube", "Alcance", 15), C("tiktok", "Alcance", 20), N("landing"), N("crm")],
+        "fluxo": [E("Descoberta", "Depoimentos e rotina do curso.", "youtube", "tiktok"),
+                  E("Busca", "Curso e cidade.", "google-search"),
+                  E("Cadastro", "Formulário ou página do curso.", "landing"),
+                  E("Remarketing", "Inscritos sem matrícula.", "meta-ads"),
+                  E("Base", "Exclui matriculados.", "crm")],
+        "conversao": CONV("landing", True, "Página por curso com grade, valor de mensalidade e inscrição.", ["Inscrição", "Prova ou entrevista", "Matrícula (CRM)"]),
+        "remarketing": RMK(["Inscreveu e não matriculou", "Visitou a página do curso"], 45),
+        "lista_clientes": LISTA(["Excluir matriculados", "Semelhantes de alunos", "Indique um amigo"]),
+        "criativos": [P(*VIDEO_VERT, 3, "tiktok", "meta-ads"), P(*VIDEO_HOR, 1, "youtube"), P(*ESTATICOS, 2, "meta-ads"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por inscrição", "Cadastro", "GA4", True), K("Custo por matrícula", "Remarketing", "CRM", True),
+                 K("Taxa de inscrição para matrícula", "Remarketing", "CRM"), K("CPC por curso", "Busca", "Plataforma")],
+        "otimizacoes": ["Campanha por curso com verba pela margem", "Conversões offline de matrícula"],
+    },
+    {
+        "slug": "saude-agendamento-local",
+        "nome": "Saúde e serviços locais: agendamento",
+        "objetivo": "leads",
+        "resumo": "Busca local para quem precisa agora, Meta para lembrar e WhatsApp para agendar.",
+        "descricao": "Para clínicas, consultórios, academias e serviços: Google Search com local e chamada, Meta "
+                     "Click-to-WhatsApp no raio da unidade e remarketing de quem não agendou.",
+        "verba_minima": 10_000, "duracao": "Contínua", "publico": "Moradores num raio de 5 a 10 km",
+        "cena": "a friendly clinic reception with a patient booking on a phone",
+        "canais": [C("google-search", "Conversão", 55, True), C("meta-ads", "Conversão", 45, True, formatos=["Click-to-WhatsApp", "Stories & Reels"]),
+                   N("whatsapp"), N("loja")],
+        "fluxo": [E("Busca local", "Especialidade e bairro.", "google-search"),
+                  E("Social local", "Lembrança no raio da unidade.", "meta-ads"),
+                  E("Agendamento", "WhatsApp ou ligação.", "whatsapp"),
+                  E("Atendimento", "Visita à unidade.", "loja")],
+        "conversao": CONV("whatsapp", False, "WhatsApp e ligação; sem landing page. Respeita regras do conselho profissional.",
+                          ["Conversa", "Ligação", "Agendamento"]),
+        "remarketing": RMK(["Conversou e não agendou"], 14),
+        "lista_clientes": LISTA(["Retorno de pacientes ou clientes"]),
+        "criativos": [P(*ESTATICOS, 2, "meta-ads"), P(*VIDEO_VERT, 1, "meta-ads"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Custo por agendamento", "Agendamento", "CRM", True), K("Ligações e conversas", "Agendamento", "Plataforma", True),
+                 K("Taxa de comparecimento", "Atendimento", "CRM")],
+        "otimizacoes": ["Anúncios só no horário de atendimento", "Extensão de chamada e local"],
+    },
+    {
+        "slug": "premium-interativos",
+        "nome": "Marca premium com formatos interativos",
+        "objetivo": "reconhecimento",
+        "resumo": "Rich media e quiz em portais premium (CNN) e programática, vídeo no YouTube e remarketing "
+                  "de quem interagiu.",
+        "descricao": "Formatos interativos com tempo de interação medido, CNN Brasil em contexto de notícia, YouTube e "
+                     "remarketing de quem engajou.",
+        "verba_minima": 30_000, "duracao": "30 dias", "publico": "Classes A e B, interesse em marcas premium",
+        "cena": "an elegant interactive ad experience on a tablet, premium lifestyle",
+        "canais": [C("interativos", "Consideração", 35, True), C("cnn-brasil", "Alcance", 25), C("youtube", "Alcance", 20, True),
+                   C("google-dv360", "Remarketing", 20), N("site")],
+        "fluxo": [E("Contexto premium", "Notícia e vídeo.", "cnn-brasil", "youtube"),
+                  E("Interação", "Quiz, carrossel ou jogo.", "interativos"),
+                  E("Remarketing", "Quem interagiu recebe a oferta.", "google-dv360"),
+                  E("Site", "Visita e conversão.", "site")],
+        "conversao": CONV("site", False, "Site atual.", ["Interação", "Visita", "Conversão"]),
+        "remarketing": RMK(["Interagiu com a peça", "Assistiu 75% do vídeo"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Peça interativa", "Quiz ou carrossel rich media, assets 2D e roteiro", 1, "interativos"),
+                      P("Peças CNN", "970x250 e pre-roll", 1, "cnn-brasil"), P(*VIDEO_HOR, 1, "youtube"), P(*DISPLAY, 1, "google-dv360")],
+        "kpis": [K("Taxa de interação", "Interação", "Plataforma", True), K("Tempo médio de interação", "Interação", "Plataforma", True),
+                 K("Viewability", "Contexto premium", "Plataforma"), K("Brand lift", "Contexto premium", "Pesquisa de lift")],
+        "otimizacoes": ["Testar 2 mecânicas de interação", "Remarketing só de quem interagiu mais de 5s"],
+    },
+    {
+        "slug": "autoridade-podcast-newsletter",
+        "nome": "Autoridade: podcast, newsletter e LinkedIn",
+        "objetivo": "consideracao",
+        "resumo": "Leitura do apresentador em podcasts do nicho, newsletter do InfoMoney e LinkedIn para "
+                  "transformar autoridade em contato.",
+        "descricao": "Para consultorias, serviços financeiros e B2B: podcast host-read, patrocínio de newsletter, "
+                     "LinkedIn e Search de marca.",
+        "verba_minima": 20_000, "duracao": "60 dias", "publico": "Profissionais e investidores",
+        "cena": "a podcast studio with microphones and a professional listening on headphones",
+        "canais": [C("podcast-ads", "Alcance", 30, True), C("infomoney", "Consideração", 25), C("linkedin", "Conversão", 30, True),
+                   C("google-search", "Conversão", 15), N("landing")],
+        "fluxo": [E("Ouvir", "Leitura do apresentador.", "podcast-ads"),
+                  E("Ler", "Newsletter e native.", "infomoney"),
+                  E("Contato", "LinkedIn e busca de marca.", "linkedin", "google-search"),
+                  E("Página", "Material e agendamento.", "landing")],
+        "conversao": CONV("landing", True, "Página com material e agendamento de conversa; cupom ou URL própria do podcast.",
+                          ["Acesso pela URL do podcast", "Download", "Agendamento"]),
+        "remarketing": RMK(["Visitou a página"], 60),
+        "lista_clientes": LISTA(["Excluir clientes atuais"]),
+        "criativos": [P("Roteiro de leitura", "Pontos-chave para o apresentador, 60s", 2, "podcast-ads"),
+                      P("Newsletter sponsor", "Imagem 600x300 e texto de 300 caracteres", 1, "infomoney"),
+                      P("Document Ad", "PDF 6 a 10 páginas", 1, "linkedin"), P(*RSA, 1, "google-search")],
+        "kpis": [K("Acessos pela URL do podcast", "Ouvir", "GA4", True), K("Cliques na newsletter", "Ler", "Plataforma"),
+                 K("Leads qualificados", "Contato", "CRM", True), K("Buscas de marca", "Contato", "Plataforma")],
+        "otimizacoes": ["URL e cupom exclusivos por programa", "Repetir nos programas com melhor resposta"],
+    },
+    {
+        "slug": "popular-video-curto-whatsapp",
+        "nome": "Massa popular: vídeo curto até o WhatsApp",
+        "objetivo": "vendas-whatsapp",
+        "resumo": "Kwai e TikTok para volume com linguagem popular, levando a conversa para o WhatsApp.",
+        "descricao": "Kwai e TikTok com criativo direto e preço ou condição clara, Meta Click-to-WhatsApp e remarketing "
+                     "de quem conversou.",
+        "verba_minima": 10_000, "duracao": "Contínua", "publico": "Classes C e D, todo o Brasil",
+        "cena": "people in a lively neighborhood watching short videos on phones",
+        "canais": [C("kwai", "Alcance", 35, True), C("tiktok", "Alcance", 25), C("meta-ads", "Conversão", 40, True,
+                   formatos=["Click-to-WhatsApp", "Stories & Reels"]), N("whatsapp")],
+        "fluxo": [E("Vídeo curto", "Oferta direta com linguagem popular.", "kwai", "tiktok"),
+                  E("Conversa", "Botão para o WhatsApp.", "meta-ads"),
+                  E("Venda", "Atendimento no WhatsApp.", "whatsapp")],
+        "conversao": CONV("whatsapp", False, "WhatsApp Business com catálogo.", ["Conversa", "Venda"]),
+        "remarketing": RMK(["Assistiu 50%", "Conversou e não comprou"], 14),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P(*VIDEO_VERT, 4, "kwai", "tiktok", "meta-ads")],
+        "kpis": [K("Custo por conversa", "Conversa", "Plataforma", True), K("Custo por venda", "Venda", "CRM", True),
+                 K("CPM e alcance", "Vídeo curto", "Plataforma")],
+        "otimizacoes": ["Criativos com pessoas reais e preço na tela", "Renovar vídeo toda semana"],
+    },
+    {
+        "slug": "retail-media-amazon",
+        "nome": "Retail media: Amazon, busca e social",
+        "objetivo": "vendas-online",
+        "resumo": "Para quem vende em marketplace: anúncio na busca da Amazon, Google e Meta levando tráfego "
+                  "para a página do produto.",
+        "descricao": "Amazon Sponsored Products e Brands, Amazon DSP para remarketing de quem viu o produto, Google "
+                     "Search e Meta com link para a página na Amazon.",
+        "verba_minima": 20_000, "duracao": "Contínua", "publico": "Compradores da categoria na Amazon",
+        "cena": "a product page on a marketplace on a laptop with a delivery box",
+        "canais": [C("amazon-ads", "Conversão", 55, True), C("google-search", "Conversão", 20), C("meta-ads", "Alcance", 25, True),
+                   N("marketplace")],
+        "fluxo": [E("Social", "Produto em uso, link para a Amazon.", "meta-ads"),
+                  E("Busca", "Google e busca dentro da Amazon.", "google-search", "amazon-ads"),
+                  E("Página do produto", "Compra na Amazon.", "marketplace"),
+                  E("Remarketing", "Quem viu o produto volta.", "amazon-ads")],
+        "conversao": CONV("marketplace", False, "Página do produto na Amazon com Amazon Attribution para medir o tráfego externo.",
+                          ["Vendas atribuídas", "Detail page views"]),
+        "remarketing": RMK(["Viu o produto na Amazon"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P("Página de produto otimizada", "Títulos, bullets, A+ content e 7 imagens", 1, "amazon-ads"),
+                      P(*ESTATICOS, 2, "meta-ads"), P(*VIDEO_VERT, 1, "meta-ads"), P(*RSA, 1, "google-search")],
+        "kpis": [K("ACOS e ROAS", "Página do produto", "Plataforma", True), K("Vendas atribuídas ao tráfego externo", "Página do produto", "Plataforma", True),
+                 K("Ranking orgânico na categoria", "Busca", "Plataforma")],
+        "otimizacoes": ["Amazon Attribution nas campanhas externas", "Palavras negativas e de concorrentes"],
+    },
+    {
+        "slug": "streaming-premium-portais",
+        "nome": "Streaming premium com portais",
+        "objetivo": "reconhecimento",
+        "resumo": "Prime Video e Globoplay na TV, G1 no dia a dia e YouTube, com remarketing programático "
+                  "para quem foi impactado.",
+        "descricao": "Alcance de alto valor com frequência controlada: streaming premium, capa e native no G1, YouTube "
+                     "e remarketing no DV360.",
+        "verba_minima": 50_000, "duracao": "30 dias", "publico": "Classes A e B",
+        "cena": "a premium streaming experience on a big TV, a news site open on a tablet",
+        "canais": [C("prime-video", "Alcance", 30, True, minimo=15_000), C("globoplay", "Alcance", 25), C("g1-globo", "Alcance", 15, True),
+                   C("youtube", "Alcance", 15, True), C("google-dv360", "Remarketing", 15), N("site")],
+        "fluxo": [E("TV", "Streaming premium.", "prime-video", "globoplay"),
+                  E("Notícia", "Portal no dia a dia.", "g1-globo"),
+                  E("Vídeo", "YouTube no celular.", "youtube"),
+                  E("Remarketing", "Impactados recebem a oferta.", "google-dv360"),
+                  E("Site", "Conversão.", "site")],
+        "conversao": CONV("site", False, "Site atual com QR code no vídeo.", ["Visitas", "Buscas de marca"]),
+        "remarketing": RMK(["Impactado pelo vídeo", "Leu no portal"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P(*CTV, 1, "prime-video", "globoplay"), P("Peças de portal", "970x250, 300x250 e native", 1, "g1-globo"),
+                      P(*VIDEO_HOR, 1, "youtube"), P(*DISPLAY, 1, "google-dv360")],
+        "kpis": [K("Alcance único e frequência", "TV", "Plataforma", True), K("VCR", "TV", "Plataforma"),
+                 K("Brand lift", "TV", "Pesquisa de lift", True), K("Lift de busca", "Site", "Painel Centralcomm")],
+        "otimizacoes": ["Frequência total controlada entre os canais", "Pesquisa de lembrança a partir de R$ 75 mil"],
+    },
+    {
+        "slug": "noticia-mobilidade-alcance",
+        "nome": "Alcance em notícia e mobilidade",
+        "objetivo": "reconhecimento",
+        "resumo": "Portais de notícia (UOL, R7, SBT) para alcance massivo e 99 e Uber no trajeto, com "
+                  "remarketing de quem leu e busca de marca.",
+        "descricao": "Combinação de portais de grande audiência com mídia em app de mobilidade, Meta para frequência "
+                     "e remarketing programático.",
+        "verba_minima": 30_000, "duracao": "30 dias", "publico": "Adultos urbanos",
+        "cena": "commuters in a ride-hailing car reading news on phones in a city",
+        "canais": [C("uol", "Alcance", 20, True), C("r7", "Alcance", 15), C("sbt", "Alcance", 15), C("99", "Alcance", 15),
+                   C("meta-ads", "Alcance", 20, True), C("google-dv360", "Remarketing", 15), N("site")],
+        "fluxo": [E("Notícia", "Portais de grande audiência.", "uol", "r7", "sbt"),
+                  E("Trajeto", "Tela do app de mobilidade.", "99"),
+                  E("Social", "Frequência no feed.", "meta-ads"),
+                  E("Remarketing", "Leitores voltam com oferta.", "google-dv360"),
+                  E("Site", "Conversão.", "site")],
+        "conversao": CONV("site", False, "Site atual.", ["Visitas", "Conversões"]),
+        "remarketing": RMK(["Leu no portal"], 30),
+        "lista_clientes": SEM_LISTA,
+        "criativos": [P(*DISPLAY, 1, "uol", "r7", "sbt", "google-dv360"), P("Native de portal", "1200x628", 2, "uol", "r7"),
+                      P("Banner 99", "Formato do app", 1, "99"), P(*VIDEO_VERT, 2, "meta-ads")],
+        "kpis": [K("Alcance único", "Notícia", "Plataforma", True), K("Viewability", "Notícia", "Plataforma"),
+                 K("CTR do remarketing", "Remarketing", "Plataforma"), K("Visitas ao site", "Site", "GA4", True)],
+        "otimizacoes": ["Frequência por usuário entre portais", "Editorias com afinidade"],
+    },
+]
+
+
+def lista() -> list[dict]:
+    """Cópias, para ninguém alterar o catálogo em memória."""
+    return [deepcopy(e) for e in ESTRATEGIAS]
+
+
+# O que esperar em cada fase. Textos de expectativa, sem promessa de número.
+EFEITOS = {
+    "funil-essencial-busca-social": [
+        ("Semanas 1 e 2", "Busca traz as primeiras conversões logo de início; Meta e YouTube estão em aprendizado e o custo por resultado ainda oscila."),
+        ("Semanas 3 e 4", "Com 30 a 50 conversões o algoritmo estabiliza e o CPA cai. O público de remarketing ganha volume e passa a converter mais barato que o topo."),
+        ("Depois do 1º mês", "Crescem as buscas pela marca e a participação de visitantes recorrentes. A verba migra para o canal com menor CPA."),
+    ],
+    "lancamento-360-portais": [
+        ("Dia do lançamento", "Pico de alcance com a capa do portal e o vídeo: muita gente vê a novidade no mesmo dia, o que gera conversa e busca."),
+        ("Primeira semana", "Buscas pelo nome do produto sobem e são capturadas no Google Search; o remarketing começa a falar com quem leu e assistiu."),
+        ("Semanas 2 e 3", "A frequência no social sustenta a lembrança enquanto o remarketing leva os interessados para a página de compra."),
+    ],
+    "leads-b2c-formulario-nativo": [
+        ("Semanas 1 e 2", "Volume de leads aparece rápido, porque o formulário abre sem sair do app; a qualidade ainda é desigual."),
+        ("Semanas 3 e 4", "Com o retorno do CRM (lead bom e ruim), a plataforma aprende o perfil certo e o custo por lead qualificado cai."),
+        ("Depois do 1º mês", "Ritmo previsível de leads por semana; testes de criativo e de pergunta de qualificação seguem melhorando a taxa de venda."),
+    ],
+    "leads-b2b-decisores": [
+        ("Mês 1", "Contas-alvo começam a ver a marca em conteúdo de autoridade; os primeiros leads vêm da busca e do formulário do LinkedIn."),
+        ("Mês 2", "Remarketing de quem leu o conteúdo aumenta a taxa de lead qualificado; o time comercial recebe contatos mais maduros."),
+        ("Mês 3", "Oportunidades entram no pipeline. Em B2B o ciclo é longo: o retorno se mede em pipeline gerado, não em venda no mês."),
+    ],
+    "ecommerce-performance-catalogo": [
+        ("Semanas 1 e 2", "Performance Max e Meta exploram o catálogo e descobrem os produtos que mais vendem; o ROAS ainda oscila."),
+        ("Semanas 3 e 4", "Remarketing dinâmico recupera carrinhos e produtos vistos; o ROAS sobe e estabiliza."),
+        ("Depois do 1º mês", "Com o ROAS desejado por margem, a verba escala nas categorias que dão mais lucro e a participação de clientes novos cresce."),
+    ],
+    "vendas-whatsapp-conversa": [
+        ("Primeiros dias", "As conversas começam a chegar já no primeiro dia; o gargalo passa a ser o tempo de resposta do atendimento."),
+        ("Semanas 2 a 4", "Com resposta rápida e mensagem inicial ajustada, sobe a taxa de conversa que vira venda e cai o custo por venda."),
+        ("Depois do 1º mês", "Remarketing de quem conversou e não comprou traz uma segunda onda de vendas mais barata."),
+    ],
+    "varejo-visita-loja": [
+        ("Semana 1", "Telas de rua e celular geolocalizado criam presença em volta das lojas; aumentam as buscas por rota e horário."),
+        ("Semanas 2 e 3", "O retargeting de quem passou pelas telas reforça a mensagem; as visitas medidas começam a se diferenciar das lojas sem mídia."),
+        ("Fim do período", "Leitura de lift de visitas contra o período anterior e contra lojas de controle, loja a loja."),
+    ],
+    "app-instalacao-reengajamento": [
+        ("Semanas 1 e 2", "Instalações sobem rápido; as campanhas ainda aprendem quem faz o cadastro e a primeira compra."),
+        ("Semanas 3 e 4", "Otimizando para a ação no app, o custo por usuário ativo cai, mesmo que o custo por instalação suba um pouco."),
+        ("Depois do 1º mês", "O reengajamento traz de volta usuários inativos por deep link, com custo bem menor que conquistar um novo."),
+    ],
+    "ctv-halo-busca": [
+        ("Semana 1", "Alcance qualificado na TV da sala, com frequência controlada por domicílio."),
+        ("Semanas 2 e 3", "Buscas pela marca sobem durante a veiculação e são capturadas no Google; o QR code mede quem foi direto ao site."),
+        ("Depois da campanha", "Pesquisa de lembrança e comparação das buscas antes e depois mostram o efeito da TV conectada."),
+    ],
+    "audio-social-jovens": [
+        ("Semanas 1 e 2", "A marca entra na rotina do público (treino, estudo, trânsito) com áudio e vídeo curto."),
+        ("Semanas 3 e 4", "Criativos com melhor taxa de engajamento ganham verba; o remarketing leva quem engajou para o site."),
+        ("Fim do período", "Aumento de seguidores, buscas e visitas vindas de um público que não era alcançado antes."),
+    ],
+    "delivery-ifood-mobilidade": [
+        ("Primeira semana", "Pedidos com cupom aparecem já nos primeiros horários de pico."),
+        ("Semanas 2 e 3", "Dayparting concentra a verba no almoço e no jantar; o custo por pedido cai."),
+        ("Fim do período", "O cupom mostra quanto cada canal vendeu e quantos clientes novos entraram no app."),
+    ],
+    "financas-dados-serasa": [
+        ("Semanas 1 e 2", "Audiências Serasa levam a mensagem só para quem tem o perfil do produto; as primeiras simulações chegam pela busca."),
+        ("Semanas 3 a 6", "Remarketing de quem simulou aumenta a taxa de cadastro; dá para comparar o custo por proposta entre as audiências."),
+        ("Fim do período", "Ficam claras as audiências que trazem propostas aprovadas, base para a próxima onda."),
+    ],
+    "branded-content-amplificado": [
+        ("Publicação", "A matéria sai com a credibilidade do portal e a amplificação no social garante leitores qualificados."),
+        ("Semanas 2 e 3", "Leitores marcados pelo pixel recebem a oferta no remarketing; sobem as visitas ao site."),
+        ("Fim do período", "Leituras, tempo de leitura e buscas pela marca mostram o ganho de consideração."),
+    ],
+    "esporte-grandes-eventos": [
+        ("Antes do jogo", "Presença no portal esportivo e no vídeo enquanto a torcida se prepara."),
+        ("Durante o evento", "Criativos de momento e criadores nas lives aumentam o engajamento e a lembrança."),
+        ("Depois", "Remarketing com a oferta para quem engajou; o cupom mede as vendas atribuídas."),
+    ],
+    "tecnologia-reviews-b2b": [
+        ("Semanas 1 e 2", "Review e demonstração em vídeo colocam o produto na comparação de quem está pesquisando."),
+        ("Semanas 3 e 4", "Buscas por modelo e comparativos levam à página do produto; leads corporativos chegam pelo LinkedIn."),
+        ("Fim do período", "Mais participação nas buscas da categoria e leads de empresas para o time comercial."),
+    ],
+    "programatica-dados-proprios": [
+        ("Semana 1", "A base de clientes vira público nas plataformas; a taxa de correspondência mostra quanto da lista foi encontrado."),
+        ("Semanas 2 a 4", "Públicos semelhantes aos melhores clientes ampliam o alcance com qualidade."),
+        ("Depois do 1º mês", "Comparação de CPA entre base, semelhantes e dados Serasa orienta onde investir mais."),
+    ],
+    "dooh-geofence-mobile": [
+        ("Semana 1", "Impactos em telas de rua, elevadores e metrô; começa a captura de quem passou perto."),
+        ("Semanas 2 e 3", "Quem viu a tela recebe a mesma ideia no celular, o que reforça a lembrança e gera visitas."),
+        ("Fim do período", "Visitas ao site por região mostram onde a combinação rua e celular funcionou melhor."),
+    ],
+    "reengajamento-base-clientes": [
+        ("Semanas 1 e 2", "Clientes que já conhecem a marca respondem rápido: recompra e reativação têm o menor custo de todas as estratégias."),
+        ("Semanas 3 e 4", "Mensagens por segmento (ativos, inativos, carrinho) aumentam a taxa de resposta sem cansar a base."),
+        ("Contínuo", "Grupo de controle mostra a receita incremental, o que a mídia trouxe além do que viria sozinho."),
+    ],
+    "sazonal-black-friday": [
+        ("Aquecimento", "Lista de interesse cresce e a marca entra na consideração antes da concorrência apertar."),
+        ("Pico", "Volume concentrado de vendas, com CPM mais alto do ano; o catálogo e o ROAS desejado seguram a rentabilidade."),
+        ("Repescagem", "Remarketing de quem quase comprou traz vendas extras nos dias seguintes ao pico."),
+    ],
+    "imobiliario-alto-ticket": [
+        ("Mês 1", "Leads e conversas com corretor começam pela busca por bairro e pelo social local."),
+        ("Mês 2", "Remarketing de quem viu as plantas aumenta os agendamentos de visita ao decorado."),
+        ("Ao longo da venda", "Com conversões offline de visita e venda, as campanhas aprendem o perfil comprador e o custo por visita cai."),
+    ],
+    "educacao-matriculas": [
+        ("Início da captação", "Inscrições crescem com busca por curso e vídeos de alunos."),
+        ("Meio da captação", "Remarketing de inscritos sem matrícula aumenta a conversão em matrícula."),
+        ("Reta final", "Verba concentrada nos cursos com mais margem e vagas; custo por matrícula conhecido por curso."),
+    ],
+    "saude-agendamento-local": [
+        ("Primeiros dias", "Ligações e conversas chegam de quem precisa do serviço agora."),
+        ("Semanas 2 a 4", "Anúncios só no horário de atendimento reduzem o custo por agendamento."),
+        ("Contínuo", "Volume previsível de agendamentos por semana, unidade a unidade."),
+    ],
+    "premium-interativos": [
+        ("Semana 1", "O formato interativo prende a atenção por mais tempo que um banner comum."),
+        ("Semanas 2 e 3", "Quem interagiu recebe a oferta no remarketing, com taxa de clique maior."),
+        ("Fim do período", "Tempo de interação e pesquisa de lembrança mostram o ganho de marca."),
+    ],
+    "autoridade-podcast-newsletter": [
+        ("Mês 1", "A leitura do apresentador e a newsletter levam a marca a um público que confia nesses programas."),
+        ("Mês 2", "Acessos pela URL do podcast e cliques da newsletter viram leads no LinkedIn e na busca."),
+        ("Fim do período", "Ficam claros os programas que trazem leads; a próxima onda repete só os melhores."),
+    ],
+    "popular-video-curto-whatsapp": [
+        ("Primeiros dias", "Alcance massivo e barato; conversas no WhatsApp começam a chegar."),
+        ("Semanas 2 e 3", "Vídeos novos toda semana mantêm o custo por conversa baixo."),
+        ("Fim do período", "Custo por venda conhecido; dá para escalar o criativo vencedor."),
+    ],
+    "retail-media-amazon": [
+        ("Semanas 1 e 2", "Anúncios na busca da Amazon colocam o produto na frente de quem já está comprando."),
+        ("Semanas 3 e 4", "Tráfego do Google e do Meta medido pelo Amazon Attribution soma vendas e melhora o ranking."),
+        ("Depois do 1º mês", "Com o ranking orgânico melhor, parte das vendas passa a vir sem mídia."),
+    ],
+    "streaming-premium-portais": [
+        ("Semana 1", "Alcance de alto valor na TV e nos portais, com frequência controlada."),
+        ("Semanas 2 e 3", "Remarketing de quem foi impactado leva ao site; buscas pela marca sobem."),
+        ("Depois da campanha", "Pesquisa de lembrança mostra o ganho de marca no público A e B."),
+    ],
+    "noticia-mobilidade-alcance": [
+        ("Semana 1", "Alcance amplo em portais de grande audiência e no trajeto pela cidade."),
+        ("Semanas 2 e 3", "Frequência no social e remarketing de leitores transformam alcance em visita."),
+        ("Fim do período", "Alcance único e visitas ao site mostram a cobertura obtida na praça."),
+    ],
+}
+
+
+def _com_efeitos(e: dict) -> dict:
+    e.setdefault("efeitos", [{"fase": f, "texto": t} for f, t in EFEITOS.get(e["slug"], [])])
+    return e
+
+
+ESTRATEGIAS = [_com_efeitos(e) for e in ESTRATEGIAS]

@@ -415,6 +415,8 @@ def create_app(config_class=Config):
         register_camadas_routes(parametros_bp)
         register_modeling_ux_lab(app)
         register_integration_settings_routes(parametros_bp)
+        from .estrategias.admin import register_estrategias_admin_routes
+        register_estrategias_admin_routes(parametros_bp)
         register_server_monitor_routes(parametros_bp)
         register_training_studio_routes(parametros_bp)
         app.register_blueprint(dv360_bp)

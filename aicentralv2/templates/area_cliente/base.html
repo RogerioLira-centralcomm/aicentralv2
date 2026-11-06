@@ -18,6 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+{% block head %}{% endblock %}
 </head>
 <body data-cadu-skin="workspace" data-cadu-theme="light">
 <a class="ac-skip" href="#conteudo">Pular para o conteúdo</a>

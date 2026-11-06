@@ -1,0 +1,102 @@
+{% extends "base_erp.html" %}
+{% block title %}Benchmarks da estimativa — Estratégias — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Estratégias de mídia{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estrategias_admin.css') }}?v={{ static_fingerprint('css/estrategias_admin.css') }}">
+{% endblock %}
+
+{% macro pct(v) %}{{ '%g'|format((v * 100)|round(3)) }}{% endmacro %}
+
+{% block content %}
+<main class="es-shell" data-es-bench>
+  <a class="es-back" href="{{ url_for('parametros.estrategias_lista') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Estratégias</a>
+  <header class="es-head">
+    <div>
+      <h1 class="es-h1">Benchmarks da estimativa</h1>
+      <p class="es-sub">Custos e taxas que a simulação do Descobrir usa para estimar impressões, cliques e resultados. A faixa mostrada ao cliente usa os pontos {{ (quantis[0] * 100)|int }}% e {{ (quantis[1] * 100)|int }}% entre o mínimo e o máximo daqui. Os custos são a média nacional; capitais pagam 15% a mais e o interior 8% a menos.</p>
+    </div>
+    <div class="es-head__actions">
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-secondary" data-es-padrao><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Voltar aos padrões</button>
+      <button type="button" class="cx-btn cx-btn-sm cx-btn-primary" data-es-salvar-bench><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Salvar</button>
+    </div>
+  </header>
+  <div class="es-feedback" data-es-feedback role="alert" hidden></div>
+
+  <section class="es-card">
+    <h2>Canais</h2>
+    <p class="es-hint">CPM em R$ por mil impressões; CPC em R$ por clique. CTR em % (cliques sobre impressões).</p>
+    <div class="es-table-wrap">
+      <table class="es-table es-bench">
+        <thead><tr><th>Canal</th><th>Modelo</th><th>Custo mín. (R$)</th><th>Custo máx. (R$)</th><th>CTR mín. (%)</th><th>CTR máx. (%)</th></tr></thead>
+        <tbody>
+        {% for l in linhas %}
+          <tr data-bench="{{ l.slug }}" data-padrao='{{ l.padrao|tojson }}'>
+            <td class="es-name">{% if l.logo %}<img class="es-logo" src="{{ l.logo }}" alt="" width="20" height="20" onerror="this.remove()"> {% endif %}{{ l.nome }}</td>
+            <td><select class="cx-select cx-select-sm" data-k="0" aria-label="Modelo de {{ l.nome }}"><option value="cpm"{% if l.valores[0] == 'cpm' %} selected{% endif %}>CPM</option><option value="cpc"{% if l.valores[0] == 'cpc' %} selected{% endif %}>CPC</option></select></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.1" min="0" data-k="1" value="{{ l.valores[1] }}" aria-label="Custo mínimo de {{ l.nome }}"></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.1" min="0" data-k="2" value="{{ l.valores[2] }}" aria-label="Custo máximo de {{ l.nome }}"></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.01" min="0" max="100" data-k="3" data-pct value="{{ pct(l.valores[3]) }}" aria-label="CTR mínimo de {{ l.nome }}"></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.01" min="0" max="100" data-k="4" data-pct value="{{ pct(l.valores[4]) }}" aria-label="CTR máximo de {{ l.nome }}"></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="es-card" style="margin-top:16px">
+    <h2>Conversão por destino</h2>
+    <p class="es-hint">Parte dos cliques que vira resultado. Cliques de canais de alcance contam 30%, de consideração 50%, de conversão e remarketing 100%.</p>
+    <div class="es-table-wrap">
+      <table class="es-table es-bench">
+        <thead><tr><th>Destino</th><th>Nome do resultado</th><th>Taxa mín. (%)</th><th>Taxa máx. (%)</th></tr></thead>
+        <tbody>
+        {% for c in conv %}
+          <tr data-conv="{{ c.chave }}" data-padrao='{{ c.padrao|tojson }}'>
+            <td class="es-name">{{ c.rotulo }}</td>
+            <td><input class="cx-input cx-input-sm" maxlength="40" data-k="0" value="{{ c.valores[0] }}" aria-label="Nome do resultado: {{ c.rotulo }}"></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.1" min="0" max="100" data-k="1" data-pct value="{{ pct(c.valores[1]) }}" aria-label="Taxa mínima: {{ c.rotulo }}"></td>
+            <td><input class="cx-input cx-input-sm" type="number" step="0.1" min="0" max="100" data-k="2" data-pct value="{{ pct(c.valores[2]) }}" aria-label="Taxa máxima: {{ c.rotulo }}"></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var raiz = document.querySelector('[data-es-bench]');
+  function linha(tr) {
+    return [].slice.call(tr.querySelectorAll('[data-k]')).map(function (el) {
+      if (el.tagName === 'SELECT' || !el.type || el.type === 'text') return el.value;
+      var n = Number(el.value); return 'pct' in el.dataset ? n / 100 : n;
+    });
+  }
+  function aviso(t, ok) { var f = raiz.querySelector('[data-es-feedback]'); f.hidden = false; f.className = 'es-feedback ' + (ok ? 'is-ok' : 'is-erro'); f.textContent = t; f.scrollIntoView({block: 'nearest'}); }
+  raiz.querySelector('[data-es-padrao]').addEventListener('click', function () {
+    raiz.querySelectorAll('[data-padrao]').forEach(function (tr) {
+      var p = JSON.parse(tr.dataset.padrao);
+      tr.querySelectorAll('[data-k]').forEach(function (el) { var v = p[Number(el.dataset.k)]; el.value = 'pct' in el.dataset ? +(v * 100).toFixed(3) : v; });
+    });
+    aviso('Padrões carregados. Salve para aplicar.', true);
+  });
+  raiz.querySelector('[data-es-salvar-bench]').addEventListener('click', function (ev) {
+    var btn = ev.currentTarget, corpo = {benchmarks: {}, conversao: {}};
+    raiz.querySelectorAll('[data-bench]').forEach(function (tr) { corpo.benchmarks[tr.dataset.bench] = linha(tr); });
+    raiz.querySelectorAll('[data-conv]').forEach(function (tr) { corpo.conversao[tr.dataset.conv] = linha(tr); });
+    btn.disabled = true;
+    fetch('/parametros/api/estrategias/parametros', {method: 'PUT', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(corpo)})
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (!d.success) throw new Error(d.error); aviso('Benchmarks salvos. A simulação do Descobrir já usa os novos valores.', true); })
+      .catch(function (e) { aviso(e.message || 'Não foi possível salvar.', false); })
+      .finally(function () { btn.disabled = false; });
+  });
+})();
+</script>
+{% endblock %}

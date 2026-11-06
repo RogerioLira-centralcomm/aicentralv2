@@ -1,0 +1,98 @@
+{% extends "base_erp.html" %}
+{% block title %}Estratégias de mídia — CentralX{% endblock %}
+{% block page_label %}Parâmetros{% endblock %}
+{% block page_subtitle %}Estratégias de mídia{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estrategias_admin.css') }}?v={{ static_fingerprint('css/estrategias_admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="es-shell" data-es-lista>
+  <header class="es-head">
+    <div>
+      <h1 class="es-h1">Estratégias de mídia</h1>
+      <p class="es-sub">Combinações de canais com fluxo, verba por faixa, peças e indicadores. As ativas aparecem no Descobrir da Área do Cliente, com os valores em R$.</p>
+    </div>
+    <div class="es-head__actions"><a class="cx-btn cx-btn-sm cx-btn-secondary" href="{{ url_for('parametros.estrategias_benchmarks') }}"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Benchmarks da estimativa</a>
+    <a class="cx-btn cx-btn-sm cx-btn-primary" href="{{ url_for('parametros.estrategias_editar') }}"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nova estratégia</a></div>
+  </header>
+
+  {% if not do_banco %}
+  <div class="es-alert" role="status"><i class="fa-solid fa-database" aria-hidden="true"></i>
+    <div><strong>Migração pendente.</strong> Esta lista é o catálogo inicial em código, só para leitura. {{ aviso_tabela }}</div>
+  </div>
+  {% endif %}
+
+  <div class="es-toolbar">
+    <label class="es-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" class="cx-input cx-input-sm" placeholder="Buscar estratégia ou canal" data-es-busca aria-label="Buscar estratégia ou canal"></label>
+    <select class="cx-select cx-select-sm" data-es-objetivo aria-label="Filtrar por objetivo">
+      <option value="">Todos os objetivos</option>
+      {% for k, v in objetivos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}
+    </select>
+    <span class="es-count" data-es-total>{{ linhas|length }} estratégias</span>
+  </div>
+
+  <div class="es-table-wrap">
+    <table class="es-table">
+      <thead><tr><th>Estratégia</th><th>Objetivo</th><th>Verba mínima</th><th>Canais</th><th>Inclui</th><th>Peças</th><th>Imagens</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+      {% for l in linhas %}
+        <tr data-es-linha data-objetivo="{{ l.objetivo_id }}" data-busca="{{ (l.nome ~ ' ' ~ l.resumo ~ ' ' ~ (l.canais|map(attribute='nome')|join(' ')))|lower }}">
+          <td class="es-name"><a href="{{ url_for('parametros.estrategias_editar', estrategia_id=l.id) }}">{{ l.nome }}</a><small>{{ l.slug }}</small></td>
+          <td><span class="es-chip">{{ l.objetivo }}</span></td>
+          <td class="es-num">{{ l.verba_rotulo|replace('A partir de ', '') }}</td>
+          <td><span class="es-logos">{% for c in l.canais %}{% if c.logo %}<img src="{{ c.logo }}" alt="" title="{{ c.nome }}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'{{ c.nome[:1] }}',title:'{{ c.nome }}'}))">{% else %}<b title="{{ c.nome }}">{{ c.nome[:1] }}</b>{% endif %}{% endfor %}</span></td>
+          <td class="es-flags">
+            {% if l.remarketing %}<span title="Usa remarketing">RMK</span>{% endif %}
+            {% if l.lista_clientes %}<span title="Usa lista de clientes">Lista</span>{% endif %}
+            {% if l.precisa_link %}<span class="is-warn" title="Precisa criar link ou landing page de conversão">Link</span>{% endif %}
+          </td>
+          <td class="es-num">{{ l.n_pecas }}</td>
+          <td class="es-num">{{ l.n_imagens }}/4</td>
+          <td>{% if do_banco %}<button type="button" class="es-status{% if l.ativo %} is-on{% endif %}" data-es-ativo="{{ l.id }}" aria-pressed="{{ 'true' if l.ativo else 'false' }}">{{ 'Ativa' if l.ativo else 'Inativa' }}</button>{% else %}<span class="es-status is-on">Semente</span>{% endif %}</td>
+          <td class="es-actions">
+            <a class="cx-btn cx-btn-sm cx-btn-ghost" href="{{ url_for('parametros.estrategias_editar', estrategia_id=l.id) }}" title="Editar"><i class="fa-solid fa-pen" aria-hidden="true"></i><span class="sr-only">Editar</span></a>
+            <a class="cx-btn cx-btn-sm cx-btn-ghost" href="{{ url_for('parametros.estrategias_editar', de=l.id) }}" title="Duplicar"><i class="fa-regular fa-copy" aria-hidden="true"></i><span class="sr-only">Duplicar</span></a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="es-empty" data-es-vazio hidden>Nenhuma estratégia com esse filtro.</p>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var linhas = Array.prototype.slice.call(document.querySelectorAll('[data-es-linha]'));
+  var busca = document.querySelector('[data-es-busca]'), obj = document.querySelector('[data-es-objetivo]');
+  var total = document.querySelector('[data-es-total]'), vazio = document.querySelector('[data-es-vazio]');
+  function filtrar() {
+    var q = (busca.value || '').trim().toLowerCase(), o = obj.value, n = 0;
+    linhas.forEach(function (tr) {
+      var ok = (!q || tr.dataset.busca.indexOf(q) >= 0) && (!o || tr.dataset.objetivo === o);
+      tr.hidden = !ok; if (ok) n++;
+    });
+    total.textContent = n + (n === 1 ? ' estratégia' : ' estratégias');
+    vazio.hidden = n > 0;
+  }
+  busca.addEventListener('input', filtrar); obj.addEventListener('change', filtrar);
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-es-ativo]'); if (!b) return;
+    b.disabled = true;
+    fetch('/parametros/api/estrategias/' + b.dataset.esAtivo + '/ativo', {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'}})
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.success) throw new Error(d.error);
+        b.classList.toggle('is-on', d.data.ativo); b.setAttribute('aria-pressed', d.data.ativo); b.textContent = d.data.ativo ? 'Ativa' : 'Inativa';
+      })
+      .catch(function (e) { b.title = e.message || 'Não foi possível alterar.'; b.classList.add('is-erro'); })
+      .finally(function () { b.disabled = false; });
+  });
+})();
+</script>
+{% endblock %}

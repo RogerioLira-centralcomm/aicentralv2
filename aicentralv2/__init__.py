@@ -434,10 +434,14 @@ def create_app(config_class=Config):
         from .cadu_email_public_routes import bp as cadu_email_public_bp
         app.register_blueprint(cadu_email_public_bp)
 
+        from .services.brevo_contatos_sync import registrar_gatilho as _brevo_sync_gatilho
+
         from .crm_v3_routes import bp as crm_v3_bp
+        _brevo_sync_gatilho(crm_v3_bp)  # contatos do CRM v3 seguem para as listas da Brevo
         app.register_blueprint(crm_v3_bp)
 
         from .leads_v3_routes import bp as leads_v3_bp
+        _brevo_sync_gatilho(leads_v3_bp)  # contatos do Leads v3 seguem para as listas da Brevo
         app.register_blueprint(leads_v3_bp)
 
         from .smart_planner.routes import bp as smart_planner_bp

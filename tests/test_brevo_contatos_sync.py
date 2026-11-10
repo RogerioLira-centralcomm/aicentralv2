@@ -41,6 +41,10 @@ class MontarPlanoTest(unittest.TestCase):
         plano = montar_plano({}, {35: {"manual@x.com"}})
         self.assertEqual(plano.remover, {})
 
+    def test_descadastrado_ou_desqualificado_sai_das_listas_de_executivo(self):
+        plano = montar_plano({}, {32: {"a@x.com"}, 21: {"a@x.com"}}, retirar={"a@x.com"})
+        self.assertEqual(plano.remover, {32: ["a@x.com"]})  # a 21 nunca é mexida
+
 
 if __name__ == "__main__":
     unittest.main()

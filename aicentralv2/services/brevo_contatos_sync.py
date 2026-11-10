@@ -8,7 +8,8 @@ banco com a Brevo e acerta só a diferença:
 - Contato de cliente ativo  -> lista 21 + "[Executivo] - Clientes".
 - Contato de lead em aberto -> "[Executivo] - Leads" (lead que virou cliente sai daqui).
 - E-mail que é de cliente e de lead ao mesmo tempo conta como cliente.
-- Quem pediu descadastro (cadu_lead_optout) não entra.
+- Quem pediu descadastro (cadu_lead_optout) não entra e sai das listas de executivo; contato
+  só de lead não qualificado também sai.
 - Executivo sem lista mapeada (ex.: usuários de teste) não leva nenhum contato à Brevo.
 - Nunca apaga contato da Brevo nem tira ninguém da 21; só tira das listas de executivo
   quando o contato mudou de segmento ou de executivo.
@@ -94,8 +95,12 @@ def _interno(email: str) -> bool:
     return email.rsplit("@", 1)[-1] in DOMINIOS_INTERNOS
 
 
-def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int]:
-    """Lê do banco onde cada e-mail deveria estar. Devolve (por e-mail, qtd de descadastrados)."""
+def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int, Set[str]]:
+    """Lê do banco onde cada e-mail deveria estar.
+
+    Devolve (por e-mail, qtd de descadastrados, e-mails que devem sair das listas de executivo:
+    descadastrados e contatos só de leads não qualificados).
+    """
     cursor.execute("SELECT LOWER(TRIM(valor)) AS email FROM cadu_lead_optout WHERE canal = 'email'")
     optout = {r["email"] for r in cursor.fetchall() if r["email"]}
 
@@ -158,7 +163,15 @@ def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int]:
             continue
         desejado.setdefault(email, Desejado(email, (r["nome"] or "").strip(), "leads", r["executivo"],
                                             r["empresa"] or "", r["telefone"] or ""))
-    return desejado, len(ignorados)
+    cursor.execute(
+        """
+        SELECT DISTINCT LOWER(TRIM(ct.email)) AS email
+          FROM cadu_lead_contatos ct JOIN cadu_leads l ON l.id = ct.id_lead
+         WHERE COALESCE(TRIM(ct.email), '') <> '' AND l.status = 'nao_qualificado'
+        """
+    )
+    retirar = {r["email"] for r in cursor.fetchall() if r["email"] not in desejado} | optout
+    return desejado, len(ignorados), retirar
 
 
 def membros_da_lista(service: BrevoService, lista_id: int) -> Set[str]:
@@ -179,7 +192,9 @@ def membros_da_lista(service: BrevoService, lista_id: int) -> Set[str]:
         offset += 500
 
 
-def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], optout: int = 0) -> Plano:
+def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], optout: int = 0,
+                 retirar: Iterable[str] = ()) -> Plano:
+    retirar = set(retirar)
     plano = Plano(optout=optout)
     for d in desejado.values():
         if d.lista_executivo is None:
@@ -193,7 +208,7 @@ def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], op
     for lid in sorted(LISTAS_EXECUTIVO):
         for email in sorted(membros.get(lid, set())):
             d = desejado.get(email)
-            if d is not None and d.lista_executivo is not None and lid not in d.listas:
+            if email in retirar or (d is not None and d.lista_executivo is not None and lid not in d.listas):
                 plano.remover.setdefault(lid, []).append(email)
     return plano
 
@@ -237,10 +252,10 @@ def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool
     service = service or BrevoService()
     if not service._api_key:
         return {"pulado": "sem chave da Brevo"}
-    desejado, optout = coletar_desejado(cursor)
+    desejado, optout, retirar = coletar_desejado(cursor)
     listas = sorted(LISTAS_EXECUTIVO | {LISTA_USUARIOS_ATIVOS})
     membros = {lid: membros_da_lista(service, lid) for lid in listas}
-    plano = montar_plano(desejado, membros, optout)
+    plano = montar_plano(desejado, membros, optout, retirar)
     resultado: Dict[str, Any] = {"contatos_no_banco": len(desejado), "plano": plano.resumo()}
     if aplicar and (plano.incluir or plano.remover):
         resultado["aplicado"] = aplicar_plano(service, plano)

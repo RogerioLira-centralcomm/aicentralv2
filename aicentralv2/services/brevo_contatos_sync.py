@@ -45,6 +45,7 @@ DOMINIOS_INTERNOS = ("centralcomm.media", "centralcomm.com.br")
 STATUS_LEAD_FORA = ("nao_qualificado", "fechado_ganho")
 INTERVALO_MINIMO = 120  # segundos entre duas sincronias automáticas
 CONFERENCIA_BREVO = 1800  # mesmo sem mudança no banco, confere a Brevo a cada 30 min
+LIMITE_SAIDAS_AUTOMATICAS = 40  # acima disso a sincronia automática não tira ninguém; use o script
 
 LISTAS_EXECUTIVO: Set[int] = {
     lid for listas in BREVO_LISTAS_CONTATOS_VENDEDOR.values() for lid in listas.values()
@@ -259,7 +260,7 @@ def tamanhos_das_listas(service: BrevoService, listas: Iterable[int]) -> Dict[in
 
 
 def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool = True,
-                coletado: Optional[tuple] = None) -> Dict[str, Any]:
+                coletado: Optional[tuple] = None, limite_saidas: Optional[int] = None) -> Dict[str, Any]:
     service = service or BrevoService()
     if not service._api_key:
         return {"pulado": "sem chave da Brevo"}
@@ -268,6 +269,13 @@ def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool
     membros = {lid: membros_da_lista(service, lid) for lid in listas}
     plano = montar_plano(desejado, membros, optout)
     resultado: Dict[str, Any] = {"contatos_no_banco": len(desejado), "plano": plano.resumo()}
+    saidas = sum(len(v) for v in plano.remover.values())
+    if limite_saidas is not None and saidas > limite_saidas:
+        # Trava contra leitura incompleta do banco esvaziar as listas: só inclui, não tira.
+        logger.warning("Brevo: %s saídas de lista bloqueadas (limite %s); rode o script com --apply.",
+                       saidas, limite_saidas)
+        resultado["saidas_bloqueadas"] = saidas
+        plano.remover = {}
     if aplicar and (plano.incluir or plano.remover):
         resultado["aplicado"] = aplicar_plano(service, plano)
     return resultado
@@ -307,8 +315,9 @@ def agendar_sincronia(app, executar: Optional[Callable[[], None]] = None) -> Non
                             sig = assinatura(coletado[0])
                             if sig == _estado["assinatura"] and time.time() - _estado["brevo_em"] < CONFERENCIA_BREVO:
                                 return  # o banco não mudou: nada a levar à Brevo
-                            res = sincronizar(cur, coletado=coletado)
-                    if "pulado" not in res and not (res.get("aplicado") or {}).get("falhas"):
+                            res = sincronizar(cur, coletado=coletado, limite_saidas=LIMITE_SAIDAS_AUTOMATICAS)
+                    if "pulado" not in res and "saidas_bloqueadas" not in res \
+                            and not (res.get("aplicado") or {}).get("falhas"):
                         _estado["assinatura"], _estado["brevo_em"] = sig, time.time()
                     logger.info("Brevo (sincronia de contatos): %s", res)
         except Exception:

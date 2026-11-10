@@ -462,10 +462,37 @@ def test_pi_mostra_valores_de_venda_e_notas(app, monkeypatch):
     monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
     client = _client(app, {"user_id": 501})
     html = client.get("/pis/12", base_url=HOST).get_data(as_text=True)
-    for trecho in ("R$ 10.000,00", "R$ 2.000,00", "R$ 8.000,00", "R$ 7.500,00", "NF 123", "Previsto 03/12", "Em faturamento"):
+    for trecho in ("R$ 10.000,00", "R$ 8.000,00", "R$ 7.500,00", "NF 123", "Previsto 03/12", "Em faturamento"):
         assert trecho in html, trecho
+    assert "Comissão" not in html and "R$ 2.000,00" not in html            # comissão da agência não aparece
     assert "lucratividade" not in html.lower() and "Gasto" not in html
     assert client.get("/pis/99", base_url=HOST).status_code == 404
+
+
+def test_pi_finalizado_completa_o_trilho_e_a_linha_do_tempo(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    resumo = {"id": 12, "pi": "CC-123", "titulo": "PI Verão", "status": "Finalizado", "status_id": 5,
+              "periodo": {"inicio": "2025-10-01", "fim": "2025-11-01"}, "cliente": "Cliente", "agencia": "",
+              "bruto": 10000.0, "comissao": None, "liquido": 10000.0, "n_notas": 1, "n_pagas": 1,
+              "atualizado_em": "2025-12-20", "criado_em": "2025-09-20", "documentos": [],
+              "contraparte": {"rotulo": "Agência", "nome": "Direto"}}
+    monkeypatch.setattr(dados, "listar_pis", lambda c, id_pi=None: [dict(resumo)])
+    notas = [{"numero_nota": "9", "data_emissao": "2025-11-05", "valor": 10000, "valor_liquido": 9500, "mes_ref_comp": "11/2025",
+              "data_pag_prevista": None, "data_pag_realizado": "2025-12-10", "status": "Pagamento realizado"}]
+    etapas = [{"etapa": "dados_validados", "concluida_em": "2025-09-25"}, {"etapa": "enviado_financeiro", "concluida_em": "2025-11-03"}]
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: notas if "nota_fiscal" in sql else etapas)
+    with app.test_request_context():
+        pi = dados.pi_do_cliente(900, 12)
+    assert [e["estado"] for e in pi["etapas"]] == ["done"] * 5                    # Finalizado conta como concluído
+    assert pi["etapas"][-1]["em"] == "2025-12-10"                                 # data = último pagamento
+    titulos = [h["titulo"] for h in pi["historico"]]
+    assert titulos[0] == "PI finalizado" and "Início da veiculação" in titulos and "Fim da veiculação" in titulos
+    # campanha que ficou "Ativa" num PI finalizado aparece como finalizada
+    monkeypatch.setattr(dados, "pi_do_cliente", lambda c, i: pi)
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [_camp(status="Ativa", no_ar=True)])
+    html = _client(app, {"user_id": 501}).get("/pis/12", base_url=HOST).get_data(as_text=True)
+    assert "Finalizada" in html and ">Ativa<" not in html and "Linha do tempo" in html
 
 
 OPCOES = [{"id": 80, "nome": "AGÊNCIA X", "tipo": "Agência", "n_pis": 12}]

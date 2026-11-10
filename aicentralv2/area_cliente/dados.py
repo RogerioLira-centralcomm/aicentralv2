@@ -12,6 +12,7 @@ from datetime import date
 logger = logging.getLogger(__name__)
 
 SUB_STATUS_CANCELADO = 6
+SUB_STATUS_FINALIZADO = 5
 SUB_STATUS_ATIVOS = (2, 3)  # Em configuração, Em andamento
 STATUS_CAMPANHA_NO_AR = ("ativa", "ativo", "em andamento")
 
@@ -380,6 +381,7 @@ def _pi_resumo(r) -> dict:
         "n_notas": int(r.get("n_notas") or 0),
         "n_pagas": int(r.get("n_pagas") or 0),
         "atualizado_em": _iso(r["updated_at"] or r["created_at"]),
+        "criado_em": _iso(r["created_at"]),
         "documentos": [{"titulo": t, "url": u} for t, u in (
             ("PI e pasta principal", r.get("googled_pi_princ")), ("Plano de mídia e peças", r.get("googled_pi_pecas")),
             ("Documentos assinados", r.get("googled_pi_arq_ass"))) if u and str(u).startswith(("http://", "https://"))],
@@ -423,13 +425,44 @@ def pi_do_cliente(cliente_id, id_pi) -> dict | None:
     except Exception:
         logger.warning("Etapas da operação indisponíveis.", exc_info=True)
         etapas = []
+    concluidas = {e["etapa"]: _iso(e["concluida_em"]) for e in etapas}
+    hoje = date.today().isoformat()
+    inicio, fim = resumo["periodo"]["inicio"], resumo["periodo"]["fim"]
+    finalizado = resumo["status_id"] == SUB_STATUS_FINALIZADO
+    pagamentos = sorted(n["pago_em"] for n in resumo["notas"] if n["pago_em"])
+    # Data de encerramento: último pagamento; sem ele, a última atualização do PI (quando virou Finalizado).
+    finalizado_em = (pagamentos[-1] if pagamentos else resumo["atualizado_em"]) if finalizado else None
+
     historico = [{"titulo": ETAPAS_CLIENTE.get(e["etapa"], "Atualização da operação"), "em": _iso(e["concluida_em"])} for e in etapas]
+    # A operação nem sempre registra o início da campanha: o período do PI completa a linha do tempo.
+    if "campanha_iniciada" not in concluidas and inicio and inicio[:10] <= hoje and resumo["status_id"] in (3, 4, 5):
+        historico.append({"titulo": "Início da veiculação", "em": inicio})
+    if fim and fim[:10] < hoje and resumo["status_id"] in (3, 4, 5):
+        historico.append({"titulo": "Fim da veiculação", "em": fim})
     historico += [{"titulo": f"Nota fiscal {n['numero']} emitida", "em": n["emissao"]} for n in resumo["notas"] if n["emissao"]]
     historico += [{"titulo": f"Pagamento da nota {n['numero']} realizado", "em": n["pago_em"]} for n in resumo["notas"] if n["pago_em"]]
-    resumo["historico"] = sorted((h for h in historico if h["em"]), key=lambda h: h["em"], reverse=True)
+    if finalizado and finalizado_em:
+        historico.append({"titulo": "PI finalizado", "em": finalizado_em, "final": True})
+    resumo["historico"] = sorted((h for h in historico if h["em"]), key=lambda h: (h["em"][:10], bool(h.get("final"))), reverse=True)
+
+    # Trilho de etapas com data quando houver. Finalizado conta como concluído (antes ficava "em curso").
+    datas = {
+        "Em aprovação": resumo.get("criado_em"),
+        "Em configuração": concluidas.get("dados_validados") or concluidas.get("campanhas_configuradas"),
+        "Em andamento": concluidas.get("campanha_iniciada") or (inicio if inicio and inicio[:10] <= hoje else None),
+        "Em faturamento": concluidas.get("enviado_financeiro"),
+        "Finalizado": finalizado_em,
+    }
     atual = resumo["status"]
-    resumo["etapas"] = [{"titulo": t, "estado": "done" if ETAPAS_PI.index(t) < ETAPAS_PI.index(atual) else ("current" if t == atual else "todo")}
-                        for t in ETAPAS_PI] if atual in ETAPAS_PI else []
+    if atual in ETAPAS_PI:
+        i_atual = ETAPAS_PI.index(atual)
+        resumo["etapas"] = [{
+            "titulo": t,
+            "estado": "done" if (i < i_atual or finalizado) else ("current" if i == i_atual else "todo"),
+            "em": datas.get(t) if (i <= i_atual) else None,
+        } for i, t in enumerate(ETAPAS_PI)]
+    else:
+        resumo["etapas"] = []
     return resumo
 
 

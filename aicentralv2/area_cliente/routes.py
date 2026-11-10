@@ -560,6 +560,11 @@ def view_pi(usuario, id_pi):
     if pi is None:
         abort(404)
     campanhas = dados.campanhas_dos_pis([id_pi])
+    if pi.get("status_id") == dados.SUB_STATUS_FINALIZADO:
+        # PI encerrado: campanha que ficou "Ativa" no cadastro aparece como finalizada para o cliente.
+        for c in campanhas:
+            if c.get("no_ar"):
+                c["status"], c["no_ar"] = "Finalizada", False
     return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas, plats=plataformas.resumo(campanhas))
 
 

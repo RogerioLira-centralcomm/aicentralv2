@@ -2,103 +2,112 @@
 {% from 'area_cliente/_macros.html' import icon, data_br, periodo, status_badge, barra, plat, faixa_plataformas %}
 {% block title %}{{ pi.pi }}{% endblock %}
 {% block content %}
+{% set parte = pi.contraparte or {} %}
 <a class="ac-back" href="{{ area_url('pis') }}">{{ icon('arrow-left', 14) }}PIs</a>
 
-<header class="ac-detail-head">
-  <div class="ac-detail-head__main">
-    <h1 class="ac-h1">{{ pi.titulo }}</h1>
-    <p class="ac-detail-head__meta">{{ status_badge(pi.status) }}<span>{{ pi.pi }}</span><span>{{ periodo(pi.periodo) }}</span>{% if pi.agencia %}<span>Agência {{ pi.agencia }}</span>{% endif %}</p>
+<header class="ac-pi-head">
+  <div class="ac-pi-head__main">
+    <h1 class="ac-h1 ac-pi-head__title">{{ pi.titulo }}</h1>
+    <p class="ac-pi-head__meta">
+      {{ status_badge(pi.status) }}
+      <span><b>{{ pi.pi }}</b></span>
+      <span>{{ icon('calendar', 14) }}{{ periodo(pi.periodo) }}</span>
+      {% if parte.nome %}<span>{{ parte.rotulo }}: <b>{{ parte.nome }}</b></span>{% endif %}
+    </p>
   </div>
-  <a class="ac-link" href="{{ area_url('projeto', id_pi=pi.id) }}">Visão 360°{{ icon('chevron-right', 14) }}</a>
+  <nav class="ac-pi-head__links" aria-label="Atalhos do PI">
+    <a class="ac-btn ac-btn--sm ac-btn--secondary" href="{{ area_url('relatorios') }}?pi={{ pi.id }}">{{ icon('chart', 16) }}Relatório</a>
+    <a class="ac-btn ac-btn--sm ac-btn--secondary" href="{{ area_url('projeto', id_pi=pi.id) }}">{{ icon('layout', 16) }}Visão 360°</a>
+  </nav>
 </header>
 
 {% if pi.etapas %}
-<ol class="ac-track" aria-label="Etapas do PI">
+<ol class="ac-pi-track" aria-label="Etapas do PI">
   {% for e in pi.etapas %}
-  <li class="ac-track__step is-{{ e.estado }}"><span class="ac-track__dot" aria-hidden="true">{% if e.estado == 'done' %}{{ icon('check', 12) }}{% endif %}</span>{{ e.titulo }}</li>
+  <li class="ac-pi-track__step is-{{ e.estado }}"{% if e.estado == 'current' %} aria-current="step"{% endif %}>
+    <span class="ac-pi-track__dot" aria-hidden="true">{% if e.estado == 'done' %}{{ icon('check', 12) }}{% endif %}</span>
+    <span class="ac-pi-track__txt"><b>{{ e.titulo }}</b><small>{% if e.em %}{{ data_br(e.em) }}{% elif e.estado == 'current' %}em curso{% else %}&nbsp;{% endif %}</small></span>
+  </li>
   {% endfor %}
 </ol>
 {% endif %}
 
-<section class="ac-stats" aria-label="Valores do PI">
-  <div class="ac-stat"><span class="ac-stat__label">Valor bruto</span><b class="ac-stat__value ac-stat__value--money">{{ pi.bruto|format_brl if pi.bruto is not none else '—' }}</b></div>
-  <div class="ac-stat"><span class="ac-stat__label">Comissão de agência</span><b class="ac-stat__value ac-stat__value--money">{{ pi.comissao|format_brl if pi.comissao is not none else '—' }}</b></div>
-  <div class="ac-stat"><span class="ac-stat__label">Valor líquido</span><b class="ac-stat__value ac-stat__value--money">{{ pi.liquido|format_brl if pi.liquido is not none else '—' }}</b></div>
-  <div class="ac-stat"><span class="ac-stat__label">Faturado</span><b class="ac-stat__value ac-stat__value--money">{{ pi.faturado|format_brl if pi.faturado else '—' }}</b><span class="ac-stat__hint">{% if pi.pago %}{{ pi.pago|format_brl }} pago{% else %}sem pagamento{% endif %}</span></div>
+{% set falta = (pi.liquido or 0) - (pi.faturado or 0) %}
+<section class="ac-pi-vals" aria-label="Valores do PI">
+  <div class="ac-pi-val"><span>Valor bruto</span><b>{{ pi.bruto|format_brl if pi.bruto is not none else '—' }}</b></div>
+  <div class="ac-pi-val"><span>Valor líquido</span><b>{{ pi.liquido|format_brl if pi.liquido is not none else '—' }}</b></div>
+  <div class="ac-pi-val"><span>Faturado</span><b>{{ pi.faturado|format_brl if pi.faturado else '—' }}</b><small>{{ pi.notas|length }} {{ 'nota fiscal' if pi.notas|length == 1 else 'notas fiscais' }}{% if pi.faturado and falta > 0.5 %} · falta {{ falta|format_brl }}{% endif %}</small></div>
+  <div class="ac-pi-val"><span>Pago</span><b>{{ pi.pago|format_brl if pi.pago else '—' }}</b><small>{% if pi.pago and pi.faturado and pi.pago >= pi.faturado - 0.5 %}tudo pago{% elif pi.faturado %}{{ ((pi.faturado - (pi.pago or 0)))|format_brl }} a receber{% else %}sem faturamento{% endif %}</small></div>
 </section>
 
 {{ faixa_plataformas(plats) }}
 
-<div class="ac-panels">
-  <section class="ac-panel" aria-labelledby="res-titulo">
-    <header class="ac-panel__head"><h2 class="ac-h2" id="res-titulo">Resultado por campanha</h2><span class="ac-panel__count">{{ campanhas|length }}</span></header>
-    {% if campanhas %}
-    <ul class="ac-rows">
-      {% for c in campanhas %}
-      <li class="ac-row">
-        <span class="ac-row__icon">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
-        <div class="ac-row__main"><b>{{ c.nome }}</b><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small></div>
-        <div class="ac-row__bar">{{ barra(c.pct, 'Entrega de ' ~ c.nome, c.tempo_pct, c.ritmo, c.dias_restantes if c.tempo_pct is not none else None) }}</div>
-        <div class="ac-row__end"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b><small>{{ c.status or '—' }}</small></div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="ac-panel__empty">Campanhas ainda não cadastradas.</p>
-    {% endif %}
-  </section>
+<div class="ac-pi-grid">
+  <div class="ac-pi-grid__main">
+    <section class="ac-panel" aria-labelledby="res-titulo">
+      <header class="ac-panel__head"><h2 class="ac-h2" id="res-titulo">Resultado por campanha</h2><span class="ac-panel__count">{{ campanhas|length }}</span></header>
+      {% if campanhas %}
+      <ul class="ac-pi-camps">
+        {% for c in campanhas %}
+        <li class="ac-pi-camp">
+          <span class="ac-pi-camp__logo">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 22) }}</span>
+          <div class="ac-pi-camp__main">
+            <span class="ac-pi-camp__top"><b>{{ c.nome }}</b><span class="ac-pi-camp__pct">{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</span></span>
+            <span class="ac-camp__bar"><span class="ac-camp__fill{% if c.no_ar and c.ritmo %} ac-camp__fill--{{ c.ritmo }}{% elif (c.pct or 0) >= 100 %} ac-camp__fill--adiantado{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>{% if c.no_ar and c.tempo_pct is not none %}<span class="ac-camp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%"></span>{% endif %}</span>
+            <span class="ac-pi-camp__meta"><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small><small class="ac-pi-camp__st{% if c.no_ar %} is-live{% endif %}">{{ c.status or '—' }}</small></span>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="ac-panel__empty">Campanhas ainda não cadastradas.</p>
+      {% endif %}
+    </section>
 
-  <section class="ac-panel" aria-labelledby="hist-titulo">
-    <header class="ac-panel__head"><h2 class="ac-h2" id="hist-titulo">Marcos concluídos</h2><span class="ac-panel__count">{{ pi.historico|length }}</span></header>
-    {% if pi.historico %}
-    <ul class="ac-rows">
-      {% for h in pi.historico %}
-      <li class="ac-row">
-        <span class="ac-row__dot" aria-hidden="true">{{ icon('check', 12) }}</span>
-        <div class="ac-row__main"><b>{{ h.titulo }}</b></div>
-        <div class="ac-row__end"><small>{{ data_br(h.em) }}</small></div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="ac-panel__empty">Sem marcos por enquanto.</p>
-    {% endif %}
-  </section>
-</div>
+    <section class="ac-panel" aria-labelledby="nf-titulo">
+      <header class="ac-panel__head"><h2 class="ac-h2" id="nf-titulo">Notas fiscais</h2><span class="ac-panel__count">{{ pi.notas|length }}</span></header>
+      {% if pi.notas %}
+      <ul class="ac-pi-nfs">
+        {% for n in pi.notas %}
+        <li class="ac-pi-nf">
+          <div class="ac-pi-nf__main"><b>NF {{ n.numero }}</b><small>Emitida {{ data_br(n.emissao) }}{% if n.competencia %} · comp. {{ n.competencia }}{% endif %}</small></div>
+          <div class="ac-pi-nf__val"><b>{{ n.valor|format_brl if n.valor is not none else '—' }}</b><small>líquido {{ n.liquido|format_brl if n.liquido is not none else '—' }}</small></div>
+          <div class="ac-pi-nf__st">{% if n.pago_em %}<span class="ac-badge ac-badge--success">Pago {{ data_br(n.pago_em)[:5] }}</span>{% else %}<span class="ac-badge ac-badge--warning">{% if n.prevista %}Previsto {{ data_br(n.prevista)[:5] }}{% else %}{{ n.status }}{% endif %}</span>{% endif %}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="ac-panel__empty">Nenhuma nota fiscal ainda.</p>
+      {% endif %}
+    </section>
+  </div>
 
-<div class="ac-panels">
-  <section class="ac-panel" aria-labelledby="nf-titulo">
-    <header class="ac-panel__head"><h2 class="ac-h2" id="nf-titulo">Notas fiscais</h2><span class="ac-panel__count">{{ pi.notas|length }}</span></header>
-    {% if pi.notas %}
-    <ul class="ac-rows">
-      {% for n in pi.notas %}
-      <li class="ac-row ac-row--nf">
-        <div class="ac-row__main"><b>NF {{ n.numero }}</b><small>Emitida {{ data_br(n.emissao) }}{% if n.competencia %} · comp. {{ n.competencia }}{% endif %}</small></div>
-        <div class="ac-row__money"><b>{{ n.valor|format_brl if n.valor is not none else '—' }}</b><small>líquido {{ n.liquido|format_brl if n.liquido is not none else '—' }}</small></div>
-        <div class="ac-row__end">{% if n.pago_em %}<span class="ac-badge ac-badge--success">Pago {{ data_br(n.pago_em)[:5] }}</span>{% else %}<span class="ac-badge ac-badge--warning">{% if n.prevista %}Previsto {{ data_br(n.prevista)[:5] }}{% else %}{{ n.status }}{% endif %}</span>{% endif %}</div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="ac-panel__empty">Nenhuma nota fiscal ainda.</p>
-    {% endif %}
-  </section>
+  <aside class="ac-pi-grid__side">
+    <section class="ac-panel" aria-labelledby="hist-titulo">
+      <header class="ac-panel__head"><h2 class="ac-h2" id="hist-titulo">Linha do tempo</h2><span class="ac-panel__count">{{ pi.historico|length }}</span></header>
+      {% if pi.historico %}
+      <ol class="ac-pi-tl">
+        {% for h in pi.historico %}
+        <li class="ac-pi-tl__item{% if h.final %} is-final{% endif %}"><span class="ac-pi-tl__dot" aria-hidden="true">{{ icon('check', 10) }}</span><b>{{ h.titulo }}</b><small>{{ data_br(h.em) }}</small></li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="ac-panel__empty">Sem marcos por enquanto.</p>
+      {% endif %}
+    </section>
 
-  <section class="ac-panel" aria-labelledby="docs-titulo">
-    <header class="ac-panel__head"><h2 class="ac-h2" id="docs-titulo">Documentos</h2><span class="ac-panel__count">{{ pi.documentos|length }}</span></header>
-    {% if pi.documentos %}
-    <ul class="ac-rows">
-      {% for d in pi.documentos %}
-      <li class="ac-row">
-        <span class="ac-row__dot ac-row__dot--file" aria-hidden="true">{{ icon('file', 12) }}</span>
-        <div class="ac-row__main"><a class="ac-row__link" href="{{ d.url }}" target="_blank" rel="noopener"><b>{{ d.titulo }}</b></a></div>
-        <div class="ac-row__end">{{ icon('external', 14) }}</div>
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="ac-panel__empty">Nenhum documento anexado.</p>
-    {% endif %}
-  </section>
+    <section class="ac-panel" aria-labelledby="docs-titulo">
+      <header class="ac-panel__head"><h2 class="ac-h2" id="docs-titulo">Documentos</h2><span class="ac-panel__count">{{ pi.documentos|length }}</span></header>
+      {% if pi.documentos %}
+      <ul class="ac-pi-docs">
+        {% for d in pi.documentos %}
+        <li><a href="{{ d.url }}" target="_blank" rel="noopener">{{ icon('file', 16) }}<span>{{ d.titulo }}</span>{{ icon('external', 14) }}</a></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="ac-panel__empty">Nenhum documento anexado.</p>
+      {% endif %}
+    </section>
+  </aside>
 </div>
 {% endblock %}

@@ -8,14 +8,17 @@ banco com a Brevo e acerta só a diferença:
 - Contato de cliente ativo  -> lista 21 + "[Executivo] - Clientes".
 - Contato de lead em aberto -> "[Executivo] - Leads" (lead que virou cliente sai daqui).
 - E-mail que é de cliente e de lead ao mesmo tempo conta como cliente.
-- Quem pediu descadastro (cadu_lead_optout) não entra e sai das listas de executivo; contato
-  só de lead não qualificado também sai.
+- Quem pediu descadastro (cadu_lead_optout) não entra.
 - Executivo sem lista mapeada (ex.: usuários de teste) não leva nenhum contato à Brevo.
-- Nunca apaga contato da Brevo nem tira ninguém da 21; só tira das listas de executivo
-  quando o contato mudou de segmento ou de executivo.
+- E-mail em leads de executivos diferentes fica com quem cadastrou primeiro (regra estável).
+- As listas de executivo espelham o banco: sai delas quem virou cliente, trocou de executivo,
+  foi desqualificado, pediu descadastro, foi apagado ou teve o e-mail corrigido.
+- Nunca apaga contato da Brevo, não tira ninguém da 21 nem e-mail interno (@centralcomm) de lista.
+- Contato que já existe na Brevo só ganha a lista; nome, empresa e telefone de lá não mudam.
 
-`agendar_sincronia()` roda a sincronia em segundo plano depois das gravações no
-Leads v3 e no CRM v3, no máximo uma vez a cada INTERVALO_MINIMO segundos.
+`agendar_sincronia()` roda em segundo plano depois das gravações no Leads v3 e no CRM v3,
+no máximo uma vez a cada INTERVALO_MINIMO segundos, e só consulta a Brevo quando o retrato
+do banco mudou (ou a cada CONFERENCIA_BREVO segundos, para pegar mudanças feitas na Brevo).
 """
 
 from __future__ import annotations
@@ -41,6 +44,7 @@ logger = logging.getLogger(__name__)
 DOMINIOS_INTERNOS = ("centralcomm.media", "centralcomm.com.br")
 STATUS_LEAD_FORA = ("nao_qualificado", "fechado_ganho")
 INTERVALO_MINIMO = 120  # segundos entre duas sincronias automáticas
+CONFERENCIA_BREVO = 1800  # mesmo sem mudança no banco, confere a Brevo a cada 30 min
 
 LISTAS_EXECUTIVO: Set[int] = {
     lid for listas in BREVO_LISTAS_CONTATOS_VENDEDOR.values() for lid in listas.values()
@@ -95,12 +99,8 @@ def _interno(email: str) -> bool:
     return email.rsplit("@", 1)[-1] in DOMINIOS_INTERNOS
 
 
-def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int, Set[str]]:
-    """Lê do banco onde cada e-mail deveria estar.
-
-    Devolve (por e-mail, qtd de descadastrados, e-mails que devem sair das listas de executivo:
-    descadastrados e contatos só de leads não qualificados).
-    """
+def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int]:
+    """Lê do banco onde cada e-mail deveria estar. Devolve (por e-mail, qtd de descadastrados)."""
     cursor.execute("SELECT LOWER(TRIM(valor)) AS email FROM cadu_lead_optout WHERE canal = 'email'")
     optout = {r["email"] for r in cursor.fetchall() if r["email"]}
 
@@ -150,7 +150,7 @@ def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int, Set[str]]:
          WHERE COALESCE(TRIM(ct.email), '') <> ''
            AND l.convertido_cliente_id IS NULL
            AND COALESCE(l.status, '') <> ALL(%s)
-         ORDER BY l.updated_at DESC NULLS LAST, ct.id
+         ORDER BY ct.id  -- o mesmo e-mail em dois leads fica com o primeiro cadastro
         """,
         [list(STATUS_LEAD_FORA)],
     )
@@ -163,15 +163,12 @@ def coletar_desejado(cursor) -> tuple[Dict[str, Desejado], int, Set[str]]:
             continue
         desejado.setdefault(email, Desejado(email, (r["nome"] or "").strip(), "leads", r["executivo"],
                                             r["empresa"] or "", r["telefone"] or ""))
-    cursor.execute(
-        """
-        SELECT DISTINCT LOWER(TRIM(ct.email)) AS email
-          FROM cadu_lead_contatos ct JOIN cadu_leads l ON l.id = ct.id_lead
-         WHERE COALESCE(TRIM(ct.email), '') <> '' AND l.status = 'nao_qualificado'
-        """
-    )
-    retirar = {r["email"] for r in cursor.fetchall() if r["email"] not in desejado} | optout
-    return desejado, len(ignorados), retirar
+    return desejado, len(ignorados)
+
+
+def assinatura(desejado: Dict[str, Desejado]) -> int:
+    """Retrato do que o banco quer na Brevo; igual ao anterior = nada a fazer."""
+    return hash(frozenset((d.email, tuple(d.listas)) for d in desejado.values()))
 
 
 def membros_da_lista(service: BrevoService, lista_id: int) -> Set[str]:
@@ -192,9 +189,7 @@ def membros_da_lista(service: BrevoService, lista_id: int) -> Set[str]:
         offset += 500
 
 
-def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], optout: int = 0,
-                 retirar: Iterable[str] = ()) -> Plano:
-    retirar = set(retirar)
+def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], optout: int = 0) -> Plano:
     plano = Plano(optout=optout)
     for d in desejado.values():
         if d.lista_executivo is None:
@@ -204,11 +199,13 @@ def montar_plano(desejado: Dict[str, Desejado], membros: Dict[int, Set[str]], op
         faltam = [lid for lid in d.listas if d.email not in membros.get(lid, set())]
         if faltam:
             plano.incluir.append({"desejado": d, "listas": faltam})
-    # Sai das listas de executivo em que não deveria mais estar (virou cliente ou trocou de executivo).
+    # As listas de executivo espelham o banco: quem não deveria estar nela sai (só dela).
     for lid in sorted(LISTAS_EXECUTIVO):
         for email in sorted(membros.get(lid, set())):
             d = desejado.get(email)
-            if email in retirar or (d is not None and d.lista_executivo is not None and lid not in d.listas):
+            if _interno(email):
+                continue  # equipe pode estar na lista para receber cópia das campanhas
+            if d is None or lid not in d.listas:
                 plano.remover.setdefault(lid, []).append(email)
     return plano
 
@@ -217,14 +214,11 @@ def aplicar_plano(service: BrevoService, plano: Plano, *, pausa: float = 0.12) -
     ok, falhas = 0, []
     for item in plano.incluir:
         d: Desejado = item["desejado"]
-        atributos = {"NOME": d.nome, "EMPRESA": d.empresa, "TELEFONE": d.telefone}
-        res = service.adicionar_contato(email=d.email, nome=d.nome or None,
-                                        atributos={k: v for k, v in atributos.items() if v},
-                                        lista_ids=item["listas"])
-        if res.get("success"):
+        erro = _incluir(service, d, item["listas"])
+        if erro is None:
             ok += 1
         else:
-            falhas.append({"email": d.email, "erro": str(res.get("error"))[:200]})
+            falhas.append({"email": d.email, "erro": erro})
         time.sleep(pausa)
     removidos = 0
     for lid, emails in plano.remover.items():
@@ -239,6 +233,22 @@ def aplicar_plano(service: BrevoService, plano: Plano, *, pausa: float = 0.12) -
     return {"incluidos": ok, "removidos": removidos, "falhas": falhas}
 
 
+def _incluir(service: BrevoService, d: Desejado, listas: List[int]) -> Optional[str]:
+    """Cria o contato com nome/empresa/telefone; se já existe, só acrescenta as listas."""
+    atributos = {k: v for k, v in {"NOME": d.nome, "EMPRESA": d.empresa, "TELEFONE": d.telefone}.items() if v}
+    url = f"{BREVO_API_URL}/contacts"
+    resp = requests.post(url, headers=service._headers, timeout=30,
+                         json={"email": d.email, "attributes": atributos, "listIds": listas, "updateEnabled": False})
+    if resp.status_code in (200, 201, 204):
+        return None
+    if resp.status_code == 400 and "duplicate" in resp.text.lower():
+        resp = requests.post(url, headers=service._headers, timeout=30,
+                             json={"email": d.email, "listIds": listas, "updateEnabled": True})
+        if resp.status_code in (200, 201, 204):
+            return None
+    return f"{resp.status_code} {resp.text[:200]}"
+
+
 def tamanhos_das_listas(service: BrevoService, listas: Iterable[int]) -> Dict[int, int]:
     out = {}
     for lid in listas:
@@ -248,14 +258,15 @@ def tamanhos_das_listas(service: BrevoService, listas: Iterable[int]) -> Dict[in
     return out
 
 
-def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool = True) -> Dict[str, Any]:
+def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool = True,
+                coletado: Optional[tuple] = None) -> Dict[str, Any]:
     service = service or BrevoService()
     if not service._api_key:
         return {"pulado": "sem chave da Brevo"}
-    desejado, optout, retirar = coletar_desejado(cursor)
+    desejado, optout = coletado or coletar_desejado(cursor)
     listas = sorted(LISTAS_EXECUTIVO | {LISTA_USUARIOS_ATIVOS})
     membros = {lid: membros_da_lista(service, lid) for lid in listas}
-    plano = montar_plano(desejado, membros, optout, retirar)
+    plano = montar_plano(desejado, membros, optout)
     resultado: Dict[str, Any] = {"contatos_no_banco": len(desejado), "plano": plano.resumo()}
     if aplicar and (plano.incluir or plano.remover):
         resultado["aplicado"] = aplicar_plano(service, plano)
@@ -267,7 +278,7 @@ def sincronizar(cursor, service: Optional[BrevoService] = None, *, aplicar: bool
 # ---------------------------------------------------------------------------
 
 _trava = threading.Lock()
-_estado = {"ultima": 0.0, "agendada": False}
+_estado = {"ultima": 0.0, "agendada": False, "assinatura": None, "brevo_em": 0.0}
 
 
 def agendar_sincronia(app, executar: Optional[Callable[[], None]] = None) -> None:
@@ -292,7 +303,13 @@ def agendar_sincronia(app, executar: Optional[Callable[[], None]] = None) -> Non
                     with psycopg.connect(**db_mod.get_db_config()) as conn:
                         conn.read_only = True
                         with conn.cursor() as cur:
-                            res = sincronizar(cur)
+                            coletado = coletar_desejado(cur)
+                            sig = assinatura(coletado[0])
+                            if sig == _estado["assinatura"] and time.time() - _estado["brevo_em"] < CONFERENCIA_BREVO:
+                                return  # o banco não mudou: nada a levar à Brevo
+                            res = sincronizar(cur, coletado=coletado)
+                    if "pulado" not in res and not (res.get("aplicado") or {}).get("falhas"):
+                        _estado["assinatura"], _estado["brevo_em"] = sig, time.time()
                     logger.info("Brevo (sincronia de contatos): %s", res)
         except Exception:
             logger.exception("Brevo (sincronia de contatos) falhou")

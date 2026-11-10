@@ -16,6 +16,7 @@
     </p>
   </div>
   <nav class="ac-pi-head__links" aria-label="Atalhos do PI">
+    {% if comp and comp.dash_pi %}<a class="ac-btn ac-btn--sm ac-btn--primary" href="{{ comp.dash_pi }}" target="_blank" rel="noopener">{{ icon('chart', 16) }}Dashboard do PI{{ icon('external', 14) }}</a>{% endif %}
     <a class="ac-btn ac-btn--sm ac-btn--secondary" href="{{ area_url('relatorios') }}?pi={{ pi.id }}">{{ icon('chart', 16) }}Relatório</a>
     <a class="ac-btn ac-btn--sm ac-btn--secondary" href="{{ area_url('projeto', id_pi=pi.id) }}">{{ icon('layout', 16) }}Visão 360°</a>
   </nav>
@@ -55,6 +56,12 @@
             <span class="ac-pi-camp__top"><b>{{ c.nome }}</b><span class="ac-pi-camp__pct">{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</span></span>
             <span class="ac-camp__bar"><span class="ac-camp__fill{% if c.no_ar and c.ritmo %} ac-camp__fill--{{ c.ritmo }}{% elif (c.pct or 0) >= 100 %} ac-camp__fill--adiantado{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>{% if c.no_ar and c.tempo_pct is not none %}<span class="ac-camp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%"></span>{% endif %}</span>
             <span class="ac-pi-camp__meta"><small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small><small class="ac-pi-camp__st{% if c.no_ar %} is-live{% endif %}">{{ c.status or '—' }}</small></span>
+            {% if c.projecao is not none or c.vs_media %}
+            <span class="ac-pi-camp__comp">
+              {% if c.projecao is not none %}<span class="ac-chip">{{ icon('trend', 12) }}Projeção ao fim: <b>{{ c.projecao }}%</b></span>{% endif %}
+              {% if c.vs_media %}<span class="ac-chip {{ 'is-bom' if c.vs_media.dif >= 0 else 'is-baixo' }}" title="Média das suas {{ c.vs_media.n }} campanhas encerradas em {{ c.plataforma }}: {{ c.vs_media.media }}%">{{ '+' if c.vs_media.dif > 0 else '' }}{{ c.vs_media.dif }} p.p. vs sua média em {{ c.plataforma or 'outras' }}</span>{% endif %}
+            </span>
+            {% endif %}
           </div>
         </li>
         {% endfor %}
@@ -83,6 +90,18 @@
   </div>
 
   <aside class="ac-pi-grid__side">
+    {% if comp and comp.pct is not none and comp.media_pis is not none %}
+    {% set dif = comp.pct - comp.media_pis %}
+    <section class="ac-panel ac-pi-cmp" aria-labelledby="cmp-titulo">
+      <header class="ac-panel__head"><h2 class="ac-h2" id="cmp-titulo">Comparado aos seus PIs</h2></header>
+      <div class="ac-pi-cmp__corpo">
+        <p class="ac-pi-cmp__frase"><b class="{{ 'is-bom' if dif >= 0 else 'is-baixo' }}">{{ '+' if dif > 0 else '' }}{{ dif }} p.p.</b> {{ 'acima' if dif >= 0 else 'abaixo' }} da entrega média dos seus PIs encerrados.</p>
+        <div class="ac-pi-cmp__barra"><span>Este PI</span><span class="ac-camp__bar"><span class="ac-camp__fill ac-camp__fill--{{ 'adiantado' if dif >= 0 else 'atencao' }} ac-anima-largura" style="--w: {{ [[comp.pct, 0]|max, 100]|min }}%"></span></span><b>{{ comp.pct }}%</b></div>
+        <div class="ac-pi-cmp__barra"><span>Média encerrados</span><span class="ac-camp__bar"><span class="ac-camp__fill ac-pi-cmp__media ac-anima-largura" style="--w: {{ [[comp.media_pis, 0]|max, 100]|min }}%"></span></span><b>{{ comp.media_pis }}%</b></div>
+        <a class="ac-home-link" href="{{ area_url('relatorios') }}?status=comparar">Comparar com outro PI{{ icon('chevron-right', 14) }}</a>
+      </div>
+    </section>
+    {% endif %}
     <section class="ac-panel" aria-labelledby="hist-titulo">
       <header class="ac-panel__head"><h2 class="ac-h2" id="hist-titulo">Linha do tempo</h2><span class="ac-panel__count">{{ pi.historico|length }}</span></header>
       {% if pi.historico %}

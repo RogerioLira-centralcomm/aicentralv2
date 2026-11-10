@@ -52,10 +52,10 @@
     <tbody>
       {% for c in lista %}
       {% set dif = (c.pct - c.tempo_pct) if (c.pct is not none and c.tempo_pct is not none) else none %}
-      <tr data-camp="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto ~ ' ' ~ (c.contraparte or {}).nome or '—')|lower }}">
+      <tr data-camp="{{ loop.index0 }}" data-painel-linha="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto ~ ' ' ~ ((c.contraparte or {}).nome or ''))|lower }}">
         <td class="ac-camp__picol"><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a></td>
         <th scope="row">
-          <span class="ac-camp__name">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span><button type="button" class="ac-grid__name" data-camp-abrir="{{ loop.index0 }}">{{ c.nome }}</button><small>{{ c.objetivo }}</small></span></span>
+          <span class="ac-camp__name">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span><button type="button" class="ac-grid__name" data-painel="{{ loop.index0 }}">{{ c.nome }}</button><small>{{ c.objetivo }}</small></span></span>
         </th>
         <td class="ac-camp__parte" title="{{ (c.contraparte or {}).rotulo or 'Agência' }}: {{ (c.contraparte or {}).nome or '—' }}">{{ (c.contraparte or {}).nome or '—' }}</td>
         <td><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 16) }}{{ c.plataforma or '—' }}</span></td>
@@ -75,8 +75,9 @@
           <span class="ac-camp__tempo">{{ icon('calendar', 16) }}<span><b>{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</b><small>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</small></span></span>
         </td>
         <td class="ac-camp__acts">
-          {% if c.dash_abrir %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}
-          <button type="button" class="ac-icon-btn ac-icon-btn--xs" data-camp-abrir="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes de {{ c.nome }}">{{ icon('chevron-right', 16) }}</button>
+          {# Dashboard por linha só quando é da própria campanha; o do PI (mesmo link em todas) fica no painel. #}
+          {% if c.dash_abrir and not c.dash_compartilhado %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}
+          <button type="button" class="ac-icon-btn ac-icon-btn--xs" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes de {{ c.nome }}">{{ icon('chevron-right', 16) }}</button>
         </td>
       </tr>
       {% endfor %}
@@ -85,81 +86,8 @@
   <p class="ac-grid__empty" data-camp-vazio hidden>Nenhuma campanha com esse filtro.</p>
 </div>
 
-{# Dados do painel lateral (campos sem custo). #}
-<script type="application/json" id="camp-dados">{{ drawer_dados|tojson }}</script>
-
-<aside class="ac-drawer" id="camp-drawer" aria-labelledby="drawer-titulo" hidden>
-  <header class="ac-drawer__head">
-    <div class="ac-drawer__title">
-      <img class="ac-plat ac-plat--lg" data-d-src="logo" alt="" width="36" height="36" hidden>
-      <div>
-        <p class="ac-eyebrow" data-d="status"></p>
-        <h2 class="ac-h2" id="drawer-titulo" data-d="nome"></h2>
-      </div>
-    </div>
-    <button type="button" class="ac-icon-btn" data-drawer-fechar aria-label="Fechar detalhes">{{ icon('close', 18) }}</button>
-  </header>
-  <div class="ac-drawer__body">
-    <div class="ac-drawer__stats">
-      <div><span>Entrega</span><b data-d="pct"></b></div>
-      <div><span>Resultado</span><b data-d="atingido"></b></div>
-      <div><span>Meta</span><b data-d="meta"></b></div>
-    </div>
-    <div class="ac-drawer__bar"><span class="ac-progress"><span class="ac-progress__fill" data-d-bar="pct"></span></span></div>
-    <dl class="ac-drawer__defs">
-      <div><dt>Ritmo</dt><dd data-d="ritmo"></dd></div>
-      <div><dt>Tempo decorrido</dt><dd data-d="tempo"></dd></div>
-      <div><dt>Período</dt><dd data-d="periodo"></dd></div>
-      <div><dt>Plataforma</dt><dd data-d="plataforma"></dd></div>
-      <div><dt>Objetivo</dt><dd data-d="objetivo"></dd></div>
-      <div><dt>PI</dt><dd><a class="ac-link" data-d-href="pi_url" data-d="pi"></a></dd></div>
-      <div><dt data-d="parte_rotulo"></dt><dd data-d="parte"></dd></div>
-    </dl>
-  </div>
-  <footer class="ac-drawer__foot">
-    <a class="ac-btn ac-btn--secondary ac-btn--sm" data-d-href="pi_360" href="#">Visão 360°</a>
-    <a class="ac-btn ac-btn--primary ac-btn--sm" data-d-href="dash" target="_blank" rel="noopener" href="#">Dashboard{{ icon('external', 14) }}</a>
-  </footer>
-</aside>
-<div class="ac-drawer-scrim" data-drawer-fechar hidden></div>
-
 <script>
 (function () {
-  var dados = JSON.parse(document.getElementById('camp-dados').textContent || '[]');
-  var drawer = document.getElementById('camp-drawer');
-  var scrim = document.querySelector('.ac-drawer-scrim');
-  var origem = null;
-  function preencher(d) {
-    drawer.querySelectorAll('[data-d]').forEach(function (el) { el.textContent = d[el.getAttribute('data-d')] || '—'; });
-    drawer.querySelectorAll('[data-d-href]').forEach(function (el) {
-      var url = d[el.getAttribute('data-d-href')];
-      el.hidden = !url; if (url) el.setAttribute('href', url);
-    });
-    drawer.querySelectorAll('[data-d-src]').forEach(function (el) {
-      var url = d[el.getAttribute('data-d-src')];
-      el.hidden = !url; if (url) el.setAttribute('src', url);
-    });
-    var fill = drawer.querySelector('[data-d-bar]');
-    fill.style.width = Math.max(0, Math.min(100, d.pct_num || 0)) + '%';
-  }
-  function abrir(i, botao) {
-    var d = dados[i]; if (!d) return;
-    origem = botao; preencher(d);
-    drawer.hidden = false; scrim.hidden = false;
-    document.querySelectorAll('[data-camp]').forEach(function (tr) { tr.classList.toggle('is-selected', tr.getAttribute('data-camp') === String(i)); });
-    drawer.querySelector('[data-drawer-fechar]').focus();
-  }
-  function fechar() {
-    drawer.hidden = true; scrim.hidden = true;
-    document.querySelectorAll('[data-camp].is-selected').forEach(function (tr) { tr.classList.remove('is-selected'); });
-    if (origem) origem.focus();
-  }
-  document.querySelectorAll('[data-camp-abrir]').forEach(function (b) {
-    b.addEventListener('click', function () { abrir(Number(b.getAttribute('data-camp-abrir')), b); });
-  });
-  document.querySelectorAll('[data-drawer-fechar]').forEach(function (b) { b.addEventListener('click', fechar); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !drawer.hidden) fechar(); });
-
   var busca = document.querySelector('[data-camp-busca]');
   var plat = document.querySelector('[data-camp-plat]');
   var vazio = document.querySelector('[data-camp-vazio]');

@@ -14,8 +14,9 @@
   </div>
   <div class="ac-rel-head__end">
     {{ status_badge(p.status) }}
-    {% if p.link_publico or p.prestacao %}
+    {% if p.link_publico or p.prestacao or p.dash_pi %}
     <div class="ac-rel-head__links">
+      {% if p.dash_pi %}<a class="ac-rel-link ac-rel-link--main" href="{{ p.dash_pi }}" target="_blank" rel="noopener">{{ icon('chart', 16) }}Dashboard do PI</a>{% endif %}
       {% if p.link_publico %}<a class="ac-rel-link" href="{{ p.link_publico }}" target="_blank" rel="noopener">{{ icon('globe', 16) }}Acompanhamento do PI</a>{% endif %}
       {% if p.prestacao %}<a class="ac-rel-link" href="{{ p.prestacao }}" target="_blank" rel="noopener">{{ icon('file', 16) }}Prestação de contas</a>{% endif %}
     </div>
@@ -62,7 +63,7 @@
           </td>
           <td data-label="Ritmo">{{ ritmo_badge(c.ritmo) or '—' }}</td>
           <td class="is-num" data-label="Restam">{% if c.dias_restantes is none %}—{% elif c.dias_restantes > 1 %}{{ c.dias_restantes }} dias{% elif c.dias_restantes == 1 %}1 dia{% elif c.dias_restantes == 0 %}hoje{% else %}fim{% endif %}</td>
-          <td class="ac-rel-table__dash" data-label="Dashboard">{% if c.dash_abrir %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Abrir dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}</td>
+          <td class="ac-rel-table__dash" data-label="Dashboard">{% if c.dash_abrir and not c.dash_compartilhado %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Abrir dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -100,6 +101,10 @@
 
 {{ abas(abas_itens, filtro, area_url('relatorios'), 'Situação dos PIs') }}
 
+{% if filtro == 'comparar' %}
+{% include 'area_cliente/_relatorios_comparar.html' %}
+{% else %}
+
 {% set pcts = lista|map(attribute='kpis')|map(attribute='entrega_media')|select('number')|list %}
 {% set n_atencao = lista|map(attribute='kpis')|map(attribute='atencao')|sum %}
 <div class="ac-subbar">
@@ -135,7 +140,7 @@
     <tbody>
       {% for p in lista %}
       {% set k = p.kpis %}
-      <tr data-rel-busca-txt="{{ (p.pi ~ ' ' ~ p.titulo ~ ' ' ~ (p.contraparte or {}).nome or '—')|lower }}">
+      <tr data-painel-linha="{{ loop.index0 }}" data-rel-busca-txt="{{ (p.pi ~ ' ' ~ p.titulo ~ ' ' ~ (p.contraparte or {}).nome or '—')|lower }}">
         <td class="ac-camp__picol"><a class="ac-camp__pi" href="{{ area_url('relatorios') }}?pi={{ p.id }}">{{ p.pi }}</a></td>
         <th scope="row"><a class="ac-rlist__titulo" href="{{ area_url('relatorios') }}?pi={{ p.id }}"><b>{{ p.titulo }}</b><small>{{ k.ativas }} {{ ('campanha no ar' if k.ativas == 1 else 'campanhas no ar') if p.no_ar else ('campanha' if k.ativas == 1 else 'campanhas') }}{% if p.dashboards %} · {{ p.dashboards }} {{ 'dashboard' if p.dashboards == 1 else 'dashboards' }}{% endif %}</small></a></th>
         <td class="ac-camp__parte" title="{{ (p.contraparte or {}).rotulo or 'Agência' }}: {{ (p.contraparte or {}).nome or '—' }}">{{ (p.contraparte or {}).nome or '—' }}</td>
@@ -158,7 +163,7 @@
           {% if p.prestacao %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ p.prestacao }}" target="_blank" rel="noopener" title="Prestação de contas" aria-label="Prestação de contas do PI {{ p.pi }}">{{ icon('file', 16) }}</a>{% endif %}
           {% if not p.link_publico and not p.prestacao %}<span class="ac-muted">—</span>{% endif %}
         </td>
-        <td class="ac-camp__acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('relatorios') }}?pi={{ p.id }}" title="Abrir relatório" aria-label="Abrir relatório do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
+        <td class="ac-camp__acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('relatorios') }}?pi={{ p.id }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -180,6 +185,7 @@
 </script>
 {% else %}
 <section class="ac-panel"><p class="ac-panel__empty">{% if filtro == 'abertos' %}Nenhum PI em andamento. Os relatórios aparecem aqui enquanto as campanhas estiverem no ar.{% else %}Nenhum PI nesta situação.{% endif %}</p></section>
+{% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}

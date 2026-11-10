@@ -1,0 +1,110 @@
+{# Aba "Comparar" de Relatórios: régua do próprio histórico do cliente (entrega x meta). Precisa de: comp. #}
+{% from 'area_cliente/_macros.html' import icon, plat %}
+{% if comp and (comp.por_plataforma or comp.escolhas) %}
+<div class="ac-cmp">
+  <section class="ac-panel ac-cmp__bloco" aria-labelledby="cmp-plat-t">
+    <header class="ac-panel__head"><h2 class="ac-h2" id="cmp-plat-t">Entrega final por plataforma</h2><span class="ac-panel__count">{{ comp.n_campanhas }} campanhas encerradas</span></header>
+    {% if comp.por_plataforma %}
+    <ul class="ac-cmp__plats">
+      {% for x in comp.por_plataforma %}
+      <li style="--i: {{ loop.index0 }}">
+        <span class="ac-cmp__plat">{{ plat(x.nome, x.logo, x.iniciais, 20) }}<b>{{ x.nome }}</b><small>{{ x.n }}</small></span>
+        <span class="ac-cmp__trilho" title="{{ x.nome }}: {{ x.media }}% de entrega média em {{ x.n }} campanhas">
+          <span class="ac-cmp__fill{% if x.media >= 100 %} is-ok{% elif x.media < 90 %} is-baixo{% endif %} ac-anima-largura" style="--w: {{ [[x.media / 1.2, 0]|max, 100]|min }}%"></span>
+          <span class="ac-cmp__meta" style="left: {{ 100 / 1.2 }}%" aria-hidden="true"></span>
+        </span>
+        <b class="ac-cmp__pct">{{ x.media }}%</b>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="ac-cmp__nota"><span class="ac-cmp__meta-chave"></span>Linha = 100% da meta. Média da entrega final das campanhas encerradas, por plataforma.</p>
+    {% else %}<p class="ac-panel__empty">Ainda sem campanhas encerradas para comparar.</p>{% endif %}
+  </section>
+
+  <section class="ac-panel ac-cmp__bloco" aria-labelledby="cmp-evo-t">
+    <header class="ac-panel__head"><h2 class="ac-h2" id="cmp-evo-t">Evolução dos PIs encerrados</h2>{% if comp.media_pis is not none %}<span class="ac-panel__count">média {{ comp.media_pis }}%</span>{% endif %}</header>
+    {% if comp.evolucao %}
+    {% set teto = [120, (comp.evolucao|map(attribute='pct')|max)]|max %}
+    <ol class="ac-cmp__evo">
+      {% for e in comp.evolucao %}
+      <li style="--i: {{ loop.index0 }}">
+        <a href="{{ area_url('relatorios') }}?pi={{ e.id }}" class="ac-cmp__col" title="{{ e.pi }} · {{ e.titulo }} · {{ e.pct }}%" aria-label="{{ e.pi }}, {{ e.titulo }}: {{ e.pct }}% de entrega">
+          <b>{{ e.pct }}%</b>
+          <span class="ac-cmp__area" style="--l: {{ (100 / teto * 100)|round(1) }}%"><span class="ac-cmp__barra{% if e.pct >= 100 %} is-ok{% elif e.pct < 90 %} is-baixo{% endif %}" style="--h: {{ (e.pct / teto * 100)|round(1) }}%"></span></span>
+          <small>{{ (e.fim or '')[5:7] }}/{{ (e.fim or '')[2:4] }}</small>
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+    <p class="ac-cmp__nota"><span class="ac-cmp__meta-chave"></span>Tracejado = 100% da meta. Clique numa coluna para abrir o relatório do PI.</p>
+    {% else %}<p class="ac-panel__empty">Os PIs aparecem aqui quando forem finalizados.</p>{% endif %}
+  </section>
+
+  {% if comp.escolhas|length >= 2 %}
+  <section class="ac-panel ac-cmp__bloco ac-cmp__duelo" aria-labelledby="cmp-duo-t" data-cmp>
+    <header class="ac-panel__head"><h2 class="ac-h2" id="cmp-duo-t">Comparar dois PIs</h2></header>
+    <div class="ac-cmp__picks">
+      {% for lado, idx in [('a', 0), ('b', 1)] %}
+      <label class="ac-cmp__pick"><span>PI {{ lado|upper }}</span>
+        <select class="ac-select ac-select--sm" data-cmp-sel="{{ lado }}">
+          {% for e in comp.escolhas %}<option value="{{ loop.index0 }}"{% if loop.index0 == idx %} selected{% endif %}>{{ e.pi }} · {{ e.titulo }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="ac-cmp__tabela" data-cmp-saida aria-live="polite"></div>
+    <script type="application/json" id="cmp-dados">{{ comp.escolhas|tojson }}</script>
+  </section>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var box = document.querySelector('[data-cmp]');
+  if (!box) return;
+  var dados = JSON.parse(document.getElementById('cmp-dados').textContent || '[]');
+  var saida = box.querySelector('[data-cmp-saida]');
+  var selA = box.querySelector('[data-cmp-sel="a"]'), selB = box.querySelector('[data-cmp-sel="b"]');
+  function el(tag, cls, txt) { var n = document.createElement(tag); if (cls) n.className = cls; if (txt != null) n.textContent = txt; return n; }
+  function pct(v) { return v == null ? '—' : v + '%'; }
+  function barra(v, cls) {
+    var t = el('span', 'ac-cmp__trilho ac-cmp__trilho--sm'), f = el('span', 'ac-cmp__fill ' + (cls || ''));
+    t.appendChild(f); requestAnimationFrame(function () { requestAnimationFrame(function () { f.style.width = Math.min(100, (v || 0) / 1.2) + '%'; }); });
+    var m = el('span', 'ac-cmp__meta'); m.style.left = (100 / 1.2) + '%'; t.appendChild(m);
+    return t;
+  }
+  function linha(rotulo, va, vb, tipo) {
+    var tr = el('div', 'ac-cmp__linha');
+    tr.appendChild(el('span', 'ac-cmp__rot', rotulo));
+    [va, vb].forEach(function (v, i) {
+      var c = el('span', 'ac-cmp__val');
+      if (tipo === 'pct') {
+        var outro = i ? va : vb;
+        var cls = v != null && outro != null ? (v > outro ? 'is-ok' : v < outro ? 'is-baixo' : '') : '';
+        c.appendChild(barra(v, cls));
+        c.appendChild(el('b', cls, pct(v)));
+      } else c.appendChild(el('b', null, v == null ? '—' : String(v)));
+      tr.appendChild(c);
+    });
+    return tr;
+  }
+  function render() {
+    var a = dados[selA.value], b = dados[selB.value];
+    if (!a || !b) return;
+    saida.textContent = '';
+    var cab = el('div', 'ac-cmp__linha ac-cmp__cab');
+    cab.appendChild(el('span'));
+    [a, b].forEach(function (x) { var s = el('span', 'ac-cmp__val'); s.appendChild(el('b', null, x.pi)); s.appendChild(el('small', null, x.periodo + ' · ' + x.status)); cab.appendChild(s); });
+    saida.appendChild(cab);
+    saida.appendChild(linha('Entrega média', a.pct, b.pct, 'pct'));
+    saida.appendChild(linha('Campanhas', a.n_campanhas, b.n_campanhas));
+    saida.appendChild(linha('Duração (dias)', a.dias, b.dias));
+    var nomes = Object.keys(a.plataformas).concat(Object.keys(b.plataformas)).filter(function (v, i, arr) { return arr.indexOf(v) === i; });
+    nomes.forEach(function (n) { saida.appendChild(linha(n, a.plataformas[n] == null ? null : a.plataformas[n], b.plataformas[n] == null ? null : b.plataformas[n], 'pct')); });
+  }
+  selA.addEventListener('change', render); selB.addEventListener('change', render);
+  render();
+})();
+</script>
+{% else %}
+<section class="ac-panel"><p class="ac-panel__empty">A comparação aparece quando houver PIs com campanhas e metas.</p></section>
+{% endif %}

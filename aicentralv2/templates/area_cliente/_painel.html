@@ -1,0 +1,51 @@
+{# Painel lateral de detalhe (campanha ou PI). Fica FORA de .ac-content: o conteúdo tem
+   view-transition-name, que cria uma camada própria e prendia o painel por baixo da barra do topo.
+   A página passa painel_dados (lista); cada [data-painel="i"] abre o item i. Preenchido por
+   static/js/area_cliente_painel.js, só com textContent. #}
+{% from 'area_cliente/_macros.html' import icon %}
+{% if painel_dados %}
+<script type="application/json" id="ac-painel-dados">{{ painel_dados|tojson }}</script>
+<template id="ac-painel-icones">
+  <span data-i="chart">{{ icon('chart', 16) }}</span><span data-i="external">{{ icon('external', 14) }}</span>
+  <span data-i="file">{{ icon('file', 16) }}</span><span data-i="layout">{{ icon('layout', 16) }}</span>
+  <span data-i="globe">{{ icon('globe', 16) }}</span><span data-i="seta">{{ icon('chevron-right', 16) }}</span>
+</template>
+<div class="ac-drawer-scrim" data-painel-fechar hidden></div>
+<aside class="ac-drawer ac-painel" id="ac-painel" role="dialog" aria-modal="true" aria-labelledby="ac-painel-titulo" hidden>
+  <header class="ac-drawer__head">
+    <div class="ac-drawer__title">
+      <span class="ac-painel__logo" data-p-logo hidden><img alt="" width="28" height="28"></span>
+      <div class="ac-painel__titulos">
+        <p class="ac-eyebrow" data-p="eyebrow"></p>
+        <h2 class="ac-h2" id="ac-painel-titulo" data-p="titulo"></h2>
+        <p class="ac-painel__sub" data-p="sub"></p>
+      </div>
+    </div>
+    <button type="button" class="ac-icon-btn" data-painel-fechar aria-label="Fechar detalhes">{{ icon('close', 18) }}</button>
+  </header>
+  <div class="ac-drawer__body">
+    <section class="ac-painel__hero" data-p-hero>
+      <svg class="ac-painel__anel" viewBox="0 0 120 120" role="img" data-p-anel>
+        <circle class="ac-painel__trilha" cx="60" cy="60" r="50"></circle>
+        <circle class="ac-painel__entrega" cx="60" cy="60" r="50" data-p-arco="entrega"></circle>
+        <circle class="ac-painel__trilha ac-painel__trilha--fina" cx="60" cy="60" r="38"></circle>
+        <circle class="ac-painel__tempo" cx="60" cy="60" r="38" data-p-arco="tempo"></circle>
+      </svg>
+      <div class="ac-painel__centro"><b data-p-pct>0%</b><small>entregue</small></div>
+      <ul class="ac-painel__legenda">
+        <li><i class="ac-painel__chave ac-painel__chave--entrega" data-p-chave></i>Entrega <b data-p="pct_txt"></b></li>
+        <li data-p-se="tempo"><i class="ac-painel__chave ac-painel__chave--tempo"></i>Tempo decorrido <b data-p="tempo_txt"></b></li>
+        <li class="ac-painel__ritmo" data-p-se="ritmo_txt"><span class="ac-badge ac-badge--ritmo" data-p-ritmo></span><small data-p="dif_txt"></small></li>
+      </ul>
+    </section>
+    <div class="ac-painel__nums" data-p-nums></div>
+    <section class="ac-painel__barras" data-p-se="barras">
+      <h3 class="ac-painel__h3" data-p="barras_titulo"></h3>
+      <ol data-p-barras></ol>
+    </section>
+    <dl class="ac-drawer__defs" data-p-defs></dl>
+  </div>
+  <footer class="ac-painel__acoes" data-p-acoes></footer>
+</aside>
+<script src="{{ url_for('static', filename='js/area_cliente_painel.js') }}?v={{ static_fingerprint('js/area_cliente_painel.js') }}" defer></script>
+{% endif %}

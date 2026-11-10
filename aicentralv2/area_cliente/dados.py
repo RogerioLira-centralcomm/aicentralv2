@@ -140,6 +140,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
             "tempo_pct": prog.get("periodo_pct_elapsed"),
             "dias_restantes": prog.get("periodo_dias_restantes"),
             "campanhas": das_campanhas,
+            "dash_pi": dash_do_pi(das_campanhas),
         })
         projetos[-1]["ritmo"] = _ritmo(projetos[-1]["pct"], projetos[-1]["tempo_pct"])
     return marcar_encerradas(projetos)
@@ -180,7 +181,49 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
         resultado["plataforma_logo"] = logo(resultado["plataforma"])
         resultado["plataforma_iniciais"] = iniciais(resultado["plataforma"])
         saida.append(resultado)
+    # Muitos PIs usam um só dashboard para todas as campanhas: marca o link repetido para a tela
+    # mostrar "Dashboard do PI" uma vez, em vez do mesmo botão em cada campanha.
+    from collections import Counter
+    usos = Counter((c["id_pi"], c["dash_abrir"]) for c in saida if c["dash_abrir"])
+    for c in saida:
+        c["dash_compartilhado"] = bool(c["dash_abrir"]) and usos[(c["id_pi"], c["dash_abrir"])] > 1
     return saida
+
+
+def dash_do_pi(campanhas) -> str:
+    """O dashboard do PI quando todas as campanhas com link usam o mesmo; senão, vazio."""
+    links = {c["dash_abrir"] for c in campanhas if c.get("dash_abrir")}
+    return next(iter(links)) if len(links) == 1 else ""
+
+
+def n_dashboards(campanhas) -> int:
+    """Dashboards distintos (o mesmo link em várias campanhas conta uma vez)."""
+    return len({c["dash_abrir"] for c in campanhas if c.get("dash_abrir")})
+
+
+def projecao(c) -> int | None:
+    """Entrega prevista no fim do período, no ritmo atual (só com 5%+ do tempo decorrido)."""
+    pct, tempo = c.get("pct"), c.get("tempo_pct")
+    if not c.get("no_ar") or pct is None or not tempo or tempo < 5:
+        return None
+    return round(pct * 100 / tempo)
+
+
+def historico_plataformas(projetos) -> dict:
+    """Entrega final média das campanhas encerradas do cliente, por plataforma: a régua de comparação."""
+    hoje = date.today().isoformat()
+    soma: dict[str, list] = {}
+    for p in projetos:
+        for c in p["campanhas"]:
+            fim = (c["periodo"]["fim"] or "")[:10]
+            if c["no_ar"] or c["pct"] is None or not c["meta"] or not fim or fim >= hoje:
+                continue
+            soma.setdefault(c["plataforma"] or "Outras", []).append(c["pct"])
+    return {k: {"media": round(sum(v) / len(v)), "n": len(v)} for k, v in soma.items()}
+
+
+def media_pis_encerrados(projetos) -> int | None:
+    return _media([p["pct"] for p in projetos if p.get("status_id") == SUB_STATUS_FINALIZADO and p.get("pct") is not None])
 
 
 def atividades_recentes(ids_pi, projetos_por_id, limite=6) -> list[dict]:
@@ -286,10 +329,12 @@ def resumo_inicio(cliente_id) -> dict:
             "campanhas_total": len(campanhas),
             "entrega_media": round(sum(pcts) / len(pcts)) if pcts else None,
             "tempo_medio": _media([c["tempo_pct"] for c in campanhas if c["no_ar"] and c["tempo_pct"] is not None]),
-            "dashboards": sum(1 for c in campanhas if c["dash_abrir"] and c["no_ar"]),
+            "dashboards": n_dashboards([c for c in campanhas if c["no_ar"]]),
         },
         "acompanhar": acompanhar,
         "aviso": _aviso(acompanhar),
+        "vazio": not projetos,
+        "plataformas": sorted({c["plataforma"] for c in campanhas if c["plataforma"]}),
         "pis": recentes[:5],
         "pis_mais": max(len(recentes) - 5, 0),
         "atividades": atividades_recentes([p["id"] for p in projetos], {p["id"]: p for p in projetos}, limite=12),
@@ -493,13 +538,15 @@ def listar_campanhas(cliente_id, projetos=None) -> dict:
 
 def ritmo_campanhas(cliente_id) -> dict:
     """Painel de campanhas no espírito da "Central de ritmo" interna, sem gasto nem previsto."""
-    grupos = listar_campanhas(cliente_id)
+    projetos = listar_projetos(cliente_id)
+    grupos = listar_campanhas(cliente_id, projetos)
     # No ar: as que pedem atenção primeiro; dentro de cada ritmo, a menor entrega antes.
     grupos["andamento"].sort(key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["pct"] if c["pct"] is not None else -1))
     no_ar = grupos["andamento"]
     pcts = [c["pct"] for c in no_ar if c["pct"] is not None]
     return {
         "grupos": grupos,
+        "historico": historico_plataformas(projetos),
         "kpis": {
             "no_ar": len(no_ar),
             "aguardando": len(grupos["aguardando"]),
@@ -546,7 +593,7 @@ def relatorios(cliente_id) -> list[dict]:
         # Ritmo só faz sentido no que está no ar: campanha encerrada não "precisa de atenção".
         ritmos = {r: sum(1 for c in no_ar if c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")}
         saida.append({**p, "aberto": aberto, "no_ar": bool(no_ar), "link_publico": link,
-                      "dashboards": sum(1 for c in ativas if c["dash_abrir"]),
+                      "dashboards": n_dashboards(ativas),
                       "prestacao": financ if financ and financ.startswith(("http://", "https://")) else "",
                       "ativas": sorted(ativas, key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["nome"])),
                       "kpis": {"ativas": len(ativas),
@@ -578,3 +625,42 @@ def campanhas_em_andamento(cliente_id) -> int:
         n = 0
     _CACHE_CONTAGEM[cliente_id] = (agora, n)
     return n
+
+
+def comparativos(pis: list[dict]) -> dict:
+    """Aba "Comparar" de Relatórios: entrega final por plataforma, evolução dos PIs encerrados
+    e os dados para pôr dois PIs lado a lado. Usa só o que o cliente já tem (entrega x meta)."""
+    from . import plataformas as plat
+    hist = historico_plataformas(pis)
+    por_plataforma = sorted(({"nome": k, "logo": plat.logo(k), "iniciais": plat.iniciais(k), **v} for k, v in hist.items()),
+                            key=lambda x: (-x["n"], x["nome"]))
+    encerrados = sorted((p for p in pis if p.get("status_id") == SUB_STATUS_FINALIZADO and p.get("pct") is not None),
+                        key=lambda p: p["periodo"]["fim"] or "")
+    evolucao = [{"id": p["id"], "pi": p["pi"], "titulo": p["titulo"], "fim": p["periodo"]["fim"], "pct": p["pct"]}
+                for p in encerrados[-12:]]
+
+    def dias(p):
+        try:
+            return (date.fromisoformat(p["periodo"]["fim"][:10]) - date.fromisoformat(p["periodo"]["inicio"][:10])).days + 1
+        except (TypeError, ValueError):
+            return None
+
+    escolhas = []
+    for p in pis:
+        camps = [c for c in p.get("campanhas") or [] if c.get("meta")]
+        if not camps:
+            continue
+        grupos: dict[str, list] = {}
+        for c in camps:
+            if c.get("pct") is not None:
+                grupos.setdefault(c["plataforma"] or "Outras", []).append(c["pct"])
+        escolhas.append({
+            "id": p["id"], "pi": p["pi"], "titulo": p["titulo"], "status": p["status"], "pct": p.get("pct"),
+            "n_campanhas": len(camps), "dias": dias(p),
+            "periodo": f"{(p['periodo']['inicio'] or '')[8:10]}/{(p['periodo']['inicio'] or '')[5:7]}/{(p['periodo']['inicio'] or '')[:4]}"
+                       f" a {(p['periodo']['fim'] or '')[8:10]}/{(p['periodo']['fim'] or '')[5:7]}/{(p['periodo']['fim'] or '')[:4]}",
+            "plataformas": {k: round(sum(v) / len(v)) for k, v in grupos.items()},
+            "aberto": p.get("status_id") in SUB_STATUS_ABERTOS,
+        })
+    return {"por_plataforma": por_plataforma, "evolucao": evolucao, "escolhas": escolhas,
+            "media_pis": media_pis_encerrados(pis), "n_campanhas": sum(x["n"] for x in por_plataforma)}

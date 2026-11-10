@@ -7,6 +7,60 @@
 {% set av = resumo.aviso %}
 <h1 class="ac-h1 ac-home-title">{{ usuario.cliente_nome }}</h1>
 
+{% if resumo.vazio %}
+{# Conta sem PI ainda: boas-vindas com ilustração, os 3 passos e uma prévia de como a tela vai ficar. #}
+<section class="ac-boas" aria-labelledby="boas-titulo">
+  <div class="ac-boas__txt">
+    <p class="ac-boas__eyebrow">{{ icon('sparkles', 14) }}Bem-vindo à Área do Cliente</p>
+    <h2 class="ac-boas__titulo" id="boas-titulo">Toda a mídia da {{ usuario.cliente_nome }} com a Centralcomm, num só lugar</h2>
+    <p class="ac-boas__lead">Assim que o primeiro PI for aprovado, esta tela mostra as campanhas no ar, o ritmo de entrega, os relatórios e as notas fiscais.</p>
+    <ol class="ac-boas__passos">
+      <li><span>1</span><div><b>Envie um briefing</b><small>Objetivo, público, praças e verba.</small></div></li>
+      <li><span>2</span><div><b>Aprovamos o plano e o PI</b><small>Canais, formatos e peças definidos com você.</small></div></li>
+      <li><span>3</span><div><b>Acompanhe por aqui</b><small>Entrega, ritmo e dashboards em tempo real.</small></div></li>
+    </ol>
+    <div class="ac-boas__acoes">
+      <a class="ac-btn ac-btn--primary" href="{{ area_url('briefing') }}">{{ icon('send', 16) }}Enviar briefing</a>
+      <a class="ac-btn ac-btn--secondary" href="{{ area_url('descobrir_secao', secao='estrategias') }}">{{ icon('target', 16) }}Ver estratégias</a>
+    </div>
+  </div>
+  <div class="ac-boas__ilus" aria-hidden="true">
+    <svg viewBox="0 0 360 280" class="ac-ilus">
+      <circle class="ac-ilus__blob" cx="190" cy="140" r="118"/>
+      <rect class="ac-ilus__card" x="62" y="58" width="236" height="164" rx="16"/>
+      <rect class="ac-ilus__linha" x="84" y="80" width="92" height="10" rx="5"/>
+      <rect class="ac-ilus__linha ac-ilus__linha--fraca" x="84" y="98" width="60" height="8" rx="4"/>
+      <g class="ac-ilus__barras">
+        <rect x="88" y="170" width="18" height="34" rx="4"/><rect x="114" y="150" width="18" height="54" rx="4"/>
+        <rect x="140" y="160" width="18" height="44" rx="4"/><rect x="166" y="130" width="18" height="74" rx="4"/>
+      </g>
+      <circle class="ac-ilus__trilha" cx="246" cy="160" r="30"/>
+      <circle class="ac-ilus__anel" cx="246" cy="160" r="30"/>
+      <text class="ac-ilus__pct" x="246" y="166" text-anchor="middle">72%</text>
+      <g class="ac-ilus__selo"><circle cx="292" cy="62" r="22"/><path d="m282 62 7 7 13-14"/></g>
+      <g class="ac-ilus__mega"><rect x="36" y="186" width="54" height="40" rx="12"/><path d="M50 200v12h6l10 7v-26l-10 7Z"/></g>
+    </svg>
+  </div>
+</section>
+
+<section class="ac-previa" aria-label="Exemplo de como a tela vai ficar">
+  <header class="ac-previa__head"><h2 class="ac-home-sec__title ac-home-sec__title--sm">Como vai ficar</h2><span class="ac-previa__tag">Exemplo</span></header>
+  <div class="ac-previa__corpo" aria-hidden="true">
+    <div class="ac-previa__kpis">
+      <div><span>Campanhas no ar</span><b>6</b></div><div><span>Entrega média</span><b>48%</b></div>
+      <div><span>No ritmo</span><b>5</b></div><div><span>Dashboards</span><b>6</b></div>
+    </div>
+    <ul class="ac-previa__lista">
+      {% for nome, plataforma, pct, tempo, cor in [('Lançamento · Vídeo', 'YouTube', 54, 45, 'adiantado'), ('Conversão · Busca', 'Google Ads', 41, 45, 'no_ritmo'), ('Alcance · Social', 'Meta Ads', 47, 45, 'no_ritmo')] %}
+      <li><span class="ac-previa__nome"><b>{{ nome }}</b><small>{{ plataforma }}</small></span>
+        <span class="ac-hcamp__bar"><span class="ac-hcamp__fill ac-hcamp__fill--{{ cor }} ac-previa__fill" style="--w: {{ pct }}%"></span><span class="ac-hcamp__mark" style="left: {{ tempo }}%"></span></span>
+        <b>{{ pct }}%</b></li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>
+{% else %}
+
 <section class="ac-hk" aria-label="Indicadores">
   <a class="ac-hk__item" href="{{ area_url('pis') }}">
     <span class="ac-hk__icon">{{ icon('folder', 22) }}</span>
@@ -94,6 +148,35 @@
     </section>
   </aside>
 </div>
+
+{% endif %}
+
+{% if sugestoes and sugestoes.itens %}
+<section class="ac-ideias" aria-labelledby="ideias-titulo">
+  <header class="ac-home-sec__head">
+    <div>
+      <h2 class="ac-home-sec__title" id="ideias-titulo">{{ 'Ideias para começar' if resumo.vazio else 'Ideias para a próxima campanha' }}</h2>
+      <p class="ac-home-sec__sub">{{ sugestoes.motivo }}</p>
+    </div>
+    <a class="ac-home-link" href="{{ area_url('descobrir_secao', secao='estrategias') }}">Todas as estratégias{{ icon('chevron-right', 14) }}</a>
+  </header>
+  <ul class="ac-ideias__lista">
+    {% for c in sugestoes.itens %}
+    <li>
+      <a class="ac-ideia" href="{{ area_url('descobrir_estrategia', endereco=c.url_slug) }}">
+        <span class="ac-ideia__img">{% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy">{% else %}{{ icon('target', 28) }}{% endif %}<span class="ac-ideia__obj">{{ c.objetivo }}</span></span>
+        <span class="ac-ideia__txt">
+          <b>{{ c.nome }}</b>
+          <small>{{ c.resumo|truncate(110) }}</small>
+          <span class="ac-ideia__canais">{% for x in c.canais[:4] %}<span class="ac-ideia__canal{% if x.nome in c.conhecidos %} is-conhecido{% endif %}" title="{{ x.nome }}{% if x.nome in c.conhecidos %} (vocês já usam){% endif %}">{{ x.nome }}</span>{% endfor %}</span>
+          <span class="ac-ideia__verba">{{ c.verba_rotulo }}</span>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 
 {% if resumo.atividades %}
 <section class="ac-hupd" aria-labelledby="upd-titulo">

@@ -99,8 +99,9 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     html = resp.get_data(as_text=True)
     assert "Olá" not in html and "Cliente Teste" in html
     assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
-    assert "Nenhum PI ainda" in html and html.count("Enviar briefing") == 1  # só o botão do topo
-    assert "Tudo pronto" in html and "Acompanhe suas campanhas" in html and "Solicitar otimização" not in html
+    # conta vazia: boas-vindas com os 3 passos e a prévia "Exemplo", sem indicadores zerados
+    assert "Bem-vindo à Área do Cliente" in html and "Como vai ficar" in html and ">Exemplo<" in html
+    assert "Envie um briefing" in html and 'class="ac-hk"' not in html and "Solicitar otimização" not in html
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
     ordem = [nav.index(t) for t in ("Início", "Briefing", "Campanhas", "Relatórios", "PIs", "Descobrir", "Canais", "Portais")]
@@ -565,12 +566,16 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
             "responsavel": "Ana Op"}
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI Verão", "pi": "CC-123", "campanhas": [camp]}])
     html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
-    assert 'id="camp-drawer"' in html and "18 d" in html and "Meta Ads" in html
-    dados_json = html.split('id="camp-dados">', 1)[1].split("</script>", 1)[0]
+    assert 'id="ac-painel"' in html and "18 d" in html and "Meta Ads" in html
+    # o painel fica fora de <main class="ac-content"> (a transição de página prendia o painel sob a barra do topo)
+    assert html.index('id="ac-painel"') > html.index("</main>")
+    dados_json = html.split('id="ac-painel-dados">', 1)[1].split("</script>", 1)[0]
     assert "</script>" not in dados_json and "\\u003c/script\\u003e" in dados_json  # nome escapado no JSON
     import json
     d = json.loads(dados_json)[0]
-    assert d["tempo"] == "40% · 18 dias restantes" and d["pi_url"] == "/pis/12" and d["pi_360"] == "/projetos/12"
+    assert d["tipo"] == "campanha" and d["pct"] == 50 and d["tempo"] == 40 and d["dif"] == 10
+    assert d["acoes"][0]["rotulo"] == "Abrir dashboard" and d["acoes"][0]["primario"] and d["acoes"][0]["externo"]
+    assert {"rotulo": "PI", "valor": "CC-123", "href": "/pis/12"} in d["defs"]
     # resumo, diferença em p.p. sobre a meta proporcional ao tempo e coluna de responsável
     assert "+10 p.p. da meta" in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" not in html
 
@@ -1022,3 +1027,47 @@ def test_inicio_aviso_positivo_e_campanhas_para_acompanhar():
     assert not ac["no_ar"] and [c["nome"] for c in ac["itens"]] == ["E4", "E3", "E2"]
     assert "As últimas campanhas entregaram acima da meta (101%)" in dados._aviso(ac)["frase"]
     assert dados._aviso(dados._campanhas_acompanhar([]))["titulo"] == "Tudo pronto"
+
+
+def test_sugestoes_de_estrategias_usam_as_plataformas_do_cliente(monkeypatch):
+    from aicentralv2.area_cliente import descobrir
+    cartoes = [
+        {"nome": "Só TV", "canais": [{"nome": "Globoplay"}, {"nome": "Netflix"}]},
+        {"nome": "Funil", "canais": [{"nome": "Meta Ads"}, {"nome": "Google Search"}, {"nome": "YouTube"}]},
+        {"nome": "Áudio", "canais": [{"nome": "Spotify"}]},
+    ]
+    monkeypatch.setattr(descobrir, "vitrine_estrategias", lambda *a, **k: {"cartoes": [dict(c) for c in cartoes]})
+    r = descobrir.sugestoes_estrategias(["Meta Ads", "DV360"], n=2)
+    assert r["itens"][0]["nome"] == "Funil" and r["itens"][0]["conhecidos"] == ["Meta Ads"]
+    assert "Meta Ads" in r["motivo"] and "já usam" in r["motivo"]
+    sem = descobrir.sugestoes_estrategias([], n=2)
+    assert [c["nome"] for c in sem["itens"]] == ["Só TV", "Funil"] and "prontas" in sem["motivo"]
+
+
+def test_dashboard_do_pi_projecao_e_historico():
+    from aicentralv2.area_cliente import dados
+    mesmo = [_camp(id=1, dash_abrir="https://lookerstudio.google.com/x"), _camp(id=2, dash_abrir="https://lookerstudio.google.com/x")]
+    assert dados.dash_do_pi(mesmo) == "https://lookerstudio.google.com/x" and dados.n_dashboards(mesmo) == 1
+    assert dados.dash_do_pi(mesmo + [_camp(id=3, dash_abrir="https://outro")]) == ""
+    assert dados.projecao(_camp(pct=40, tempo_pct=50)) == 80                       # no ritmo atual termina em 80%
+    assert dados.projecao(_camp(pct=40, tempo_pct=2)) is None                       # cedo demais para projetar
+    assert dados.projecao(_camp(no_ar=False)) is None
+    projetos = [{"status_id": 5, "pct": 104, "campanhas": [
+        _camp(id=1, no_ar=False, pct=110, periodo={"inicio": "2025-01-01", "fim": "2025-02-01"}),
+        _camp(id=2, no_ar=False, pct=90, periodo={"inicio": "2025-01-01", "fim": "2025-02-01"}),
+        _camp(id=3, no_ar=True, pct=10)]}]
+    assert dados.historico_plataformas(projetos) == {"Meta Ads": {"media": 100, "n": 2}}
+    assert dados.media_pis_encerrados(projetos) == 104
+
+
+def test_relatorios_aba_comparar(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    projetos = _projetos_relatorio()
+    projetos[2]["pct"] = 102
+    projetos[2]["campanhas"] = [_camp(id=3, nome="Velha", no_ar=False, pct=102, periodo={"inicio": "2025-01-01", "fim": "2025-02-01"})]
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
+    html = _client(app, {"user_id": 501}).get("/relatorios?status=comparar", base_url=HOST).get_data(as_text=True)
+    assert "Comparar<span>" in html and "Entrega final por plataforma" in html and "Evolução dos PIs encerrados" in html
+    assert "Comparar dois PIs" in html and 'id="cmp-dados"' in html and "102%" in html

@@ -183,7 +183,13 @@ def _exigir_acesso():
 
 
 def view_inicio(usuario):
-    return _render("inicio.html", usuario, "inicio", resumo=dados.resumo_inicio(usuario["cliente_id"]))
+    resumo = dados.resumo_inicio(usuario["cliente_id"])
+    try:
+        sugestoes = descobrir.sugestoes_estrategias(resumo["plataformas"])
+    except Exception:
+        current_app.logger.warning("Sugestões de estratégias indisponíveis no Início.", exc_info=True)
+        sugestoes = {"itens": [], "motivo": ""}
+    return _render("inicio.html", usuario, "inicio", resumo=resumo, sugestoes=sugestoes)
 
 
 def view_projeto(usuario, id_pi):
@@ -485,30 +491,109 @@ def view_campanhas(usuario):
     rotulos = {k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()}
     abas_itens = [(k, rotulos[k], len(ritmo["grupos"][k])) for k in rotulos]
     return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro, grupos_rotulo=rotulos, abas_itens=abas_itens,
-                   drawer_dados=[_drawer_campanha(c, rotulos[filtro]) for c in ritmo["grupos"][filtro]])
+                   painel_dados=[_painel_campanha(c, rotulos[filtro], ritmo["historico"]) for c in ritmo["grupos"][filtro]])
 
 
-def _drawer_campanha(c, status) -> dict:
-    """Campos do painel lateral de uma campanha (sem custo), já formatados."""
-    def br(iso):
-        return f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}" if iso else "—"
-    ritmos = {"adiantado": "Adiantada", "no_ritmo": "No ritmo", "atencao": "Atenção"}
-    tempo = "—"
-    if c.get("tempo_pct") is not None:
-        tempo = f"{c['tempo_pct']}%"
-        if c.get("dias_restantes") is not None and c["dias_restantes"] >= 0 and c["tempo_pct"] < 100:
-            tempo += f" · {c['dias_restantes']} dias restantes"
+RITMO_TXT = {"adiantado": "Adiantada", "no_ritmo": "No ritmo", "atencao": "Atenção"}
+
+
+def _br(iso):
+    return f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}" if iso else "—"
+
+
+def _num(valor):
+    try:
+        return float(valor) if valor is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _painel_campanha(c, status, historico=None) -> dict:
+    """Painel lateral de uma campanha (sem custo): anel entrega x tempo, números, comparação com
+    o histórico do cliente na mesma plataforma, projeção ao fim e ações."""
+    pct, tempo = c.get("pct"), c.get("tempo_pct")
+    no_ar = bool(c.get("no_ar"))
+    dias = c.get("dias_restantes")
+    nums = [{"rotulo": "Entregue", "valor": _num(c.get("atingido")), "texto": c.get("atingido_label") or "—"},
+            {"rotulo": "Meta", "valor": _num(c.get("meta")), "texto": c.get("meta_label") or "—"}]
+    proj = dados.projecao(c)
+    if proj is not None:
+        nums.append({"rotulo": "Projeção ao fim", "valor": proj, "formato": "pct", "nota": "no ritmo atual"})
+    elif no_ar and dias is not None and dias >= 0:
+        nums.append({"rotulo": "Restam", "valor": dias, "nota": "dias" if dias != 1 else "dia"})
+    else:
+        nums.append({"rotulo": "Período", "texto": "Encerrado" if dias is not None and dias < 0 else "—"})
+    ref = (historico or {}).get(c.get("plataforma") or "Outras")
+    compara = []
+    if ref and pct is not None:
+        base = proj if proj is not None else pct
+        dif = base - ref["media"]
+        compara = [{"rotulo": ("Projeção desta campanha" if proj is not None else "Esta campanha"), "pct": base, "ritmo": "adiantado" if dif >= 0 else "atencao"},
+                   {"rotulo": f"Média das suas campanhas em {c.get('plataforma') or 'outras plataformas'} ({ref['n']})", "pct": ref["media"], "ritmo": "tempo"}]
+    parte = c.get("contraparte") or {}
+    acoes = []
+    if c.get("dash_abrir"):
+        acoes.append({"rotulo": "Dashboard do PI" if c.get("dash_compartilhado") else "Abrir dashboard",
+                      "href": c["dash_abrir"], "primario": True, "externo": True, "icone": "chart"})
+    acoes += [{"rotulo": "Abrir PI", "href": area_url("pi", id_pi=c["projeto_id"]), "primario": not c.get("dash_abrir"), "icone": "file"},
+              {"rotulo": "Visão 360°", "href": area_url("projeto", id_pi=c["projeto_id"]), "icone": "layout"}]
     return {
-        "nome": c["nome"], "status": status, "objetivo": c.get("objetivo") or "—", "logo": c.get("plataforma_logo") or "",
-        "plataforma": c.get("plataforma") or "—",
-        "parte_rotulo": (c.get("contraparte") or {}).get("rotulo") or "Agência",
-        "parte": (c.get("contraparte") or {}).get("nome") or "—",
-        "pct": f"{c['pct']}%" if c.get("pct") is not None else "—", "pct_num": c.get("pct") or 0,
-        "atingido": c.get("atingido_label") or "—", "meta": c.get("meta_label") or "—",
-        "ritmo": ritmos.get(c.get("ritmo"), "—"), "tempo": tempo,
-        "periodo": f"{br(c['periodo']['inicio'])} a {br(c['periodo']['fim'])}",
-        "pi": c.get("pi") or "—", "pi_url": area_url("pi", id_pi=c["projeto_id"]),
-        "pi_360": area_url("projeto", id_pi=c["projeto_id"]), "dash": c.get("dash_abrir") or "",
+        "tipo": "campanha", "eyebrow": status, "titulo": c["nome"], "logo": c.get("plataforma_logo") or "",
+        "sub": " · ".join(x for x in (c.get("plataforma"), c.get("objetivo")) if x and x != "—"),
+        "pct": pct, "tempo": tempo if no_ar else None,
+        "ritmo": c.get("ritmo") if no_ar else "", "ritmo_txt": RITMO_TXT.get(c.get("ritmo") or "", ""),
+        "dif": (pct - tempo) if (no_ar and pct is not None and tempo is not None) else None,
+        "nums": nums,
+        "barras_titulo": "Comparado ao seu histórico" if compara else ("Entrega e tempo" if no_ar and tempo is not None else ""),
+        "barras": compara or ([{"rotulo": "Entrega da meta", "pct": pct, "ritmo": c.get("ritmo") or ""},
+                               {"rotulo": "Tempo decorrido do período", "pct": tempo, "ritmo": "tempo"}]
+                              if no_ar and pct is not None and tempo is not None else []),
+        "defs": [{"rotulo": "Período", "valor": f"{_br(c['periodo']['inicio'])} a {_br(c['periodo']['fim'])}"},
+                 {"rotulo": "PI", "valor": c.get("pi") or "—", "href": area_url("pi", id_pi=c["projeto_id"])},
+                 {"rotulo": parte.get("rotulo") or "Agência", "valor": parte.get("nome") or "—"}],
+        "acoes": acoes,
+    }
+
+
+def _painel_pi(p, campanhas, extras=None) -> dict:
+    """Painel lateral de um PI: entrega média, campanhas em barras e atalhos (relatório, links)."""
+    extras = extras or {}
+    pcts = [c["pct"] for c in campanhas if c.get("pct") is not None]
+    pct = round(sum(pcts) / len(pcts)) if pcts else None
+    no_ar = [c for c in campanhas if c.get("no_ar")]
+    tempo = p.get("tempo_pct") if no_ar else None
+    parte = p.get("contraparte") or {}
+    nums = [{"rotulo": "Campanhas no ar" if no_ar else "Campanhas", "valor": len(no_ar) if no_ar else len(campanhas),
+             "nota": f"de {len(campanhas)}" if no_ar and len(no_ar) != len(campanhas) else ""}]
+    nums += extras.get("nums", [])
+    if pct is not None and tempo and tempo >= 5:
+        nums.append({"rotulo": "Projeção ao fim", "valor": round(pct * 100 / tempo), "formato": "pct", "nota": "no ritmo atual"})
+    media = extras.get("media_pis")
+    if media is not None and pct is not None:
+        nums.append({"rotulo": "Média dos seus PIs", "valor": media, "formato": "pct", "nota": "encerrados"})
+    dash = dados.dash_do_pi(campanhas)
+    acoes = [{"rotulo": "Ver relatório do PI", "href": f"{area_url('relatorios')}?pi={p['id']}", "primario": True, "icone": "chart"},
+             {"rotulo": "Abrir PI", "href": area_url("pi", id_pi=p["id"]), "icone": "file"},
+             {"rotulo": "Visão 360°", "href": area_url("projeto", id_pi=p["id"]), "icone": "layout"}]
+    if dash:
+        acoes.append({"rotulo": "Dashboard do PI", "href": dash, "externo": True, "icone": "chart"})
+    if p.get("link_publico"):
+        acoes.append({"rotulo": "Acompanhamento", "href": p["link_publico"], "externo": True, "icone": "globe"})
+    if p.get("prestacao"):
+        acoes.append({"rotulo": "Prestação de contas", "href": p["prestacao"], "externo": True, "icone": "file"})
+    ordem = sorted(campanhas, key=lambda c: (not c.get("no_ar"), c.get("pct") if c.get("pct") is not None else -1))
+    return {
+        "tipo": "pi", "eyebrow": p.get("status") or "PI", "titulo": p.get("titulo") or p.get("pi"),
+        "sub": f"{p.get('pi')} · {_br(p['periodo']['inicio'])} a {_br(p['periodo']['fim'])}",
+        "pct": pct, "tempo": tempo, "ritmo": p.get("ritmo") if no_ar else "", "ritmo_txt": RITMO_TXT.get(p.get("ritmo") or "", ""),
+        "dif": (pct - tempo) if (pct is not None and tempo is not None) else None,
+        "nums": nums,
+        "barras_titulo": "Entrega por campanha" if campanhas else "",
+        "barras": [{"rotulo": c["nome"], "pct": c.get("pct"), "ritmo": (c.get("ritmo") or "") if c.get("no_ar") else ("adiantado" if (c.get("pct") or 0) >= 100 else ""),
+                    "marca": c.get("tempo_pct") if c.get("no_ar") else None} for c in ordem[:10]],
+        "defs": [{"rotulo": parte.get("rotulo") or "Agência", "valor": parte.get("nome") or "—"},
+                 {"rotulo": "Situação", "valor": p.get("status") or "—"}],
+        "acoes": acoes,
     }
 
 
@@ -518,10 +603,21 @@ def view_relatorios(usuario):
     escolhido = request.args.get("pi", type=int)
     atual = next((p for p in pis if p["id"] == escolhido), None) if escolhido else None
     filtro = request.args.get("status", "abertos")
-    filtro = filtro if filtro in PIS_FILTROS else "abertos"
+    filtro = filtro if filtro in PIS_FILTROS or filtro == "comparar" else "abertos"
     grupos = {"abertos": [p for p in pis if p["aberto"]], "finalizados": [p for p in pis if not p["aberto"]], "todos": pis}
+    comp = dados.comparativos(pis) if pis else None
+    media_pis = comp["media_pis"] if comp else None
+    abas = [(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()] + [("comparar", "Comparar", len(comp["escolhas"]) if comp else 0)]
+    if filtro == "comparar" and not atual:
+        return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=None, filtro=filtro, filtros=PIS_FILTROS,
+                       lista=[], abas_itens=abas, comp=comp, painel_dados=[])
+    lista = grupos[filtro]
+    painel = [] if atual else [_painel_pi(p, p["ativas"], {"nums": [
+        {"rotulo": "Dashboards", "valor": p.get("dashboards") or 0},
+        {"rotulo": "Em otimização", "valor": p["kpis"]["atencao"]} if p.get("no_ar") else {"rotulo": "Entrega média", "texto": f"{p['kpis']['entrega_media']}%" if p["kpis"]["entrega_media"] is not None else "—"},
+    ], "media_pis": media_pis}) for p in lista]
     return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=atual, filtro=filtro, filtros=PIS_FILTROS,
-                   lista=grupos[filtro], abas_itens=[(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()])
+                   lista=lista, abas_itens=abas, painel_dados=painel, comp=comp)
 
 
 PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados", "todos": "Todos"}
@@ -548,10 +644,15 @@ def view_pis(usuario):
     por_pi: dict = {}
     for c in dados.campanhas_dos_pis([p["id"] for p in pis]):
         por_pi.setdefault(c["id_pi"], []).append(c)
+    painel = []
     for p in pis:
         p["plataformas"] = plataformas.resumo(por_pi.get(p["id"], []))
+        painel.append(_painel_pi(p, por_pi.get(p["id"], []), {"nums": [
+            {"rotulo": "Valor líquido", "valor": p.get("liquido"), "formato": "brl"} if p.get("liquido") is not None else {"rotulo": "Valor líquido", "texto": "—"},
+            {"rotulo": "Notas fiscais", "valor": p.get("n_notas") or 0, "nota": f"{p.get('n_pagas') or 0} pagas" if p.get("n_notas") else "nenhuma ainda"},
+        ]}))
     return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo,
-                   filtro=filtro, filtros=PIS_FILTROS, contagem=contagem,
+                   filtro=filtro, filtros=PIS_FILTROS, contagem=contagem, painel_dados=painel,
                    abas_itens=[(k, v, contagem[k]) for k, v in PIS_FILTROS.items()])
 
 
@@ -565,7 +666,21 @@ def view_pi(usuario, id_pi):
         for c in campanhas:
             if c.get("no_ar"):
                 c["status"], c["no_ar"] = "Finalizada", False
-    return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas, plats=plataformas.resumo(campanhas))
+    try:
+        projetos = dados.listar_projetos(usuario["cliente_id"])
+        historico, media_pis = dados.historico_plataformas(projetos), dados.media_pis_encerrados(projetos)
+    except Exception:
+        current_app.logger.warning("Histórico de comparação indisponível no PI.", exc_info=True)
+        historico, media_pis = {}, None
+    for c in campanhas:
+        c["projecao"] = dados.projecao(c)
+        ref = historico.get(c.get("plataforma") or "Outras")
+        base = c["projecao"] if c["projecao"] is not None else c.get("pct")
+        c["vs_media"] = {"dif": base - ref["media"], "media": ref["media"], "n": ref["n"]} if ref and base is not None else None
+    pcts = [c["pct"] for c in campanhas if c.get("pct") is not None]
+    comp = {"pct": round(sum(pcts) / len(pcts)) if pcts else None, "media_pis": media_pis,
+            "dash_pi": dados.dash_do_pi(campanhas)}
+    return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas, plats=plataformas.resumo(campanhas), comp=comp)
 
 
 def view_em_preparacao(usuario, endpoint):

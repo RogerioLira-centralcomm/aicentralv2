@@ -117,6 +117,34 @@ def _ids_pracas(texto) -> list[str]:
     return [p for p in str(texto or "").replace(" ", "").split(",") if p][:60]
 
 
+def sugestoes_estrategias(plataformas_usadas, n: int = 3) -> dict:
+    """Estratégias para a tela inicial, personalizadas pelas plataformas que o cliente já usa:
+    primeiro as que combinam esses canais (o cliente já conhece) com outros novos; sem histórico,
+    as primeiras do catálogo. Devolve os cartões e uma frase explicando a escolha."""
+    from ..estrategias.catalogo import slug_url
+    vitrine = vitrine_estrategias()
+    usadas = [slug_url(x) for x in plataformas_usadas or [] if x]
+
+    def combina(nome_canal: str) -> bool:
+        canal = slug_url(nome_canal)
+        return any(u and (u in canal or canal in u) for u in usadas)
+
+    pontuados = []
+    for ordem, c in enumerate(vitrine["cartoes"]):
+        conhecidos = [x["nome"] for x in c["canais"] if combina(x["nome"])]
+        novos = [x["nome"] for x in c["canais"] if not combina(x["nome"])]
+        pontuados.append((-(len(conhecidos) * 2 + min(len(novos), 2)) if usadas else 0, ordem,
+                          dict(c, conhecidos=conhecidos, novos=novos[:3])))
+    itens = [c for _p, _o, c in sorted(pontuados, key=lambda t: (t[0], t[1]))][:n]
+    if usadas and any(c["conhecidos"] for c in itens):
+        nomes = list(dict.fromkeys(plataformas_usadas))[:3]
+        motivo = "Combinam " + (", ".join(nomes[:-1]) + " e " + nomes[-1] if len(nomes) > 1 else nomes[0]) + \
+                 ", que vocês já usam, com canais novos para ampliar o resultado."
+    else:
+        motivo = "Estratégias prontas para começar: canais, verba e peças já definidos."
+    return {"itens": itens, "motivo": motivo}
+
+
 def estrategia_por_url(endereco) -> dict:
     """Estratégia ativa pelo endereço legível (ou nome atual / slug interno); 404 se não houver."""
     from ..estrategias import repositorio

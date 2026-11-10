@@ -28,11 +28,11 @@
 <div class="ac-card ac-table-card ac-enter">
   <table class="ac-table ac-pis-table">
     <thead>
-      <tr><th scope="col">PI</th><th scope="col">{{ rotulo_contraparte(pis) }}</th><th scope="col">Plataformas</th><th scope="col">Etapa</th><th scope="col">Período</th><th scope="col" class="ac-num">Valor bruto</th><th scope="col" class="ac-num">Valor líquido</th><th scope="col">Notas fiscais</th></tr>
+      <tr><th scope="col">PI</th><th scope="col">{{ rotulo_contraparte(pis) }}</th><th scope="col">Plataformas</th><th scope="col">Etapa</th><th scope="col">Período</th><th scope="col" class="ac-num">Valor bruto</th><th scope="col" class="ac-num">Valor líquido</th><th scope="col">Notas fiscais</th><th scope="col"><span class="ac-sr">Detalhes</span></th></tr>
     </thead>
     <tbody>
       {% for p in pis %}
-      <tr>
+      <tr data-painel-linha="{{ loop.index0 }}">
         <td data-label="PI"><a class="ac-link ac-pis__pi" href="{{ area_url('pi', id_pi=p.id) }}">{{ p.pi }}</a><small>{{ p.titulo }}</small></td>
         <td data-label="{{ (p.contraparte or {}).rotulo or 'Agência' }}">{{ (p.contraparte or {}).nome or '—' }}</td>
         <td data-label="Plataformas"><span class="ac-platstack">{% for pl in p.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if p.plataformas|length > 5 %}<span class="ac-platstack__more">+{{ p.plataformas|length - 5 }}</span>{% endif %}{% if not p.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
@@ -41,6 +41,7 @@
         <td data-label="Valor bruto" class="ac-num">{{ p.bruto|format_brl if p.bruto is not none else '—' }}</td>
         <td data-label="Valor líquido" class="ac-num"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
         <td data-label="Notas fiscais">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
+        <td class="ac-pis-table__acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi', id_pi=p.id) }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
       </tr>
       {% endfor %}
     </tbody>

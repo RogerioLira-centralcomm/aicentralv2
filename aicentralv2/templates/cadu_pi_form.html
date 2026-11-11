@@ -2647,6 +2647,10 @@
                 '<div class="pi-campaign-actions">' +
                   '<button type="button" data-camp-view="' + payload + '" class="btn-ver-camp pi-campaign-action is-primary">' +
                     '<i class="fa-solid fa-chart-line"></i>Acompanhar</button>' +
+                  (c.link_dash
+                    ? '<a href="' + String(c.link_dash).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener" class="pi-campaign-action" title="Abrir dashboard (Looker Studio)" onclick="event.stopPropagation();">' +
+                      '<i class="fa-solid fa-chart-line"></i>Dashboard</a>'
+                    : '') +
                   botoesExtra +
                   '<button type="button" data-camp-context="' + payload + '" class="btn-email-camp pi-campaign-action">' +
                     '<i class="fa-regular fa-envelope"></i>E-mail</button>' +

@@ -1,13 +1,17 @@
 {% extends 'campanha_publica/base.html' %}
 {% from 'campanha_publica/_macros.html' import dcurta, dlonga, purl, iniciais, icon, pessoa_card with context %}
 {% block main %}
-{%- set dashes = (campanha.resultados or [])|selectattr('dash_abrir')|list -%}
-{%- set d = (ctx.sel if ctx.sel and ctx.sel.dash_abrir else none) or (dashes|first) -%}
-{% if d %}
+{%- set d = ctx.dash -%}
+{% if d and (d.dash_embed or d.dash_abrir) %}
 <div class="rep-bar" data-in style="--i:0">
   <span class="muted">
-    {% if ctx.sel and ctx.sel.id != d.id %}<b>{{ ctx.sel.nome }}</b> ainda não tem relatório publicado. Mostrando o de <b>{{ d.nome }}</b>.
-    {% else %}Looker Studio · <b>{{ d.nome }}</b>{% if campanha.grupo and not ctx.sel %} · troque a campanha no seletor acima{% endif %}{% endif %}
+    {% if d.escopo == 'campanha' %}
+    Looker Studio · relatório de <b>{{ d.nome }}</b>
+    {% elif ctx.sel %}
+    Looker Studio · <b>Dashboard do PI</b> (lista de campanhas)
+    {% else %}
+    Looker Studio · <b>Dashboard do PI</b> — todas as campanhas deste projeto
+    {% endif %}
   </span>
   <div class="rep-actions">
     {% if d.dash_embed %}<button type="button" class="ut-btn ut-btn-sm ut-btn-secondary" id="tela-cheia">{{ icon('full') }}Tela cheia</button>{% endif %}
@@ -31,7 +35,7 @@
 <div class="card empty-card" data-in style="--i:1"><b>Relatório disponível no Looker Studio</b><p class="muted">A visualização incorporada não está ativa para este relatório. Use <b>Abrir no Looker</b>.</p></div>
 {% endif %}
 {% else %}
-<div class="card empty-card" data-in><b>Relatórios em preparação</b><p class="muted">A operação publica o relatório detalhado antes do início da veiculação.</p></div>
+<div class="card empty-card" data-in><b>Relatórios em preparação</b><p class="muted">Cadastre o dashboard do PI na operação ou aguarde a publicação do relatório com a lista de campanhas.</p></div>
 {% endif %}
 {% endblock %}
 {% block scripts %}

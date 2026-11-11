@@ -203,6 +203,58 @@ def _pct(atingido, meta):
     return round(atingido / meta * 100)
 
 
+def _urls_dashboard(link_raw, incorporar=True):
+    """Normaliza link Looker para embed e visualização."""
+    link_raw = (link_raw or "").strip()
+    incorporar = True if incorporar is None else bool(incorporar)
+    view = normalizar_url_visualizacao_looker_studio(link_raw)
+    embed = normalizar_url_embed_looker_studio(link_raw) if incorporar and link_raw else ""
+    return {
+        "link_raw": link_raw,
+        "dash_embed": embed,
+        "dash_abrir": view or link_raw,
+        "incorporar": incorporar,
+    }
+
+
+def resolver_dashboard_publico(pi, campanha_sel=None):
+    """Dashboard padrão do PI; campanha só substitui se o link for distinto."""
+    pi = pi or {}
+    pi_urls = _urls_dashboard(pi.get("link_dash"), pi.get("link_dash_incorporar", True))
+    rotulo_pi = (pi.get("titulo_pi") or pi.get("codigo_pi_cc") or "PI").strip() or "PI"
+    base = {
+        "escopo": "pi",
+        "rotulo": "Dashboard do PI",
+        "nome": rotulo_pi,
+        "dash_embed": pi_urls["dash_embed"],
+        "dash_abrir": pi_urls["dash_abrir"],
+        "incorporar": pi_urls["incorporar"],
+    }
+    if not campanha_sel:
+        return base
+
+    sel_abrir = (campanha_sel.get("dash_abrir") or "").strip()
+    if not sel_abrir:
+        return base
+
+    pi_abrir = (pi_urls["dash_abrir"] or pi_urls["link_raw"] or "").strip()
+    pi_key = normalizar_url_visualizacao_looker_studio(pi_abrir) or pi_abrir.rstrip("/")
+    sel_key = normalizar_url_visualizacao_looker_studio(sel_abrir) or sel_abrir.rstrip("/")
+    if sel_key and pi_key and sel_key == pi_key:
+        return base
+    if sel_key and (not pi_key or sel_key != pi_key):
+        return {
+            **base,
+            "escopo": "campanha",
+            "rotulo": campanha_sel.get("nome") or "Campanha",
+            "nome": campanha_sel.get("nome") or "Campanha",
+            "dash_embed": campanha_sel.get("dash_embed") or "",
+            "dash_abrir": sel_abrir,
+            "incorporar": bool(campanha_sel.get("dash_embed")),
+        }
+    return base
+
+
 def _resultado_campanha(row, atual_id, hoje=None):
     """Painel de entrega de uma campanha: objetivo, meta, atingido. Nunca expõe custo."""
     from .campanha_pi_metrics import calcular_periodo_progresso
@@ -256,18 +308,16 @@ def montar_payload_acompanhamento_campanha(
     id_pi = campanha_row["id_pi"]
     operacao = (service or PiOperacaoService()).estado_campanha(id_pi, id_campanha)
     pi = operacao.get("pi") or {}
+    pi_db = db.obter_cadu_pi_por_id(id_pi) or {}
+    if pi_db.get("link_dash") is not None:
+        pi["link_dash"] = pi_db.get("link_dash")
+    if pi_db.get("link_dash_incorporar") is not None:
+        pi["link_dash_incorporar"] = pi_db.get("link_dash_incorporar")
+    if not pi.get("titulo_pi"):
+        pi["titulo_pi"] = pi_db.get("titulo_pi")
     campanha = operacao.get("campanha") or dict(campanha_row)
     if not campanha.get("link_dash") and campanha_row.get("link_dash"):
         campanha["link_dash"] = campanha_row["link_dash"]
-    link_raw = (campanha.get("link_dash") or campanha_row.get("link_dash") or "").strip()
-    link_dash_view = normalizar_url_visualizacao_looker_studio(link_raw)
-    incorporar = campanha.get("link_dash_incorporar")
-    if incorporar is None:
-        incorporar = campanha_row.get("link_dash_incorporar", True)
-    incorporar = bool(incorporar)
-    link_dash_embed = (
-        normalizar_url_embed_looker_studio(link_raw) if incorporar and link_raw else ""
-    )
     campanhas_pi = operacao.get("campanhas_relacionadas") or []
     timeline = _timeline_map(operacao.get("timeline"))
     if linhas_campanhas is None:
@@ -275,6 +325,23 @@ def montar_payload_acompanhamento_campanha(
     linhas_campanhas = list(linhas_campanhas)
 
     grupo = bool(escopo_pi and len(linhas_campanhas) > 1)
+    pi_urls = _urls_dashboard(pi.get("link_dash"), pi.get("link_dash_incorporar", True))
+    camp_urls = _urls_dashboard(
+        campanha.get("link_dash") or campanha_row.get("link_dash"),
+        campanha.get("link_dash_incorporar")
+        if campanha.get("link_dash_incorporar") is not None
+        else campanha_row.get("link_dash_incorporar", True),
+    )
+    if escopo_pi or grupo:
+        link_dash_embed = pi_urls["dash_embed"]
+        link_dash_view = pi_urls["dash_abrir"]
+        link_raw = pi_urls["link_raw"]
+        incorporar = pi_urls["incorporar"]
+    else:
+        link_raw = camp_urls["link_raw"]
+        link_dash_view = camp_urls["dash_abrir"]
+        incorporar = camp_urls["incorporar"]
+        link_dash_embed = camp_urls["dash_embed"]
     inicio = campanha.get("periodo_inicio") or pi.get("periodo_inicio")
     fim = campanha.get("periodo_fim") or pi.get("periodo_fim")
     if grupo:
@@ -282,8 +349,8 @@ def montar_payload_acompanhamento_campanha(
         fins = [d for d in (_as_date(r.get("periodo_fim")) for r in linhas_campanhas) if d]
         inicio = min(inicios) if inicios else _as_date(pi.get("periodo_inicio")) or inicio
         fim = max(fins) if fins else _as_date(pi.get("periodo_fim")) or fim
-    algum_dash = bool(link_dash_embed) or (
-        grupo and any((r.get("link_dash") or "").strip() for r in linhas_campanhas)
+    algum_dash = bool(link_dash_embed or link_dash_view) or any(
+        (r.get("link_dash") or "").strip() for r in linhas_campanhas
     )
 
     codigo_pi = pi.get("codigo_pi_cc") or pi.get("codigo_pi_ag") or ""
@@ -547,6 +614,12 @@ def montar_payload_acompanhamento_campanha(
         "pi": pi_label,
         "id_pi": id_pi,
         "pi_titulo": pi.get("titulo_pi") or "",
+        "pi_dash": {
+            "link_dash": pi.get("link_dash"),
+            "link_dash_incorporar": pi.get("link_dash_incorporar", True),
+            "titulo_pi": pi.get("titulo_pi") or "",
+            "codigo_pi_cc": pi.get("codigo_pi_cc") or pi_db.get("codigo_pi_cc") or "",
+        },
         "grupo": grupo,
         "periodo": {"inicio": _iso(inicio), "fim": _iso(fim)},
         "atualizado_em": _iso(atualizado) or date.today().isoformat(),
@@ -737,7 +810,10 @@ def contexto_pagina(payload, campanha_id=None, hoje=None):
     desvio = pct - tempo_pct if pct is not None and tempo_pct is not None else None
 
     modulos = payload["modulos"]
-    tem_dash = any(r["dash_embed"] or r["dash_abrir"] for r in resultados)
+    dash = resolver_dashboard_publico(payload.get("pi_dash") or {}, sel)
+    tem_dash = bool(dash.get("dash_embed") or dash.get("dash_abrir")) or any(
+        r.get("dash_embed") or r.get("dash_abrir") for r in resultados
+    )
     paginas = [
         {"id": "geral", "rotulo": "Visão geral", "ok": True},
         {"id": "relatorios", "rotulo": "Relatórios", "ok": tem_dash},
@@ -760,6 +836,7 @@ def contexto_pagina(payload, campanha_id=None, hoje=None):
         "relatorios_liberados": [
             r for r in modulos["relatorios"]["itens"] if not r.get("marco") or r["marco"] in feitos
         ],
+        "dash": dash,
     }
 
 

@@ -849,6 +849,23 @@ def init_db(app):
                         UPDATE cadu_pi SET modo_operacao = 'campanha'
                         WHERE modo_operacao IS NULL OR BTRIM(modo_operacao) = '';
                     END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'link_dash'
+                    ) THEN
+                        ALTER TABLE cadu_pi ADD COLUMN link_dash TEXT;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'cadu_pi'
+                          AND column_name = 'link_dash_incorporar'
+                    ) THEN
+                        ALTER TABLE cadu_pi
+                            ADD COLUMN link_dash_incorporar BOOLEAN NOT NULL DEFAULT TRUE;
+                    END IF;
                 END $$;
             ''')
 
@@ -13926,6 +13943,8 @@ def atualizar_cadu_pi_complementar(id_pi, data):
         'googled_pi_financ': 'googled_pi_financ',
         'googled_pi_pecas': 'googled_pi_pecas',
         'googled_pi_arq_ass': 'googled_pi_arq_ass',
+        'link_dash': 'link_dash',
+        'link_dash_incorporar': 'link_dash_incorporar',
         'contato_fin_cliente': 'id_cont_cliente_financ',
         'contato_midia_cliente': 'id_cont_cliente_midia',
         'contato_fin_agencia': 'id_cont_agen_financ',

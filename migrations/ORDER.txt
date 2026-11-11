@@ -255,6 +255,8 @@ migrations/run_sql_migration.py add_campanha_link_publico.sql
 migrations/run_sql_migration.py add_campanha_link_dash_incorporar.sql
 # PI: link público único de acompanhamento (agrupa campanhas do PI; idempotente).
 migrations/run_sql_migration.py add_pi_link_publico.sql
+# PI: Looker Studio agregado (lista de campanhas na página pública; idempotente).
+migrations/run_sql_migration.py add_pi_link_dash.sql
 # Área do Cliente: flag de acesso por contato liberada no CRM v3 (idempotente).
 migrations/run_sql_migration.py add_area_cliente_acesso_contato.sql
 # Área do Cliente aberta por padrão: bloqueio por cliente e por contato (idempotente).

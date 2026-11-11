@@ -73,6 +73,7 @@
 </td>
 
 <td class="pi-commercial-actions" data-label="Ações">
+  <span class="pi-public-link-slot" data-pi-public-link="{{ pi.id_pi }}" hidden aria-hidden="true"></span>
   {% if sub_status == '3' %}
   <button type="button" onclick="abrirModalAndamento({{ pi.id_pi }})" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Acompanhar andamento" aria-label="Acompanhar andamento">
     <i class="fa-solid fa-chart-line" aria-hidden="true"></i>

@@ -2071,7 +2071,16 @@ def init_routes(app):
                     'preco_metrica_brl': er.get('preco_metrica_brl'),
                     'preco_metrica_modalidade': er.get('preco_metrica_modalidade'),
                 })
-            return jsonify({'success': True, 'campanhas': campanhas})
+            return jsonify({
+                'success': True,
+                'id_pi': id_pi,
+                'link_publico': {
+                    'url': _link_pi.get('link') or '',
+                    'preview_url': _link_pi.get('link_preview') or '',
+                    'ativo': bool(_link_pi.get('ativo')),
+                },
+                'campanhas': campanhas,
+            })
         except Exception as e:
             app.logger.error(f"Erro ao buscar campanhas do PI {id_pi}: {e}")
             return jsonify({'success': False, 'error': str(e)}), 500
@@ -11621,6 +11630,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 'googled_pi_financ': pi.get('googled_pi_financ') or '',
                 'googled_pi_pecas': pi.get('googled_pi_pecas') or '',
                 'googled_pi_arq_ass': pi.get('googled_pi_arq_ass') or '',
+                'link_dash': pi.get('link_dash') or '',
+                'link_dash_incorporar': pi.get('link_dash_incorporar', True),
                 'contato_fin_cliente': pi.get('contato_fin_cliente'),
                 'contato_midia_cliente': pi.get('contato_midia_cliente'),
                 'contato_fin_agencia': pi.get('contato_fin_agencia'),
@@ -11690,13 +11701,16 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             for key in (
                 'obs_operacao', 'obs_financeiro',
                 'googled_pi_princ', 'googled_pi_financ', 'googled_pi_pecas', 'googled_pi_arq_ass',
+                'link_dash', 'link_dash_incorporar',
                 'contato_fin_cliente', 'contato_midia_cliente',
                 'contato_fin_agencia', 'contato_midia_agencia',
                 'contato_fin_parceiro', 'contato_midia_parceiro',
             ):
                 if key in body:
                     val = body[key]
-                    if key.startswith('contato_'):
+                    if key == 'link_dash_incorporar':
+                        patch[key] = bool(val)
+                    elif key.startswith('contato_'):
                         patch[key] = int(val) if val not in (None, '', 'null') else None
                     else:
                         patch[key] = (str(val).strip() if val is not None else None) or None

@@ -416,6 +416,15 @@
       <label class="cx-field"><span class="cx-label">Pasta financeiro</span><input type="url" id="piGdriveFinanc" class="cx-input cx-input-sm w-full"></label>
       <label class="cx-field"><span class="cx-label">Pasta peças</span><input type="url" id="piGdrivePecas" class="cx-input cx-input-sm w-full"></label>
       <label class="cx-field"><span class="cx-label">Arquivos assinados</span><input type="url" id="piGdriveArq" class="cx-input cx-input-sm w-full"></label>
+      <label class="cx-field">
+        <span class="cx-label">Dashboard do PI (Looker Studio)</span>
+        <input type="url" id="piLinkDash" class="cx-input cx-input-sm w-full" placeholder="Relatório com a lista de campanhas do PI">
+        <span class="text-[10px] text-slate-500 mt-1 block">Usado na aba Relatórios do link público do PI. No Looker, ative compartilhar e permitir incorporar.</span>
+      </label>
+      <label class="cx-field flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" id="piLinkDashIncorporar" checked>
+        <span class="cx-label mb-0">Incorporar dashboard do PI na página pública</span>
+      </label>
       <button type="button" onclick="PiListUI.salvarComplementar()" class="cx-btn cx-btn-primary cx-btn-sm w-full pi-sidebar-save-btn">Salvar pastas</button>
     </div>
     <h4 class="cx-label mb-2">Links vinculados</h4>

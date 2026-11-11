@@ -244,6 +244,40 @@
     if (global.console) global.console.info(message);
   }
 
+  function copiarLinkPiPublico(idPi, url, ev) {
+    if (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+    }
+    const copy = function (link) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(function () {
+          toastLinkCampanha('Link de acompanhamento do PI copiado (todas as campanhas).', 'success');
+        }).catch(function () {
+          toastLinkCampanha(link, 'info');
+        });
+      } else {
+        toastLinkCampanha(link, 'info');
+      }
+    };
+    if (url) {
+      copy(url);
+      return;
+    }
+    fetch('/api/cadu-pi/' + idPi + '/link-publico', { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.success || !j.link) {
+          toastLinkCampanha(j.error || 'Não foi possível gerar o link.', 'error');
+          return;
+        }
+        copy(j.link);
+      })
+      .catch(function () {
+        toastLinkCampanha('Erro ao gerar link público do PI.', 'error');
+      });
+  }
+
   function copiarLinkCampanhaPublica(idCampanha, url, ev) {
     if (ev) {
       ev.stopPropagation();
@@ -278,6 +312,7 @@
       });
   }
 
+  global.copiarLinkPiPublico = copiarLinkPiPublico;
   global.copiarLinkCampanhaPublica = copiarLinkCampanhaPublica;
   global.abrirLinkCampanhaPublica = function (url, ev) {
     if (ev) ev.stopPropagation();

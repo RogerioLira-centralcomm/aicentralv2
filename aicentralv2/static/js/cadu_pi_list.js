@@ -328,6 +328,23 @@
     return '';
   }
 
+  function mountPiPublicLinkActions(idPi, linkPublico) {
+    const slot = document.querySelector('[data-pi-public-link="' + idPi + '"]');
+    const actionsCell = slot && slot.closest('td.pi-commercial-actions');
+    if (!actionsCell || !slot) return;
+    const url = (linkPublico && linkPublico.url) || '';
+    const preview = (linkPublico && linkPublico.preview_url) || url;
+  const html = (preview || url)
+      ? '<a href="' + escapeHtml(preview || url) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Abrir página pública do PI (todas as campanhas)" aria-label="Abrir página pública do PI" onclick="event.stopPropagation();">' +
+        '<i class="fa-solid fa-link" aria-hidden="true"></i></a>' +
+        '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Copiar link do PI" aria-label="Copiar link público do PI" onclick="copiarLinkPiPublico(' + idPi + ', ' + JSON.stringify(url || '').replace(/"/g, '&quot;') + ', event)">' +
+        '<i class="fa-regular fa-copy" aria-hidden="true"></i></button>'
+      : '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Gerar link do PI para o cliente" aria-label="Gerar link público do PI" onclick="copiarLinkPiPublico(' + idPi + ', null, event)">' +
+        '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i></button>';
+    slot.insertAdjacentHTML('afterend', html);
+    slot.remove();
+  }
+
   function buildCampaignDetailRowHtml(idPi, c) {
     const objContratadoNum = UI.parseVolume(c.obj_contratados);
     const objAtingidoNum = UI.parseVolume(c.totalizador_atingido);
@@ -392,6 +409,10 @@
           '<i class="fa-regular fa-copy" aria-hidden="true"></i></button>'
         : '<button type="button" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Gerar link do PI para o cliente" aria-label="Gerar link público do PI" onclick="copiarLinkCampanhaPublica(' + c.id_campanha + ', null, event)">' +
           '<i class="fa-solid fa-share-nodes" aria-hidden="true"></i></button>') +
+      (c.link_dash
+        ? '<a href="' + escapeHtml(c.link_dash) + '" target="_blank" rel="noopener" class="cx-btn cx-btn-sm cx-btn-icon cx-btn-ghost" title="Abrir dashboard (Looker Studio)" aria-label="Abrir dashboard (Looker Studio)" onclick="event.stopPropagation();">' +
+          '<i class="fa-solid fa-chart-line" aria-hidden="true"></i></a>'
+        : '') +
       '</td>' +
       '</tr>';
   }
@@ -522,6 +543,7 @@
           return;
         }
         insertCampaignRowsAfterPi(piRow, idPi, data.campanhas);
+        mountPiPublicLinkActions(idPi, data.link_publico || {});
         const toggle = document.querySelector('[data-pi-group-toggle="' + idPi + '"]');
         const expanded = !toggle || toggle.getAttribute('aria-expanded') !== 'false';
         setPiGroupExpanded(idPi, expanded);
@@ -827,6 +849,10 @@
         document.getElementById('piGdriveFinanc').value = pi.googled_pi_financ || '';
         document.getElementById('piGdrivePecas').value = pi.googled_pi_pecas || '';
         document.getElementById('piGdriveArq').value = pi.googled_pi_arq_ass || '';
+        var piDash = document.getElementById('piLinkDash');
+        var piDashInc = document.getElementById('piLinkDashIncorporar');
+        if (piDash) piDash.value = pi.link_dash || '';
+        if (piDashInc) piDashInc.checked = pi.link_dash_incorporar !== false;
         fillContactSelects(data.contatos, pi);
         aplicarSidebarSomenteLeitura();
       })
@@ -867,6 +893,7 @@
       googled_pi_financ: 'piGdriveFinanc',
       googled_pi_pecas: 'piGdrivePecas',
       googled_pi_arq_ass: 'piGdriveArq',
+      link_dash: 'piLinkDash',
       contato_fin_cliente: 'pi_contato_fin_cliente',
       contato_midia_cliente: 'pi_contato_midia_cliente',
       contato_fin_agencia: 'pi_contato_fin_agencia',
@@ -879,6 +906,8 @@
       const el = document.getElementById(elMap[key]);
       if (el) body[key] = el.value;
     });
+    var dashInc = document.getElementById('piLinkDashIncorporar');
+    if (dashInc) body.link_dash_incorporar = dashInc.checked;
     return body;
   }
 

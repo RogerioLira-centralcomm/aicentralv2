@@ -90,6 +90,7 @@ class PiOperacaoRepository:
                        p.periodo_fim, p.mes_ref_comp, p.observacoes_operacao,
                        p.googled_pi_princ, p.googled_pi_financ,
                        p.googled_pi_pecas, p.googled_pi_arq_ass,
+                       p.link_dash, p.link_dash_incorporar,
                        p.updated_at,
                        cli.nome_fantasia AS cliente_nome,
                        ag.nome_fantasia AS agencia_nome,

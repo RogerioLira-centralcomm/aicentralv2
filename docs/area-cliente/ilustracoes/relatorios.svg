@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t">
+  <title id="t">Relatórios e faturamento</title>
+  <rect width="640" height="400" rx="20" fill="#f2f4f7"/>
+  <!-- painel principal: linha -->
+  <rect x="60" y="50" width="340" height="300" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="84" y="76" width="120" height="10" rx="5" fill="#101828"/>
+  <line x1="84" y1="130" x2="376" y2="130" stroke="#eaecf0" stroke-width="2"/>
+  <line x1="84" y1="200" x2="376" y2="200" stroke="#eaecf0" stroke-width="2"/>
+  <line x1="84" y1="270" x2="376" y2="270" stroke="#eaecf0" stroke-width="2"/>
+  <polyline points="84,260 136,236 188,246 240,196 292,180 344,150 376,140" fill="none" stroke="#055c50" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="84,260 136,236 188,246 240,196 292,180 344,150 376,140 376,270 84,270" fill="#055c50" opacity="0.08"/>
+  <!-- cartões de números -->
+  <rect x="420" y="50" width="160" height="90" rx="14" fill="#e6f6f3"/>
+  <rect x="438" y="70" width="70" height="8" rx="4" fill="#055c50"/>
+  <rect x="438" y="92" width="110" height="18" rx="6" fill="#055c50"/>
+  <rect x="420" y="160" width="160" height="90" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="438" y="180" width="70" height="8" rx="4" fill="#98a2b3"/>
+  <rect x="438" y="202" width="90" height="18" rx="6" fill="#101828"/>
+  <!-- nota fiscal -->
+  <rect x="420" y="270" width="160" height="80" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="438" y="292" width="100" height="8" rx="4" fill="#667085"/>
+  <rect x="438" y="312" width="124" height="8" rx="4" fill="#d0d5dd"/>
+  <rect x="438" y="328" width="70" height="8" rx="4" fill="#d0d5dd"/>
+</svg>

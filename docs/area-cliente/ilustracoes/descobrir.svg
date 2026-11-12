@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t">
+  <title id="t">Descobrir: canais, formatos e audiências</title>
+  <rect width="640" height="400" rx="20" fill="#f2f4f7"/>
+  <!-- cartões de vitrine -->
+  <rect x="60" y="60" width="160" height="130" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="76" y="78" width="40" height="40" rx="10" fill="#e6f6f3"/>
+  <circle cx="96" cy="98" r="10" fill="#055c50"/>
+  <rect x="76" y="136" width="110" height="9" rx="4" fill="#101828"/>
+  <rect x="76" y="154" width="80" height="7" rx="3" fill="#d0d5dd"/>
+
+  <rect x="240" y="60" width="160" height="130" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="256" y="78" width="40" height="40" rx="10" fill="#e6f6f3"/>
+  <rect x="268" y="90" width="16" height="16" rx="3" fill="#055c50"/>
+  <rect x="256" y="136" width="110" height="9" rx="4" fill="#101828"/>
+  <rect x="256" y="154" width="80" height="7" rx="3" fill="#d0d5dd"/>
+
+  <rect x="420" y="60" width="160" height="130" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="436" y="78" width="40" height="40" rx="10" fill="#e6f6f3"/>
+  <path d="M446 110 l8 -14 l8 9 l6 -5 l6 10 z" fill="#055c50"/>
+  <rect x="436" y="136" width="110" height="9" rx="4" fill="#101828"/>
+  <rect x="436" y="154" width="80" height="7" rx="3" fill="#d0d5dd"/>
+
+  <!-- lupa + barra de busca -->
+  <rect x="60" y="230" width="380" height="44" rx="22" fill="#ffffff" stroke="#d0d5dd" stroke-width="2"/>
+  <circle cx="92" cy="252" r="9" fill="none" stroke="#055c50" stroke-width="3"/>
+  <line x1="99" y1="259" x2="107" y2="267" stroke="#055c50" stroke-width="3" stroke-linecap="round"/>
+  <rect x="122" y="246" width="140" height="10" rx="5" fill="#98a2b3"/>
+
+  <!-- botão incluir no briefing -->
+  <rect x="460" y="230" width="120" height="44" rx="22" fill="#055c50"/>
+  <path d="M500 252 h40 M520 238 v28" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- itens selecionados -->
+  <rect x="60" y="298" width="520" height="56" rx="12" fill="#0d171a"/>
+  <circle cx="92" cy="326" r="8" fill="#8de0d3"/>
+  <rect x="112" y="320" width="180" height="9" rx="4" fill="#ffffff"/>
+  <rect x="112" y="337" width="120" height="7" rx="3" fill="#91aaa6"/>
+  <rect x="400" y="320" width="150" height="9" rx="4" fill="#8de0d3"/>
+</svg>

@@ -2,7 +2,11 @@
 <html lang="pt-BR"{% if not menu.sidebar_aberta %} class="ac-rail"{% endif %}>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d171a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Área do Cliente">
 <meta name="robots" content="noindex, nofollow">
 {% include 'area_cliente/_og.html' %}
 <title>{% block title %}Área do Cliente{% endblock %} · Centralcomm</title>
@@ -14,13 +18,48 @@
 {"prefetch": [{"where": {"and": [{"href_matches": "/*"}, {"not": {"href_matches": "/sair"}}, {"not": {"href_matches": "/logout"}}, {"not": {"selector_matches": "[target=_blank], [download]"}}]}, "eagerness": "conservative"}]}
 </script>
 <link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/area_cliente/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='images/area_cliente/manifest.webmanifest') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_app.css') }}?v={{ static_fingerprint('css/area_cliente_app.css') }}">
+<script>
+  /* Modo app: instalado na tela inicial ou aberto em tela cheia. */
+  try { if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) document.documentElement.classList.add('ac-standalone'); } catch (e) {}
+</script>
 {% block head %}{% endblock %}
 </head>
 <body data-cadu-skin="workspace" data-cadu-theme="light">
+<!-- Tela de carregamento: 3 s com barra de progresso, uma vez por sessão do app -->
+<div class="ac-splash" id="ac-splash" data-once="1" role="status" aria-live="polite" aria-label="Carregando a Área do Cliente">
+  <img class="ac-splash__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="84" height="56">
+  <span class="ac-splash__name">Área do Cliente</span>
+  <div class="ac-splash__bar" aria-hidden="true"><div class="ac-splash__fill"></div></div>
+</div>
+<script>
+(function () {
+  var el = document.getElementById('ac-splash');
+  if (!el) return;
+  var seen = false;
+  try { seen = sessionStorage.getItem('ac-splash') === '1'; sessionStorage.setItem('ac-splash', '1'); } catch (e) {}
+  if (seen) { el.remove(); return; }
+  var fill = el.querySelector('.ac-splash__fill');
+  var reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dur = reduz ? 1 : 3000, t0 = null;
+  el.classList.add('has-js');
+  function passo(t) {
+    if (t0 === null) t0 = t;
+    var p = Math.min(1, (t - t0) / dur);
+    var suave = 1 - Math.pow(1 - p, 2.2);
+    if (fill) fill.style.transform = 'scaleX(' + suave.toFixed(4) + ')';
+    if (p < 1) requestAnimationFrame(passo);
+    else { el.classList.add('is-done'); setTimeout(function () { el.remove(); }, 500); }
+  }
+  requestAnimationFrame(passo);
+})();
+</script>
 <a class="ac-skip" href="#conteudo">Pular para o conteúdo</a>
 <div class="ac-app">
   <aside class="ac-side" id="ac-side" aria-label="Navegação da Área do Cliente">

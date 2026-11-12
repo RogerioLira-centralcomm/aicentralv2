@@ -1,19 +1,28 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, link_cru %}
-{% set eyebrow = 'Acesso liberado' %}
+{% from 'emails/area_cliente/_ui.html' import botao, passos, dica, link_cru, link_texto with context %}
+{% set eyebrow = 'Bem-vindo à Área do Cliente' %}
 {% block title %}Sua Área do Cliente Centralcomm está liberada{% endblock %}
-{% block preheader %}Acompanhe PIs, campanhas e entregas da {{ cliente }} com a Centralcomm.{% endblock %}
-{% block headline %}Sua Área do Cliente está liberada{% endblock %}
+{% block preheader %}Campanhas, entregas e briefings da {{ cliente }} num só lugar.{% endblock %}
+{% block headline %}Oi, {{ primeiro_nome }}. A sua Área do Cliente já está no ar.{% endblock %}
+{% block hero_img %}
+<tr><td bgcolor="#0c2e24" style="background:#0c2e24;padding:0"><img src="{{ brand.illustrations_url }}hero-profissional.jpg" width="600" alt="" style="display:block;width:600px;height:auto;max-width:100%"></td></tr>
+{% endblock %}
 {% block content %}
-  <p style="margin:0">Olá, {{ primeiro_nome }}. A Centralcomm liberou seu acesso à Área do Cliente da {{ cliente }}.</p>
-  <p style="margin:14px 0 0">Lá você acompanha campanhas no ar, entregas contra a meta, PIs, faturamento e notas fiscais, envia briefings e explora canais, formatos e audiências.</p>
+  <p style="margin:0">A partir de agora você acompanha a {{ cliente }} com a Centralcomm num lugar só. Veja o que já está pronto para você:</p>
+
+  {{ passos([
+    ('megaphone', 'Campanhas no ar', 'Acompanhe o que está veiculando e o que já foi entregue contra a meta.'),
+    ('layers', 'PIs e entregas', 'Cada PI aprovado vira um projeto, com as etapas e os números.'),
+    ('file-text', 'Briefings', 'Tem uma ideia? Mande um briefing direto por lá, sem sair da área.'),
+    ('receipt', 'Notas fiscais', 'Faturamento e notas fiscais organizados, sem caça a e-mails.'),
+  ]) }}
+
   {% if link_senha %}
-  <p style="margin:14px 0 0">Para entrar, crie sua senha. O link vale por {{ horas_validade }} horas.</p>
-  {{ botao(link_senha, 'Criar minha senha') }}
-  {{ link_cru(link_senha) }}
+    {{ dica('Primeiro acesso', 'Antes de entrar, crie a sua senha. O link vale por ' ~ horas_validade ~ ' horas e leva menos de um minuto.') }}
+    {{ botao(link_senha, 'Abrir Área do Cliente') }}
+    {{ link_cru(link_senha) }}
   {% else %}
-  <p style="margin:14px 0 0">Entre com o mesmo e-mail e senha que você já usa no Cadu.</p>
-  {{ botao(area_url, 'Entrar na Área do Cliente') }}
+    {{ dica('Como entrar', 'Use o mesmo e-mail e a mesma senha que você já usa no Cadu.') }}
+    {{ botao(area_url, 'Abrir Área do Cliente') }}
   {% endif %}
-  {{ fatos([('Endereço', area_url|replace('https://', '')), ('Seu login', email)]) }}
 {% endblock %}

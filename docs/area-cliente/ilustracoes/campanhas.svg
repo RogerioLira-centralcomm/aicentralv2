@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t">
+  <title id="t">Campanhas no ar e entregas contra a meta</title>
+  <rect width="640" height="400" rx="20" fill="#f2f4f7"/>
+  <!-- meta -->
+  <rect x="60" y="50" width="520" height="110" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="84" y="76" width="130" height="9" rx="4" fill="#101828"/>
+  <rect x="84" y="116" width="472" height="18" rx="9" fill="#eaecf0"/>
+  <rect x="84" y="116" width="318" height="18" rx="9" fill="#055c50"/>
+  <line x1="440" y1="108" x2="440" y2="142" stroke="#0d171a" stroke-width="3" stroke-dasharray="4 4"/>
+  <rect x="448" y="92" width="60" height="8" rx="4" fill="#98a2b3"/>
+  <!-- barras por campanha -->
+  <rect x="60" y="184" width="330" height="166" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="84" y="210" width="90" height="136" fill="none"/>
+  <rect x="90" y="280" width="34" height="52" rx="6" fill="#8de0d3"/>
+  <rect x="134" y="250" width="34" height="82" rx="6" fill="#5fa398"/>
+  <rect x="178" y="226" width="34" height="106" rx="6" fill="#055c50"/>
+  <rect x="222" y="262" width="34" height="70" rx="6" fill="#8de0d3"/>
+  <rect x="266" y="300" width="34" height="32" rx="6" fill="#d0d5dd"/>
+  <rect x="310" y="236" width="34" height="96" rx="6" fill="#5fa398"/>
+  <!-- status das campanhas -->
+  <rect x="410" y="184" width="170" height="166" rx="14" fill="#0d171a"/>
+  <circle cx="436" cy="214" r="7" fill="#8de0d3"/>
+  <rect x="452" y="210" width="110" height="8" rx="4" fill="#ffffff"/>
+  <circle cx="436" cy="246" r="7" fill="#8de0d3"/>
+  <rect x="452" y="242" width="90" height="8" rx="4" fill="#ffffff"/>
+  <circle cx="436" cy="278" r="7" fill="#91aaa6"/>
+  <rect x="452" y="274" width="100" height="8" rx="4" fill="#91aaa6"/>
+  <circle cx="436" cy="310" r="7" fill="#91aaa6"/>
+  <rect x="452" y="306" width="80" height="8" rx="4" fill="#91aaa6"/>
+</svg>

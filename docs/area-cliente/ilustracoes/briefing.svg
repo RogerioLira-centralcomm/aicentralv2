@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t">
+  <title id="t">Briefing da Área do Cliente</title>
+  <rect width="640" height="400" rx="20" fill="#f2f4f7"/>
+  <!-- folha de briefing -->
+  <rect x="180" y="40" width="280" height="320" rx="14" fill="#ffffff" stroke="#eaecf0" stroke-width="2"/>
+  <rect x="204" y="70" width="120" height="10" rx="5" fill="#101828"/>
+  <rect x="204" y="94" width="232" height="36" rx="8" fill="#f9fafb" stroke="#d0d5dd"/>
+  <rect x="204" y="144" width="232" height="36" rx="8" fill="#f9fafb" stroke="#d0d5dd"/>
+  <rect x="204" y="194" width="110" height="36" rx="8" fill="#f9fafb" stroke="#d0d5dd"/>
+  <rect x="326" y="194" width="110" height="36" rx="8" fill="#f9fafb" stroke="#d0d5dd"/>
+  <!-- chips de canais -->
+  <rect x="204" y="244" width="64" height="22" rx="11" fill="#e6f6f3"/>
+  <rect x="278" y="244" width="72" height="22" rx="11" fill="#e6f6f3"/>
+  <rect x="360" y="244" width="56" height="22" rx="11" fill="#e6f6f3"/>
+  <!-- botão enviar -->
+  <rect x="330" y="300" width="106" height="36" rx="18" fill="#055c50"/>
+  <path d="M352 318 h44 M382 310 l8 8 l-8 8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- selo de recebido -->
+  <circle cx="500" cy="110" r="46" fill="#8de0d3"/>
+  <path d="M478 110 l16 16 l30 -32" fill="none" stroke="#0d171a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="60" y="150" width="90" height="10" rx="5" fill="#98a2b3"/>
+  <rect x="60" y="170" width="70" height="10" rx="5" fill="#d0d5dd"/>
+</svg>

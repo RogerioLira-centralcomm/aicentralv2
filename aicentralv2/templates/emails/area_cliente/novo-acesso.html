@@ -1,13 +1,15 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, link_texto with context %}
 {% set eyebrow = 'Segurança da conta' %}
 {% block title %}Novo acesso à sua Área do Cliente{% endblock %}
-{% block preheader %}Sua conta acabou de entrar na Área do Cliente Centralcomm.{% endblock %}
-{% block headline %}Novo acesso à sua conta{% endblock %}
+{% block preheader %}Sua conta acabou de entrar. Foi você?{% endblock %}
+{% block icone %}{{ badge('shield-check') }}{% endblock %}
+{% block headline %}Alguém entrou na sua conta. Foi você?{% endblock %}
 {% block content %}
-  <p style="margin:0">Olá, {{ primeiro_nome }}. Sua conta acabou de entrar na Área do Cliente da Centralcomm.</p>
+  <p style="margin:0">Oi, {{ primeiro_nome }}. Acabamos de registrar um login na sua Área do Cliente:</p>
   {{ fatos([('Quando', quando), ('Conta', email), ('Empresa', cliente), ('Navegador', dispositivo), ('IP aproximado', ip)]) }}
-  <p style="margin:0">Se foi você, não precisa fazer nada.</p>
-  {{ nota('Não reconhece este acesso? Troque sua senha agora e avise seu executivo na Centralcomm.', 'alerta') }}
-  {{ botao(link_senha, 'Trocar minha senha', secundario=True) }}
+  <p style="margin:24px 0 0">Se foi você, não precisa fazer nada.</p>
+  {{ nota('Não reconhece esse acesso? Troque sua senha agora e avise seu executivo na Centralcomm.', 'alerta') }}
+  {{ botao(area_url, 'Abrir Área do Cliente') }}
+  {{ link_texto(link_senha, 'Trocar senha', 'Quer trocar a senha agora?') }}
 {% endblock %}

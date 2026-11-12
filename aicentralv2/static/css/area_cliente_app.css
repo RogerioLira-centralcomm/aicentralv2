@@ -1,0 +1,268 @@
+/* Área do Cliente · telas de acesso, tela de carregamento e modo app.
+   Carregado depois de area_cliente.css. Usa tokens da marca Centralcomm. */
+
+:root {
+  --cc-yellow: #fcb600;
+  --cc-green: #24ce7b;
+  --cc-ink: #0d171a;
+  --cc-ink-2: #1d2939;
+  --cc-muted: #667085;
+  --cc-paper: #ffffff;
+}
+
+/* ---------- Palco: fundo animado, tela cheia, sem rolagem ---------- */
+
+.ac-stage {
+  grid-template-columns: minmax(0, 1fr);
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--cc-ink);
+  color: var(--cc-ink-2);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  isolation: isolate;
+}
+
+.ac-stage__bg {
+  position: absolute;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.ac-stage__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: .75;
+  animation: ac-drift 18s ease-in-out infinite alternate;
+}
+.ac-stage__blob--y { width: 58vmax; height: 58vmax; left: -12vmax; top: -18vmax; background: radial-gradient(circle at 40% 40%, #fcb600, #b77f00 70%); }
+.ac-stage__blob--g { width: 52vmax; height: 52vmax; right: -16vmax; bottom: -14vmax; background: radial-gradient(circle at 60% 40%, #24ce7b, #0f7a4a 70%); animation-duration: 22s; animation-delay: -6s; }
+.ac-stage__blob--k { width: 40vmax; height: 40vmax; left: 30%; top: 40%; background: radial-gradient(circle, #1d3a3f, transparent 70%); animation-duration: 26s; animation-delay: -10s; }
+
+/* Anéis em "C" que giram devagar: o "C" do logo, em movimento. */
+.ac-stage__ring {
+  position: absolute;
+  border-radius: 50%;
+  border-style: solid;
+  border-color: transparent;
+  opacity: .9;
+  animation: ac-spin 40s linear infinite;
+}
+.ac-stage__ring--1 { width: 34vmax; height: 34vmax; left: -8vmax; bottom: 6vh; border-width: 5vmax; border-top-color: var(--cc-yellow); border-left-color: var(--cc-yellow); border-bottom-color: var(--cc-yellow); }
+.ac-stage__ring--2 { width: 22vmax; height: 22vmax; right: -4vmax; top: 8vh; border-width: 3.2vmax; border-right-color: var(--cc-green); border-bottom-color: var(--cc-green); animation-direction: reverse; animation-duration: 30s; }
+
+/* Grão sutil para não parecer chapado. */
+.ac-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .08;
+  background-image: radial-gradient(#fff 1px, transparent 1px);
+  background-size: 6px 6px;
+}
+
+@keyframes ac-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(4vmax, 3vmax, 0) scale(1.08); }
+}
+@keyframes ac-spin { to { transform: rotate(360deg); } }
+@keyframes ac-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Cartão de acesso ---------- */
+
+.ac-stage .ac-auth {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  max-width: 420px;
+  padding: 28px 28px 24px;
+  display: grid;
+  align-content: start;
+  justify-content: stretch;
+  gap: 16px;
+  background: rgba(255, 255, 255, .96);
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .35);
+  animation: ac-rise .6s cubic-bezier(.2, .7, .2, 1) both;
+  animation-delay: 3s; /* aparece logo depois da tela de carregamento */
+}
+
+.ac-auth__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ac-auth__head img { width: 44px; height: 31px; object-fit: contain; }
+.ac-auth__head b { display: block; font-size: 16px; letter-spacing: -.2px; color: var(--cc-ink); }
+.ac-auth__head small { display: block; font-size: 12px; font-weight: 600; color: #8a6400; text-transform: uppercase; letter-spacing: .08em; }
+
+.ac-stage .ac-auth__title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.12;
+  letter-spacing: -.6px;
+  font-weight: 800;
+  color: var(--cc-ink);
+}
+.ac-stage .ac-auth__lead { margin: 0; font-size: 15px; line-height: 1.5; color: var(--cc-muted); }
+
+.ac-stage .ac-auth__form { gap: 12px; }
+.ac-stage .ac-auth__field { gap: 6px; font-size: 13px; font-weight: 600; color: var(--cc-ink-2); }
+.ac-stage .ac-auth__field input {
+  height: 48px;
+  padding: 0 14px;
+  font-size: 16px; /* 16px evita o zoom automático do iPhone */
+  border-radius: 12px;
+  border: 1.5px solid #e4e7ec;
+  background: #fff;
+  transition: border-color .2s, box-shadow .2s;
+}
+.ac-stage .ac-auth__field input:focus {
+  border-color: var(--cc-yellow);
+  box-shadow: 0 0 0 4px rgba(252, 182, 0, .25);
+}
+
+.ac-stage .ac-auth__submit {
+  height: 50px;
+  min-height: 50px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  background: var(--cc-ink);
+  color: var(--cc-yellow);
+  border: 0;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .2s;
+}
+.ac-stage .ac-auth__submit:hover { box-shadow: 0 10px 24px rgba(13, 23, 26, .25); }
+.ac-stage .ac-auth__submit:active { transform: scale(.98); }
+
+.ac-stage .ac-auth__hint,
+.ac-stage .ac-auth__foot { font-size: 13px; color: var(--cc-muted); text-align: center; }
+.ac-stage .ac-auth__foot { color: rgba(255, 255, 255, .6); }
+.ac-stage .ac-auth__foot a { color: inherit; }
+
+.ac-stage .ac-auth__msg { border-radius: 12px; }
+.ac-stage .ac-link { color: var(--cc-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+.ac-auth__alt {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--cc-muted);
+}
+
+/* Rodapé fora do cartão: não empurra o layout. */
+.ac-stage .ac-auth__foot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  margin: 0;
+}
+
+/* ---------- Tela de carregamento (3 s) ---------- */
+
+.ac-splash {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin: 0;
+  background: var(--cc-ink);
+  color: #fff;
+  transition: opacity .45s ease, visibility .45s;
+  /* Garantia: some sozinho mesmo sem JavaScript. */
+  animation: ac-splash-out .45s ease 3.25s forwards;
+}
+.ac-splash.is-done { opacity: 0; visibility: hidden; }
+@keyframes ac-splash-out { to { opacity: 0; visibility: hidden; } }
+
+.ac-splash__mark { width: 84px; height: auto; animation: ac-pulse 1.4s ease-in-out infinite; }
+.ac-splash__name { font-size: 15px; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+.ac-splash__bar {
+  width: min(240px, 60vw);
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .14);
+  overflow: hidden;
+}
+.ac-splash__fill {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--cc-yellow), var(--cc-green));
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform .12s linear;
+  animation: ac-fill 3s cubic-bezier(.45, .05, .3, 1) forwards;
+}
+.ac-splash.has-js .ac-splash__fill { animation: none; }
+@keyframes ac-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ac-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+.ac-splash__tip { font-size: 13px; opacity: .6; min-height: 1.4em; }
+
+/* ---------- Mobile: tela cheia, sem rolagem ---------- */
+
+@media (max-width: 640px) {
+  .ac-stage { align-items: end; justify-items: stretch; }
+  .ac-stage .ac-auth {
+    max-width: none;
+    height: auto;
+    max-height: 100dvh;
+    border-radius: 26px 26px 0 0;
+    padding: 26px 22px calc(max(22px, env(safe-area-inset-bottom)) + 26px);
+    gap: 14px;
+    box-shadow: 0 -20px 60px rgba(0, 0, 0, .35);
+  }
+  .ac-stage .ac-auth__title { font-size: 24px; }
+  .ac-stage .ac-auth__foot { display: none; }
+  .ac-stage .ac-auth__lead { font-size: 14px; }
+  .ac-stage__ring--1 { left: -22vmax; bottom: 30vh; }
+  .ac-stage__ring--2 { right: -18vmax; top: 4vh; }
+}
+
+@media (max-height: 640px) and (max-width: 640px) {
+  .ac-auth { gap: 10px; padding-top: 18px; }
+  .ac-stage .ac-auth__field input { height: 44px; }
+  .ac-stage .ac-auth__submit { height: 46px; min-height: 46px; }
+  .ac-auth__head { display: none; }
+}
+
+/* ---------- Modo app (instalado ou tela cheia) ---------- */
+
+.ac-standalone .ac-app,
+.ac-standalone .ac-stage {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ac-stage__blob,
+  .ac-stage__ring,
+  .ac-splash__mark { animation: none; }
+  .ac-auth { animation: none; }
+  .ac-splash { animation-duration: .01s; animation-delay: 0s; }
+  .ac-splash__fill { animation-duration: .01s; }
+}

@@ -618,7 +618,7 @@ def test_todas_as_previas_de_email_renderizam(app, monkeypatch):
 def test_previa_de_email_so_para_admin_cc(app, monkeypatch):
     _admin_cc(monkeypatch)
     client = _client(app, {"user_id": 501})
-    assert "Novo acesso à sua conta" in client.get("/emails/novo-acesso", base_url=HOST).get_data(as_text=True)
+    assert "Alguém entrou na sua conta" in client.get("/emails/novo-acesso", base_url=HOST).get_data(as_text=True)
     _logado(monkeypatch, dict(_usuario(), pode_ver_como=False))
     assert client.get("/emails/novo-acesso", base_url=HOST).status_code == 404
 
@@ -626,9 +626,9 @@ def test_previa_de_email_so_para_admin_cc(app, monkeypatch):
 def test_acesso_liberado_sem_senha_cria_link(app, monkeypatch):
     from aicentralv2 import db
     from aicentralv2.area_cliente import emails
-    enviados, tokens = [], []
+    enviados, tokens, cabecalhos = [], [], []
     monkeypatch.setattr(emails, "_executivo_do_cliente", lambda cid: {"cliente": "CLIENTE X", "nome": "João", "email": "joao@centralcomm.media", "whatsapp": ""})
-    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None: enviados.append((modelo, para, ctx, reply_to)) or True)
+    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None: cabecalhos.append((assunto, remetente_nome)) or enviados.append((modelo, para, ctx, reply_to)) or True)
     monkeypatch.setattr(db, "atualizar_reset_token", lambda email, token, exp: tokens.append(token) or True)
     with app.test_request_context("/", base_url=HOST):
         emails.acesso_liberado({"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900, "tem_senha": False})
@@ -637,6 +637,9 @@ def test_acesso_liberado_sem_senha_cria_link(app, monkeypatch):
     assert m1 == "acesso-liberado" and para1 == "ana@cliente.test" and ctx1["link_senha"].endswith(f"/reset-password/{tokens[0]}")
     assert reply1 == {"name": "João", "email": "joao@centralcomm.media"}
     assert ctx2["link_senha"] == "" and len(tokens) == 1
+    # Assunto pessoal (primeiro nome) e remetente em nome do executivo.
+    assert cabecalhos[0] == ("Ana, liberamos o seu acesso à Área do Cliente", "João da Centralcomm")
+    assert cabecalhos[1][0].startswith("Bia, liberamos")
 
 
 def test_sem_acesso_pede_ao_executivo_uma_vez(app, monkeypatch):
@@ -665,7 +668,7 @@ def test_briefing_dispara_os_dois_emails(app, monkeypatch):
 
 def test_login_no_host_de_clientes_usa_tela_centralcomm(app):
     html = app.test_client().get("/login?next=/", base_url=HOST).get_data(as_text=True)
-    assert "Use o e-mail e a senha do Cadu" in html and "Área do Cliente" in html
+    assert "Bem-vindo de volta" in html and "Área do Cliente" in html
     html = app.test_client().get("/forgot-password", base_url=HOST).get_data(as_text=True)
     assert "Criar nova senha" in html
 
@@ -1071,3 +1074,18 @@ def test_relatorios_aba_comparar(app, monkeypatch):
     html = _client(app, {"user_id": 501}).get("/relatorios?status=comparar", base_url=HOST).get_data(as_text=True)
     assert "Comparar<span>" in html and "Entrega final por plataforma" in html and "Evolução dos PIs encerrados" in html
     assert "Comparar dois PIs" in html and 'id="cmp-dados"' in html and "102%" in html
+
+
+def test_contato_do_executivo_leva_foto_publica_e_whatsapp_com_mensagem(app):
+    from urllib.parse import parse_qs, urlparse
+    from aicentralv2.area_cliente import emails
+    executivo = {"nome": "João Figueiredo", "email": "joao@centralcomm.media",
+                 "whatsapp": "https://wa.me/5531999990000", "foto_url": "/static/uploads/contatos/5_x.png"}
+    with app.test_request_context("/", base_url=HOST):
+        pronto = emails._contato_executivo(executivo, "Ana Souza", "CLIENTE X", "Preciso de ajuda.")
+        sem_zap = emails._contato_executivo({"nome": "Bia", "email": "b@c.com", "whatsapp": ""}, "Ana", "X", "Oi.")
+    assert pronto["foto"].endswith("/static/uploads/contatos/5_x.png") and pronto["foto"].startswith("http")
+    texto = parse_qs(urlparse(pronto["whatsapp"]).query)["text"][0]
+    assert texto == "Oi João, aqui é Ana Souza, da CLIENTE X. Preciso de ajuda."
+    assert pronto["whatsapp"].startswith("https://wa.me/5531999990000?text=")
+    assert sem_zap["whatsapp"] == "" and sem_zap["foto"] == ""

@@ -15,6 +15,7 @@ import logging
 import secrets
 import threading
 from datetime import datetime, timedelta
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from flask import current_app, render_template, request
@@ -40,13 +41,55 @@ def _primeiro(nome) -> str:
     return partes[0] if partes else "tudo bem"
 
 
+def _com_nome(nome, frase: str) -> str:
+    """Assunto pessoal: "Ana, frase". Sem nome, só a frase com a inicial maiúscula."""
+    partes = str(nome or "").split()
+    return f"{partes[0]}, {frase}" if partes else frase[:1].upper() + frase[1:]
+
+
+def _remetente_executivo(executivo) -> str | None:
+    """Mensagens de relacionamento saem em nome do executivo ("João da Centralcomm")."""
+    nome = (executivo or {}).get("nome") or ""
+    partes = nome.split()
+    return f"{partes[0]} da Centralcomm" if partes else None
+
+
+def _foto_publica(foto) -> str:
+    """Foto do executivo com endereço público (e-mail não enxerga o domínio interno)."""
+    foto = str(foto or "").strip()
+    if not foto:
+        return ""
+    if foto.startswith("http"):
+        return foto
+    from ..services.brevo_service import email_asset_url
+    return email_asset_url(foto)
+
+
+def _contato_executivo(executivo, nome_usuario, cliente, motivo):
+    """Executivo pronto para o e-mail: foto pública e WhatsApp com a mensagem já escrita.
+
+    A mensagem leva o nome de quem escreve e da empresa (cliente ou agência), para o executivo
+    saber de quem é sem perguntar."""
+    if not executivo or not executivo.get("nome"):
+        return executivo
+    zap = executivo.get("whatsapp") or ""
+    if zap:
+        quem = str(nome_usuario or "").strip()
+        texto = f"Oi {_primeiro(executivo['nome'])}, aqui é {quem}" if quem else f"Oi {_primeiro(executivo['nome'])}, tudo bem?"
+        if cliente:
+            texto += f", da {cliente}"
+        texto += f". {motivo}"
+        zap = f"{zap.split('?')[0]}?text={quote(texto, safe='')}"
+    return {**executivo, "whatsapp": zap, "foto": _foto_publica(executivo.get("foto_url")), "cliente": cliente or ""}
+
+
 def renderizar(modelo: str, **ctx) -> str:
     from ..services.brevo_service import product_email_brand
     return render_template(f"emails/area_cliente/{modelo}.html",
                            brand=product_email_brand("clientes"), area_url=_url("/"), **ctx)
 
 
-def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None) -> bool:
+def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetente_nome=None) -> bool:
     """Monta o HTML agora e entrega em segundo plano. Devolve False se não há destinatário."""
     if not para_email:
         return False
@@ -57,13 +100,15 @@ def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None) -> bool:
         return True
     from ..services.brevo_service import get_brevo_product_service
     servico = get_brevo_product_service("clientes")
+    # Só o nome muda por envio; o endereço continua o do remetente verificado na Brevo.
+    sender = {"name": remetente_nome, "email": servico._sender["email"]} if remetente_nome else None
 
     def entregar():
         with app.app_context():
             try:
                 resultado = servico.enviar_email(to_email=para_email, to_name=para_nome or para_email,
                                                  subject=assunto, html_content=html, reply_to=reply_to,
-                                                 tags=["area-cliente", modelo])
+                                                 tags=["area-cliente", modelo], sender=sender)
                 if not (resultado or {}).get("success"):
                     logger.warning("E-mail %s não enviado para %s: %s", modelo, para_email, (resultado or {}).get("error"))
             except Exception:
@@ -81,7 +126,7 @@ def _executivo_do_cliente(cliente_id) -> dict:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT cli.nome_fantasia, vend.nome_completo, vend.email, vend.telefone
+                SELECT cli.nome_fantasia, vend.nome_completo, vend.email, vend.telefone, vend.foto_url
                   FROM tbl_cliente cli
                   LEFT JOIN tbl_contato_cliente vend ON vend.id_contato_cliente = cli.vendas_central_comm
                  WHERE cli.id_cliente = %s
@@ -93,7 +138,8 @@ def _executivo_do_cliente(cliente_id) -> dict:
         conn.rollback()
         raise
     return {"cliente": row.get("nome_fantasia") or "", "nome": row.get("nome_completo") or "",
-            "email": row.get("email") or "", "whatsapp": _whatsapp(row.get("telefone"))}
+            "email": row.get("email") or "", "whatsapp": _whatsapp(row.get("telefone")),
+            "foto_url": row.get("foto_url") or ""}
 
 
 def _reply_executivo(executivo):
@@ -113,6 +159,8 @@ def novo_acesso(usuario_login: dict) -> bool:
     """Aviso de segurança a cada login no host da Área do Cliente."""
     cliente_id = usuario_login.get("pk_id_tbl_cliente")
     executivo = _executivo_do_cliente(cliente_id) if cliente_id else {}
+    executivo = _contato_executivo(executivo, usuario_login.get("nome_completo"), executivo.get("cliente", ""),
+                                   "Recebi um aviso de novo acesso na minha conta e queria confirmar.")
     ctx = {
         "primeiro_nome": _primeiro(usuario_login.get("nome_completo")), "email": usuario_login.get("email"),
         "cliente": executivo.get("cliente", ""), "quando": _agora_br(),
@@ -121,13 +169,15 @@ def novo_acesso(usuario_login: dict) -> bool:
         "link_senha": _url("/forgot-password"), "executivo": executivo,
     }
     return _enviar("novo-acesso", usuario_login.get("email"), usuario_login.get("nome_completo"),
-                   "Novo acesso à sua Área do Cliente", ctx, _reply_executivo(executivo))
+                   _com_nome(usuario_login.get("nome_completo"), "foi você que entrou agora?"), ctx, _reply_executivo(executivo))
 
 
 def acesso_liberado(contato: dict) -> bool:
     """Ao ligar o acesso no CRM v3. Sem senha cadastrada, manda o link para criar uma."""
     from .. import db
     executivo = _executivo_do_cliente(contato.get("pk_id_tbl_cliente"))
+    executivo = _contato_executivo(executivo, contato.get("nome_completo"), executivo.get("cliente", ""),
+                                   "Acabei de receber o acesso à Área do Cliente e queria uma ajuda.")
     link_senha = ""
     if not contato.get("tem_senha"):
         token = secrets.token_urlsafe(32)
@@ -137,17 +187,20 @@ def acesso_liberado(contato: dict) -> bool:
            "cliente": executivo.get("cliente", ""), "link_senha": link_senha,
            "horas_validade": HORAS_CRIAR_SENHA, "executivo": executivo}
     return _enviar("acesso-liberado", contato.get("email"), contato.get("nome_completo"),
-                   "Sua Área do Cliente Centralcomm está liberada", ctx, _reply_executivo(executivo))
+                   _com_nome(contato.get("nome_completo"), "liberamos o seu acesso à Área do Cliente"), ctx,
+                   _reply_executivo(executivo), _remetente_executivo(executivo))
 
 
 def redefinir_senha(contato: dict, link_reset: str, minutos=60) -> bool:
-    return _enviar("redefinir-senha", contato.get("email"), contato.get("nome_completo"), "Crie uma nova senha",
+    return _enviar("redefinir-senha", contato.get("email"), contato.get("nome_completo"),
+                   _com_nome(contato.get("nome_completo"), "crie a sua nova senha"),
                    {"primeiro_nome": _primeiro(contato.get("nome_completo")), "link_reset": link_reset,
                     "minutos_validade": minutos, "executivo": None})
 
 
 def senha_alterada(contato: dict) -> bool:
-    return _enviar("senha-alterada", contato.get("email"), contato.get("nome_completo"), "Sua senha foi alterada",
+    return _enviar("senha-alterada", contato.get("email"), contato.get("nome_completo"),
+                   _com_nome(contato.get("nome_completo"), "a sua senha foi trocada"),
                    {"primeiro_nome": _primeiro(contato.get("nome_completo")), "quando": _agora_br(),
                     "link_senha": _url("/forgot-password"), "executivo": None})
 
@@ -171,11 +224,13 @@ def _resumo_briefing(valores: dict) -> dict:
 
 
 def briefing_recebido(usuario: dict, valores: dict) -> bool:
-    executivo = usuario.get("executivo") or {}
+    executivo = _contato_executivo(usuario.get("executivo") or {}, usuario.get("nome"), usuario.get("cliente_nome"),
+                                   f"Enviei o briefing \"{valores.get('titulo')}\" pela Área do Cliente.")
     ctx = {**_resumo_briefing(valores), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(),
            "link_briefing": _url("/briefing"), "executivo": executivo}
     return _enviar("briefing-recebido", usuario.get("email"), usuario.get("nome"),
-                   f"Recebemos seu briefing: {valores.get('titulo')}", ctx, _reply_executivo(executivo))
+                   _com_nome(usuario.get("nome"), f"recebemos o seu briefing: {valores.get('titulo')}"), ctx,
+                   _reply_executivo(executivo), _remetente_executivo(executivo))
 
 
 # ---------- Para a equipe Centralcomm ----------
@@ -212,7 +267,10 @@ def pedido_acesso(usuario: dict) -> bool:
 
 def previa(modelo: str) -> str:
     """HTML de um modelo com dados de exemplo, para revisar o layout."""
-    executivo = {"nome": "João Figueiredo", "email": "joao@centralcomm.media", "whatsapp": "https://wa.me/5531999990000"}
+    executivo = _contato_executivo(
+        {"nome": "João Figueiredo", "email": "joao@centralcomm.media", "whatsapp": "https://wa.me/5531999990000",
+         "foto_url": "/static/emails/area_cliente/hero-profissional.jpg"},
+        "Ana Souza", "CLIENTE EXEMPLO", "Acabei de receber o acesso à Área do Cliente e queria uma ajuda.")
     exemplo_briefing = {"titulo": "Lançamento da coleção de verão", "objetivo": "Gerar visitas às lojas de BH e vender pelo site.",
                         "publico": "Mulheres de 25 a 45 anos, Belo Horizonte e região", "periodo": "01/12/2026 a 15/01/2027",
                         "verba": "até R$ 50 mil", "canais": "Redes sociais, Busca", "itens_descobrir": "Canal: Spotify\nAudiência: Alta Renda",

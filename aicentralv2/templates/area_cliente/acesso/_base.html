@@ -2,29 +2,78 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0d171a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Área do Cliente">
 {% include 'area_cliente/_og.html' %}
 <title>{% block title %}Entrar{% endblock %} · Centralcomm Área do Cliente</title>
 <link rel="icon" href="{{ url_for('static', filename='images/cc_logo.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='images/area_cliente/apple-touch-icon.png') }}">
+<link rel="manifest" href="{{ url_for('static', filename='images/area_cliente/manifest.webmanifest') }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_app.css') }}?v={{ static_fingerprint('css/area_cliente_app.css') }}">
 </head>
-<body data-cadu-skin="workspace" data-cadu-theme="light" class="ac-auth">
-<main class="ac-auth__card">
-  <div class="ac-auth__brand">
-    <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="40" height="28">
-    <span class="ac-brand__text"><b>Centralcomm</b><small>Área do Cliente</small></span>
+<body class="ac-stage-body" data-cadu-skin="workspace" data-cadu-theme="light">
+
+<!-- Tela de carregamento: monta a página e mostra a barra por 3 s -->
+<div class="ac-splash" id="ac-splash" role="status" aria-live="polite" aria-label="Carregando a Área do Cliente">
+  <img class="ac-splash__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="84" height="56">
+  <span class="ac-splash__name">Área do Cliente</span>
+  <div class="ac-splash__bar" aria-hidden="true"><div class="ac-splash__fill"></div></div>
+</div>
+
+<div class="ac-stage">
+  <div class="ac-stage__bg" aria-hidden="true">
+    <span class="ac-stage__blob ac-stage__blob--y"></span>
+    <span class="ac-stage__blob ac-stage__blob--g"></span>
+    <span class="ac-stage__blob ac-stage__blob--k"></span>
+    <span class="ac-stage__ring ac-stage__ring--1"></span>
+    <span class="ac-stage__ring ac-stage__ring--2"></span>
   </div>
-  {% with mensagens = get_flashed_messages(with_categories=true) %}
-  {% for categoria, texto in mensagens if categoria != 'success' or 'Bem-vindo' not in texto %}
-  <p class="ac-auth__msg ac-auth__msg--{{ 'erro' if categoria == 'error' else ('ok' if categoria == 'success' else 'info') }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ texto }}</p>
-  {% endfor %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</main>
-<p class="ac-auth__foot">Centralcomm · <a href="https://centralcomm.media" rel="noopener">centralcomm.media</a></p>
+
+  <main class="ac-auth" id="conteudo">
+    <div class="ac-auth__head">
+      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="44" height="31">
+      <span><b>Centralcomm</b><small>Área do Cliente</small></span>
+    </div>
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+    {% for categoria, texto in mensagens if categoria != 'success' or 'Bem-vindo' not in texto %}
+    <p class="ac-auth__msg ac-auth__msg--{{ 'erro' if categoria == 'error' else ('ok' if categoria == 'success' else 'info') }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ texto }}</p>
+    {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <p class="ac-auth__foot">Centralcomm · <a href="https://centralcomm.media" rel="noopener">centralcomm.media</a></p>
+</div>
+
+<script>
+/* Barra de progresso: 3 s, sempre que a página de acesso abre. O CSS também some sozinho se o JS falhar. */
+(function () {
+  var el = document.getElementById('ac-splash');
+  if (!el) return;
+  var fill = el.querySelector('.ac-splash__fill');
+  var reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dur = reduz ? 1 : 3000;
+  var t0 = null;
+  el.classList.add('has-js');
+  function passo(t) {
+    if (t0 === null) t0 = t;
+    var p = Math.min(1, (t - t0) / dur);
+    var suave = 1 - Math.pow(1 - p, 2.2); /* começa rápido, desacelera no fim */
+    if (fill) fill.style.setProperty('--p', suave.toFixed(4));
+    fill && (fill.style.transform = 'scaleX(' + suave.toFixed(4) + ')');
+    if (p < 1) { requestAnimationFrame(passo); }
+    else { el.classList.add('is-done'); setTimeout(function () { el.remove(); }, 500); }
+  }
+  requestAnimationFrame(passo);
+})();
+</script>
 </body>
 </html>

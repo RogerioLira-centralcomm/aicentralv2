@@ -1,13 +1,14 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, badge with context %}
 {% set eyebrow = 'Pedido de acesso' %}
 {% block title %}{{ nome }} pediu acesso à Área do Cliente{% endblock %}
-{% block preheader %}{{ nome }} ({{ cliente }}) entrou com a conta do Cadu e pediu acesso.{% endblock %}
-{% block headline %}{{ nome }} pediu acesso à Área do Cliente{% endblock %}
+{% block preheader %}{{ nome }} ({{ cliente }}) pediu acesso à Área do Cliente.{% endblock %}
+{% block icone %}{{ badge('user-plus') }}{% endblock %}
+{% block headline %}{{ nome }} quer acesso à Área do Cliente{% endblock %}
 {% block content %}
-  <p style="margin:0">Olá, {{ primeiro_nome_executivo }}. Um contato da {{ cliente }} entrou com a conta do Cadu e pediu acesso à Área do Cliente.</p>
+  <p style="margin:0">{{ primeiro_nome_executivo }}, {{ nome }}, da {{ cliente }}, pediu acesso pela conta do Cadu.</p>
   {{ fatos([('Contato', nome), ('E-mail', email), ('Empresa', cliente), ('Pedido em', quando)]) }}
-  <p style="margin:0">Para liberar, abra o contato no CRM v3 e ligue "Acesso à Área do Cliente".</p>
+  <p style="margin:24px 0 0">Para liberar, abra o contato no CRM v3 e ligue "Acesso à Área do Cliente".</p>
   {{ botao(link_crm, 'Abrir no CRM v3') }}
 {% endblock %}
-{% block footer_note %}Aviso interno da Área do Cliente. O cliente não recebe esta mensagem.{% endblock %}
+{% block footer_note %}Aviso interno. O cliente não recebe esta mensagem.{% endblock %}

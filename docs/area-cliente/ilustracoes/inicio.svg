@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="t">
+  <title id="t">Início da Área do Cliente</title>
+  <rect width="640" height="400" rx="20" fill="#f2f4f7"/>
+  <rect x="60" y="50" width="520" height="300" rx="16" fill="#ffffff" stroke="#eaecf0"/>
+  <rect x="60" y="50" width="520" height="44" rx="16" fill="#0d171a"/>
+  <rect x="60" y="78" width="520" height="16" fill="#0d171a"/>
+  <circle cx="84" cy="72" r="5" fill="#8de0d3"/>
+  <rect x="100" y="66" width="90" height="10" rx="5" fill="#91aaa6"/>
+  <!-- saudação -->
+  <rect x="90" y="116" width="170" height="12" rx="6" fill="#101828"/>
+  <rect x="90" y="136" width="250" height="8" rx="4" fill="#d0d5dd"/>
+  <!-- cards de indicadores -->
+  <rect x="90" y="164" width="150" height="72" rx="10" fill="#e6f6f3"/>
+  <rect x="106" y="182" width="60" height="8" rx="4" fill="#055c50"/>
+  <rect x="106" y="200" width="100" height="16" rx="5" fill="#055c50"/>
+  <rect x="260" y="164" width="150" height="72" rx="10" fill="#f9fafb" stroke="#eaecf0"/>
+  <rect x="276" y="182" width="60" height="8" rx="4" fill="#98a2b3"/>
+  <rect x="276" y="200" width="100" height="16" rx="5" fill="#101828"/>
+  <rect x="430" y="164" width="130" height="72" rx="10" fill="#f9fafb" stroke="#eaecf0"/>
+  <rect x="446" y="182" width="60" height="8" rx="4" fill="#98a2b3"/>
+  <rect x="446" y="200" width="80" height="16" rx="5" fill="#101828"/>
+  <!-- gráfico de campanhas -->
+  <rect x="90" y="252" width="250" height="78" rx="10" fill="#ffffff" stroke="#eaecf0"/>
+  <polyline points="110,312 150,294 190,300 230,272 270,280 320,262" fill="none" stroke="#055c50" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="320" cy="262" r="5" fill="#8de0d3" stroke="#055c50" stroke-width="2"/>
+  <!-- próximos passos -->
+  <rect x="360" y="252" width="200" height="78" rx="10" fill="#ffffff" stroke="#eaecf0"/>
+  <circle cx="382" cy="276" r="7" fill="#055c50"/>
+  <rect x="398" y="272" width="140" height="8" rx="4" fill="#667085"/>
+  <circle cx="382" cy="302" r="7" fill="none" stroke="#98a2b3" stroke-width="2"/>
+  <rect x="398" y="298" width="120" height="8" rx="4" fill="#d0d5dd"/>
+</svg>

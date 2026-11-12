@@ -1,11 +1,13 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, nota %}
-{% set eyebrow = 'Segurança da conta' %}
+{% from 'emails/area_cliente/_ui.html' import botao, nota, badge, link_texto with context %}
+{% set eyebrow = 'Senha' %}
 {% block title %}Sua senha foi alterada{% endblock %}
-{% block preheader %}A senha da sua Área do Cliente acabou de ser alterada.{% endblock %}
-{% block headline %}Sua senha foi alterada{% endblock %}
+{% block preheader %}Trocamos a senha da sua Área do Cliente.{% endblock %}
+{% block icone %}{{ badge('check-circle') }}{% endblock %}
+{% block headline %}Pronto, sua senha foi trocada{% endblock %}
 {% block content %}
-  <p style="margin:0">Olá, {{ primeiro_nome }}. A senha da sua Área do Cliente Centralcomm foi alterada em {{ quando }}.</p>
-  {{ nota('Não foi você? Crie uma nova senha agora e avise seu executivo na Centralcomm.', 'alerta') }}
-  {{ botao(link_senha, 'Criar nova senha', secundario=True) }}
+  <p style="margin:0">Oi, {{ primeiro_nome }}. Trocamos a senha da sua Área do Cliente em {{ quando }}.</p>
+  {{ nota('Não foi você? Crie outra senha agora e avise seu executivo na Centralcomm.', 'alerta') }}
+  {{ botao(area_url, 'Abrir Área do Cliente') }}
+  {{ link_texto(link_senha, 'Trocar agora', 'Precisa de outra senha?') }}
 {% endblock %}

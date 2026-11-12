@@ -1,44 +1,111 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light only">
   <meta name="supported-color-schemes" content="light only">
   <title>{% block title %}Centralcomm · Área do Cliente{% endblock %}</title>
   <style>
-    html,body{margin:0!important;padding:0!important;background:#f2f4f7!important;color:#101828!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}table{border-spacing:0!important;border-collapse:collapse!important}img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}.shell{width:100%;max-width:600px}.copy{color:#475467!important}.link{overflow-wrap:anywhere}@media only screen and (max-width:620px){.page-pad{padding:12px 8px!important}.head-pad{padding:18px 22px!important}.body-pad{padding:26px 22px!important}.foot-pad{padding:18px 22px!important}.title{font-size:24px!important;line-height:1.2!important}.copy{font-size:15px!important}.button{display:block!important;width:100%!important;text-align:center!important;box-sizing:border-box}.facts td{display:block!important;width:100%!important}}
+    html,body{margin:0!important;padding:0!important;background:#e9efec!important;color:#0c2e24!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+    table{border-spacing:0!important;border-collapse:collapse!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
+    img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;display:block;max-width:100%}
+    a{color:#0c2e24}
+    @media only screen and (max-width:620px){
+      .w-full{width:100%!important}
+      .px{padding-left:22px!important;padding-right:22px!important}
+      .hero-title{font-size:30px!important;line-height:1.1!important}
+      .copy{font-size:16px!important;line-height:1.6!important}
+      .btn{display:block!important;width:100%!important;box-sizing:border-box!important;text-align:center!important}
+      .facts .f-label{width:34%!important}
+      .outer{padding:0!important}
+      .card{border-radius:0!important}
+      .foot-col{display:block!important;width:100%!important}
+    }
   </style>
 </head>
-<body style="margin:0;background:#f2f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Arial,Helvetica,sans-serif">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · Área do Cliente{% endblock %}</div>
-  <table role="presentation" width="100%" bgcolor="#f2f4f7"><tr><td class="page-pad" style="padding:32px 16px">
-    <table role="presentation" class="shell" width="600" align="center"><tr><td bgcolor="#ffffff" style="border:1px solid #eaecf0;border-radius:14px;overflow:hidden;background:#ffffff">
-      <table role="presentation" width="100%">
-        <tr><td class="head-pad" style="padding:20px 32px;border-bottom:1px solid #eaecf0">
-          <table role="presentation" cellspacing="0" cellpadding="0"><tr>
-            <td style="vertical-align:middle"><img src="{{ brand.icon_url }}" width="40" height="28" alt="Centralcomm" style="display:block;width:40px;height:28px;object-fit:contain"></td>
-            <td style="vertical-align:middle;padding-left:12px;border-left:1px solid #eaecf0"><strong style="display:block;color:#101828;font-size:15px;line-height:1.2;letter-spacing:-.2px">Centralcomm</strong><span style="color:#055c50;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase">Área do Cliente</span></td>
-          </tr></table>
-        </td></tr>
-        <tr><td class="body-pad" style="padding:30px 32px 32px">
-          {% block eyebrow %}{% if eyebrow %}<p style="margin:0 0 8px;color:#055c50;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase">{{ eyebrow }}</p>{% endif %}{% endblock %}
-          <h1 class="title" style="margin:0 0 14px;color:#101828;font-size:26px;line-height:1.2;letter-spacing:-.5px">{% block headline %}{% endblock %}</h1>
-          <div class="copy" style="color:#475467;font-size:15px;line-height:1.65">{% block content %}{% endblock %}</div>
-        </td></tr>
-        {% if executivo and executivo.nome %}
-        <tr><td style="padding:0 32px 28px">
-          <table role="presentation" width="100%" style="border:1px solid #eaecf0;border-radius:10px"><tr><td style="padding:12px 14px;font-size:13px;line-height:1.5;color:#475467">
-            Dúvidas? Fale com <strong style="color:#101828">{{ executivo.nome }}</strong>, seu executivo na Centralcomm{% if executivo.email %} · <a href="mailto:{{ executivo.email }}" style="color:#055c50">{{ executivo.email }}</a>{% endif %}{% if executivo.whatsapp %} · <a href="{{ executivo.whatsapp }}" style="color:#055c50">WhatsApp</a>{% endif %}
-          </td></tr></table>
-        </td></tr>
-        {% endif %}
-        <tr><td class="foot-pad" bgcolor="#0d171a" style="padding:18px 32px;background:#0d171a">
-          <p style="margin:0 0 4px;color:#ffffff;font-size:13px;font-weight:700">Centralcomm · Área do Cliente</p>
-          <p style="margin:0;color:#91aaa6;font-size:11px;line-height:1.5">{% block footer_note %}Seus PIs, campanhas, entregas e briefings em <a href="{{ area_url }}" style="color:#8de0d3">{{ area_url|replace('https://', '') }}</a>.{% endblock %}</p>
-        </td></tr>
-      </table>
-    </td></tr></table>
+<body style="margin:0;padding:0;background:#e9efec;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · Área do Cliente{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+
+  <table role="presentation" width="100%" bgcolor="#e9efec" class="outer"><tr><td align="center" style="padding:28px 12px">
+    <table role="presentation" width="600" class="w-full card" bgcolor="#ffffff" style="width:600px;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden">
+
+      <!-- cabeçalho escuro, com logo -->
+      <tr><td class="px" bgcolor="#0c2e24" style="padding:20px 36px;background:#0c2e24">
+        <table role="presentation" width="100%"><tr>
+          <td align="left" style="vertical-align:middle">
+            <table role="presentation" cellspacing="0" cellpadding="0"><tr>
+              <td bgcolor="#ffffff" style="background:#ffffff;border-radius:10px;padding:5px 7px"><img src="{{ brand.icon_url }}" width="30" height="21" alt="Centralcomm" style="display:block;width:30px;height:auto"></td>
+              <td style="vertical-align:middle;padding-left:10px;font-size:15px;font-weight:700;color:#ffffff;letter-spacing:-.2px">Centralcomm</td>
+            </tr></table>
+          </td>
+          <td align="right" style="vertical-align:middle;font-size:13px;line-height:1.35">{% if cliente %}<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fa89a">{{ cliente }}</span>{% endif %}<a href="{{ area_url }}" style="color:#b7f5d6;text-decoration:none;font-weight:600">Área do Cliente &rarr;</a></td>
+        </tr></table>
+      </td></tr>
+
+      {% block hero_img %}{% endblock %}
+
+      <!-- título em bloco escuro -->
+      <tr><td class="px" bgcolor="#0c2e24" style="padding:32px 36px 44px;background:#0c2e24">
+        {% block icone %}{% endblock %}
+        {% block eyebrow %}{% if eyebrow %}<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#24ce7b">{{ eyebrow }}</p>{% endif %}{% endblock %}
+        <h1 class="hero-title" style="margin:0;font-size:34px;line-height:1.1;letter-spacing:-1px;font-weight:800;color:#ffffff">{% block headline %}{% endblock %}</h1>
+        {% block subtitulo %}{% endblock %}
+      </td></tr>
+
+      <!-- corpo -->
+      <tr><td class="px" style="padding:38px 36px 40px">
+        <div class="copy" style="font-size:16px;line-height:1.65;color:#2a3b36">{% block content %}{% endblock %}</div>
+      </td></tr>
+
+      {% if executivo and executivo.nome %}
+      {% set partes = executivo.nome.split() %}
+      <tr><td class="px" style="padding:0 36px 40px">
+        <table role="presentation" width="100%" style="background:#f2f7f5;border-radius:16px">
+          <tr>
+            <td width="84" valign="middle" style="padding:22px 0 0 22px">
+              {% if executivo.foto %}
+              <img src="{{ executivo.foto }}" width="56" height="56" alt="{{ executivo.nome }}" style="display:block;width:56px;height:56px;border-radius:999px;object-fit:cover;border:2px solid #ffffff">
+              {% else %}
+              <table role="presentation" cellspacing="0" cellpadding="0"><tr><td width="56" height="56" align="center" valign="middle" bgcolor="#24ce7b" style="width:56px;height:56px;border-radius:999px;background:#24ce7b;font-size:18px;font-weight:800;color:#0c2e24">{{ (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ''))|upper }}</td></tr></table>
+              {% endif %}
+            </td>
+            <td valign="middle" style="padding:22px 22px 0 4px;font-size:14px;line-height:1.5;color:#2a3b36">
+              <strong style="font-size:16px;color:#0c2e24">{{ executivo.nome }}</strong><br>
+              <span style="color:#5b7a71">Seu executivo na Centralcomm{% if executivo.cliente %}<br>{{ executivo.cliente }}{% endif %}</span>
+            </td>
+          </tr>
+          <tr><td colspan="2" style="padding:18px 22px 22px;font-size:14px;line-height:1.55;color:#2a3b36">
+            {% if executivo.whatsapp %}
+            <p style="margin:0 0 14px">Precisa de algo rápido? Chame direto. A mensagem já vai pronta{% if executivo.cliente %}, com o nome da {{ executivo.cliente }}{% endif %}.</p>
+            <table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="#24ce7b" style="border-radius:999px;background:#24ce7b">
+              <a class="btn" href="{{ executivo.whatsapp }}" style="display:inline-block;padding:13px 26px;border-radius:999px;font-size:15px;font-weight:800;text-decoration:none;color:#0c2e24">Chamar {{ partes[0] }} no WhatsApp</a>
+            </td></tr></table>
+            {% if executivo.email %}<p style="margin:14px 0 0;font-size:13px;color:#5b7a71">Ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a></p>{% endif %}
+            {% elif executivo.email %}
+            <p style="margin:0">Precisa de algo? Responda este e-mail ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.</p>
+            {% endif %}
+          </td></tr>
+        </table>
+      </td></tr>
+      {% endif %}
+
+      <!-- rodapé -->
+      <tr><td class="px" bgcolor="#0c2e24" style="padding:30px 36px;background:#0c2e24">
+        <table role="presentation" width="100%"><tr>
+          <td class="foot-col" style="vertical-align:top;font-size:13px;line-height:1.6;color:#9fbdb3">
+            <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#ffffff">Centralcomm</p>
+            {% block footer_note %}Campanhas, entregas e briefings num só lugar.<br>
+            <a href="{{ area_url }}" style="color:#24ce7b;text-decoration:none;font-weight:600">{{ area_url|replace('https://', '')|replace('/', '') }}</a>{% endblock %}
+          </td>
+        </tr></table>
+        <p style="margin:22px 0 0;padding-top:18px;border-top:1px solid #1d4a3e;font-size:12px;line-height:1.6;color:#9fbdb3">Precisa de ajuda? Escreva para <a href="mailto:contato@centralcomm.media" style="color:#b7f5d6;text-decoration:none;font-weight:600">contato@centralcomm.media</a>.</p>
+        <p style="margin:12px 0 0;font-size:11px;line-height:1.6;color:#6f8f85">Você recebe este e-mail por ser cliente da Centralcomm. Mensagens de segurança da conta são enviadas sempre.</p>
+      </td></tr>
+
+    </table>
   </td></tr></table>
 </body>
 </html>

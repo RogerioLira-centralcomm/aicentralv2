@@ -1,13 +1,21 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota %}
-{% set eyebrow = 'Briefing recebido' %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, passos, link_texto with context %}
+{% set eyebrow = 'Briefing' %}
 {% block title %}Recebemos seu briefing: {{ titulo }}{% endblock %}
-{% block preheader %}A Centralcomm recebeu seu briefing e vai montar o planejamento.{% endblock %}
-{% block headline %}Recebemos seu briefing{% endblock %}
+{% block preheader %}Seu briefing chegou. Já estamos olhando.{% endblock %}
+{% block icone %}{{ badge('check-circle') }}{% endblock %}
+{% block headline %}Recebemos seu briefing. Obrigado, {{ primeiro_nome }}!{% endblock %}
 {% block content %}
-  <p style="margin:0">Olá, {{ primeiro_nome }}. Seu briefing chegou à Centralcomm{% if executivo and executivo.nome %} e está com {{ executivo.nome }}{% endif %}.</p>
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período desejado', periodo), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Enviado em', quando)]) }}
-  <p style="margin:0"><strong style="color:#101828">Próximos passos:</strong> a equipe analisa o briefing, monta o planejamento de mídia e retorna com a proposta. Com o PI aprovado, as campanhas aparecem na sua Área do Cliente.</p>
-  {{ botao(link_briefing, 'Acompanhar o briefing') }}
-  {{ nota('Quer ajustar algo? Responda a este e-mail ou fale com seu executivo.') }}
+  <p style="margin:0">Chegou aqui e já está com {% if executivo and executivo.nome %}{{ executivo.nome }}{% else %}a equipe{% endif %}. Este é o resumo do que você enviou:</p>
+  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Enviado em', quando)]) }}
+
+  <p style="margin:34px 0 0;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5b7a71">O que acontece agora</p>
+  {{ passos([
+    ('file-text', 'Análise', 'A equipe lê o briefing e tira as dúvidas com você, se precisar.'),
+    ('layers', 'Planejamento', 'Montamos o planejamento de mídia com canais, formatos e verba.'),
+    ('megaphone', 'Proposta e PI', 'Você recebe a proposta. Com o PI aprovado, as campanhas aparecem aqui.'),
+  ]) }}
+
+  {{ botao(area_url, 'Abrir Área do Cliente') }}
+  {{ link_texto(link_briefing, 'Ver o briefing enviado', 'Quer rever o que mandou?') }}
 {% endblock %}

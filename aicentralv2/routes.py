@@ -522,6 +522,7 @@ _TELAS_AREA_CLIENTE = {
     'login_tailwind.html': 'area_cliente/acesso/login.html',
     'forgot_password_tailwind.html': 'area_cliente/acesso/esqueci_senha.html',
     'reset_password_tailwind.html': 'area_cliente/acesso/nova_senha.html',
+    'signup_tailwind.html': 'area_cliente/acesso/cadastro.html',
 }
 
 
@@ -1332,7 +1333,7 @@ def init_routes(app):
             if senha != confirmacao:
                 errors.append('As senhas não conferem.')
             if errors:
-                return render_template('signup_tailwind.html', next_target=next_target, signup_errors=errors,
+                return render_template(_tela_acesso('signup_tailwind.html'), next_target=next_target, signup_errors=errors,
                                        signup_name=nome, signup_email=request.form.get('email') or '')
             try:
                 from aicentralv2.services.onboarding_comercial import (
@@ -1340,12 +1341,12 @@ def init_routes(app):
                 )
                 user, executivo = provisionar_conta_publica(nome=nome, email=email, senha=senha)
             except ValueError as exc:
-                return render_template('signup_tailwind.html', next_target=next_target,
+                return render_template(_tela_acesso('signup_tailwind.html'), next_target=next_target,
                                        signup_errors=[str(exc)], signup_name=nome,
                                        signup_email=request.form.get('email') or ''), 400
             except Exception:
                 app.logger.exception('Erro ao criar conta pública do Cadu')
-                return render_template('signup_tailwind.html', next_target=next_target,
+                return render_template(_tela_acesso('signup_tailwind.html'), next_target=next_target,
                                        signup_errors=['Não foi possível criar sua conta agora. Tente novamente.'],
                                        signup_name=nome, signup_email=request.form.get('email') or ''), 503
 
@@ -1368,7 +1369,7 @@ def init_routes(app):
                 app.logger.exception('Conta %s criada, mas o fluxo inicial de e-mails falhou', email)
             flash('Conta criada com sucesso! Vamos preparar seu Workspace.', 'success')
             return redirect(url_for('signup_welcome'), code=303)
-        return render_template('signup_tailwind.html', next_target=next_target, signup_errors=[], signup_name='', signup_email='')
+        return render_template(_tela_acesso('signup_tailwind.html'), next_target=next_target, signup_errors=[], signup_name='', signup_email='')
 
     @app.get('/bem-vindo')
     def signup_welcome():

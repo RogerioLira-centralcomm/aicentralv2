@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0d171a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,14 +19,18 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente.css') }}?v={{ static_fingerprint('css/area_cliente.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_app.css') }}?v={{ static_fingerprint('css/area_cliente_app.css') }}">
 </head>
-<body class="ac-stage-body" data-cadu-skin="workspace" data-cadu-theme="light">
+{# Splash só na abertura da tela. Em erro de senha ou validação (POST ou aviso) o usuário vê a mensagem na hora. #}
+{% set com_splash = request.method == 'GET' and not get_flashed_messages() and not signup_errors %}
+<body class="ac-stage-body{% if not com_splash %} ac-no-splash{% endif %}" data-cadu-skin="workspace" data-cadu-theme="light">
 
+{% if com_splash %}
 <!-- Tela de carregamento: monta a página e mostra a barra por 3 s -->
 <div class="ac-splash" id="ac-splash" role="status" aria-live="polite" aria-label="Carregando a Área do Cliente">
   <img class="ac-splash__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="84" height="56">
   <span class="ac-splash__name">Área do Cliente</span>
   <div class="ac-splash__bar" aria-hidden="true"><div class="ac-splash__fill"></div></div>
 </div>
+{% endif %}
 
 <div class="ac-stage">
   <div class="ac-stage__bg" aria-hidden="true">
@@ -53,27 +57,6 @@
   <p class="ac-auth__foot">Centralcomm · <a href="https://centralcomm.media" rel="noopener">centralcomm.media</a></p>
 </div>
 
-<script>
-/* Barra de progresso: 3 s, sempre que a página de acesso abre. O CSS também some sozinho se o JS falhar. */
-(function () {
-  var el = document.getElementById('ac-splash');
-  if (!el) return;
-  var fill = el.querySelector('.ac-splash__fill');
-  var reduz = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var dur = reduz ? 1 : 3000;
-  var t0 = null;
-  el.classList.add('has-js');
-  function passo(t) {
-    if (t0 === null) t0 = t;
-    var p = Math.min(1, (t - t0) / dur);
-    var suave = 1 - Math.pow(1 - p, 2.2); /* começa rápido, desacelera no fim */
-    if (fill) fill.style.setProperty('--p', suave.toFixed(4));
-    fill && (fill.style.transform = 'scaleX(' + suave.toFixed(4) + ')');
-    if (p < 1) { requestAnimationFrame(passo); }
-    else { el.classList.add('is-done'); setTimeout(function () { el.remove(); }, 500); }
-  }
-  requestAnimationFrame(passo);
-})();
-</script>
+{% if com_splash %}<script src="{{ url_for('static', filename='js/area_cliente_splash.js') }}?v={{ static_fingerprint('js/area_cliente_splash.js') }}"></script>{% endif %}
 </body>
 </html>

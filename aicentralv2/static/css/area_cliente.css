@@ -803,10 +803,6 @@ body { font-size: 14px; }
 section.ac-stats { gap: 0; margin: 0; }
 
 /* ---------- Telas de acesso (login, senha) ---------- */
-.ac-auth { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px 16px; background: var(--soft); }
-.ac-auth__card { width: 100%; max-width: 400px; display: grid; gap: 14px; padding: 28px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); }
-.ac-auth__brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-.ac-auth__brand img { width: 40px; height: 28px; object-fit: contain; }
 .ac-auth__title { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; letter-spacing: -.01em; }
 .ac-auth__lead { margin: -8px 0 0; color: var(--muted); font-size: 14px; }
 .ac-auth__form { display: grid; gap: 14px; }

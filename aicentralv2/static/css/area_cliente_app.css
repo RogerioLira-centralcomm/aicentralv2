@@ -251,12 +251,13 @@
 
 /* ---------- Modo app (instalado ou tela cheia) ---------- */
 
-.ac-standalone .ac-app,
-.ac-standalone .ac-stage {
-  padding-top: env(safe-area-inset-top);
+.ac-standalone .ac-app {
+  /* Barra de status do iOS no modo 'default' não sobrepõe a página: só as laterais (modo paisagem). */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+/* Tela de acesso é escura e vai até o topo (barra translúcida): aqui o recuo do topo vale. */
+.ac-standalone .ac-stage { padding-top: env(safe-area-inset-top); }
 
 @media (prefers-reduced-motion: reduce) {
   .ac-stage__blob,
@@ -266,3 +267,6 @@
   .ac-splash { animation-duration: .01s; animation-delay: 0s; }
   .ac-splash__fill { animation-duration: .01s; }
 }
+
+/* Sem tela de carregamento (erro de login ou validação): o cartão aparece na hora. */
+.ac-no-splash .ac-auth { animation-delay: 0s; }

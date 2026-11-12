@@ -2,13 +2,13 @@
 {% from 'emails/area_cliente/_ui.html' import botao, passos, dica, link_cru, link_texto with context %}
 {% set eyebrow = 'Bem-vindo à Área do Cliente' %}
 {% block title %}Sua Área do Cliente Centralcomm está liberada{% endblock %}
-{% block preheader %}Campanhas, entregas e briefings da {{ cliente }} num só lugar.{% endblock %}
+{% block preheader %}Campanhas, entregas e briefings {% if cliente %}da {{ cliente }}{% else %}da sua empresa{% endif %} num só lugar.{% endblock %}
 {% block headline %}Oi, {{ primeiro_nome }}. A sua Área do Cliente já está no ar.{% endblock %}
 {% block hero_img %}
 <tr><td bgcolor="#0c2e24" style="background:#0c2e24;padding:0"><img src="{{ brand.illustrations_url }}hero-profissional.jpg" width="600" alt="" style="display:block;width:600px;height:auto;max-width:100%"></td></tr>
 {% endblock %}
 {% block content %}
-  <p style="margin:0">A partir de agora você acompanha a {{ cliente }} com a Centralcomm num lugar só. Veja o que já está pronto para você:</p>
+  <p style="margin:0">A partir de agora você acompanha {% if cliente %}a {{ cliente }}{% else %}a sua empresa{% endif %} com a Centralcomm num lugar só. Veja o que já está pronto para você:</p>
 
   {{ passos([
     ('megaphone', 'Campanhas no ar', 'Acompanhe o que está veiculando e o que já foi entregue contra a meta.'),

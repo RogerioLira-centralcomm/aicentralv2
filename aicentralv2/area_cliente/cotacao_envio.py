@@ -126,3 +126,48 @@ def view_cotacao_enviar(usuario, uuid):
     except Exception:
         current_app.logger.warning("E-mails do briefing de cotação %s não enviados.", novo_id, exc_info=True)
     return redirect(destino + "?enviado=1", code=303)
+
+
+# ---------- anexo opcional do briefing de planejamento ----------
+# O arquivo só ajuda a preencher: o briefing continua sendo escrito no formulário. Usa o mesmo rascunho e a mesma leitura da cotação.
+
+def rascunho_anexo(usuario, uuid_rascunho):
+    """Rascunho de anexo deste cliente, ou None."""
+    if not uuid_rascunho:
+        return None
+    r = cotacao.obter(str(uuid_rascunho)[:40])
+    return r if r and r.get("id_cliente") == usuario["cliente_id"] and r.get("status") != "enviado" else None
+
+
+def view_anexo(usuario):
+    r = _rotas()
+    r._checar_csrf()
+    arquivos = [a for a in request.files.getlist("arquivos") if a and a.filename]
+    if not arquivos:
+        return jsonify(ok=False, erro="Escolha ao menos um arquivo."), 400
+    if len(arquivos) > cotacao.MAX_ARQUIVOS:
+        return jsonify(ok=False, erro=f"Envie até {cotacao.MAX_ARQUIVOS} arquivos por vez."), 400
+    if cotacao.contar_recentes(usuario["cliente_id"], 60) >= LIMITE_POR_HORA:
+        return jsonify(ok=False, erro="Muitos envios seguidos. Tente de novo em alguns minutos."), 429
+    lidos = []
+    for a in arquivos:
+        conteudo = a.read(cotacao.MAX_BYTES + 1)
+        try:
+            lidos.append((a.filename, conteudo, cotacao.validar_arquivo(a.filename, conteudo)))
+        except cotacao.CotacaoErro as exc:
+            return jsonify(ok=False, erro=str(exc)), 400
+    rascunho = cotacao.criar_rascunho(usuario["cliente_id"], usuario["user_id"])
+    guardados = [cotacao.guardar(rascunho["id"], n, c, t) for n, c, t in lidos]
+    cotacao.definir_arquivos(rascunho["id"], guardados)
+    cotacao.iniciar_em_segundo_plano(rascunho["id"], rascunho["uuid"])
+    return jsonify(ok=True, uuid=rascunho["uuid"], dados_url=r.area_url("briefing_anexo_dados", uuid=rascunho["uuid"]),
+                   nomes=[g["nome"] for g in guardados])
+
+
+def view_anexo_dados(usuario, uuid):
+    rascunho = _do_usuario(usuario, uuid)
+    estado = cotacao.situacao(rascunho)
+    resposta = jsonify(ok=True, estado=estado, pronto=estado != "lendo", leitura=rascunho.get("leitura") or {},
+                       erro=rascunho.get("erro") or "", nomes=[a["nome"] for a in rascunho.get("arquivos") or []])
+    resposta.headers["Cache-Control"] = "no-store"
+    return resposta

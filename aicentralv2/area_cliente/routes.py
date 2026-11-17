@@ -18,7 +18,7 @@ from flask import abort, current_app, jsonify, redirect, render_template, reques
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas, videos
+from . import acesso, briefing, cotacao, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas, videos
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -29,6 +29,8 @@ ROTAS = Map([
     Rule("/briefing/planejamento", endpoint="briefing_planejamento", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/pi-antigo", endpoint="briefing_pi_antigo", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/todos", endpoint="briefing_todos"),
+    Rule("/briefing/anexo", endpoint="briefing_anexo", methods=["POST"]),
+    Rule("/briefing/anexo/<uuid>", endpoint="briefing_anexo_dados"),
     Rule("/briefing/cotacao", endpoint="briefing_cotacao", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/cotacao/<uuid>", endpoint="briefing_cotacao_rascunho"),
     Rule("/briefing/cotacao/<uuid>/status", endpoint="briefing_cotacao_status"),
@@ -379,7 +381,27 @@ def view_briefing_form(usuario, modo="planejamento"):
                 origem = None
             if origem:
                 valores["origem_rotulo"] = f"{origem['fonte']} {origem['titulo']}" + (f" ({origem['quando']})" if origem["quando"] else "")
-            novo_id = briefing.enviar(usuario, valores)
+            extra, reservado = None, None
+            anexo = cotacao_envio.rascunho_anexo(usuario, request.form.get("anexo"))
+            if anexo and cotacao.situacao(anexo) in ("pronto", "erro") and cotacao.reservar(anexo["id"]):
+                reservado, nomes = anexo, [a["nome"] for a in anexo.get("arquivos") or []]
+                leitura = anexo.get("leitura") or {}
+                notas = ["Arquivos anexados: " + ", ".join(nomes)] if nomes else []
+                if leitura.get("faltou"):
+                    notas.append("Não achei nos arquivos: " + "; ".join(leitura["faltou"]))
+                valores["descricao"] = "\n\n".join(p for p in [valores.get("descricao"), *notas] if p)[:6000]
+                valores["anexos"] = nomes
+                extra = {"modo": modo if modo != "pi_antigo" else "pi_antigo", "prazo_resposta_em": None,
+                         "arquivos": [{k: a[k] for k in ("nome", "sha256", "tamanho", "caminho", "tipo")} for a in anexo.get("arquivos") or []],
+                         "leitura_ia": {**leitura, "rascunho_uuid": anexo["uuid"]}}
+            try:
+                novo_id = briefing.enviar(usuario, valores, extra) if extra else briefing.enviar(usuario, valores)
+            except Exception:
+                if reservado:
+                    cotacao.mudar_status(reservado["id"], "lido", None)
+                raise
+            if reservado:
+                cotacao.marcar_enviado(reservado["id"], novo_id, None)
             session.pop("area_cliente_descobrir", None)
             try:
                 emails.briefing_novo(usuario, valores, novo_id)
@@ -388,11 +410,14 @@ def view_briefing_form(usuario, modo="planejamento"):
                 current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
             return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
     status = 422 if erros else 200
-    try:
-        historico = briefing.historico(usuario["cliente_id"])
-    except Exception:
-        current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
-        historico = []
+    if erros and request.method == "POST":
+        valores["anexo"] = request.form.get("anexo", "")                # o arquivo já lido continua valendo depois de um erro
+    historico = []
+    if modo != "planejamento":                                          # planejamento não reaproveita PI: parte do que o cliente escreve e do Descobrir
+        try:
+            historico = briefing.historico(usuario["cliente_id"])
+        except Exception:
+            current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
     opcoes = {
         "objetivos": [{"id": o[0], "rotulo": o[1], "kpis": list(o[2]), "conversao": o[3]} for o in briefing.OBJETIVOS],
         "historico": historico, "base_pracas": briefing.base_pracas(),
@@ -809,7 +834,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar", "briefing_planejamento", "briefing_pi_antigo", "briefing_cotacao", "briefing_cotacao_enviar"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar", "briefing_planejamento", "briefing_pi_antigo", "briefing_cotacao", "briefing_cotacao_enviar", "briefing_anexo"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -844,6 +869,10 @@ def despachar():
         return view_briefing_pi_antigo(usuario)
     if endpoint == "briefing_todos":
         return view_briefing_todos(usuario)
+    if endpoint == "briefing_anexo":
+        return cotacao_envio.view_anexo(usuario)
+    if endpoint == "briefing_anexo_dados":
+        return cotacao_envio.view_anexo_dados(usuario, **args)
     if endpoint == "briefing_cotacao":
         return cotacao_envio.view_cotacao(usuario)
     if endpoint == "briefing_cotacao_rascunho":

@@ -234,3 +234,18 @@ form:not(.is-wizard) .bw-step__eyebrow { display: none; }
 .bw-falta__titulo { margin: 0 0 4px; font-weight: 600; font-size: 14px; }
 .bw-falta ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
 @media (max-width: 700px) { .bw-origens--lista { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Planejamento: blocos alinhados, textos de ajuda e material de apoio ---------- */
+.bw-ajuda { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.bw-step .ac-field { display: grid; gap: 6px; align-content: start; margin: 0; }
+.bw-step .ac-field > label, .bw-step .ac-field > legend { margin: 0; }
+.bw-step .ac-field-row, .bw-row-2 { align-items: start; gap: 16px; }
+.bw-step { padding-top: 4px; }
+.bw-step__head { display: grid; gap: 4px; }
+.bw-apoio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-xl, 14px); background: var(--colors-brand-25); }
+.bw-apoio__col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.bw-apoio__titulo { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 600; }
+.bw-apoio__titulo small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.bw-apoio__n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; }
+.bw-apoio .ac-btn { justify-self: start; }
+@media (max-width: 700px) { .bw-apoio { grid-template-columns: minmax(0, 1fr); } }

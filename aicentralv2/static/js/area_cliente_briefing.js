@@ -535,5 +535,49 @@
       $('#b-titulo').focus();
     });
   }
+  /* ---------- Anexo opcional: o arquivo só ajuda a preencher; campo que o cliente já escreveu não é trocado ---------- */
+  var anexo = document.getElementById('bw-anexo');
+  if (anexo) {
+    var aBtn = document.getElementById('bw-anexo-btn'), aFile = document.getElementById('bw-anexo-arquivo'),
+        aId = document.getElementById('bw-anexo-id'), aStatus = document.getElementById('bw-anexo-status');
+    var aviso = function (t) { aStatus.textContent = t || ''; };
+    var preencher = function (l) {
+      var feitos = [];
+      var campo = function (sel, v, rotulo) { var el = $(sel); if (v && el && !el.value.trim()) { el.value = v; feitos.push(rotulo); } };
+      campo('#b-titulo', l.titulo, 'nome'); campo('#b-objetivo', l.objetivo, 'objetivo'); campo('#b-publico', l.publico, 'público');
+      campo('#b-inicio', l.inicio, 'início'); campo('#b-fim', l.fim, 'fim'); campo('#b-verba', l.verba, 'verba');
+      if ((l.pracas || []).length && !pracas().length) { l.pracas.forEach(addToken); if (!val('abrangencia')) setRadio('abrangencia', 'cidades'); feitos.push('praças'); }
+      if ((l.canais || []).length && !lista('canais').length) { setChecks('canais', l.canais); feitos.push('canais'); }
+      atualizar();
+      var faltou = (l.faltou || []).length ? ' O arquivo não trouxe: ' + l.faltou.join('; ') + '.' : '';
+      aviso(feitos.length ? 'Preenchi ' + feitos.join(', ') + ' a partir do arquivo. Confira e complete o que falta.' + faltou
+                          : 'Li o arquivo, mas não havia nada novo para preencher. Complete os campos abaixo.' + faltou);
+    };
+    var acompanhar = function (url, tentativa) {
+      fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (r) {
+        if (r.estado === 'lendo' && tentativa < 60) return setTimeout(function () { acompanhar(url, tentativa + 1); }, 2500);
+        aBtn.disabled = false;
+        if (r.estado === 'erro' || r.estado === 'lendo') { aviso((r.erro || 'Não consegui ler o arquivo agora.') + ' Ele segue com o briefing mesmo assim.'); return; }
+        preencher(r.leitura || {});
+      }).catch(function () { aBtn.disabled = false; aviso('A leitura demorou mais que o esperado. O arquivo segue com o briefing.'); });
+    };
+    aBtn.addEventListener('click', function () { aFile.click(); });
+    aFile.addEventListener('change', function () {
+      if (!aFile.files.length) return;
+      var corpo = new FormData();
+      corpo.append('csrf', anexo.dataset.csrf);
+      Array.prototype.forEach.call(aFile.files, function (f) { corpo.append('arquivos', f); });
+      aBtn.disabled = true; aviso('Enviando e lendo o arquivo…');
+      fetch(anexo.dataset.uploadUrl, { method: 'POST', body: corpo, credentials: 'same-origin' })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, erro: 'Resposta inesperada.' }; }); })
+        .then(function (r) {
+          if (!r.ok) { aBtn.disabled = false; aviso(r.erro || 'Não consegui enviar o arquivo.'); return; }
+          aId.value = r.uuid;
+          aviso('Lendo ' + r.nomes.join(', ') + '…');
+          acompanhar(r.dados_url, 0);
+        }).catch(function () { aBtn.disabled = false; aviso('Não consegui enviar o arquivo.'); });
+      aFile.value = '';
+    });
+  }
   iniciar();
 })();

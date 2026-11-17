@@ -13,6 +13,7 @@
 </header>
 {%- endmacro %}
 {% macro selo(campo) -%}{% if origem_item and campo in trazido %}<span class="bw-selo" title="Trouxemos do histórico; revise">vem do {{ origem_item.fonte }} {{ origem_item.titulo|truncate(28) }}</span>{% endif %}{%- endmacro %}
+{% macro ajuda(texto) -%}<p class="bw-ajuda">{{ texto }}</p>{%- endmacro %}
 {% set v = valores %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
@@ -57,6 +58,36 @@
       <div class="bw-nav__bar" aria-hidden="true"><span id="bw-nav-bar"></span></div>
     </nav>
 
+    {# ---------- Material de apoio: o que veio do Descobrir e o anexo opcional ---------- #}
+    <section class="bw-apoio" aria-label="Material de apoio">
+      <div class="bw-apoio__col">
+        <h2 class="bw-apoio__titulo">{{ icon('target', 16) }}Itens do Descobrir{% if itens_descobrir %} <span class="bw-apoio__n">{{ itens_descobrir|length }}</span>{% endif %}</h2>
+        {% if itens_descobrir %}
+        <ul class="ac-tags">
+          {% for i in itens_descobrir %}
+          <li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}
+            <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
+          </li>
+          {% endfor %}
+        </ul>
+        {{ ajuda('O que você marcou no Descobrir vai junto com o briefing: a equipe já sabe o que te interessou. Tire o que não quiser.') }}
+        {% else %}
+        {{ ajuda('Nada separado ainda. Explore o Descobrir e marque canais, formatos, audiências ou portais: eles entram aqui e seguem com o briefing.') }}
+        <a class="ac-link" href="{{ area_url('descobrir_secao', secao='estrategias') }}">Explorar o Descobrir</a>
+        {% endif %}
+      </div>
+      {% if modo != 'pi_antigo' %}
+      <div class="bw-apoio__col" id="bw-anexo" data-upload-url="{{ area_url('briefing_anexo') }}" data-csrf="{{ csrf }}">
+        <h2 class="bw-apoio__titulo">{{ icon('file', 16) }}Anexo <small>(opcional)</small></h2>
+        {{ ajuda('Tem um arquivo com informações do briefing? Anexe para preencher mais rápido. Ele só ajuda: quase nunca traz tudo, então confira e complete os campos. Para pedir cotação só com arquivos, use “Tenho arquivos para cotar”.') }}
+        <input type="file" id="bw-anexo-arquivo" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv" multiple hidden>
+        <input type="hidden" name="anexo" id="bw-anexo-id" value="{{ v.anexo or '' }}">
+        <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-anexo-btn">{{ icon('plus', 16) }}Anexar arquivo</button>
+        <p class="bw-ajuda" id="bw-anexo-status" role="status" aria-live="polite"></p>
+      </div>
+      {% endif %}
+    </section>
+
     {# ---------- 0. Ponto de partida (só com histórico) ---------- #}
     {% if origem_item %}
     <input type="hidden" name="origem" value="{{ origem_item.id }}">
@@ -97,12 +128,13 @@
 
     {# ---------- 1. Objetivo ---------- #}
     <section class="bw-step" data-step="objetivo" data-label="Objetivo">
-      {{ passo_head(2 if historico else 1, 'O que a campanha precisa entregar?', 'O tipo de objetivo define como a mídia é comprada e o que a proposta promete.') }}
+      {{ passo_head(2 if historico else 1, 'Sobre a campanha', 'Comece pelo nome e pelo resultado que você espera. O tipo de objetivo define como a mídia é comprada.') }}
       <div class="ac-field">
         <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span> {{ selo('titulo') }}</label>
         <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ v.titulo or '' }}"
                placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
         {{ erro('titulo') }}
+        {{ ajuda('Um nome que você reconheça depois, na lista de briefings.') }}
       </div>
       <fieldset class="ac-field">
         <legend>Tipo de objetivo {{ selo('objetivo_tipo') }}</legend>
@@ -116,12 +148,14 @@
         <div class="ac-field">
           <label for="b-kpi">KPI principal {{ selo('kpi') }}</label>
           <input id="b-kpi" name="kpi" type="text" maxlength="80" list="bw-kpis" value="{{ v.kpi or '' }}" placeholder="Ex.: Leads">
+          {{ ajuda('O número que diz se deu certo. Sugerimos pelo tipo de objetivo.') }}
           <datalist id="bw-kpis">{% for o in b.OBJETIVOS %}{% for k in o[2] %}<option value="{{ k }}">{% endfor %}{% endfor %}</datalist>
           <div class="ac-chips__list" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
         </div>
         <div class="ac-field">
           <label for="b-kpi-meta">Meta, se já tiver</label>
           <input id="b-kpi-meta" name="kpi_meta" type="text" maxlength="160" value="{{ v.kpi_meta or '' }}" placeholder="Ex.: 500 leads no mês">
+          {{ ajuda('Se ainda não tem meta, deixe em branco: a equipe sugere.') }}
         </div>
       </div>
       <div class="ac-field">
@@ -129,19 +163,23 @@
         <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
                   placeholder="O que você quer alcançar e por quê agora? Ex.: abrir a temporada de verão e vender a nova coleção pelo site."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ v.objetivo or '' }}</textarea>
         {{ erro('objetivo') }}
+        {{ ajuda('Uma ou duas frases: o que você quer alcançar e por que agora.') }}
       </div>
     </section>
 
     {# ---------- 2. Público ---------- #}
     <section class="bw-step" data-step="publico" data-label="Público">
-      {{ passo_head(3 if historico else 2, 'Para quem é a campanha?', 'Recortes simples já ajudam a montar a segmentação.') }}
+      {{ passo_head(3 if historico else 2, 'Público', 'Quem você quer atingir. Um recorte simples já ajuda a montar a segmentação.') }}
+      {% if modo == 'pi_antigo' %}
       <div class="bw-reuse" data-reuse="publico" hidden>
         <p class="ac-field__label">{{ icon('sparkles', 14) }}Públicos que você já usou</p>
         <div class="ac-chips__list" id="bw-reuse-publico"></div>
       </div>
+      {% endif %}
       <div class="ac-field">
         <label for="b-publico">Quem você quer atingir {{ selo('publico') }}</label>
         <textarea id="b-publico" name="publico" rows="3" maxlength="1000" placeholder="Ex.: mulheres que compram moda online, interessadas em praia e viagens.">{{ v.publico or '' }}</textarea>
+        {{ ajuda('Descreva em palavras; marque idade, gênero e classe abaixo só se ajudar.') }}
       </div>
       <fieldset class="ac-field ac-chips">
         <legend>Idade</legend>
@@ -166,16 +204,18 @@
 
     {# ---------- 3. Praças ---------- #}
     <section class="bw-step" data-step="pracas" data-label="Praças">
-      {{ passo_head(4 if historico else 3, 'Onde a campanha vai rodar?', 'Digite do seu jeito ("BH e região", "capitais do Sul"). A IA organiza em cidades e estados e sugere praças próximas.') }}
+      {{ passo_head(4 if historico else 3, 'Onde vai rodar', 'Digite do seu jeito ("BH e região", "capitais do Sul"). A IA organiza em cidades e estados e sugere praças próximas.') }}
       <fieldset class="ac-field ac-chips">
         <legend>Abrangência</legend>
         <div class="ac-chips__list">{% for a, r in b.ABRANGENCIAS %}{{ chip('abrangencia', a, r, v.abrangencia == a, 'radio') }}{% endfor %}</div>
       </fieldset>
       <div class="bw-pracas" data-show-unless="abrangencia:nacional">
+        {% if modo == 'pi_antigo' %}
         <div class="bw-reuse" data-reuse="pracas" hidden>
           <p class="ac-field__label">{{ icon('sparkles', 14) }}Praças que você já usou</p>
           <div class="ac-chips__list" id="bw-reuse-pracas"></div>
         </div>
+        {% endif %}
         <div class="ac-field">
           <label for="b-praca-busca">Praças {{ selo('pracas') }}</label>
           <div class="bw-tokens" id="bw-tokens">
@@ -206,7 +246,7 @@
 
     {# ---------- 4. Período e verba ---------- #}
     <section class="bw-step" data-step="periodo" data-label="Período e verba">
-      {{ passo_head(5 if historico else 4, 'Quando e com quanto?', 'Pode ser aproximado. Com uma faixa de verba o planejamento já sai no tamanho certo.') }}
+      {{ passo_head(5 if historico else 4, 'Quando e quanto', 'Pode ser aproximado. Com uma faixa de verba o planejamento já sai no tamanho certo.') }}
       <div class="ac-field-row">
         <div class="ac-field">
           <label for="b-inicio">Início desejado</label>
@@ -227,6 +267,7 @@
       <div class="ac-field">
         <label for="b-verba">Verba prevista</label>
         <input id="b-verba" name="verba" type="text" maxlength="120" value="{{ v.verba or '' }}" placeholder="Ex.: até R$ 50 mil">
+        {{ ajuda('Uma faixa basta. Sem verba definida, escolha “Quero uma recomendação”.') }}
         <div class="ac-chips__list" id="bw-verbas">
           {% for x in b.VERBAS %}<button type="button" class="bw-pill" data-fill="b-verba" data-value="{{ x }}">{{ x }}</button>{% endfor %}
         </div>
@@ -235,7 +276,7 @@
 
     {# ---------- 5. Canais e materiais ---------- #}
     <section class="bw-step" data-step="canais" data-label="Canais e materiais">
-      {{ passo_head(6 if historico else 5, 'Canais, peças e mensuração', 'Se não souber os canais, peça sugestão: é para isso que estamos aqui.') }}
+      {{ passo_head(6 if historico else 5, 'Canais, peças e detalhes', 'Se não souber os canais, peça sugestão: é para isso que estamos aqui. Os campos abaixo são opcionais.') }}
       <fieldset class="ac-field ac-chips">
         <legend>Canais de interesse {{ selo('canais') }}</legend>
         <div class="ac-chips__list">{% for valor, rotulo in canais %}{{ chip('canais', valor, rotulo, valor in (v.canais or [])) }}{% endfor %}</div>
@@ -266,20 +307,6 @@
       <div class="ac-field">
         <label for="b-descricao">Mais detalhes</label>
         <textarea id="b-descricao" name="descricao" rows="3" maxlength="6000" placeholder="Contexto, links de referência, restrições da marca.">{{ v.descricao or '' }}</textarea>
-      </div>
-      <div class="ac-field">
-        <p class="ac-field__label">Do Descobrir</p>
-        {% if itens_descobrir %}
-        <ul class="ac-tags">
-          {% for i in itens_descobrir %}
-          <li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}
-            <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="ac-form__hint">Nenhum item separado. <a class="ac-link" href="{{ area_url('descobrir_secao', secao='canais') }}">Explore o Descobrir</a> e inclua canais, formatos, audiências ou portais.</p>
-        {% endif %}
       </div>
     </section>
 

@@ -373,3 +373,54 @@ def test_pdf_com_senha_mostra_a_mensagem_do_leitor(tmp_path, monkeypatch):
     monkeypatch.setattr(cotacao, "ler", lambda a, chamar=None: (_ for _ in ()).throw(leitor.LeituraErro("O PDF tem senha.")))
     cotacao.processar(1, "u")
     assert estados[-1] == ("erro", "O PDF tem senha.")
+
+
+# ---------- anexo opcional do planejamento ----------
+
+def planejamento(**extra):
+    return {"csrf": "tok", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", **extra}
+
+
+def test_planejamento_nao_reaproveita_pi_e_mostra_apoio_e_ajuda(hub, monkeypatch):
+    monkeypatch.setattr(briefing, "historico", lambda c, limite=8: pytest.fail("planejamento não consulta o histórico de PIs"))
+    monkeypatch.setattr(briefing, "listar", lambda c: [])
+    html = hub.get("/briefing/planejamento", base_url=HOST).get_data(as_text=True)
+    assert "Quer aproveitar algo que já fizemos juntos" not in html and "Públicos que você já usou" not in html
+    assert "Itens do Descobrir" in html and "Anexo" in html and 'id="bw-anexo-btn"' in html and 'name="anexo"' in html
+    assert "Sobre a campanha" in html and "Quando e quanto" in html and html.count('class="bw-ajuda"') >= 8
+    assert "Tenho arquivos para cotar" in html                              # o anexo só ajuda; para cotar, outro caminho
+
+
+def test_anexo_do_planejamento_le_devolve_os_dados_e_vai_com_o_briefing(hub):
+    r = hub.post("/briefing/anexo", base_url=HOST, data={"csrf": "x", "arquivos": [(io.BytesIO(b"%PDF-1.4 x"), "briefing.pdf")]}, content_type="multipart/form-data")
+    assert r.status_code == 400                                              # sem csrf
+    r = sobe_anexo(hub)
+    corpo = r.get_json()
+    assert r.status_code == 200 and corpo["uuid"] == "u1" and corpo["dados_url"] == "/briefing/anexo/u1" and corpo["nomes"] == ["briefing.pdf"]
+    assert hub.get("/briefing/anexo/u1", base_url=HOST).get_json()["estado"] == "lendo"
+    hub.mem.rascunhos["u1"].update(status="lido", leitura={"titulo": "Verão", "pracas": ["BH"], "faltou": ["verba"]})
+    dados = hub.get("/briefing/anexo/u1", base_url=HOST).get_json()
+    assert dados["estado"] == "pronto" and dados["leitura"]["pracas"] == ["BH"] and dados["nomes"] == ["briefing.pdf"]
+    env = hub.post("/briefing/planejamento", base_url=HOST, data=planejamento(anexo="u1", descricao="Urgente"))
+    assert env.status_code == 303
+    (d, extra), = hub.mem.briefings
+    assert extra["modo"] == "planejamento" and extra["prazo_resposta_em"] is None and extra["arquivos"][0]["nome"] == "briefing.pdf"
+    assert "Urgente" in d["descricao"] and "Arquivos anexados: briefing.pdf" in d["descricao"] and "Não achei nos arquivos: verba" in d["descricao"]
+    assert hub.mem.rascunhos["u1"]["status"] == "enviado"
+    # o mesmo anexo não vale duas vezes
+    hub.post("/briefing/planejamento", base_url=HOST, data=planejamento(anexo="u1"))
+    assert hub.mem.briefings[1][1] is None
+
+
+def test_anexo_de_outro_cliente_ou_inexistente_e_ignorado(hub):
+    sobe_anexo(hub)
+    hub.mem.rascunhos["u1"].update(status="lido", id_cliente=999)
+    assert hub.get("/briefing/anexo/u1", base_url=HOST).status_code == 404
+    hub.post("/briefing/planejamento", base_url=HOST, data=planejamento(anexo="u1"))
+    hub.post("/briefing/planejamento", base_url=HOST, data=planejamento(anexo="nao-existe"))
+    assert [b[1] for b in hub.mem.briefings] == [None, None]
+    assert hub.post("/briefing/anexo", base_url=HOST, data={"csrf": "tok", "arquivos": [(io.BytesIO(b"MZ"), "x.exe")]}, content_type="multipart/form-data").status_code == 400
+
+
+def sobe_anexo(c):
+    return c.post("/briefing/anexo", base_url=HOST, data={"csrf": "tok", "arquivos": [(io.BytesIO(b"%PDF-1.4 x"), "briefing.pdf")]}, content_type="multipart/form-data")

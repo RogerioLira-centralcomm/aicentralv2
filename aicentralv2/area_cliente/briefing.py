@@ -322,6 +322,9 @@ def _json(valor):
 
 def listar(cliente_id) -> list[dict]:
     """Briefings que o cliente (ou a Centralcomm por ele) enviou, mais recentes primeiro."""
+    from . import demo
+    if demo.ativo(cliente_id):
+        return demo.briefings_enviados()
     conn = _db().get_db()
     try:
         with conn.cursor() as cursor:
@@ -392,6 +395,9 @@ def _quebra_pracas(texto: str) -> list[str]:
 
 def historico(cliente_id, limite: int = 8) -> list[dict]:
     """PIs e briefings anteriores do cliente, com o que dá para reaproveitar."""
+    from . import demo
+    if demo.ativo(cliente_id):
+        return demo.historico_briefing()
     from .dados import SUB_STATUS_CANCELADO, _fetch
 
     pis = _fetch(

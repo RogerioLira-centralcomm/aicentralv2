@@ -15,6 +15,8 @@ from zoneinfo import ZoneInfo
 
 from flask import abort, current_app, jsonify, redirect, request
 
+from . import demo
+
 logger = logging.getLogger(__name__)
 FUSO = ZoneInfo("America/Sao_Paulo")
 LIMITE_ARQUIVOS = 5
@@ -54,10 +56,19 @@ def _whatsapp(usuario, numero_pi="") -> str:
 def view_pi_enviar(usuario):
     from ..pi_entrada import cadastro, leitor, repositorio, servico
     r = _rotas()
+    simulado = demo.ativo(usuario["cliente_id"])
     if request.method == "GET":
-        recentes = repositorio.enviadas_pelo_cliente(usuario["cliente_id"], 8)
-        for item in recentes:
-            item["quando"] = _quando(item.get("criado_em"))
+        if simulado:
+            recentes = [{"uuid": e["uuid"], "status": "lendo" if demo.lendo(e) else "lido", "numero_pi": "", "titulo": ", ".join(e["nomes"]),
+                         "nome_original": e["nomes"][0] if e["nomes"] else "", "enviado_em": e.get("enviado_em"),
+                         "quando": _quando(demo.quando(e["em"]))} for e in demo.envios("pi")]
+            for e in recentes:
+                if e["status"] == "lido":
+                    e["numero_pi"], e["titulo"] = demo.LEITURA_PI["numero_pi"], demo.LEITURA_PI["campanha"]
+        else:
+            recentes = repositorio.enviadas_pelo_cliente(usuario["cliente_id"], 8)
+            for item in recentes:
+                item["quando"] = _quando(item.get("criado_em"))
         return r._render("pi_enviar.html", usuario, "pis", recentes=recentes,
                          csrf=r._csrf_token(), limite=LIMITE_ARQUIVOS)
 
@@ -67,6 +78,16 @@ def view_pi_enviar(usuario):
         return jsonify(ok=False, erro="Escolha o PDF do PI."), 400
     if len(arquivos) > LIMITE_ARQUIVOS:
         return jsonify(ok=False, erro=f"Envie até {LIMITE_ARQUIVOS} PDFs por vez."), 400
+    if simulado:
+        # Demonstração: nada vai ao banco nem ao modelo; a "leitura" é simulada na sessão.
+        saida = []
+        for arquivo in arquivos:
+            nome = Path(arquivo.filename or "pi.pdf").name
+            if not nome.lower().endswith(".pdf"):
+                saida.append({"nome": nome, "erro": "Envie o PI em PDF."})
+                continue
+            saida.append({"nome": nome, "url": r.area_url("pi_enviado", uuid=demo.novo_envio("pi", [nome]))})
+        return jsonify(ok=True, entradas=saida)
     if repositorio.contar_envios_recentes(usuario["cliente_id"], 60) + len(arquivos) > LIMITE_POR_HORA:
         return jsonify(ok=False, erro="Muitos envios seguidos. Tente de novo em alguns minutos ou fale com o seu executivo."), 429
     executivo_id = cadastro.executivo_da_conta(usuario["cliente_id"])
@@ -101,6 +122,14 @@ def view_pi_enviar(usuario):
 def view_pi_enviado(usuario, uuid):
     from ..pi_entrada import hub
     r = _rotas()
+    if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-"):
+        reg = demo.envio("pi", uuid) or abort(404)
+        estado = "enviado" if reg.get("enviado_em") else ("lendo" if demo.lendo(reg) else "pronto")
+        resumo = hub.resumo_para_cliente(demo.LEITURA_PI) if estado != "lendo" else None
+        entrada = {"uuid": uuid, "erro": None, "mensagem_cliente": reg.get("mensagem"), "numero_pi": demo.LEITURA_PI["numero_pi"]}
+        return r._render("pi_enviado.html", usuario, "pis", entrada=entrada, estado=estado, resumo=resumo, numero_pi=demo.LEITURA_PI["numero_pi"],
+                         whatsapp=_whatsapp(usuario, demo.LEITURA_PI["numero_pi"]), enviado_quando=_quando(demo.quando(reg["enviado_em"])) if reg.get("enviado_em") else "",
+                         csrf=r._csrf_token(), status_url=r.area_url("pi_enviado_status", uuid=uuid))
     entrada = _entrada_do_usuario(usuario, uuid)
     estado = hub.situacao(entrada)
     resumo = hub.resumo_para_cliente(entrada["json_revisado"]) if estado in ("pronto", "enviado") and entrada.get("json_revisado") else None
@@ -112,6 +141,12 @@ def view_pi_enviado(usuario, uuid):
 
 def view_pi_enviado_status(usuario, uuid):
     from ..pi_entrada import hub
+    if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-"):
+        reg = demo.envio("pi", uuid) or abort(404)
+        estado = "enviado" if reg.get("enviado_em") else ("lendo" if demo.lendo(reg) else "pronto")
+        resposta = jsonify(ok=True, estado=estado, pronto=estado != "lendo")
+        resposta.headers["Cache-Control"] = "no-store"
+        return resposta
     entrada = _entrada_do_usuario(usuario, uuid)
     estado = hub.situacao(entrada)
     resposta = jsonify(ok=True, estado=estado, pronto=estado != "lendo")
@@ -124,8 +159,11 @@ def view_pi_enviado_enviar(usuario, uuid):
     from . import emails
     r = _rotas()
     r._checar_csrf()
-    entrada = _entrada_do_usuario(usuario, uuid)
     destino = r.area_url("pi_enviado", uuid=uuid)
+    if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-"):
+        demo.marcar_enviado("pi", uuid, (request.form.get("mensagem") or "").strip())      # só muda a tela: sem banco e sem e-mail
+        return redirect(destino + "?enviado=1", code=303)
+    entrada = _entrada_do_usuario(usuario, uuid)
     if hub.situacao(entrada) != "pronto":
         return redirect(destino, code=303)
     mensagem = (request.form.get("mensagem") or "").strip()[:1000]

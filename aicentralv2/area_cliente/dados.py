@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 from datetime import date
 
+from . import demo
+
 logger = logging.getLogger(__name__)
 
 SUB_STATUS_CANCELADO = 6
@@ -89,6 +91,8 @@ def contraparte(row, cliente_id) -> dict:
 
 def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
     """PIs do cliente (como cliente final ou como agência), sem os cancelados."""
+    if demo.ativo(cliente_id):
+        return demo.projetos(busca, id_pi)                      # conta de demonstração: dados fictícios, nada do banco
     params: list = [cliente_id, cliente_id, SUB_STATUS_CANCELADO]
     filtro = ""
     if id_pi is not None:
@@ -151,6 +155,8 @@ def campanhas_dos_pis(ids_pi) -> list[dict]:
     ids = [int(i) for i in ids_pi or []]
     if not ids:
         return []
+    if any(demo.eh_pi_demo(i) for i in ids):
+        return demo.campanhas(ids)
     from ..campanha_acompanhamento_publico import _resultado_campanha
 
     rows = _fetch(
@@ -231,6 +237,8 @@ def atividades_recentes(ids_pi, projetos_por_id, limite=6) -> list[dict]:
     ids = [int(i) for i in ids_pi or []]
     if not ids:
         return []
+    if any(demo.eh_pi_demo(i) for i in ids):
+        return demo.atividades(ids, projetos_por_id, limite)
     try:
         rows = _fetch(
             """
@@ -367,6 +375,8 @@ def resumo_inicio(cliente_id) -> dict:
 
 def projeto_do_cliente(cliente_id, id_pi) -> dict | None:
     """Payload 360° do PI, só se o PI for deste cliente e não estiver cancelado."""
+    if demo.eh_pi_demo(id_pi):
+        return {"vazio": True, "id_pi": id_pi}
     rows = _fetch(
         """
         SELECT id_pi FROM cadu_pi
@@ -402,6 +412,8 @@ def _brl(valor):
 
 def listar_pis(cliente_id, id_pi=None) -> list[dict]:
     """PIs do cliente com valores de venda e o resumo das notas fiscais."""
+    if demo.ativo(cliente_id):
+        return demo.pis(id_pi)
     filtro_pi = "AND pi.id_pi = %s" if id_pi is not None else ""
     params = (cliente_id, cliente_id, SUB_STATUS_CANCELADO) + ((int(id_pi),) if id_pi is not None else ())
     rows = _fetch(
@@ -459,7 +471,8 @@ def pi_do_cliente(cliente_id, id_pi) -> dict | None:
     if not encontrados:
         return None
     resumo = encontrados[0]
-    notas = _fetch(
+    demonstracao = demo.eh_pi_demo(id_pi)
+    notas = demo.notas(id_pi) if demonstracao else _fetch(
         """
         SELECT nf.numero_nota, nf.data_emissao, nf.valor, nf.valor_liquido, nf.mes_ref_comp,
                nf.data_pag_prevista, nf.data_pag_realizado, nfs.descricao AS status
@@ -483,7 +496,7 @@ def pi_do_cliente(cliente_id, id_pi) -> dict | None:
     resumo["faturado"] = sum(n["valor"] or 0 for n in resumo["notas"]) or None
     resumo["pago"] = sum((n["valor"] or 0) for n in resumo["notas"] if n["pago_em"] or "pagamento" in n["status"].lower()) or None
     try:
-        etapas = _fetch(
+        etapas = demo.etapas(id_pi) if demonstracao else _fetch(
             "SELECT etapa, concluida_em FROM cadu_pi_operacao_etapa WHERE id_pi = %s AND concluida_em IS NOT NULL ORDER BY concluida_em",
             (int(id_pi),),
         )

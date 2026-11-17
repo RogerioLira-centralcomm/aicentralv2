@@ -2090,3 +2090,6 @@ html.ac-painel-aberto { overflow: hidden; }
 @media (max-width: 1100px) { .ac-home3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ac-home3 > :last-child { grid-column: 1 / -1; } }
 @media (max-width: 720px) { .ac-home3 { grid-template-columns: minmax(0, 1fr); gap: 22px; } .ac-vcard { right: 16px; bottom: 16px; } }
 @media (prefers-reduced-motion: reduce) { .ac-vcard { transition: none; } .ac-op__live i { animation: none; } }
+
+.ac-demo { flex: 0 0 auto; align-self: center; white-space: nowrap; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 12px; background: var(--colors-gray-100); color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .02em; }
+@media (max-width: 560px) { .ac-demo { display: none; } }

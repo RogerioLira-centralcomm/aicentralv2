@@ -18,7 +18,7 @@ from flask import abort, current_app, jsonify, redirect, render_template, reques
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, cotacao, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas, videos
+from . import acesso, briefing, cotacao, cotacao_envio, dados, demo, descobrir, emails, pi_envio, plataformas, videos
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -138,7 +138,7 @@ def _render(template, usuario, ativo, **ctx):
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
         usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
-        menu=_estado_menu(ativo),
+        menu=_estado_menu(ativo), demo_ativo=demo.ativo(usuario["cliente_id"]),
         pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),
@@ -381,6 +381,13 @@ def view_briefing_form(usuario, modo="planejamento"):
                 origem = None
             if origem:
                 valores["origem_rotulo"] = f"{origem['fonte']} {origem['titulo']}" + (f" ({origem['quando']})" if origem["quando"] else "")
+            if demo.ativo(usuario["cliente_id"]):
+                # Conta de demonstração: o briefing "vai" só na sessão, sem banco e sem e-mail.
+                novo_id = demo.registrar_briefing(valores)
+                if str(request.form.get("anexo", "")).startswith("demo-"):
+                    demo.marcar_enviado("cotacao", request.form["anexo"])
+                session.pop("area_cliente_descobrir", None)
+                return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
             extra, reservado = None, None
             anexo = cotacao_envio.rascunho_anexo(usuario, request.form.get("anexo"))
             if anexo and cotacao.situacao(anexo) in ("pronto", "erro") and cotacao.reservar(anexo["id"]):

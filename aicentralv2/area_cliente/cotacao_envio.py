@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 
 from flask import abort, current_app, jsonify, redirect, request
 
-from . import briefing, cotacao
+from . import briefing, cotacao, demo
 
 LIMITE_POR_HORA = 6
 
@@ -40,6 +40,8 @@ def view_cotacao(usuario):
         return jsonify(ok=False, erro="Escolha ao menos um arquivo."), 400
     if len(arquivos) > cotacao.MAX_ARQUIVOS:
         return jsonify(ok=False, erro=f"Envie até {cotacao.MAX_ARQUIVOS} arquivos por vez."), 400
+    if demo.ativo(usuario["cliente_id"]):
+        return _demo_upload(arquivos, r.area_url("briefing_cotacao_rascunho", uuid="__UUID__"), None)
     if cotacao.contar_recentes(usuario["cliente_id"], 60) >= LIMITE_POR_HORA:
         return jsonify(ok=False, erro="Muitos envios seguidos. Tente de novo em alguns minutos ou fale com o seu executivo."), 429
     lidos = []
@@ -58,6 +60,32 @@ def view_cotacao(usuario):
     return jsonify(ok=True, entradas=[{"nome": f"{len(guardados)} arquivo(s)", "url": r.area_url("briefing_cotacao_rascunho", uuid=rascunho["uuid"])}])
 
 
+def _demo_upload(arquivos, modelo_url, dados_modelo):
+    """Demonstração: confere só o tipo do arquivo e simula a leitura na sessão (nada vai ao banco, ao disco ou ao modelo)."""
+    nomes = []
+    for a in arquivos:
+        nome = a.filename.rsplit("/", 1)[-1]
+        if "." + nome.rsplit(".", 1)[-1].lower() not in cotacao.TIPOS:
+            return jsonify(ok=False, erro="Envie PDF, imagem (PNG, JPG) ou planilha (XLSX, CSV)."), 400
+        nomes.append(nome)
+    novo = demo.novo_envio("cotacao", nomes)
+    r = _rotas()
+    if dados_modelo:
+        return jsonify(ok=True, uuid=novo, dados_url=r.area_url("briefing_anexo_dados", uuid=novo), nomes=nomes)
+    return jsonify(ok=True, entradas=[{"nome": f"{len(nomes)} arquivo(s)", "url": modelo_url.replace("__UUID__", novo)}])
+
+
+def _demo_rascunho(usuario, uuid):
+    """Rascunho de demonstração no mesmo formato do banco (para reaproveitar as telas)."""
+    reg = demo.envio("cotacao", uuid)
+    if not reg:
+        abort(404)
+    status = "enviado" if reg.get("enviado_em") else ("lendo" if demo.lendo(reg) else "lido")
+    return {"id": 0, "uuid": uuid, "id_cliente": usuario["cliente_id"], "status": status, "arquivos": [{"nome": n} for n in reg["nomes"]],
+            "leitura": None if status == "lendo" else demo.LEITURA_COTACAO, "erro": None,
+            "atualizado_em": demo.quando(reg["em"]), "prazo_resposta_em": cotacao.prazo_resposta(demo.quando(reg["enviado_em"])) if reg.get("enviado_em") else None}
+
+
 def _render_rascunho(usuario, rascunho, *, valores=None, erros=None, status=200):
     r = _rotas()
     estado = cotacao.situacao(rascunho)
@@ -74,11 +102,16 @@ def _render_rascunho(usuario, rascunho, *, valores=None, erros=None, status=200)
 
 
 def view_cotacao_rascunho(usuario, uuid):
+    if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-"):
+        return _render_rascunho(usuario, _demo_rascunho(usuario, uuid))
     return _render_rascunho(usuario, _do_usuario(usuario, uuid))
 
 
 def view_cotacao_status(usuario, uuid):
-    estado = cotacao.situacao(_do_usuario(usuario, uuid))
+    if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-"):
+        estado = cotacao.situacao(_demo_rascunho(usuario, uuid))
+    else:
+        estado = cotacao.situacao(_do_usuario(usuario, uuid))
     resposta = jsonify(ok=True, estado=estado, pronto=estado != "lendo")
     resposta.headers["Cache-Control"] = "no-store"
     return resposta
@@ -88,7 +121,8 @@ def view_cotacao_enviar(usuario, uuid):
     from . import emails
     r = _rotas()
     r._checar_csrf()
-    rascunho = _do_usuario(usuario, uuid)
+    simulado = demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-")
+    rascunho = _demo_rascunho(usuario, uuid) if simulado else _do_usuario(usuario, uuid)
     destino = r.area_url("briefing_cotacao_rascunho", uuid=uuid)
     if cotacao.situacao(rascunho) not in ("pronto", "erro"):
         return redirect(destino, code=303)
@@ -97,6 +131,11 @@ def view_cotacao_enviar(usuario, uuid):
         return _render_rascunho(usuario, rascunho, valores={**valores, "pracas_texto": ", ".join(valores.get("pracas") or []),
                                                           "inicio": valores["inicio"].isoformat() if valores.get("inicio") else "",
                                                           "fim": valores["fim"].isoformat() if valores.get("fim") else ""}, erros=erros, status=422)
+    if simulado:
+        # Demonstração: o briefing "vai" só na sessão; nenhuma linha no banco e nenhum e-mail.
+        demo.registrar_briefing(valores)
+        demo.marcar_enviado("cotacao", uuid)
+        return redirect(destino + "?enviado=1", code=303)
     arquivos = rascunho.get("arquivos") or []
     leitura = rascunho.get("leitura") or {}
     nomes = [a["nome"] for a in arquivos]
@@ -147,6 +186,8 @@ def view_anexo(usuario):
         return jsonify(ok=False, erro="Escolha ao menos um arquivo."), 400
     if len(arquivos) > cotacao.MAX_ARQUIVOS:
         return jsonify(ok=False, erro=f"Envie até {cotacao.MAX_ARQUIVOS} arquivos por vez."), 400
+    if demo.ativo(usuario["cliente_id"]):
+        return _demo_upload(arquivos, "", True)
     if cotacao.contar_recentes(usuario["cliente_id"], 60) >= LIMITE_POR_HORA:
         return jsonify(ok=False, erro="Muitos envios seguidos. Tente de novo em alguns minutos."), 429
     lidos = []
@@ -165,7 +206,7 @@ def view_anexo(usuario):
 
 
 def view_anexo_dados(usuario, uuid):
-    rascunho = _do_usuario(usuario, uuid)
+    rascunho = _demo_rascunho(usuario, uuid) if demo.ativo(usuario["cliente_id"]) and str(uuid).startswith("demo-") else _do_usuario(usuario, uuid)
     estado = cotacao.situacao(rascunho)
     resposta = jsonify(ok=True, estado=estado, pronto=estado != "lendo", leitura=rascunho.get("leitura") or {},
                        erro=rascunho.get("erro") or "", nomes=[a["nome"] for a in rascunho.get("arquivos") or []])

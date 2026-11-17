@@ -52,7 +52,22 @@ Upload: nginx e Flask já aceitam 256 MB por requisição; um envio de cotação
 - **API do jev (D11):** ainda não sei o que é; fica fora deste deploy.
 - Plugar o rascunho da Entrada de PI em `/cadu_pi/novo` (a tela atual não mudou).
 
-## 6. Como desfazer
+## 6. Conta de demonstração (cliente 174, Centralcomm)
+
+Para gravar vídeos e testar as telas sem usar dados de clientes, a conta **174** abre o hub em **modo demonstração**
+(`aicentralv2/area_cliente/demo.py`):
+
+- 5 PIs fictícios (2 em andamento, 3 finalizados) com 10 campanhas, notas fiscais e linha do tempo, sempre com datas relativas a hoje.
+- **Nada é lido nem gravado no banco**: os PIs têm ids de demonstração (900000001 a 900000005), que não existem na produção, então
+  relatórios, cotações e PIs reais do CentralX não enxergam nada disto.
+- Envio de PI, de cotação e de briefing (com ou sem anexo) são **simulados na sessão do navegador**: a "leitura" leva 4 segundos e
+  mostra um resultado de exemplo; enviar ao executivo só muda a tela, sem linha no banco e sem e-mail.
+- Um selo discreto "Demonstração" aparece no topo (some no celular). Para tirá-lo do vídeo, corte a imagem ou desligue o modo.
+- Desligar: `HUB_DEMO_CLIENTE_ID=0` no `.env` (a conta 174 volta a ver os dados reais). Trocar de conta: `HUB_DEMO_CLIENTE_ID=<id>`.
+- Efeito colateral: enquanto ligado, quem entra no hub com a conta da Centralcomm só vê dados de demonstração. Quem a equipe quer
+  ver de verdade usa "Ver como" no cliente real.
+
+## 7. Como desfazer
 
 - Código: `git revert` dos commits do hub; as tabelas e colunas novas ficam (inofensivas) e nada precisa ser apagado.
 - Só desligar o envio de PI e de cotação pelo hub: tirar o cartão de `briefing_escolha.html` e o botão de `pis.html`; os dados já gravados continuam acessíveis no CentralX.

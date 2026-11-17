@@ -2152,3 +2152,4 @@ a.ac-op__kpi:hover { border-color: var(--accent); }
 .ac-lista .ac-camp__acts { width: 52px; }
 .ac-lista .ac-rel-table__entrega { min-width: 130px; }
 .ac-lista .ac-rel-table__entrega .ac-camp__bar { max-width: 150px; }
+.ac-lista tbody tr.is-selected > * { background: var(--accent-soft); }

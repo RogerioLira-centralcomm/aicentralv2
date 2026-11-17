@@ -5,9 +5,9 @@
 {% block preheader %}Seu briefing chegou e já está com {{ executivo.nome if executivo and executivo.nome else 'a equipe' }}.{% endblock %}
 {% block icone %}{{ badge('check-circle') }}{% endblock %}
 {% block headline %}Recebemos seu briefing, {{ primeiro_nome }}. Obrigado!{% endblock %}
-{% block hero_sub %}{{ hero_texto('Ele já está com ' ~ (executivo.nome if executivo and executivo.nome else 'a equipe') ~ '.') }}{% endblock %}
+{% block hero_sub %}{{ hero_texto(('Ele já está com ' ~ (executivo.nome if executivo and executivo.nome else 'a equipe') ~ '.') ~ (' A cotação volta até ' ~ prazo ~ '.' if prazo else '')) }}{% endblock %}
 {% block content %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Enviado em', quando)]) }}
+  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Arquivos enviados', anexos), ('Retorno da equipe até', prazo), ('Enviado em', quando)]) }}
   {{ titulo_secao('O que acontece agora') }}
   {{ passos([
     ('file-text', 'Análise', 'A equipe lê o briefing e tira as dúvidas com você, se precisar.'),

@@ -225,7 +225,8 @@ def _resumo_briefing(valores: dict) -> dict:
             "canais": ", ".join(rotulos[c] for c in valores.get("canais") or [] if c in rotulos),
             "itens_descobrir": itens, "secoes": secoes, "origem": valores.get("origem_rotulo") or "",
             "objetivo_completo": dict(resumo(valores)).get("Objetivo", valores.get("objetivo")) if secoes else valores.get("objetivo"),
-            "qualidade": (valores.get("qualidade") or qualidade(valores)) if secoes else None}
+            "qualidade": (valores.get("qualidade") or qualidade(valores)) if secoes else None,
+            "prazo": valores.get("prazo_texto") or "", "anexos": ", ".join(valores.get("anexos") or []), "cotacao": bool(valores.get("prazo_texto"))}
 
 
 def briefing_recebido(usuario: dict, valores: dict) -> bool:

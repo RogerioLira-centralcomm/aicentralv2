@@ -121,6 +121,7 @@
                                 </span>
                                 {% endif %}
                                 <a href="javascript:void(0)" onclick="abrirModalBriefing({{ briefing.id }})" class="font-medium text-xs text-gray-800 hover:text-blue-600 hover:underline">{{ briefing.titulo }}</a>
+                                {% if briefing.modo == 'cotacao' %}<span class="cx-badge text-xs bg-emerald-100 text-emerald-800 border-0" title="Briefing para cotação: retorno prometido ao cliente em 24 h{% if briefing.prazo_resposta_em %} (até {{ briefing.prazo_resposta_em|format_datetime }}){% endif %}">Cotação 24 h</span>{% endif %}
                             </div>
                         </td>
                         <td class="py-1.5 px-2 text-center">

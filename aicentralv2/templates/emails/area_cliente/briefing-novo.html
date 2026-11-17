@@ -9,9 +9,9 @@
 {% block content %}
   {% if secoes %}
   {% if qualidade %}{{ nota('Nota do briefing: ' ~ qualidade.nota ~ '/100.' ~ ((' Perguntar ao cliente: ' ~ (qualidade.pendencias + qualidade.avisos)|join(' ')) if (qualidade.pendencias or qualidade.avisos) else ' Completo para cotar.'), 'alerta' if qualidade.pendencias else 'info') }}{% endif %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Enviado por', nome ~ ' · ' ~ email)]) }}
+  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Arquivos anexados', anexos), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% else %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Enviado por', nome ~ ' · ' ~ email)]) }}
+  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Arquivos anexados', anexos), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% endif %}
   {% if descricao %}<p style="margin:22px 0 6px;color:#0c2e24;font-weight:bold">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
   {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}

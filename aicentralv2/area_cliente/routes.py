@@ -18,7 +18,7 @@ from flask import abort, current_app, jsonify, redirect, render_template, reques
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, dados, descobrir, emails, pi_envio, plataformas
+from . import acesso, briefing, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -27,6 +27,10 @@ ROTAS = Map([
     Rule("/briefing/planejamento", endpoint="briefing_planejamento", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/pi-antigo", endpoint="briefing_pi_antigo", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/todos", endpoint="briefing_todos"),
+    Rule("/briefing/cotacao", endpoint="briefing_cotacao", methods=["GET", "HEAD", "POST"]),
+    Rule("/briefing/cotacao/<uuid>", endpoint="briefing_cotacao_rascunho"),
+    Rule("/briefing/cotacao/<uuid>/status", endpoint="briefing_cotacao_status"),
+    Rule("/briefing/cotacao/<uuid>/enviar", endpoint="briefing_cotacao_enviar", methods=["POST"]),
     Rule("/projetos", endpoint="projetos"),
     Rule("/projetos/<int:id_pi>", endpoint="projeto"),
     Rule("/campanhas", endpoint="campanhas"),
@@ -757,7 +761,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar", "briefing_planejamento", "briefing_pi_antigo"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar", "briefing_planejamento", "briefing_pi_antigo", "briefing_cotacao", "briefing_cotacao_enviar"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -792,6 +796,14 @@ def despachar():
         return view_briefing_form(usuario, "pi_antigo")
     if endpoint == "briefing_todos":
         return view_briefing_todos(usuario)
+    if endpoint == "briefing_cotacao":
+        return cotacao_envio.view_cotacao(usuario)
+    if endpoint == "briefing_cotacao_rascunho":
+        return cotacao_envio.view_cotacao_rascunho(usuario, **args)
+    if endpoint == "briefing_cotacao_status":
+        return cotacao_envio.view_cotacao_status(usuario, **args)
+    if endpoint == "briefing_cotacao_enviar":
+        return cotacao_envio.view_cotacao_enviar(usuario, **args)
     if endpoint == "planejamento_antigo":
         return redirect(area_url("descobrir_secao", secao="canais"), code=301)
     if endpoint == "midia_antigo":

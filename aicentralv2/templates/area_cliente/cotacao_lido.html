@@ -1,0 +1,82 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}Briefing para cotação{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
+{% macro erro(campo) -%}{% if erros.get(campo) %}<p class="ac-field__error" id="erro-{{ campo }}">{{ erros[campo] }}</p>{% endif %}{%- endmacro %}
+{% block content %}
+{% set exec = usuario.executivo %}
+{% set quem = exec.nome.split()[0] if exec else 'a equipe Centralcomm' %}
+<div class="pe" data-pe="enviado" data-estado="{{ estado }}" data-status-url="{{ status_url }}">
+  <p class="pe-voltar"><a class="ac-link" href="{{ area_url('briefing_cotacao') }}">{{ icon('arrow-left', 16) }} Tenho arquivos para cotar</a></p>
+
+  {% if estado == 'lendo' %}
+  <h1 class="ac-h1 ac-page-title">Lendo os seus arquivos…</h1>
+  <p class="ac-lead">O hub está lendo o material. Leva cerca de um minuto e esta página atualiza sozinha.</p>
+  <section class="ac-card pe-lendo" role="status" aria-live="polite">
+    <span class="pe-lendo__icone">{{ icon('sparkles', 24) }}</span>
+    <div><strong>Separando objetivo, praças, período e verba</strong><span>Os arquivos ficam salvos; você pode voltar depois por este endereço.</span>
+      <span class="pe-barra pe-barra--indet"><i></i></span></div>
+  </section>
+
+  {% elif estado == 'enviado' %}
+  <h1 class="ac-h1 ac-page-title">Seu briefing seguiu para {{ quem }}</h1>
+  <p class="ac-lead">{% if prazo %}A cotação volta até <b>{{ prazo }}</b> (dias úteis, 9h às 18h).{% endif %} {{ quem|capitalize if exec else 'A equipe' }} já tem os arquivos e a leitura do hub.</p>
+  <section class="ac-card pe-exec">
+    <h2 class="ac-h2">Quem cuida da sua cotação</h2>
+    {% if exec %}
+    <div class="pe-exec__quem">
+      {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="56" height="56">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
+      <div><strong>{{ exec.nome }}</strong><span>Seu executivo na Centralcomm</span></div>
+    </div>
+    <ul class="pe-exec__contatos">{% if exec.email %}<li>{{ icon('mail', 16) }}<a class="ac-link" href="mailto:{{ exec.email }}">{{ exec.email }}</a></li>{% endif %}</ul>
+    {% else %}<p class="pe-exec__sem">Sua conta ainda não tem um executivo definido. A equipe Centralcomm recebe o briefing e responde.</p>{% endif %}
+    <div class="pe-acoes"><a class="ac-btn ac-btn--secondary" href="{{ area_url('briefing') }}">Voltar ao briefing</a></div>
+  </section>
+
+  {% else %}
+  <h1 class="ac-h1 ac-page-title">{{ 'Não consegui ler os arquivos' if estado == 'erro' else 'Li os seus arquivos' }}</h1>
+  <p class="ac-lead">{% if estado == 'erro' %}{{ rascunho.erro or 'A leitura falhou agora.' }} Você ainda pode enviar: {{ quem }} recebe os anexos e preenche com você.{% else %}Confira e ajuste o que quiser. {{ quem|capitalize if exec else 'A equipe' }} retorna em até {{ prazo_horas }} horas.{% endif %}</p>
+
+  <form method="post" action="{{ enviar_url }}" class="pe-cols ac-form" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <section class="ac-card pe-entendi">
+      <h2 class="ac-h2">O que entendi</h2>
+      {% if leitura.resumo %}<p class="pe-nota">{{ icon('info', 16) }} {{ leitura.resumo }}</p>{% endif %}
+      <div class="ac-field"><label for="c-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
+        <input id="c-titulo" name="titulo" type="text" maxlength="160" value="{{ v.titulo or '' }}"{% if erros.titulo %} aria-invalid="true"{% endif %}>{{ erro('titulo') }}</div>
+      <div class="ac-field"><label for="c-objetivo">Objetivo <span class="ac-req" aria-hidden="true">*</span></label>
+        <textarea id="c-objetivo" name="objetivo" rows="3" maxlength="2000"{% if erros.objetivo %} aria-invalid="true"{% endif %}>{{ v.objetivo or '' }}</textarea>{{ erro('objetivo') }}</div>
+      <div class="ac-field"><label for="c-publico">Público</label>
+        <textarea id="c-publico" name="publico" rows="2" maxlength="1000">{{ v.publico or '' }}</textarea></div>
+      <div class="ac-field"><label for="c-pracas">Praças <small>(separe por vírgula)</small></label>
+        <input id="c-pracas" name="pracas" type="text" value="{{ v.pracas_texto or '' }}"></div>
+      <div class="ac-field-row">
+        <div class="ac-field"><label for="c-inicio">Início</label><input id="c-inicio" name="inicio" type="date" value="{{ v.inicio or '' }}"></div>
+        <div class="ac-field"><label for="c-fim">Fim</label><input id="c-fim" name="fim" type="date" value="{{ v.fim or '' }}">{{ erro('fim') }}</div>
+        <div class="ac-field"><label for="c-verba">Verba prevista</label><input id="c-verba" name="verba" type="text" maxlength="120" value="{{ v.verba or '' }}"></div>
+      </div>
+      <fieldset class="ac-field ac-chips"><legend>Canais</legend>
+        <div class="ac-chips__list">{% for valor, rotulo in canais %}<label class="ac-chip"><input type="checkbox" name="canais" value="{{ valor }}"{% if valor in (v.canais or []) %} checked{% endif %}><span>{{ rotulo }}</span></label>{% endfor %}</div>
+      </fieldset>
+      <div class="ac-field"><label for="c-desc">Algo mais que {{ quem }} precisa saber? <small>(opcional)</small></label>
+        <textarea id="c-desc" name="descricao" rows="3" maxlength="3000" placeholder="Ex.: é urgente, já tem cotação aprovada, mudou a verba…">{{ v.descricao or '' }}</textarea></div>
+      {% if leitura.faltou %}<div class="pe-nota">{{ icon('info', 16) }}<span>Não achei nos arquivos: {{ leitura.faltou|join('; ') }}. Se souber, complete acima.</span></div>{% endif %}
+    </section>
+
+    <aside class="ac-card pe-exec">
+      <h2 class="ac-h2">Para quem vai</h2>
+      {% if exec %}
+      <div class="pe-exec__quem">
+        {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="56" height="56">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
+        <div><strong>{{ exec.nome }}</strong><span>Seu executivo na Centralcomm</span></div>
+      </div>
+      {% else %}<p class="pe-exec__sem">Sua conta ainda não tem um executivo definido. A equipe Centralcomm recebe e responde.</p>{% endif %}
+      <p class="pe-nota"><b>Anexos:</b> {{ arquivos|map(attribute='nome')|join(', ') }}</p>
+      <p class="pe-nota">{{ icon('info', 16) }} Retorno previsto até {{ previsto }} (dias úteis, 9h às 18h), contando de agora.</p>
+      <button type="submit" class="ac-btn ac-btn--primary pe-enviar" {% if so_leitura %}disabled{% endif %}>{{ icon('send', 18) }}Enviar para {{ quem }}</button>
+    </aside>
+  </form>
+  {% endif %}
+</div>
+<script src="{{ url_for('static', filename='js/area_cliente_pi.js') }}?v={{ static_fingerprint('js/area_cliente_pi.js') }}" defer></script>
+{% endblock %}

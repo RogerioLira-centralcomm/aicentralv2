@@ -260,8 +260,11 @@ def _texto_briefing(d: dict) -> str:
     return "\n\n".join(blocos)
 
 
-def enviar(usuario: dict, d: dict) -> int:
-    """Cria o briefing do cliente da sessão. Devolve o id."""
+def enviar(usuario: dict, d: dict, extra: dict | None = None) -> int:
+    """Cria o briefing do cliente da sessão. Devolve o id.
+
+    ``extra`` (modo cotação): ``modo``, ``prazo_resposta_em``, ``arquivos`` e ``leitura_ia``, gravados em colunas da
+    migração add_briefing_cotacao.sql. Sem ``extra`` o comportamento é o de sempre."""
     d.setdefault("qualidade", qualidade(d))
     conn = _db().get_db()
     try:
@@ -300,6 +303,12 @@ def enviar(usuario: dict, d: dict) -> int:
                 ),
             )
             novo_id = cursor.fetchone()["id"]
+            if extra:
+                cursor.execute(
+                    "UPDATE cadu_briefings SET modo = %s, prazo_resposta_em = %s, arquivos = %s::jsonb, leitura_ia = %s::jsonb WHERE id = %s",
+                    (extra.get("modo", "cotacao"), extra.get("prazo_resposta_em"), _json(extra.get("arquivos") or []),
+                     _json(extra.get("leitura_ia") or {}), novo_id),
+                )
         conn.commit()
         return int(novo_id)
     except Exception:

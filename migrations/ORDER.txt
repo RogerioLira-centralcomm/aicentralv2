@@ -265,3 +265,5 @@ migrations/run_sql_migration.py add_area_cliente_bloqueio.sql
 migrations/run_seed_cadu_estrategias.py
 # Entrada de PI automatizada (CentralX): fila, ajustes e log de leitura; sem FK para tabelas antigas (idempotente).
 migrations/run_sql_migration.py create_pi_entrada.sql
+# Briefing para cotação (hub, F6): colunas modo/prazo/arquivos/leitura em cadu_briefings e a tabela de rascunho da cotação (idempotente).
+migrations/run_sql_migration.py add_briefing_cotacao.sql

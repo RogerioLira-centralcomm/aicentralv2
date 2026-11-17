@@ -68,3 +68,8 @@
   .pe-dl dd { margin-bottom: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .pe-barra i { animation: none; width: 100%; } .pe-drop { transition: none; } }
+
+/* Briefing para cotação: o formulário "O que entendi" usa campos do hub dentro do cartão do PI. */
+.pe-entendi .ac-field, .pe-entendi .ac-field-row { margin-top: 14px; }
+.pe-entendi > .pe-nota { margin-top: 4px; }
+.pe-entendi .ac-field > label, .pe-entendi .ac-field > legend { margin-bottom: 6px; display: block; }

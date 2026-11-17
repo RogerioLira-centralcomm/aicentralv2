@@ -694,6 +694,13 @@ def register_commands(app):
         result = processar_followups_onboarding(limit=limit)
         print(f"Onboarding: {result['enviados']} enviado(s), {result['falhas']} falha(s).")
     
+    @app.cli.command('process-hub-briefing-prazos')
+    def process_hub_briefing_prazos_command():
+        """Lembretes do prazo de 24 h dos briefings de cotação do hub (agende a cada 15 minutos)."""
+        from .area_cliente.lembretes_cotacao import processar
+        result = processar()
+        print(f"Prazos de cotação: {result['avisos']} aviso(s), {result['respondidos']} respondido(s).")
+
     @app.cli.command('process-email-sequence')
     @click.option('--limit', default=50, show_default=True, type=int)
     def process_email_sequence_command(limit):

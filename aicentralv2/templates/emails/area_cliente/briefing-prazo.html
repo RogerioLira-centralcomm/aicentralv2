@@ -1,0 +1,14 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, hero_texto with context %}
+{% set eyebrow = 'Prazo de cotação' %}
+{% block title %}Cotação de {{ cliente }}: {{ situacao }}{% endblock %}
+{% block preheader %}{{ titulo }}: {{ situacao }}.{% endblock %}
+{% block icone %}{{ badge('clock') }}{% endblock %}
+{% block headline %}{% if atraso %}A cotação de {{ cliente }} está atrasada{% else %}A cotação de {{ cliente }} vence em breve{% endif %}{% endblock %}
+{% block hero_sub %}{{ hero_texto('Prometemos retorno até ' ~ prazo ~ ': ' ~ situacao ~ '.') }}{% endblock %}
+{% block content %}
+  {{ fatos([('Briefing', titulo), ('Cliente', cliente), ('Retorno prometido até', prazo)]) }}
+  {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}
+{% endblock %}
+{% block footer_note %}Aviso interno do prazo de 24 h dos briefings de cotação.{% endblock %}
+{% block footer_legal %}{% endblock %}

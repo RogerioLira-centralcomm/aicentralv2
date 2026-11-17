@@ -1139,7 +1139,7 @@ def test_briefing_sem_envios_mostra_os_tres_caminhos(app, monkeypatch):
     client = _briefing_client(app, monkeypatch)
     html = client.get("/briefing", base_url=HOST).get_data(as_text=True)
     assert "Como você quer começar?" in html
-    for texto in ("Tenho arquivos para cotar", "Quero repetir um PI antigo", "Quero montar um planejamento", "Em breve"):
+    for texto in ("Tenho arquivos para cotar", "Quero repetir um PI antigo", "Quero montar um planejamento", "Retorno em até 24 h"):
         assert texto in html
     assert 'href="/briefing/planejamento"' in html and 'href="/briefing/pi-antigo"' in html
     assert "Começar briefing" not in html and "Ver todos os briefings" not in html

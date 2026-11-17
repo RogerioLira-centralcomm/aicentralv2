@@ -1,0 +1,34 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}Briefing para cotação{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
+{% block content %}
+{% set quem = usuario.executivo.nome.split()[0] if usuario.executivo else 'a equipe Centralcomm' %}
+<div class="pe" data-pe="enviar" data-upload-url="{{ area_url('briefing_cotacao') }}" data-csrf="{{ csrf }}">
+  <p class="pe-voltar"><a class="ac-link" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }} Briefing</a></p>
+  <h1 class="ac-h1 ac-page-title">Tenho arquivos para cotar</h1>
+  <p class="ac-lead">Anexe o briefing, o mídia kit ou a planilha. O hub lê os arquivos, mostra o que entendeu e {{ quem }} devolve a cotação em até {{ prazo_horas }} horas.</p>
+
+  {% if so_leitura %}
+  <div class="pe-aviso">{{ icon('info', 18) }}<span>Você está vendo o hub como cliente. O envio fica desligado nesta visão.</span></div>
+  {% endif %}
+
+  <section class="pe-drop{% if so_leitura %} is-off{% endif %}" id="pe-drop" tabindex="0" aria-label="Anexar arquivos para cotação">
+    <span class="pe-drop__icone">{{ icon('file', 28) }}</span>
+    <div class="pe-drop__texto">
+      <strong>Solte os arquivos aqui</strong>
+      <span>ou <button type="button" class="pe-link" id="pe-escolher" {% if so_leitura %}disabled{% endif %}>escolha no computador</button>. PDF, imagem (PNG, JPG) ou planilha (XLSX, CSV), até 20 MB cada, até {{ limite }} por vez.</span>
+    </div>
+    <input type="file" id="pe-arquivo" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv" multiple hidden>
+    <div class="pe-drop__progresso" id="pe-progresso" hidden><span class="pe-barra"><i></i></span><em id="pe-progresso-texto">Enviando…</em></div>
+  </section>
+  <p class="pe-erro" id="pe-erro" role="alert" hidden></p>
+
+  <ol class="pe-passos">
+    <li><span class="pe-passos__n">1</span><div><strong>Anexe o material</strong><span>Pode ser mais de um arquivo. Sem arquivo? <a class="ac-link" href="{{ area_url('briefing_planejamento') }}">Monte um planejamento</a>.</span></div></li>
+    <li><span class="pe-passos__n">2</span><div><strong>Confira o que entendemos</strong><span>Objetivo, praças, período e verba vêm preenchidos; você ajusta o que quiser.</span></div></li>
+    <li><span class="pe-passos__n">3</span><div><strong>{{ quem|capitalize if usuario.executivo else 'A equipe' }} retorna em até {{ prazo_horas }} h</strong><span>Dias úteis, das 9h às 18h. Você recebe o prazo exato ao enviar.</span></div></li>
+  </ol>
+</div>
+<script src="{{ url_for('static', filename='js/area_cliente_pi.js') }}?v={{ static_fingerprint('js/area_cliente_pi.js') }}" defer></script>
+{% endblock %}

@@ -57,7 +57,7 @@
 {% endif %}
 
 <div class="bw-ways{% if compacto %} is-compact{% endif %} ac-enter">
-  {{ cartao(None, 'cotacao', 'Tenho arquivos para cotar', 'Já tenho PDF, planilha ou mídia kit. Você anexa e a cotação volta em até 24 horas.', '', True) }}
+  {{ cartao(area_url('briefing_cotacao'), 'cotacao', 'Tenho arquivos para cotar', 'Já tenho PDF, planilha ou mídia kit. Você anexa e a cotação volta em até 24 horas.', 'Retorno em até 24 h') }}
   {{ cartao(area_url('briefing_pi_antigo'), 'pi', 'Quero repetir um PI antigo', 'Já fizemos algo parecido. O formulário abre quase todo preenchido.', 'Você só revisa') }}
   {{ cartao(area_url('briefing_planejamento'), 'plano', 'Quero montar um planejamento', 'Ainda não tenho nada. Uma página só, com o essencial no topo.', 'Cerca de 5 minutos') }}
 </div>

@@ -116,43 +116,52 @@
       <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="op-titulo">Operação{% if k.campanhas_no_ar %}<span class="ac-op__live"><i aria-hidden="true"></i>Ao vivo</span>{% endif %}</h2>
       <a class="ac-home-link" href="{{ area_url('campanhas') }}">Ver campanhas{{ icon('chevron-right', 14) }}</a>
     </header>
-    {% set ex = not k.campanhas_no_ar %}
-    {% set no_ar = 4 if ex else k.campanhas_no_ar %}
-    {% set total = 6 if ex else k.campanhas_total %}
-    {% set entrega = 72 if ex else k.entrega_media %}
-    <div class="ac-op__body{% if ex %} is-exemplo{% endif %}"{% if ex %} aria-label="Exemplo de como a operação aparece com campanhas no ar"{% endif %}>
-      <a class="ac-op__destaque" href="{{ area_url('campanhas') }}"{% if ex %} tabindex="-1" aria-hidden="true"{% endif %}>
-        <span class="ac-op__label">Campanhas no ar</span>
-        <span class="ac-op__big"><b>{{ no_ar }}</b> de {{ total }}</span>
-        <span class="ac-op__sub">{% if ex %}2 PIs ativos{% else %}{{ k.projetos_ativos }} {{ 'PI ativo' if k.projetos_ativos == 1 else 'PIs ativos' }}{% endif %}</span>
-      </a>
-      <div class="ac-op__graficos" {% if ex %}aria-hidden="true"{% endif %}>
-        <div class="ac-op__donut">
-          <svg viewBox="0 0 42 42" role="img" aria-label="Entrega média {{ entrega if entrega is not none else 'sem dados' }}{{ '%' if entrega is not none }}">
-            <circle class="ac-op__trilha" cx="21" cy="21" r="15.9"/>
-            <circle class="ac-op__arco" cx="21" cy="21" r="15.9" style="stroke-dasharray: {{ [[entrega or 0, 0]|max, 100]|min }} 100"/>
-          </svg>
-          <span><b>{% if entrega is not none %}{{ entrega }}%{% else %}—{% endif %}</b><small>entrega<br>média</small></span>
-        </div>
-        {% set rt = {'adiantado': 1, 'no_ritmo': 2, 'atencao': 1} if ex else resumo.ritmos %}
-        {% set rt_total = (rt.adiantado + rt.no_ritmo + rt.atencao) or 1 %}
-        <div class="ac-op__ritmo">
-          <span class="ac-op__label">Ritmo das campanhas</span>
-          <span class="ac-op__stack" role="img" aria-label="{{ rt.adiantado }} adiantadas, {{ rt.no_ritmo }} no ritmo, {{ rt.atencao }} em otimização">
-            <i class="is-adiantado" style="flex: {{ rt.adiantado }}"></i><i class="is-no_ritmo" style="flex: {{ rt.no_ritmo }}"></i><i class="is-atencao" style="flex: {{ rt.atencao }}"></i>
-          </span>
-          <small>{{ rt.adiantado }} adiantadas · {{ rt.no_ritmo }} no ritmo · {{ rt.atencao }} em otimização</small>
+    {% set vazio_op = not k.campanhas_no_ar %}
+    {% set rt = resumo.ritmos %}
+    {% set rt_total = (rt.adiantado + rt.no_ritmo + rt.atencao) or 1 %}
+    <div class="ac-op__body{% if vazio_op %} is-vazio{% endif %}">
+      {# Três números lado a lado. Sem campanha no ar, só o desenho claro (nada de número inventado). #}
+      <div class="ac-op__kpis">
+        <a class="ac-op__kpi is-main" href="{{ area_url('campanhas') }}">
+          <span class="ac-op__label">Campanhas no ar</span>
+          {% if vazio_op %}<i class="ac-sk ac-sk--num" aria-hidden="true"></i>{% else %}<b>{{ k.campanhas_no_ar }}<small> de {{ k.campanhas_total }}</small></b>{% endif %}
+        </a>
+        <a class="ac-op__kpi" href="{{ area_url('pis') }}">
+          <span class="ac-op__label">PIs ativos</span>
+          {% if vazio_op %}<i class="ac-sk ac-sk--num" aria-hidden="true"></i>{% else %}<b>{{ k.projetos_ativos }}<small> de {{ k.projetos_total }}</small></b>{% endif %}
+        </a>
+        <div class="ac-op__kpi">
+          <span class="ac-op__label">Entrega média</span>
+          {% if vazio_op %}<i class="ac-sk ac-sk--num" aria-hidden="true"></i>
+          {% else %}<b>{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b>
+          <span class="ac-op__mini" aria-hidden="true"><span style="width: {{ [[k.entrega_media or 0, 0]|max, 100]|min }}%"></span></span>{% endif %}
         </div>
       </div>
-      <div class="ac-op__plats" {% if ex %}aria-hidden="true"{% endif %}>
-        <span class="ac-op__label">Plataformas em execução</span>
-        <ul>
-          {% for p in (exemplo_plataformas if ex else resumo.plataformas_no_ar) %}
-          <li>{{ plat(p.nome, p.logo, p.iniciais, 22) }}<span>{{ p.nome }}</span>{% if not ex and p.no_ar > 1 %}<small>{{ p.no_ar }} campanhas</small>{% endif %}</li>
-          {% endfor %}
-        </ul>
+
+      {# Ritmo e plataformas: duas listas verticais, lado a lado, com a mesma altura de linha. #}
+      <div class="ac-op__split">
+        <div class="ac-op__lista">
+          <span class="ac-op__label">Ritmo</span>
+          <ul>
+            {% for chave, rotulo in (('adiantado', 'Adiantadas'), ('no_ritmo', 'No ritmo'), ('atencao', 'Em otimização')) %}
+            <li class="is-{{ chave }}"><i class="ac-op__dot" aria-hidden="true"></i><span>{{ rotulo }}</span>{% if vazio_op %}<i class="ac-sk ac-sk--mini" aria-hidden="true"></i>{% else %}<b>{{ rt[chave] }}</b>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="ac-op__lista">
+          <span class="ac-op__label">Plataformas</span>
+          <ul>
+            {% if vazio_op %}
+            {% for i in range(3) %}<li aria-hidden="true"><i class="ac-sk ac-sk--logo"></i><i class="ac-sk ac-sk--linha"></i></li>{% endfor %}
+            {% else %}
+            {% for p in resumo.plataformas_no_ar[:4] %}
+            <li>{{ plat(p.nome, p.logo, p.iniciais, 22) }}<span>{{ p.nome }}</span>{% if p.no_ar > 1 %}<b>{{ p.no_ar }}</b>{% endif %}</li>
+            {% endfor %}
+            {% endif %}
+          </ul>
+        </div>
       </div>
-      {% if ex %}<p class="ac-op__nota">Assim que uma campanha entrar no ar, estes números passam a ser os da sua conta.</p>{% endif %}
+      {% if vazio_op %}<p class="ac-op__nota">Nenhuma campanha no ar agora. Quando uma entrar, a operação aparece aqui.</p>{% endif %}
     </div>
   </section>
 

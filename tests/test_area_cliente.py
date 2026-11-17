@@ -1263,7 +1263,7 @@ def test_inicio_com_campanha_no_ar_tem_barra_tres_colunas_e_plataformas(app, mon
     for titulo in (">Campanhas<", ">Operação<", ">PIs<"):
         assert titulo in html
     assert "PIs recentes" not in html and "Dashboards no ar" not in html and "Ideias para" not in html
-    assert "Plataformas em execução" in html and "Meta Ads" in html and "Ao vivo" in html
+    assert ">Plataformas<" in html and "Meta Ads" in html and "Ao vivo" in html and "ac-op__kpis" in html and "PIs ativos" in html
     # finalizada: só o resultado, sem barra de acompanhamento nem selo de ritmo
     finalizada = html.split("Mais Fácil")[1].split("</li>")[0]
     assert "Finalizada" in finalizada and "ac-hcamp__bar" not in finalizada and "No ritmo" not in finalizada
@@ -1273,7 +1273,8 @@ def test_inicio_com_campanha_no_ar_tem_barra_tres_colunas_e_plataformas(app, mon
 def test_inicio_sem_campanha_no_ar_nao_tem_barra_e_mostra_o_exemplo(app, monkeypatch):
     html = _inicio(app, monkeypatch, _resumo_inicio([_camp_inicio("Antiga", False, pct=104)], aviso=False))
     assert "ac-aviso--barra" not in html and "Acima da meta" not in html
-    assert ">Exemplo<" not in html and "is-exemplo" in html and "Ao vivo" not in html and "Assim que uma campanha entrar no ar" in html
+    assert ">Exemplo<" not in html and "is-vazio" in html and "ac-sk" in html and "Ao vivo" not in html and "Nenhuma campanha no ar agora" in html
+    assert "72%" not in html and "4</b>" not in html                          # nenhum número inventado no estado vazio
     assert "ac-hero__nome" in html and "PIs em andamento" in html
 
 

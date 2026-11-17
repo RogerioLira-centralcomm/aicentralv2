@@ -67,7 +67,7 @@ def test_dados_de_demonstracao_so_para_a_conta_certa(monkeypatch):
 
 def test_telas_da_conta_174_mostram_os_cinco_pis_e_campanhas(conta174):
     inicio = pagina(conta174, "/")
-    assert "Demonstração" in inicio and "Lançamento Coleção Verão" in inicio and "Ao vivo" in inicio and "Plataformas em execução" in inicio
+    assert "ac-modo-demo" in inicio and "Lançamento Coleção Verão" in inicio and "Ao vivo" in inicio and ">Plataformas<" in inicio
     pis = pagina(conta174, "/pis")
     assert pis.count("DEMO-00") >= 2 and "Black Friday Varejo" in pis
     assert "Dia das Mães" in pagina(conta174, "/pis?status=finalizados") and "Dia das Mães" not in pis
@@ -119,6 +119,6 @@ def test_conta_demo_desligada_volta_ao_banco(conta174, monkeypatch):
     conta174.app.config["HUB_DEMO_CLIENTE_ID"] = 0
     try:
         monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [])
-        assert "Demonstração" not in pagina(conta174, "/")
+        assert "ac-modo-demo" not in pagina(conta174, "/")
     finally:
         conta174.app.config.pop("HUB_DEMO_CLIENTE_ID", None)

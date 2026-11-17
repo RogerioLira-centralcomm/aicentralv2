@@ -96,7 +96,7 @@
         <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar PIs por código ou título" autocomplete="off">
       </form>
       <div class="ac-top__actions">
-        {% if demo_ativo %}<span class="ac-demo" title="Conta de demonstração: PIs e campanhas fictícios; nada é gravado nem enviado">Demonstração</span>{% endif %}
+        {% if demo_ativo %}<span class="ac-modo-demo" role="img" aria-label="Conta de demonstração" title="Conta de demonstração: dados fictícios, nada é gravado nem enviado">{{ icon('sparkles', 14) }}</span>{% endif %}
         {% if pagina_ativa != 'briefing' %}<a class="ac-btn ac-btn--primary ac-btn--sm ac-top__cta" href="{{ area_url('briefing') }}">{{ icon('send', 16) }}<span>Enviar briefing</span>{% if n_selecao %}<span class="ac-top__cta-count">{{ n_selecao }}</span>{% endif %}</a>{% endif %}
         {% if usuario.ver_como %}
         <form class="ac-viewas" method="post" action="{{ area_url('ver_como_sair') }}" role="status" title="Você está vendo o hub como este cliente">

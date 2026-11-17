@@ -1,14 +1,14 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, link_texto with context %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, hero_texto, link_texto with context %}
 {% set eyebrow = 'Segurança da conta' %}
 {% block title %}{{ primeiro_nome }}, foi você que entrou agora?{% endblock %}
 {% block preheader %}Registramos um login no seu hub de mídia. Foi você?{% endblock %}
 {% block icone %}{{ badge('shield-check') }}{% endblock %}
 {% block headline %}Alguém entrou na sua conta. Foi você?{% endblock %}
+{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. Acabamos de registrar um login no seu hub de mídia.') }}{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. Acabamos de registrar um login no seu hub de mídia:</p>
   {{ fatos([('Quando', quando), ('Conta', email), ('Empresa', cliente), ('Navegador', dispositivo), ('IP aproximado', ip)]) }}
-  <p style="margin:24px 0 0">Se foi você, está tudo certo e não precisa fazer nada.</p>
+  <p style="margin:22px 0 0">Se foi você, está tudo certo e não precisa fazer nada.</p>
   {{ nota('Não reconhece esse acesso? Troque a senha agora e responda este e-mail, que a gente cuida do resto.', 'alerta') }}
   {{ botao(area_url, HUB_BOTAO) }}
   {{ link_texto(link_senha, 'Trocar senha', 'Quer trocar a senha agora?') }}

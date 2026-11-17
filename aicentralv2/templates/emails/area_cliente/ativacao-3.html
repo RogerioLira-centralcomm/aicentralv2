@@ -1,19 +1,17 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, passos with context %}
+{% from 'emails/area_cliente/_ui.html' import botao_hero, hero_texto, passos with context %}
 {% set eyebrow = 'Primeiros passos' %}
 {% block title %}{{ primeiro_nome }}, antes de decidir o canal, veja isto{% endblock %}
 {% block preheader %}Canais, formatos e audiências como a Centralcomm trabalha de verdade.{% endblock %}
 {% block headline %}Veja como a Centralcomm trabalha cada canal{% endblock %}
+{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. Escolher canal, formato e audiência é a parte mais difícil de um planejamento.') }}{% endblock %}
+{% block hero_cta %}{{ botao_hero(link_destino, HUB_BOTAO) }}{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. Escolher canal, formato e audiência é a parte mais difícil de um planejamento.</p>
-  <p style="margin:14px 0 0">O Descobrir reúne tudo isso do jeito que a gente trabalha de verdade, com exemplos e explicação.</p>
-
+  <p style="margin:0">O Descobrir reúne tudo isso do jeito que a gente trabalha de verdade, com exemplos e explicação.</p>
   {{ passos([
     ('search', 'Canais', 'Cada canal com o que ele entrega e para quem serve.'),
     ('layers', 'Formatos', 'Os formatos disponíveis, com exemplos.'),
     ('user', 'Audiências', 'Públicos para segmentar, por perfil e interesse.'),
   ]) }}
-
   <p style="margin:0">Gostou de algo? Separe o item e leve direto para o briefing. Sem copiar e colar.</p>
-  {{ botao(link_destino, HUB_BOTAO) }}
 {% endblock %}

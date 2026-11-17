@@ -1,18 +1,16 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, passos with context %}
+{% from 'emails/area_cliente/_ui.html' import botao_hero, hero_texto, passos with context %}
 {% set eyebrow = 'Rotina' %}
 {% block title %}{{ primeiro_nome }}, o que olhar toda segunda-feira{% endblock %}
 {% block preheader %}Uma rotina de um minuto para acompanhar a mídia {{ de_empresa }}.{% endblock %}
 {% block headline %}O que olhar toda segunda-feira{% endblock %}
+{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. Uma rotina curta já dá clareza sobre a mídia ' ~ de_empresa ~ '. Está tudo na tela inicial do seu hub.') }}{% endblock %}
+{% block hero_cta %}{{ botao_hero(link_destino, HUB_BOTAO) }}{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. Uma rotina curta já dá clareza sobre a mídia {{ de_empresa }}. Está tudo na tela inicial do seu hub:</p>
-
   {{ passos([
     ('megaphone', 'Campanhas no ar', 'O que está veiculando agora.'),
     ('bar-chart', 'Entregue até agora', 'O quanto cada campanha já entregou da meta.'),
     ('calendar', 'Prazos', 'Quantos dias faltam em cada campanha.'),
   ]) }}
-
   <p style="margin:0">Se algo não fizer sentido, é só chamar {{ executivo.nome.split()[0] if executivo and executivo.nome else 'a gente' }} no WhatsApp. A mensagem já vai pronta.</p>
-  {{ botao(link_destino, HUB_BOTAO) }}
 {% endblock %}

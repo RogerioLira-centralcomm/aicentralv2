@@ -3,31 +3,49 @@
 <img src="{{ brand.illustrations_url }}icones/ic-{{ tipo }}-{{ nome }}{{ sufixo }}.png" width="{{ tam }}" height="{{ tam }}" alt="" style="display:block;width:{{ tam }}px;height:{{ tam }}px;border:0">
 {%- endmacro %}
 
+{# Selo no topo do destaque amarelo (segurança, senha, confirmação). #}
 {% macro badge(nome) -%}
-<div style="margin:0 0 20px">{{ ico(nome, 'd', 56) }}</div>
+<div style="margin:0 0 16px">{{ ico(nome, 'd', 52) }}</div>
 {%- endmacro %}
 
-{% macro botao(url, texto, secundario=False) -%}
-<table role="presentation" cellspacing="0" cellpadding="0" style="margin:32px 0 4px"><tr><td bgcolor="{{ '#ffffff' if secundario else '#fcb600' }}" style="border-radius:999px;background:{{ '#ffffff' if secundario else '#fcb600' }}">
-  <a class="btn" href="{{ url }}" style="display:inline-block;padding:17px 36px;border-radius:999px;{% if secundario %}border:2px solid #0c2e24;{% endif %}font-size:16px;font-weight:800;text-decoration:none;color:#0c2e24;letter-spacing:.01em">{{ texto }}</a>
+{# Botão de largura total no celular e automático na tela grande. variante: 'escuro' (sobre o amarelo) ou 'amarelo' (sobre o branco). #}
+{% macro botao(url, texto, variante='amarelo') -%}
+{% set fundo = '#0c2e24' if variante == 'escuro' else '#fcb600' %}
+{% set cor = '#ffffff' if variante == 'escuro' else '#0c2e24' %}
+<table role="presentation" width="100%" class="btn-wrap" style="width:100%;margin:26px 0 4px"><tr><td align="center" bgcolor="{{ fundo }}" style="border-radius:16px;background:{{ fundo }}">
+  <a href="{{ url }}" style="display:block;padding:18px 28px;border-radius:16px;font-size:17px;font-weight:800;text-decoration:none;color:{{ cor }}">{{ texto }} &rarr;</a>
 </td></tr></table>
+{%- endmacro %}
+
+{% macro botao_hero(url, texto) -%}
+<table role="presentation" width="100%" class="btn-wrap" style="width:100%;margin:22px 0 0"><tr><td align="center" bgcolor="#0c2e24" style="border-radius:16px;background:#0c2e24">
+  <a href="{{ url }}" style="display:block;padding:18px 28px;border-radius:16px;font-size:17px;font-weight:800;text-decoration:none;color:#ffffff">{{ texto }} &rarr;</a>
+</td></tr></table>
+{%- endmacro %}
+
+{% macro hero_texto(texto) -%}
+<p style="margin:12px 0 0;font-size:16px;line-height:1.5;color:#243b32">{{ texto }}</p>
 {%- endmacro %}
 
 {% macro link_texto(url, texto, antes='') -%}
 <p style="margin:16px 0 0;font-size:14px;line-height:1.5;color:#5b7a71">{{ antes }} <a href="{{ url }}" style="color:#0c2e24;font-weight:700;text-decoration:underline">{{ texto }}</a></p>
 {%- endmacro %}
 
+{% macro titulo_secao(texto) -%}
+<p style="margin:28px 0 0;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#05603a">{{ texto }}</p>
+{%- endmacro %}
+
 {% macro passos(itens) -%}
-<table role="presentation" width="100%" style="margin:28px 0 0">
+<table role="presentation" width="100%" style="margin:18px 0 0">
   {% for icone, titulo, texto in itens %}
-  <tr><td width="60" valign="top" style="padding:0 0 22px">{{ ico(icone, 'l', 44) }}</td>
-  <td valign="top" style="padding:2px 0 22px;font-size:15px;line-height:1.55;color:#2a3b36"><strong style="font-size:16px;color:#0c2e24">{{ titulo }}</strong><br>{{ texto }}</td></tr>
+  <tr><td width="56" valign="top" style="padding:0 0 18px">{{ ico(icone, 'l', 44) }}</td>
+  <td valign="top" style="padding:1px 0 18px;font-size:15px;line-height:1.5;color:#2a3b36"><strong style="font-size:16px;color:#0c2e24">{{ titulo }}</strong><br>{{ texto }}</td></tr>
   {% endfor %}
 </table>
 {%- endmacro %}
 
 {% macro dica(titulo, texto) -%}
-<table role="presentation" width="100%" style="margin:12px 0 0;border-radius:12px;background:#f2f7f5"><tr><td style="padding:20px 22px;border-left:4px solid #fcb600;border-radius:12px;font-size:15px;line-height:1.6;color:#2a3b36">
+<table role="presentation" width="100%" style="margin:12px 0 0"><tr><td bgcolor="#f1f7f4" style="padding:18px 20px;border-left:5px solid #fcb600;border-radius:14px;background:#f1f7f4;font-size:15px;line-height:1.55;color:#2a3b36">
   <strong style="color:#0c2e24">{{ titulo }}</strong><br>{{ texto }}
 </td></tr></table>
 {%- endmacro %}
@@ -43,26 +61,26 @@
   'Do Descobrir': 'search', 'Reaproveitou dados de': 'file-text', 'Materiais e mensuração': 'file-text'
 } %}
 
+{# Cada linha empilha rótulo e valor: lê bem em tela estreita sem precisar de CSS. #}
 {% macro fatos(linhas) -%}
-<table role="presentation" width="100%" class="facts" style="margin:24px 0 0;border-radius:14px;background:#f2f7f5">
+<table role="presentation" width="100%" bgcolor="#f1f7f4" style="width:100%;margin:20px 0 0;border-radius:16px;background:#f1f7f4">
   {% for rotulo, valor in linhas if valor %}
   {% set icone = _icones_fatos.get(rotulo, 'file-text') %}
   <tr>
-    <td width="26" valign="top" style="padding:15px 0 15px 18px;{% if not loop.first %}border-top:1px solid #dde7e3;{% endif %}">{{ ico(icone, 's', 18) }}</td>
-    <td class="f-label" width="32%" valign="top" style="padding:15px 12px 15px 10px;{% if not loop.first %}border-top:1px solid #dde7e3;{% endif %}font-size:13px;line-height:1.4;color:#5b7a71">{{ rotulo }}</td>
-    <td valign="top" style="padding:15px 18px 15px 0;{% if not loop.first %}border-top:1px solid #dde7e3;{% endif %}font-size:14px;line-height:1.5;font-weight:700;color:#0c2e24;white-space:pre-line">{{ valor }}</td>
+    <td width="40" valign="top" style="padding:14px 0 14px 16px;{% if not loop.first %}border-top:1px solid #dde9e3;{% endif %}">{{ ico(icone, 's', 18) }}</td>
+    <td valign="top" style="padding:13px 16px 13px 8px;{% if not loop.first %}border-top:1px solid #dde9e3;{% endif %}font-size:12px;line-height:1.4;color:#5b7a71">{{ rotulo }}<br><span style="font-size:15px;line-height:1.45;font-weight:700;color:#0c2e24;white-space:pre-line">{{ valor }}</span></td>
   </tr>
   {% endfor %}
 </table>
 {%- endmacro %}
 
 {% macro nota(texto, tom='info') -%}
-<table role="presentation" width="100%" style="margin:24px 0 0;border-radius:12px;background:{{ '#fdecec' if tom == 'alerta' else '#e3faf0' }}"><tr>
-  <td width="26" valign="top" style="padding:16px 0 16px 18px">{{ ico('alert-triangle' if tom == 'alerta' else 'info', 's', 18, '-red' if tom == 'alerta' else '-ok') }}</td>
-  <td valign="top" style="padding:15px 18px 15px 10px;font-size:14px;line-height:1.55;color:{{ '#9b1c1c' if tom == 'alerta' else '#05603a' }}">{{ texto }}</td>
+<table role="presentation" width="100%" style="margin:20px 0 0"><tr>
+  <td width="42" valign="top" bgcolor="{{ '#fdecec' if tom == 'alerta' else '#e3faf0' }}" style="padding:16px 0 16px 16px;border-radius:14px 0 0 14px;background:{{ '#fdecec' if tom == 'alerta' else '#e3faf0' }}">{{ ico('alert-triangle' if tom == 'alerta' else 'info', 's', 18, '-red' if tom == 'alerta' else '-ok') }}</td>
+  <td valign="top" bgcolor="{{ '#fdecec' if tom == 'alerta' else '#e3faf0' }}" style="padding:15px 16px 15px 8px;border-radius:0 14px 14px 0;background:{{ '#fdecec' if tom == 'alerta' else '#e3faf0' }};font-size:14px;line-height:1.55;color:{{ '#9b1c1c' if tom == 'alerta' else '#05603a' }}">{{ texto }}</td>
 </tr></table>
 {%- endmacro %}
 
 {% macro link_cru(url) -%}
-<p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#7a918a;overflow-wrap:anywhere;word-break:break-word">Se o botão não abrir, copie e cole este endereço no navegador:<br>{{ url }}</p>
+<p style="margin:18px 0 0;font-size:12px;line-height:1.55;color:#6c857d;overflow-wrap:anywhere;word-break:break-word">Se o botão não abrir, copie e cole este endereço no navegador:<br>{{ url }}</p>
 {%- endmacro %}

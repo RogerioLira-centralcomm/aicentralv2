@@ -1,18 +1,16 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, passos with context %}
+{% from 'emails/area_cliente/_ui.html' import botao_hero, hero_texto, passos, titulo_secao with context %}
 {% set eyebrow = 'Primeiros passos' %}
 {% block title %}{{ primeiro_nome }}, o próximo pedido pode sair em minutos{% endblock %}
 {% block preheader %}Três caminhos curtos para pedir uma campanha nova.{% endblock %}
 {% block headline %}Pedir uma campanha nova ficou mais curto{% endblock %}
+{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. Quando surge uma campanha nova, o caminho costuma ser longo: e-mail, PDF, ligação e ajuste.') }}{% endblock %}
+{% block hero_cta %}{{ botao_hero(link_destino, HUB_BOTAO) }}{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. Quando surge uma campanha nova, o caminho costuma ser longo: e-mail, PDF, ligação e ajuste.</p>
-  <p style="margin:14px 0 0">No seu hub de mídia são três caminhos curtos. Você escolhe o que combina com o momento:</p>
-
+  <p style="margin:0">No seu hub de mídia são três caminhos curtos. Você escolhe o que combina com o momento:</p>
   {{ passos([
     ('upload', 'Tenho arquivos', 'Envie o PDF ou o material. A gente lê, monta o briefing e retorna em até 24 horas.'),
     ('copy', 'Quero repetir um PI antigo', 'Quase tudo já vem preenchido. Você só confere o que mudou.'),
     ('pencil', 'Quero montar do zero', 'Um formulário só, com tudo na mesma tela.'),
   ]) }}
-
-  {{ botao(link_destino, HUB_BOTAO) }}
 {% endblock %}

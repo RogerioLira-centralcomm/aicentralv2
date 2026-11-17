@@ -1,19 +1,19 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge with context %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, hero_texto with context %}
 {% set eyebrow = 'Novo briefing' %}
 {% block title %}Novo briefing de {{ cliente }}: {{ titulo }}{% endblock %}
 {% block preheader %}{{ nome }} enviou um briefing pelo hub de mídia.{% endblock %}
 {% block icone %}{{ badge('file-text') }}{% endblock %}
 {% block headline %}Briefing novo da {{ cliente }}{% endblock %}
+{% block hero_sub %}{{ hero_texto(primeiro_nome_executivo ~ ', ' ~ nome ~ ' mandou um briefing pelo hub de mídia. Dá para começar o planejamento.') }}{% endblock %}
 {% block content %}
-  <p style="margin:0">{{ primeiro_nome_executivo }}, {{ nome }} mandou um briefing pelo hub de mídia. Dá para começar o planejamento.</p>
   {% if secoes %}
   {% if qualidade %}{{ nota('Nota do briefing: ' ~ qualidade.nota ~ '/100.' ~ ((' Perguntar ao cliente: ' ~ (qualidade.pendencias + qualidade.avisos)|join(' ')) if (qualidade.pendencias or qualidade.avisos) else ' Completo para cotar.'), 'alerta' if qualidade.pendencias else 'info') }}{% endif %}
   {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% else %}
   {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% endif %}
-  {% if descricao %}<p style="margin:24px 0 6px;color:#0c2e24;font-weight:700">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
+  {% if descricao %}<p style="margin:22px 0 6px;color:#0c2e24;font-weight:700">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
   {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}
 {% endblock %}
 {% block footer_note %}Aviso interno. Responda ao cliente pelo seu e-mail ou WhatsApp.{% endblock %}

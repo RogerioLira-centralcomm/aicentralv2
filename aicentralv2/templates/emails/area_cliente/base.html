@@ -5,107 +5,97 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
   <meta name="color-scheme" content="light only">
   <meta name="supported-color-schemes" content="light only">
   <title>{% block title %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}</title>
+  <!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
   <style>
-    html,body{margin:0!important;padding:0!important;background:#e9efec!important;color:#0c2e24!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+    /* O desenho padrão (estilos inline) já é o do celular: 100% da largura, sem margens, fonte 16px.
+       Este bloco só melhora a tela grande; se o aplicativo de e-mail ignorar <style>, nada quebra. */
+    html,body{margin:0!important;padding:0!important;background:#eef3f0!important}
     table{border-spacing:0!important;border-collapse:collapse!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
-    img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;display:block;max-width:100%}
+    img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
     a{color:#0c2e24}
-    @media only screen and (max-width:620px){
-      .w-full{width:100%!important}
-      .px{padding-left:22px!important;padding-right:22px!important}
-      .hero-title{font-size:30px!important;line-height:1.1!important}
-      .copy{font-size:16px!important;line-height:1.6!important}
-      .btn{display:block!important;width:100%!important;box-sizing:border-box!important;text-align:center!important}
-      .facts .f-label{width:34%!important}
-      .outer{padding:0!important}
-      .card{border-radius:0!important}
-      .foot-col{display:block!important;width:100%!important}
+    @media only screen and (min-width:621px){
+      .outer{padding:28px 16px!important}
+      .card{border-radius:24px!important;overflow:hidden!important}
+      .px{padding-left:40px!important;padding-right:40px!important}
+      .h1{font-size:38px!important;line-height:1.08!important;letter-spacing:-1.1px!important}
+      .btn-wrap{width:auto!important}
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#e9efec;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+<body style="margin:0;padding:0;background:#eef3f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
 
-  <table role="presentation" width="100%" bgcolor="#e9efec" class="outer"><tr><td align="center" style="padding:28px 12px">
-    <table role="presentation" width="600" class="w-full card" bgcolor="#ffffff" style="width:600px;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden">
+  <table role="presentation" width="100%" bgcolor="#eef3f0" style="width:100%;background:#eef3f0"><tr><td class="outer" align="center" style="padding:0">
+    <!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->
+    <table role="presentation" width="100%" class="card" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff">
 
-      <!-- cabeçalho escuro, com logo -->
-      <tr><td class="px" bgcolor="#0c2e24" style="padding:20px 36px;background:#0c2e24">
+      <!-- topo: logo à esquerda, na mesma margem do texto -->
+      <tr><td class="px" bgcolor="#ffffff" style="padding:14px 20px;background:#ffffff">
         <table role="presentation" width="100%"><tr>
-          <td align="left" style="vertical-align:middle">
-            <table role="presentation" cellspacing="0" cellpadding="0"><tr>
-              <td bgcolor="#ffffff" style="background:#ffffff;border-radius:10px;padding:5px 7px"><img src="{{ brand.icon_url }}" width="30" height="21" alt="Centralcomm" style="display:block;width:30px;height:auto"></td>
-              <td style="vertical-align:middle;padding-left:10px;font-size:15px;font-weight:700;color:#ffffff;letter-spacing:-.2px">Centralcomm</td>
-            </tr></table>
-          </td>
-          <td align="right" style="vertical-align:middle;font-size:13px;line-height:1.35">{% if cliente %}<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fa89a">{{ cliente }}</span>{% endif %}<a href="{{ area_url }}" style="color:#b7f5d6;text-decoration:none;font-weight:600">{{ HUB_ROTULO }} &rarr;</a></td>
+          <td width="48" valign="middle"><img src="{{ brand.icon_url }}" width="44" height="31" alt="Centralcomm" style="display:block;width:44px;height:31px"></td>
+          <td valign="middle" style="padding-left:8px;font-size:18px;font-weight:800;letter-spacing:-.4px;color:#0c2e24">Centralcomm</td>
+          <td align="right" valign="middle"><span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#e3faf0;font-size:12px;font-weight:700;color:#05603a">{{ HUB_ROTULO }}</span></td>
         </tr></table>
       </td></tr>
 
+      <!-- destaque amarelo: título e botão logo na primeira tela -->
+      {% block hero %}
+      <tr><td class="px" bgcolor="#fcb600" style="padding:26px 20px 28px;background:#fcb600">
+        {% block icone %}{% endblock %}
+        {% block eyebrow %}{% if eyebrow %}<span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#0c2e24;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fcb600">{{ eyebrow }}</span>{% endif %}{% endblock %}
+        <h1 class="h1" style="margin:14px 0 0;font-size:30px;line-height:1.12;letter-spacing:-.8px;font-weight:800;color:#0c2e24">{% block headline %}{% endblock %}</h1>
+        {% block hero_sub %}{% endblock %}
+        {% block hero_cta %}{% endblock %}
+      </td></tr>
+      {% endblock %}
+
       {% block hero_img %}{% endblock %}
 
-      <!-- título em bloco escuro -->
-      <tr><td class="px" bgcolor="#0c2e24" style="padding:32px 36px 44px;background:#0c2e24">
-        {% block icone %}{% endblock %}
-        {% block eyebrow %}{% if eyebrow %}<p style="margin:0 0 12px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#24ce7b">{{ eyebrow }}</p>{% endif %}{% endblock %}
-        <h1 class="hero-title" style="margin:0;font-size:34px;line-height:1.1;letter-spacing:-1px;font-weight:800;color:#ffffff">{% block headline %}{% endblock %}</h1>
-        {% block subtitulo %}{% endblock %}
-      </td></tr>
-
       <!-- corpo -->
-      <tr><td class="px" style="padding:38px 36px 40px">
-        <div class="copy" style="font-size:16px;line-height:1.65;color:#2a3b36">{% block content %}{% endblock %}</div>
+      <tr><td class="px" style="padding:26px 20px 8px">
+        <div style="font-size:16px;line-height:1.6;color:#2a3b36">{% block content %}{% endblock %}</div>
       </td></tr>
 
       {% if executivo and executivo.nome %}
       {% set partes = executivo.nome.split() %}
-      <tr><td class="px" style="padding:0 36px 40px">
-        <table role="presentation" width="100%" style="background:#f2f7f5;border-radius:16px">
-          <tr>
-            <td width="84" valign="middle" style="padding:22px 0 0 22px">
+      <tr><td class="px" style="padding:20px 20px 28px">
+        <table role="presentation" width="100%" bgcolor="#f1f7f4" style="background:#f1f7f4;border-radius:18px"><tr><td style="padding:18px">
+          <table role="presentation" width="100%"><tr>
+            <td width="62" valign="middle">
               {% if executivo.foto %}
-              <img src="{{ executivo.foto }}" width="56" height="56" alt="{{ executivo.nome }}" style="display:block;width:56px;height:56px;border-radius:999px;object-fit:cover;border:2px solid #ffffff">
+              <img src="{{ executivo.foto }}" width="52" height="52" alt="{{ executivo.nome }}" style="display:block;width:52px;height:52px;border-radius:999px;object-fit:cover;border:2px solid #ffffff">
               {% else %}
-              <table role="presentation" cellspacing="0" cellpadding="0"><tr><td width="56" height="56" align="center" valign="middle" bgcolor="#24ce7b" style="width:56px;height:56px;border-radius:999px;background:#24ce7b;font-size:18px;font-weight:800;color:#0c2e24">{{ (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ''))|upper }}</td></tr></table>
+              <table role="presentation" cellspacing="0" cellpadding="0"><tr><td width="52" height="52" align="center" valign="middle" bgcolor="#24ce7b" style="width:52px;height:52px;border-radius:999px;background:#24ce7b;font-size:17px;font-weight:800;color:#0c2e24">{{ (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ''))|upper }}</td></tr></table>
               {% endif %}
             </td>
-            <td valign="middle" style="padding:22px 22px 0 4px;font-size:14px;line-height:1.5;color:#2a3b36">
-              <strong style="font-size:16px;color:#0c2e24">{{ executivo.nome }}</strong><br>
-              <span style="color:#5b7a71">Seu executivo na Centralcomm{% if executivo.cliente %}<br>{{ executivo.cliente }}{% endif %}</span>
-            </td>
-          </tr>
-          <tr><td colspan="2" style="padding:18px 22px 22px;font-size:14px;line-height:1.55;color:#2a3b36">
-            {% if executivo.whatsapp %}
-            <p style="margin:0 0 14px">Precisa de algo rápido? Chame direto. A mensagem já vai pronta{% if executivo.cliente %}, com o nome da {{ executivo.cliente }}{% endif %}.</p>
-            <table role="presentation" cellspacing="0" cellpadding="0"><tr><td bgcolor="#24ce7b" style="border-radius:999px;background:#24ce7b">
-              <a class="btn" href="{{ executivo.whatsapp }}" style="display:inline-block;padding:13px 26px;border-radius:999px;font-size:15px;font-weight:800;text-decoration:none;color:#0c2e24">Chamar {{ partes[0] }} no WhatsApp</a>
-            </td></tr></table>
-            {% if executivo.email %}<p style="margin:14px 0 0;font-size:13px;color:#5b7a71">Ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a></p>{% endif %}
-            {% elif executivo.email %}
-            <p style="margin:0">Precisa de algo? Responda este e-mail ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.</p>
-            {% endif %}
-          </td></tr>
-        </table>
+            <td valign="middle" style="font-size:14px;line-height:1.45;color:#5b7a71"><strong style="font-size:16px;color:#0c2e24">{{ executivo.nome }}</strong><br>Seu executivo na Centralcomm{% if executivo.cliente %}<br>{{ executivo.cliente }}{% endif %}</td>
+          </tr></table>
+          {% if executivo.whatsapp %}
+          <table role="presentation" width="100%" class="btn-wrap" style="width:100%;margin-top:14px"><tr><td align="center" bgcolor="#24ce7b" style="border-radius:14px;background:#24ce7b">
+            <a href="{{ executivo.whatsapp }}" style="display:block;padding:14px 18px;font-size:15px;font-weight:800;text-decoration:none;color:#0c2e24">Chamar {{ partes[0] }} no WhatsApp</a>
+          </td></tr></table>
+          <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#5b7a71">A mensagem já vai pronta{% if executivo.cliente %}, com o nome da {{ executivo.cliente }}{% endif %}.{% if executivo.email %} Ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.{% endif %}</p>
+          {% elif executivo.email %}
+          <p style="margin:14px 0 0;font-size:14px;line-height:1.5;color:#2a3b36">Precisa de algo? Escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.</p>
+          {% endif %}
+        </td></tr></table>
       </td></tr>
       {% endif %}
 
       <!-- rodapé -->
-      <tr><td class="px" bgcolor="#0c2e24" style="padding:30px 36px;background:#0c2e24">
-        <table role="presentation" width="100%"><tr>
-          <td class="foot-col" style="vertical-align:top;font-size:13px;line-height:1.6;color:#9fbdb3">
-            <p style="margin:0 0 6px;font-size:14px;font-weight:700;color:#ffffff">Centralcomm</p>
-            {% block footer_note %}Campanhas, entregas e briefings num só lugar.<br>
-            <a href="{{ area_url }}" style="color:#24ce7b;text-decoration:none;font-weight:600">{{ area_url|replace('https://', '')|replace('/', '') }}</a>{% endblock %}
-          </td>
-        </tr></table>
-        <p style="margin:22px 0 0;padding-top:18px;border-top:1px solid #1d4a3e;font-size:12px;line-height:1.6;color:#9fbdb3">Precisa de ajuda? Escreva para <a href="mailto:contato@centralcomm.media" style="color:#b7f5d6;text-decoration:none;font-weight:600">contato@centralcomm.media</a>.</p>
-        <p style="margin:12px 0 0;font-size:11px;line-height:1.6;color:#6f8f85">Você recebe este e-mail por ser cliente da Centralcomm. Mensagens de segurança da conta são enviadas sempre.</p>
+      <tr><td class="px" bgcolor="#0c2e24" style="padding:24px 20px 28px;background:#0c2e24">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:#ffffff">Centralcomm</p>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:#b7cfc6">{% block footer_note %}Campanhas, PIs e entregas num lugar só.<br><a href="{{ area_url }}" style="color:#fcb600;text-decoration:none;font-weight:700">{{ area_url|replace('https://', '')|replace('/', '') }}</a>{% endblock %}</p>
+        <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#b7cfc6">Precisa de ajuda? <a href="mailto:contato@centralcomm.media" style="color:#ffffff;font-weight:700;text-decoration:none">contato@centralcomm.media</a></p>
+        <p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:#86a398">Você recebe este e-mail por ser cliente da Centralcomm. Avisos de segurança da conta são enviados sempre.</p>
       </td></tr>
 
     </table>
+    <!--[if mso]></td></tr></table><![endif]-->
   </td></tr></table>
 </body>
 </html>

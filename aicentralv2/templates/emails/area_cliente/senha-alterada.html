@@ -1,12 +1,12 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, nota, badge, link_texto with context %}
+{% from 'emails/area_cliente/_ui.html' import botao, nota, badge, hero_texto, link_texto with context %}
 {% set eyebrow = 'Senha' %}
 {% block title %}{{ primeiro_nome }}, a sua senha foi trocada{% endblock %}
 {% block preheader %}A senha do seu hub de mídia acabou de ser trocada.{% endblock %}
 {% block icone %}{{ badge('check-circle') }}{% endblock %}
 {% block headline %}Pronto, sua senha foi trocada{% endblock %}
+{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. A senha do seu hub de mídia foi trocada em ' ~ quando ~ '.') }}{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. A senha do seu hub de mídia foi trocada em {{ quando }}.</p>
   {{ nota('Não foi você? Crie outra senha agora e responda este e-mail, que a gente cuida do resto.', 'alerta') }}
   {{ botao(area_url, HUB_BOTAO) }}
   {{ link_texto(link_senha, 'Trocar agora', 'Precisa de outra senha?') }}

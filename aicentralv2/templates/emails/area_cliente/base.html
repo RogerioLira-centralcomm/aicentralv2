@@ -11,87 +11,111 @@
   <title>{% block title %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}</title>
   <!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
   <style>
-    /* O desenho padrão (estilos inline) já é o do celular: 100% da largura, sem margens, fonte 16px.
-       Este bloco só melhora a tela grande; se o aplicativo de e-mail ignorar <style>, nada quebra. */
+    /* Padrão dos e-mails de marketing da Centralcomm, já no desenho do celular (estilos inline):
+       cartão branco de até 660px, 30px de respiro, texto 16/24 Arial #2a3b36, destaque amarelo #fcb600,
+       botão 18px bold com cantos de 10px, rodapé escuro em quatro faixas.
+       Este bloco só melhora a tela grande; se o aplicativo ignorar <style>, nada quebra. */
     html,body{margin:0!important;padding:0!important;background:#eef3f0!important}
-    table{border-spacing:0!important;border-collapse:separate!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
+    table{border-spacing:0!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
     img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
-    a{color:#0c2e24}
+    a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}
     @media only screen and (min-width:621px){
-      .outer{padding:28px 16px!important}
-      .card{border-radius:24px!important;overflow:hidden!important}
-      .px{padding-left:40px!important;padding-right:40px!important}
-      .h1{font-size:38px!important;line-height:1.08!important;letter-spacing:-1.1px!important}
-      .btn-wrap{width:auto!important}
+      .foto{width:180px!important;height:180px!important}
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background:#eef3f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<body class="body" style="margin:0;padding:0;background:#eef3f0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
 
-  <table role="presentation" width="100%" bgcolor="#eef3f0" style="width:100%;background:#eef3f0"><tr><td class="outer" align="center" style="padding:0">
-    <!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->
-    <table role="presentation" width="100%" class="card" bgcolor="#ffffff" style="width:100%;max-width:600px;background:#ffffff">
+  <table role="presentation" width="100%" bgcolor="#eef3f0" style="width:100%;background:#eef3f0"><tr><td align="center" style="padding:0">
+    <!--[if mso]><table role="presentation" width="660" align="center"><tr><td><![endif]-->
+    <table role="presentation" width="100%" bgcolor="#ffffff" style="width:100%;max-width:660px;background:#ffffff">
 
-      <!-- topo: logo à esquerda, na mesma margem do texto -->
-      <tr><td class="px" bgcolor="#ffffff" style="padding:14px 20px;background:#ffffff">
+      <!-- topo: logo e rótulo na mesma margem do texto -->
+      <tr><td bgcolor="#ffffff" style="padding:14px 30px;background:#ffffff">
         <table role="presentation" width="100%"><tr>
-          <td width="48" valign="middle"><img src="{{ brand.icon_url }}" width="44" height="31" alt="Centralcomm" style="display:block;width:44px;height:31px"></td>
-          <td valign="middle" style="padding-left:8px;font-size:18px;font-weight:800;letter-spacing:-.4px;color:#0c2e24">Centralcomm</td>
-          <td align="right" valign="middle"><span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#e3faf0;font-size:12px;font-weight:700;color:#05603a">{{ HUB_ROTULO }}</span></td>
+          <td width="54" valign="middle"><img src="{{ brand.icon_url }}" width="44" height="31" alt="Centralcomm" style="display:block;width:44px;height:31px"></td>
+          <td valign="middle" style="font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:bold;color:#2a3b36">Centralcomm</td>
+          <td align="right" valign="middle"><span style="display:inline-block;padding:5px 12px;border-radius:999px;background:#e3faf0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:bold;color:#05603a">{{ HUB_ROTULO }}</span></td>
         </tr></table>
       </td></tr>
 
-      <!-- destaque amarelo: título e botão logo na primeira tela -->
+      {% block hero_img %}{% endblock %}
+
+      <!-- abertura: título e botão logo na primeira tela -->
       {% block hero %}
-      <tr><td class="px" bgcolor="#fcb600" style="padding:26px 20px 28px;background:#fcb600">
+      <tr><td bgcolor="#ffffff" style="padding:22px 30px 6px;background:#ffffff;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#2a3b36">
         {% block icone %}{% endblock %}
-        {% block eyebrow %}{% if eyebrow %}<span style="display:inline-block;padding:6px 12px;border-radius:999px;background:#0c2e24;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#fcb600">{{ eyebrow }}</span>{% endif %}{% endblock %}
-        <h1 class="h1" style="margin:14px 0 0;font-size:30px;line-height:1.12;letter-spacing:-.8px;font-weight:800;color:#0c2e24">{% block headline %}{% endblock %}</h1>
+        {% block eyebrow %}{% if eyebrow %}<p style="margin:0 0 8px;font-size:12px;line-height:16px;font-weight:bold;letter-spacing:.1em;text-transform:uppercase;color:#05603a">{{ eyebrow }}</p>{% endif %}{% endblock %}
+        <h1 style="margin:0;font-size:22px;line-height:32px;font-weight:bold;color:#2a3b36">{% block headline %}{% endblock %}</h1>
         {% block hero_sub %}{% endblock %}
         {% block hero_cta %}{% endblock %}
       </td></tr>
       {% endblock %}
 
-      {% block hero_img %}{% endblock %}
-
       <!-- corpo -->
-      <tr><td class="px" style="padding:26px 20px 8px">
-        <div style="font-size:16px;line-height:1.6;color:#2a3b36">{% block content %}{% endblock %}</div>
+      <tr><td bgcolor="#ffffff" style="padding:14px 30px 20px;background:#ffffff">
+        <div style="font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:16px;line-height:24px;color:#2a3b36">{% block content %}{% endblock %}</div>
       </td></tr>
 
       {% if executivo and executivo.nome and executivo.nome.split() %}
       {% set partes = executivo.nome.split() %}
-      <tr><td class="px" style="padding:20px 20px 28px">
-        <table role="presentation" width="100%" bgcolor="#f1f7f4" style="background:#f1f7f4;border-radius:18px"><tr><td style="padding:18px">
-          <table role="presentation" width="100%"><tr>
-            <td width="62" valign="middle">
-              {% if executivo.foto %}
-              <img src="{{ executivo.foto }}" width="52" height="52" alt="{{ executivo.nome }}" style="display:block;width:52px;height:52px;border-radius:999px;object-fit:cover;border:2px solid #ffffff">
-              {% else %}
-              <table role="presentation" cellspacing="0" cellpadding="0"><tr><td width="52" height="52" align="center" valign="middle" bgcolor="#24ce7b" style="width:52px;height:52px;border-radius:999px;background:#24ce7b;font-size:17px;font-weight:800;color:#0c2e24">{{ (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ''))|upper }}</td></tr></table>
-              {% endif %}
-            </td>
-            <td valign="middle" style="font-size:14px;line-height:1.45;color:#5b7a71"><strong style="font-size:16px;color:#0c2e24">{{ executivo.nome }}</strong><br>Seu executivo na Centralcomm{% if executivo.cliente %}<br>{{ executivo.cliente }}{% endif %}</td>
-          </tr></table>
-          {% if executivo.whatsapp %}
-          <table role="presentation" width="100%" class="btn-wrap" style="width:100%;margin-top:14px"><tr><td align="center" bgcolor="#24ce7b" style="border-radius:14px;background:#24ce7b">
-            <a href="{{ executivo.whatsapp }}" style="display:block;padding:14px 18px;font-size:15px;font-weight:800;text-decoration:none;color:#0c2e24">Chamar {{ partes[0] }} no WhatsApp</a>
-          </td></tr></table>
-          <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#5b7a71">A mensagem já vai pronta{% if executivo.cliente %}, com o nome da {{ executivo.cliente }}{% endif %}.{% if executivo.email %} Ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.{% endif %}</p>
-          {% elif executivo.email %}
-          <p style="margin:14px 0 0;font-size:14px;line-height:1.5;color:#2a3b36">Precisa de algo? Escreva para <a href="mailto:{{ executivo.email }}" style="color:#0c2e24;font-weight:700;text-decoration:none">{{ executivo.email }}</a>.</p>
-          {% endif %}
+      <tr><td align="center" bgcolor="#ffffff" style="padding:20px 30px 40px;background:#ffffff;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;color:#2a3b36">
+        {% if executivo.foto %}
+        <img class="foto" src="{{ executivo.foto }}" width="150" height="150" alt="{{ executivo.nome }}" style="display:block;margin:0 auto;width:150px;height:150px;border-radius:20px;object-fit:cover">
+        {% else %}
+        <table role="presentation" align="center" cellspacing="0" cellpadding="0"><tr><td width="150" height="150" align="center" valign="middle" bgcolor="#e3faf0" style="width:150px;height:150px;border-radius:20px;background:#e3faf0;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:54px;line-height:54px;font-weight:bold;color:#05603a">{{ (partes[0][0] ~ (partes[-1][0] if partes|length > 1 else ''))|upper }}</td></tr></table>
+        {% endif %}
+        <p style="margin:14px 0 0;font-size:16px;line-height:24px;color:#2a3b36"><strong>{{ executivo.nome }}</strong><br><span style="font-size:14px;line-height:20px;color:#5b7a71">Seu executivo na Centralcomm{% if executivo.cliente %} · {{ executivo.cliente }}{% endif %}</span></p>
+        {% if executivo.whatsapp %}
+        <table role="presentation" align="center" style="margin:16px auto 0"><tr><td align="center" bgcolor="#fcb600" style="border-radius:10px;background:#fcb600">
+          <a href="{{ executivo.whatsapp }}" target="_blank" style="display:inline-block;padding:15px 35px;border-radius:10px;font-family:Montserrat,Arial,'Helvetica Neue',Helvetica,sans-serif;font-size:18px;line-height:22px;font-weight:bold;text-decoration:none;color:#0c2e24">Falar com {{ partes[0] }}</a>
         </td></tr></table>
+        <p style="margin:12px 0 0;font-size:13px;line-height:20px;color:#5b7a71">A mensagem já vai pronta{% if executivo.cliente %}, com o nome da {{ executivo.cliente }}{% endif %}.{% if executivo.email %} Ou escreva para <a href="mailto:{{ executivo.email }}" style="color:#2a3b36;font-weight:bold;text-decoration:underline">{{ executivo.email }}</a>.{% endif %}</p>
+        {% elif executivo.email %}
+        <p style="margin:12px 0 0;font-size:14px;line-height:21px;color:#2a3b36">Precisa de algo? Escreva para <a href="mailto:{{ executivo.email }}" style="color:#2a3b36;font-weight:bold;text-decoration:underline">{{ executivo.email }}</a>.</p>
+        {% endif %}
       </td></tr>
       {% endif %}
 
-      <!-- rodapé -->
-      <tr><td class="px" bgcolor="#0c2e24" style="padding:24px 20px 28px;background:#0c2e24">
-        <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:#ffffff">Centralcomm</p>
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#b7cfc6">{% block footer_note %}Campanhas, PIs e entregas num lugar só.<br><a href="{{ area_url }}" style="color:#fcb600;text-decoration:none;font-weight:700">{{ area_url|replace('https://', '')|replace('/', '') }}</a>{% endblock %}</p>
-        <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#b7cfc6">Precisa de ajuda? <a href="mailto:contato@centralcomm.media" style="color:#ffffff;font-weight:700;text-decoration:none">contato@centralcomm.media</a></p>
-        {% block footer_legal %}<p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:#86a398">Você recebe este e-mail por ser cliente da Centralcomm. Avisos de segurança da conta são enviados sempre.</p>{% endblock %}
+      <!-- rodapé: redes, marca e links, endereços, aviso e direitos -->
+      <tr><td bgcolor="#0c2e24" align="center" style="padding:20px 20px 10px;background:#0c2e24;border-radius:10px 10px 0 0">
+        <table role="presentation" align="center" cellspacing="0" cellpadding="0"><tr>
+          <td style="padding:0 20px 0 0"><a href="https://instagram.com/centralcomm_mediahub" target="_blank"><img src="https://mwhdcv.stripocdn.email/content/assets/img/social-icons/logo-gray/instagram-logo-gray.png" width="24" height="24" alt="Instagram" style="display:block;border:0;font-size:12px;color:#e3faf0"></a></td>
+          <td style="padding:0 20px 0 0"><a href="https://api.whatsapp.com/send?phone=553196110167" target="_blank"><img src="https://mwhdcv.stripocdn.email/content/assets/img/messenger-icons/logo-gray/whatsapp-logo-gray.png" width="24" height="24" alt="WhatsApp" style="display:block;border:0;font-size:12px;color:#e3faf0"></a></td>
+          <td style="padding:0"><a href="mailto:contato@centralcomm.media" target="_blank"><img src="https://mwhdcv.stripocdn.email/content/assets/img/other-icons/logo-gray/mail-logo-gray.png" width="24" height="24" alt="E-mail" style="display:block;border:0;font-size:12px;color:#e3faf0"></a></td>
+        </tr></table>
+      </td></tr>
+      <tr><td bgcolor="#071d16" style="padding:20px;background:#071d16;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+        <img src="{{ brand.icon_url }}" width="50" height="35" alt="Centralcomm" style="display:block;width:50px;height:35px;margin:0 0 12px">
+        <p style="margin:0 0 18px;font-size:13px;line-height:20px;color:#b7cfc6">Hub de mídia digital que conecta marcas aos melhores canais com tecnologia.</p>
+        <table role="presentation" width="100%"><tr>
+          <td width="50%" valign="top" style="font-size:13px;line-height:20px;color:#b7cfc6">
+            <p style="margin:0 0 4px;font-weight:bold;color:#e3faf0">EXPLORE</p>
+            <a href="https://www.centralcomm.media/audiencias" target="_blank" style="color:#b7cfc6;text-decoration:underline">Audiências</a><br>
+            <a href="https://www.centralcomm.media/canais" target="_blank" style="color:#b7cfc6;text-decoration:underline">Canais</a><br>
+            <a href="https://www.centralcomm.media/cases" target="_blank" style="color:#b7cfc6;text-decoration:underline">Cases</a><br>
+            <a href="https://www.centralcomm.media/servicos" target="_blank" style="color:#b7cfc6;text-decoration:underline">Serviços</a>
+          </td>
+          <td width="50%" valign="top" style="font-size:13px;line-height:20px;color:#b7cfc6">
+            <p style="margin:0 0 4px;font-weight:bold;color:#e3faf0">CADU</p>
+            <a href="https://www.centralcomm.media/cadu-site" target="_blank" style="color:#b7cfc6;text-decoration:underline">Conheça o Cadu</a><br>
+            <a href="https://www.centralcomm.media/cadu-site#planos" target="_blank" style="color:#b7cfc6;text-decoration:underline">Planos</a><br>
+            <a href="https://cadu.centralcomm.media/cadastro" target="_blank" style="color:#b7cfc6;text-decoration:underline">Cadastro</a><br>
+            <a href="https://cadu.centralcomm.media/" target="_blank" style="color:#b7cfc6;text-decoration:underline">Acessar a plataforma</a>
+          </td>
+        </tr></table>
+      </td></tr>
+      <tr><td bgcolor="#123a2e" style="padding:20px 10px 4px;background:#123a2e;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+        <table role="presentation" width="100%"><tr>
+          <td width="50%" align="center" valign="top" style="padding:0 6px 16px;font-size:13px;line-height:20px;color:#b7cfc6">Rua Sergipe, 1440<br>Savassi — Belo Horizonte, MG</td>
+          <td width="50%" align="center" valign="top" style="padding:0 6px 16px;font-size:13px;line-height:20px;color:#b7cfc6">Av. Almirante Barroso, 81<br>Centro — Rio de Janeiro, RJ</td>
+        </tr></table>
+      </td></tr>
+      <tr><td bgcolor="#0c2e24" align="center" style="padding:20px;background:#0c2e24;font-family:Arial,'Helvetica Neue',Helvetica,sans-serif">
+        <p style="margin:0 0 10px;font-size:13px;line-height:20px;color:#b7cfc6">{% block footer_note %}Seu hub de mídia: <a href="{{ area_url }}" style="color:#ffffff;font-weight:bold;text-decoration:underline">{{ area_url|replace('https://', '')|replace('http://', '')|trim('/') }}</a>{% endblock %}</p>
+        {% block footer_legal %}<p style="margin:0 0 10px;font-size:12px;line-height:18px;color:#b7cfc6">Você recebe este e-mail por ser cliente da Centralcomm. Avisos de segurança da conta são enviados sempre.</p>{% endblock %}
+        <p style="margin:0;font-size:14px;line-height:21px;color:#e3faf0">© {{ ano or 2026 }} Centralcomm. Todos os direitos reservados.</p>
       </td></tr>
 
     </table>

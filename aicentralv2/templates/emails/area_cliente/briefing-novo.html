@@ -13,7 +13,7 @@
   {% else %}
   {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% endif %}
-  {% if descricao %}<p style="margin:22px 0 6px;color:#0c2e24;font-weight:700">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
+  {% if descricao %}<p style="margin:22px 0 6px;color:#0c2e24;font-weight:bold">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
   {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}
 {% endblock %}
 {% block footer_note %}Aviso interno. Responda ao cliente pelo seu e-mail ou WhatsApp.{% endblock %}

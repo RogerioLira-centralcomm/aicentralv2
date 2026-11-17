@@ -8,7 +8,7 @@
 {% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. Você pediu uma nova senha para o seu hub de mídia.') }}{% endblock %}
 {% block hero_cta %}
   {{ botao_hero(link_reset, 'Criar nova senha') }}
-  <p style="margin:12px 0 0;font-size:13px;line-height:1.5;color:#243b32">O link funciona uma vez e vale por {{ minutos_validade }} minutos.</p>
+  <p style="margin:12px 0 0;font-size:13px;line-height:20px;color:#5b7a71;text-align:center">O link funciona uma vez e vale por {{ minutos_validade }} minutos.</p>
 {% endblock %}
 {% block content %}
   {{ nota('Não foi você? Pode ignorar este e-mail. A sua senha continua a mesma.') }}

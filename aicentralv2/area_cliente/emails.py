@@ -91,7 +91,7 @@ def renderizar(modelo: str, **ctx) -> str:
     # O nome do hub vai no contexto e não só nos globais do Jinja: scripts e workers que montam o
     # app sem registrar a área não podem gerar botão ou cabeçalho em branco.
     return render_template(f"emails/area_cliente/{modelo}.html",
-                           brand=product_email_brand("clientes"), area_url=_url("/"), **{**GLOBAIS_JINJA, **ctx})
+                           brand=product_email_brand("clientes"), area_url=_url("/"), **{**GLOBAIS_JINJA, "ano": datetime.now().year, **ctx})
 
 
 def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetente_nome=None) -> bool:

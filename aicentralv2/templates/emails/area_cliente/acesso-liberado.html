@@ -7,10 +7,10 @@
 {% block hero_sub %}{{ hero_texto((('A ' ~ cliente) if cliente else 'A sua empresa') ~ ' agora acompanha tudo o que a gente faz em mídia num lugar só.') }}{% endblock %}
 {% block hero_cta %}
   {{ botao_hero(link_senha or area_url, HUB_BOTAO) }}
-  <p style="margin:12px 0 0;font-size:13px;line-height:1.5;color:#243b32">{% if link_senha %}No primeiro acesso você cria a sua senha. O link vale por {{ horas_validade }} horas.{% else %}Entre com o mesmo e-mail e a mesma senha do Cadu.{% endif %}</p>
+  <p style="margin:12px 0 0;font-size:13px;line-height:20px;color:#5b7a71;text-align:center">{% if link_senha %}No primeiro acesso você cria a sua senha. O link vale por {{ horas_validade }} horas.{% else %}Entre com o mesmo e-mail e a mesma senha do Cadu.{% endif %}</p>
 {% endblock %}
 {% block hero_img %}
-<tr><td bgcolor="#0c2e24" style="background:#0c2e24;padding:0;font-size:0;line-height:0"><img src="{{ brand.illustrations_url }}hero-compacto.jpg" width="600" height="240" alt="Cliente da Centralcomm acompanhando as campanhas no tablet" style="display:block;width:100%;max-width:600px;height:auto;border:0"></td></tr>
+<tr><td bgcolor="#0c2e24" style="background:#0c2e24;padding:0;font-size:0;line-height:0"><img src="{{ brand.illustrations_url }}hero-compacto.jpg" width="660" height="264" alt="Cliente da Centralcomm acompanhando as campanhas no tablet" style="display:block;width:100%;max-width:660px;height:auto;border:0"></td></tr>
 {% endblock %}
 {% block content %}
   {{ titulo_secao('O que você encontra') }}

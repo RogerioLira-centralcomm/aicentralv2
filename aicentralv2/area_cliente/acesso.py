@@ -26,7 +26,7 @@ def _sem_coluna(conn, exc) -> bool:
     """Coluna ainda não migrada: desfaz a transação e sinaliza o fallback."""
     if isinstance(exc, psycopg.errors.UndefinedColumn):
         conn.rollback()
-        logger.warning("Colunas de bloqueio da Área do Cliente ainda não existem neste banco.")
+        logger.warning("Colunas de bloqueio do hub de mídia ainda não existem neste banco.")
         return True
     return False
 
@@ -79,7 +79,7 @@ def _auditar(autor_id, ativo, descricao, registro_id, registro_tipo, antes, depo
             dados_anteriores=antes, dados_novos=depois,
         )
     except Exception:
-        logger.warning("Não foi possível auditar o acesso à Área do Cliente.", exc_info=True)
+        logger.warning("Não foi possível auditar o acesso ao hub de mídia.", exc_info=True)
 
 
 def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
@@ -114,14 +114,14 @@ def definir_acesso(contato_id, ativo: bool, autor_id=None) -> dict | None:
         conn.commit()
     except Exception as exc:
         if _sem_coluna(conn, exc):
-            raise RuntimeError("A Área do Cliente ainda não foi habilitada neste banco.") from exc
+            raise RuntimeError("O hub de mídia ainda não foi habilitado neste banco.") from exc
         conn.rollback()
         raise
 
     tinha = not antes["area_cliente_bloqueado"]
     if tinha != bool(ativo):
         _auditar(autor_id, ativo,
-                 f"{'Liberou' if ativo else 'Bloqueou'} a Área do Cliente para {antes['nome_completo'] or antes['email']}",
+                 f"{'Liberou' if ativo else 'Bloqueou'} o hub de mídia para {antes['nome_completo'] or antes['email']}",
                  contato_id, "contato", {"area_cliente_bloqueado": not tinha}, {"area_cliente_bloqueado": not ativo})
     # Só quem estava bloqueado e voltou recebe o aviso; a liberação padrão é silenciosa.
     if ativo and not tinha:
@@ -150,13 +150,13 @@ def definir_acesso_cliente(cliente_id, ativo: bool, autor_id=None) -> dict | Non
         conn.commit()
     except Exception as exc:
         if _sem_coluna(conn, exc):
-            raise RuntimeError("A Área do Cliente ainda não foi habilitada neste banco.") from exc
+            raise RuntimeError("O hub de mídia ainda não foi habilitado neste banco.") from exc
         conn.rollback()
         raise
     tinha = not antes["area_cliente_bloqueada"]
     if tinha != bool(ativo):
         _auditar(autor_id, ativo,
-                 f"{'Liberou' if ativo else 'Bloqueou'} a Área do Cliente para a empresa {antes['nome_fantasia']}",
+                 f"{'Liberou' if ativo else 'Bloqueou'} o hub de mídia para a empresa {antes['nome_fantasia']}",
                  cliente_id, "cliente", {"area_cliente_bloqueada": not tinha}, {"area_cliente_bloqueada": not ativo})
     return {"cliente_id": str(cliente_id), "ativo": bool(ativo)}
 
@@ -181,7 +181,7 @@ def liberacoes_por_cliente(cliente_id) -> dict[str, dict]:
             rows = cursor.fetchall()
     except Exception:
         conn.rollback()
-        logger.warning("Auditoria da Área do Cliente indisponível.", exc_info=True)
+        logger.warning("Auditoria do hub de mídia indisponível.", exc_info=True)
         return {}
     return {str(r["registro_id"]): _liberacao(r) for r in rows}
 
@@ -232,7 +232,7 @@ def ultima_liberacao(contato_id) -> dict | None:
             row = cursor.fetchone()
     except Exception:
         conn.rollback()
-        logger.warning("Auditoria da Área do Cliente indisponível.", exc_info=True)
+        logger.warning("Auditoria do hub de mídia indisponível.", exc_info=True)
         return None
     return _liberacao(row) if row else None
 

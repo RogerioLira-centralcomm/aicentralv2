@@ -262,7 +262,7 @@ def view_ver_como(usuario):
     try:
         from ..audit import registrar_acao_admin
         registrar_acao_admin(user_id=real["user_id"], acao="VIEW_AS", modulo="area_cliente",
-                             descricao=f"Abriu a Área do Cliente como {alvo['cliente_nome']}",
+                             descricao=f"Abriu o hub de mídia como {alvo['cliente_nome']}",
                              registro_id=alvo["cliente_id"], registro_tipo="cliente")
     except Exception:
         current_app.logger.warning("Auditoria do modo ver como indisponível.", exc_info=True)
@@ -790,4 +790,6 @@ def despachar():
 
 
 def register(app) -> None:
+    from .marca import GLOBAIS_JINJA
+    app.jinja_env.globals.update(GLOBAIS_JINJA)
     app.before_request(despachar)

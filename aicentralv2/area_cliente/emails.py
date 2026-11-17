@@ -1,4 +1,4 @@
-"""E-mails da Área do Cliente (identidade Centralcomm, remetente Brevo "clientes").
+"""E-mails do hub de mídia (identidade Centralcomm, remetente Brevo "clientes").
 
 Para o cliente: novo acesso (segurança), acesso liberado (com criação de senha
 quando falta), nova senha, senha alterada e briefing recebido. Para a equipe:
@@ -22,9 +22,11 @@ from flask import current_app, render_template, request
 
 logger = logging.getLogger(__name__)
 FUSO = ZoneInfo("America/Sao_Paulo")
+TAGS_EXTRA: list[str] = []  # scripts de teste adicionam "teste" para não entrar nos relatórios da Brevo
 HORAS_CRIAR_SENHA = 72
 MODELOS = ("novo-acesso", "acesso-liberado", "redefinir-senha", "senha-alterada",
-           "pedido-acesso", "briefing-novo", "briefing-recebido")
+           "pedido-acesso", "briefing-novo", "briefing-recebido",
+           "ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4")
 
 
 def _url(path="/"):
@@ -96,7 +98,7 @@ def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetent
     html = renderizar(modelo, **ctx)
     app = current_app._get_current_object()
     if app.config.get("MAIL_DEBUG"):
-        logger.info("Área do Cliente (MAIL_DEBUG): %s -> %s", assunto, para_email)
+        logger.info("Hub de mídia (MAIL_DEBUG): %s -> %s", assunto, para_email)
         return True
     from ..services.brevo_service import get_brevo_product_service
     servico = get_brevo_product_service("clientes")
@@ -108,7 +110,7 @@ def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetent
             try:
                 resultado = servico.enviar_email(to_email=para_email, to_name=para_nome or para_email,
                                                  subject=assunto, html_content=html, reply_to=reply_to,
-                                                 tags=["area-cliente", modelo], sender=sender)
+                                                 tags=["area-cliente", modelo, *TAGS_EXTRA], sender=sender)
                 if not (resultado or {}).get("success"):
                     logger.warning("E-mail %s não enviado para %s: %s", modelo, para_email, (resultado or {}).get("error"))
             except Exception:
@@ -156,7 +158,7 @@ def _dispositivo(user_agent: str) -> str:
 # ---------- Para o cliente ----------
 
 def novo_acesso(usuario_login: dict) -> bool:
-    """Aviso de segurança a cada login no host da Área do Cliente."""
+    """Aviso de segurança a cada login no host do hub de mídia."""
     cliente_id = usuario_login.get("pk_id_tbl_cliente")
     executivo = _executivo_do_cliente(cliente_id) if cliente_id else {}
     executivo = _contato_executivo(executivo, usuario_login.get("nome_completo"), executivo.get("cliente", ""),
@@ -177,7 +179,7 @@ def acesso_liberado(contato: dict) -> bool:
     from .. import db
     executivo = _executivo_do_cliente(contato.get("pk_id_tbl_cliente"))
     executivo = _contato_executivo(executivo, contato.get("nome_completo"), executivo.get("cliente", ""),
-                                   "Acabei de receber o acesso à Área do Cliente e queria uma ajuda.")
+                                   "Acabei de receber o acesso ao hub de mídia e queria uma ajuda.")
     link_senha = ""
     if not contato.get("tem_senha"):
         token = secrets.token_urlsafe(32)
@@ -187,7 +189,7 @@ def acesso_liberado(contato: dict) -> bool:
            "cliente": executivo.get("cliente", ""), "link_senha": link_senha,
            "horas_validade": HORAS_CRIAR_SENHA, "executivo": executivo}
     return _enviar("acesso-liberado", contato.get("email"), contato.get("nome_completo"),
-                   _com_nome(contato.get("nome_completo"), "liberamos o seu acesso à Área do Cliente"), ctx,
+                   _com_nome(contato.get("nome_completo"), "liberamos o seu acesso ao hub de mídia"), ctx,
                    _reply_executivo(executivo), _remetente_executivo(executivo))
 
 
@@ -225,11 +227,42 @@ def _resumo_briefing(valores: dict) -> dict:
 
 def briefing_recebido(usuario: dict, valores: dict) -> bool:
     executivo = _contato_executivo(usuario.get("executivo") or {}, usuario.get("nome"), usuario.get("cliente_nome"),
-                                   f"Enviei o briefing \"{valores.get('titulo')}\" pela Área do Cliente.")
+                                   f"Enviei o briefing \"{valores.get('titulo')}\" pelo hub de mídia.")
     ctx = {**_resumo_briefing(valores), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(),
            "link_briefing": _url("/briefing"), "executivo": executivo}
     return _enviar("briefing-recebido", usuario.get("email"), usuario.get("nome"),
                    _com_nome(usuario.get("nome"), f"recebemos o seu briefing: {valores.get('titulo')}"), ctx,
+                   _reply_executivo(executivo), _remetente_executivo(executivo))
+
+
+# Sequência de ativação: seg, qua, sex e a segunda seguinte. Um recurso por e-mail, texto curto.
+ATIVACAO_ASSUNTOS = {
+    1: lambda empresa: f"veja como andam as campanhas {empresa}",
+    2: lambda empresa: "o próximo pedido pode sair em minutos",
+    3: lambda empresa: "antes de decidir o canal, veja isto",
+    4: lambda empresa: "o que olhar toda segunda-feira",
+}
+ATIVACAO_ROTAS = {1: "/", 2: "/briefing", 3: "/descobrir", 4: "/"}
+
+
+def _de_empresa(cliente) -> str:
+    """Complemento de frase: "da ACME" ou, sem nome cadastrado, "da sua empresa"."""
+    return f"da {cliente}" if cliente else "da sua empresa"
+
+
+def ativacao(passo: int, contato: dict) -> bool:
+    """Passo 1 a 4 da sequência de ativação. O envio automático (dias e parada) é feito pelo agendador."""
+    if passo not in ATIVACAO_ASSUNTOS:
+        raise ValueError(f"Passo de ativação inválido: {passo}")
+    executivo = _executivo_do_cliente(contato.get("pk_id_tbl_cliente"))
+    empresa = executivo.get("cliente", "")
+    executivo = _contato_executivo(executivo, contato.get("nome_completo"), empresa,
+                                   "Estou olhando o hub de mídia e queria tirar uma dúvida.")
+    ctx = {"primeiro_nome": _primeiro(contato.get("nome_completo")), "email": contato.get("email"),
+           "cliente": empresa, "de_empresa": _de_empresa(empresa), "executivo": executivo,
+           "link_destino": _url(ATIVACAO_ROTAS[passo])}
+    assunto = _com_nome(contato.get("nome_completo"), ATIVACAO_ASSUNTOS[passo](_de_empresa(empresa)))
+    return _enviar(f"ativacao-{passo}", contato.get("email"), contato.get("nome_completo"), assunto, ctx,
                    _reply_executivo(executivo), _remetente_executivo(executivo))
 
 
@@ -260,7 +293,7 @@ def pedido_acesso(usuario: dict) -> bool:
            "quando": _agora_br(), "primeiro_nome_executivo": _primeiro(nome),
            "link_crm": product_url("centralx", f"/crm-v3?cliente={usuario.get('cliente_id')}"), "executivo": None}
     reply = {"name": usuario.get("nome"), "email": usuario.get("email")} if usuario.get("email") else None
-    return _enviar("pedido-acesso", para, nome, f"{usuario.get('nome')} pediu acesso à Área do Cliente", ctx, reply)
+    return _enviar("pedido-acesso", para, nome, f"{usuario.get('nome')} pediu acesso ao hub de mídia", ctx, reply)
 
 
 # ---------- Prévias (sem envio) ----------
@@ -270,7 +303,7 @@ def previa(modelo: str) -> str:
     executivo = _contato_executivo(
         {"nome": "João Figueiredo", "email": "joao@centralcomm.media", "whatsapp": "https://wa.me/5531999990000",
          "foto_url": "/static/emails/area_cliente/hero-profissional.jpg"},
-        "Ana Souza", "CLIENTE EXEMPLO", "Acabei de receber o acesso à Área do Cliente e queria uma ajuda.")
+        "Ana Souza", "CLIENTE EXEMPLO", "Acabei de receber o acesso ao hub de mídia e queria uma ajuda.")
     exemplo_briefing = {"titulo": "Lançamento da coleção de verão", "objetivo": "Gerar visitas às lojas de BH e vender pelo site.",
                         "publico": "Mulheres de 25 a 45 anos, Belo Horizonte e região", "periodo": "01/12/2026 a 15/01/2027",
                         "verba": "até R$ 50 mil", "canais": "Redes sociais, Busca", "itens_descobrir": "Canal: Spotify\nAudiência: Alta Renda",
@@ -296,5 +329,10 @@ def previa(modelo: str) -> str:
                           "primeiro_nome_executivo": "João", "link_briefings": "#", "executivo": None},
         "briefing-recebido": {**exemplo_briefing, "primeiro_nome": "Ana", "quando": _agora_br(), "link_briefing": _url("/briefing"),
                               "executivo": executivo},
-    }[modelo]
+    }
+    for passo in (1, 2, 3, 4):
+        ctx[f"ativacao-{passo}"] = {"primeiro_nome": "Ana", "email": "ana@cliente.com.br", "cliente": "CLIENTE EXEMPLO",
+                                    "de_empresa": "da CLIENTE EXEMPLO", "executivo": executivo,
+                                    "link_destino": _url(ATIVACAO_ROTAS[passo])}
+    ctx = ctx[modelo]
     return renderizar(modelo, **ctx)

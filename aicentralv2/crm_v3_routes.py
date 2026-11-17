@@ -467,7 +467,7 @@ def api_update_contato(contato_id):
 def api_area_cliente_contato(contato_id):
     """Libera ou bloqueia a Área do Cliente (clientes.centralcomm.media) de um contato."""
     if not session.get("is_centralcomm"):
-        return _err("Só a equipe CentralComm controla a Área do Cliente.", 403)
+        return _err("Só a equipe CentralComm controla o hub de mídia.", 403)
     if not str(contato_id).isdigit():
         return _err("Contato não encontrado", 404)
     data = request.get_json(silent=True) or {}
@@ -488,7 +488,7 @@ def api_area_cliente_contato(contato_id):
 def api_area_cliente_empresa(cliente_id):
     """Libera ou bloqueia a Área do Cliente para a empresa inteira (todos os contatos)."""
     if not session.get("is_centralcomm"):
-        return _err("Só a equipe CentralComm controla a Área do Cliente.", 403)
+        return _err("Só a equipe CentralComm controla o hub de mídia.", 403)
     if not str(cliente_id).isdigit():
         return _err("Cliente não encontrado", 404)
     data = request.get_json(silent=True) or {}

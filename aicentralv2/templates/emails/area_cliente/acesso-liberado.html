@@ -1,28 +1,28 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, passos, dica, link_cru, link_texto with context %}
-{% set eyebrow = 'Bem-vindo à Área do Cliente' %}
-{% block title %}Sua Área do Cliente Centralcomm está liberada{% endblock %}
-{% block preheader %}Campanhas, entregas e briefings {% if cliente %}da {{ cliente }}{% else %}da sua empresa{% endif %} num só lugar.{% endblock %}
-{% block headline %}Oi, {{ primeiro_nome }}. A sua Área do Cliente já está no ar.{% endblock %}
+{% from 'emails/area_cliente/_ui.html' import botao, passos, dica, link_cru with context %}
+{% set eyebrow = 'Acesso liberado' %}
+{% block title %}{{ primeiro_nome }}, liberamos o seu acesso ao hub de mídia{% endblock %}
+{% block preheader %}Campanhas, PIs e entregas {{ 'da ' ~ cliente if cliente else 'da sua empresa' }} num lugar só.{% endblock %}
+{% block headline %}Oi, {{ primeiro_nome }}. Seu hub de mídia na Centralcomm está no ar.{% endblock %}
 {% block hero_img %}
 <tr><td bgcolor="#0c2e24" style="background:#0c2e24;padding:0"><img src="{{ brand.illustrations_url }}hero-profissional.jpg" width="600" alt="" style="display:block;width:600px;height:auto;max-width:100%"></td></tr>
 {% endblock %}
 {% block content %}
-  <p style="margin:0">A partir de agora você acompanha {% if cliente %}a {{ cliente }}{% else %}a sua empresa{% endif %} com a Centralcomm num lugar só. Veja o que já está pronto para você:</p>
+  <p style="margin:0">{{ 'A ' ~ cliente if cliente else 'A sua empresa' }} agora acompanha tudo o que a gente faz em mídia num lugar só. Dá para abrir do computador ou do celular.</p>
 
   {{ passos([
-    ('megaphone', 'Campanhas no ar', 'Acompanhe o que está veiculando e o que já foi entregue contra a meta.'),
-    ('layers', 'PIs e entregas', 'Cada PI aprovado vira um projeto, com as etapas e os números.'),
-    ('file-text', 'Briefings', 'Tem uma ideia? Mande um briefing direto por lá, sem sair da área.'),
-    ('receipt', 'Notas fiscais', 'Faturamento e notas fiscais organizados, sem caça a e-mails.'),
+    ('megaphone', 'Campanhas no ar', 'Veja o que está veiculando e quanto já foi entregue da meta.'),
+    ('layers', 'PIs como projetos', 'Cada PI aprovado vira um projeto, com etapas e resultados.'),
+    ('search', 'Descobrir', 'Explore canais, formatos e audiências antes de decidir.'),
+    ('file-text', 'Briefing', 'Precisa de um planejamento novo? Mande o briefing por aqui.'),
   ]) }}
 
   {% if link_senha %}
-    {{ dica('Primeiro acesso', 'Antes de entrar, crie a sua senha. O link vale por ' ~ horas_validade ~ ' horas e leva menos de um minuto.') }}
-    {{ botao(link_senha, 'Abrir Área do Cliente') }}
+    {{ dica('Primeiro acesso', 'Antes de entrar, você cria a sua senha. Leva menos de um minuto, e o link vale por ' ~ horas_validade ~ ' horas.') }}
+    {{ botao(link_senha, HUB_BOTAO) }}
     {{ link_cru(link_senha) }}
   {% else %}
     {{ dica('Como entrar', 'Use o mesmo e-mail e a mesma senha que você já usa no Cadu.') }}
-    {{ botao(area_url, 'Abrir Área do Cliente') }}
+    {{ botao(area_url, HUB_BOTAO) }}
   {% endif %}
 {% endblock %}

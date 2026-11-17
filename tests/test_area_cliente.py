@@ -100,7 +100,7 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     assert "Olá" not in html and "Cliente Teste" in html
     assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
     # conta vazia: boas-vindas com os 3 passos e a prévia "Exemplo", sem indicadores zerados
-    assert "Bem-vindo à Área do Cliente" in html and "Como vai ficar" in html and ">Exemplo<" in html
+    assert "Bem-vindo ao seu hub de mídia" in html and "Como vai ficar" in html and ">Exemplo<" in html
     assert "Envie um briefing" in html and 'class="ac-hk"' not in html and "Solicitar otimização" not in html
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
@@ -612,7 +612,7 @@ def test_todas_as_previas_de_email_renderizam(app, monkeypatch):
     with app.test_request_context("/", base_url=HOST):
         for modelo in emails.MODELOS:
             html = emails.previa(modelo)
-            assert "Área do Cliente" in html and "Centralcomm" in html and "Cadu Workspace" not in html, modelo
+            assert "Hub de mídia" in html and "Centralcomm" in html and "Cadu Workspace" not in html, modelo
 
 
 def test_previa_de_email_so_para_admin_cc(app, monkeypatch):
@@ -638,7 +638,7 @@ def test_acesso_liberado_sem_senha_cria_link(app, monkeypatch):
     assert reply1 == {"name": "João", "email": "joao@centralcomm.media"}
     assert ctx2["link_senha"] == "" and len(tokens) == 1
     # Assunto pessoal (primeiro nome) e remetente em nome do executivo.
-    assert cabecalhos[0] == ("Ana, liberamos o seu acesso à Área do Cliente", "João da Centralcomm")
+    assert cabecalhos[0] == ("Ana, liberamos o seu acesso ao hub de mídia", "João da Centralcomm")
     assert cabecalhos[1][0].startswith("Bia, liberamos")
 
 
@@ -668,7 +668,7 @@ def test_briefing_dispara_os_dois_emails(app, monkeypatch):
 
 def test_login_no_host_de_clientes_usa_tela_centralcomm(app):
     html = app.test_client().get("/login?next=/", base_url=HOST).get_data(as_text=True)
-    assert "Bem-vindo de volta" in html and "Área do Cliente" in html
+    assert "Bem-vindo de volta" in html and "Hub de mídia" in html
     html = app.test_client().get("/forgot-password", base_url=HOST).get_data(as_text=True)
     assert "Criar nova senha" in html
 
@@ -1089,3 +1089,35 @@ def test_contato_do_executivo_leva_foto_publica_e_whatsapp_com_mensagem(app):
     assert texto == "Oi João, aqui é Ana Souza, da CLIENTE X. Preciso de ajuda."
     assert pronto["whatsapp"].startswith("https://wa.me/5531999990000?text=")
     assert sem_zap["whatsapp"] == "" and sem_zap["foto"] == ""
+
+
+def test_nome_antigo_nao_aparece_em_email_nem_tela_do_cliente():
+    """"Área do Cliente" deixou de ser o nome: a ferramenta é "seu hub de mídia na Centralcomm"."""
+    import json
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parent.parent / "aicentralv2"
+    arquivos = list((raiz / "templates" / "emails" / "area_cliente").glob("*.html"))
+    arquivos += list((raiz / "templates" / "area_cliente").rglob("*.html"))
+    arquivos += [raiz / "static" / "images" / "area_cliente" / "manifest.webmanifest"]
+    achados = [f.name for f in arquivos if "Área do Cliente" in f.read_text(encoding="utf-8")]
+    assert not achados, f"Nome antigo em: {achados}"
+    assert json.loads((raiz / "static" / "images" / "area_cliente" / "manifest.webmanifest").read_text())["short_name"] == "Hub Centralcomm"
+
+
+def test_sequencia_de_ativacao_tem_assunto_pessoal_e_um_botao_do_hub(app, monkeypatch):
+    from aicentralv2.area_cliente import emails
+    enviados = []
+    monkeypatch.setattr(emails, "_executivo_do_cliente", lambda cid: {"cliente": "CLIENTE X", "nome": "João Souza", "email": "joao@centralcomm.media", "whatsapp": "", "foto_url": ""})
+    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None: enviados.append((modelo, assunto, ctx, remetente_nome)) or True)
+    with app.test_request_context("/", base_url=HOST):
+        for passo in (1, 2, 3, 4):
+            emails.ativacao(passo, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900})
+        with pytest.raises(ValueError):
+            emails.ativacao(5, {"email": "ana@cliente.test", "nome_completo": "Ana Souza"})
+        htmls = [emails.renderizar(m, **ctx) for m, _a, ctx, _r in enviados]
+    assert [m for m, *_ in enviados] == ["ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4"]
+    assert all(a.startswith("Ana, ") for _m, a, _c, _r in enviados)
+    assert enviados[0][1] == "Ana, veja como andam as campanhas da CLIENTE X"
+    assert all(r == "João da Centralcomm" for *_x, r in enviados)
+    for html in htmls:
+        assert html.count("Abrir meu hub de mídia") == 1 and "Área do Cliente" not in html

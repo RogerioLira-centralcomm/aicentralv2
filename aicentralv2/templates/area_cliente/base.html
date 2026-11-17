@@ -6,10 +6,10 @@
 <meta name="theme-color" content="#0d171a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Área do Cliente">
+<meta name="apple-mobile-web-app-title" content="{{ HUB_APP }}">
 <meta name="robots" content="noindex, nofollow">
 {% include 'area_cliente/_og.html' %}
-<title>{% block title %}Área do Cliente{% endblock %} · Centralcomm</title>
+<title>{% block title %}{{ HUB_ROTULO }}{% endblock %} · Centralcomm</title>
 {% if not menu.tem_cookie_sidebar %}<script>
   /* Escolha antiga (localStorage) passa para o cookie lido pelo servidor; depois disso o HTML já vem certo. */
   try { if (localStorage.getItem('ac-sidebar') === 'aberta') { document.documentElement.classList.remove('ac-rail'); document.cookie = 'ac_side=aberta; path=/; max-age=31536000; samesite=lax'; } } catch (e) {}
@@ -33,19 +33,19 @@
 </head>
 <body data-cadu-skin="workspace" data-cadu-theme="light">
 <!-- Tela de carregamento: 3 s com barra de progresso, uma vez por sessão do app -->
-<div class="ac-splash" id="ac-splash" data-once="1" role="status" aria-live="polite" aria-label="Carregando a Área do Cliente">
+<div class="ac-splash" id="ac-splash" data-once="1" role="status" aria-live="polite" aria-label="Carregando o hub de mídia">
   <img class="ac-splash__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="84" height="56">
-  <span class="ac-splash__name">Área do Cliente</span>
+  <span class="ac-splash__name">{{ HUB_ROTULO }}</span>
   <div class="ac-splash__bar" aria-hidden="true"><div class="ac-splash__fill"></div></div>
 </div>
 <script src="{{ url_for('static', filename='js/area_cliente_splash.js') }}?v={{ static_fingerprint('js/area_cliente_splash.js') }}"></script>
 <a class="ac-skip" href="#conteudo">Pular para o conteúdo</a>
 <div class="ac-app">
-  <aside class="ac-side" id="ac-side" aria-label="Navegação da Área do Cliente">
+  <aside class="ac-side" id="ac-side" aria-label="Navegação do hub de mídia">
     <div class="ac-side__head">
-      <a class="ac-brand" href="{{ area_url('inicio') }}" aria-label="Centralcomm, Área do Cliente, início">
+      <a class="ac-brand" href="{{ area_url('inicio') }}" aria-label="Centralcomm, hub de mídia, início">
         <img class="ac-brand__mark" src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="40" height="28">
-        <span class="ac-brand__text"><b>Centralcomm</b><small>Área do Cliente</small></span>
+        <span class="ac-brand__text"><b>Centralcomm</b><small>{{ HUB_ROTULO }}</small></span>
       </a>
       <button type="button" class="ac-icon-btn ac-side__close" data-ac-close aria-label="Fechar menu">{{ icon('close') }}</button>
     </div>

@@ -1,0 +1,21 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, passos with context %}
+{% set eyebrow = 'Primeiros passos' %}
+{% block title %}{{ primeiro_nome }}, veja como andam as campanhas {{ de_empresa }}{% endblock %}
+{% block preheader %}Contratado, entregue e tempo restante, campanha por campanha.{% endblock %}
+{% block headline %}Três números mostram como anda cada campanha{% endblock %}
+{% block content %}
+  <p style="margin:0">Oi, {{ primeiro_nome }}. Toda campanha {{ de_empresa }} tem três números que importam: quanto foi contratado, quanto já foi entregue e quanto tempo falta.</p>
+  <p style="margin:14px 0 0">Os três estão no seu hub de mídia, campanha por campanha. Sem pedir relatório e sem esperar e-mail.</p>
+
+  <img src="{{ brand.illustrations_url }}dashboard.jpg" width="528" alt="" style="display:block;width:100%;max-width:528px;height:auto;margin:26px 0 0;border-radius:14px">
+
+  {{ passos([
+    ('target', 'Contratado', 'A meta de cada campanha, no PI aprovado.'),
+    ('bar-chart', 'Entregue', 'O que já foi entregue, sempre atualizado.'),
+    ('clock', 'Tempo restante', 'Quantos dias faltam para a campanha terminar.'),
+  ]) }}
+
+  <p style="margin:0">Leva menos de um minuto.</p>
+  {{ botao(link_destino, HUB_BOTAO) }}
+{% endblock %}

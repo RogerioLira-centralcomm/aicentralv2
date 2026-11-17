@@ -597,9 +597,9 @@ async function definirAreaCliente(ativo) {
       body: JSON.stringify({ ativo: ativo })
     });
     const dados = await resp.json().catch(() => ({}));
-    if (!resp.ok || dados.ok === false || dados.success === false) throw new Error(dados.error || dados.message || 'Não foi possível alterar a Área do Cliente.');
+    if (!resp.ok || dados.ok === false || dados.success === false) throw new Error(dados.error || dados.message || 'Não foi possível alterar o hub de mídia.');
     pintarAreaCliente(ativo);
-    if (typeof showToast === 'function') showToast(ativo ? 'Área do Cliente liberada para a empresa' : 'Área do Cliente bloqueada para a empresa', 'success');
+    if (typeof showToast === 'function') showToast(ativo ? 'Hub de mídia liberado para a empresa' : 'Hub de mídia bloqueado para a empresa', 'success');
   } catch (e) {
     if (typeof showToast === 'function') showToast(e.message, 'error');
   } finally {

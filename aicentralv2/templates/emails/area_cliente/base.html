@@ -7,7 +7,7 @@
   <meta name="x-apple-disable-message-reformatting">
   <meta name="color-scheme" content="light only">
   <meta name="supported-color-schemes" content="light only">
-  <title>{% block title %}Centralcomm · Área do Cliente{% endblock %}</title>
+  <title>{% block title %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}</title>
   <style>
     html,body{margin:0!important;padding:0!important;background:#e9efec!important;color:#0c2e24!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
     table{border-spacing:0!important;border-collapse:collapse!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
@@ -27,7 +27,7 @@
   </style>
 </head>
 <body style="margin:0;padding:0;background:#e9efec;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · Área do Cliente{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">{% block preheader %}Centralcomm · {{ HUB_ROTULO }}{% endblock %}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;</div>
 
   <table role="presentation" width="100%" bgcolor="#e9efec" class="outer"><tr><td align="center" style="padding:28px 12px">
     <table role="presentation" width="600" class="w-full card" bgcolor="#ffffff" style="width:600px;max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden">
@@ -41,7 +41,7 @@
               <td style="vertical-align:middle;padding-left:10px;font-size:15px;font-weight:700;color:#ffffff;letter-spacing:-.2px">Centralcomm</td>
             </tr></table>
           </td>
-          <td align="right" style="vertical-align:middle;font-size:13px;line-height:1.35">{% if cliente %}<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fa89a">{{ cliente }}</span>{% endif %}<a href="{{ area_url }}" style="color:#b7f5d6;text-decoration:none;font-weight:600">Área do Cliente &rarr;</a></td>
+          <td align="right" style="vertical-align:middle;font-size:13px;line-height:1.35">{% if cliente %}<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#7fa89a">{{ cliente }}</span>{% endif %}<a href="{{ area_url }}" style="color:#b7f5d6;text-decoration:none;font-weight:600">{{ HUB_ROTULO }} &rarr;</a></td>
         </tr></table>
       </td></tr>
 

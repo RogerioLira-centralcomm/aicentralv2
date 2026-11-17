@@ -2878,7 +2878,7 @@
                 contato.area_cliente_acesso = ativo;
                 contato.area_cliente_liberacao = resp && resp.liberacao;
                 pintar(contato.area_cliente_liberacao);
-                toast(ativo ? 'Área do Cliente liberada para o contato' : 'Área do Cliente bloqueada para o contato');
+                toast(ativo ? 'Hub de mídia liberado para o contato' : 'Hub de mídia bloqueado para o contato');
                 notifyEntityUpdated('cliente', clienteId);
                 if (window.crmV3 && typeof window.crmV3.reloadClientes === 'function') {
                     window.crmV3.reloadClientes();
@@ -2905,7 +2905,7 @@
                 body: { ativo: ativo }
             }).then(function () {
                 cliente.area_cliente_ativa = ativo;
-                toast(ativo ? 'Área do Cliente liberada para a empresa' : 'Área do Cliente bloqueada para a empresa');
+                toast(ativo ? 'Hub de mídia liberado para a empresa' : 'Hub de mídia bloqueado para a empresa');
                 notifyEntityUpdated('cliente', cliente.id);
             }).catch(function (err) {
                 input.checked = !ativo;

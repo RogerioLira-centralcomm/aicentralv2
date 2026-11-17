@@ -2440,7 +2440,7 @@
         var icon = level === 'sem_acesso' ? 'fa-lock' : 'fa-wand-magic-sparkles';
         // Área do Cliente é aberta por padrão: o selo só aparece quando o contato está bloqueado.
         var area = (contato.area_cliente_acesso === false || contato.area_cliente_empresa_bloqueada)
-            ? '<span class="crm-v3-area-cliente-badge is-blocked" title="Sem acesso à Área do Cliente"><i class="fa-solid fa-door-closed" aria-hidden="true"></i><span>Área bloqueada</span></span>'
+            ? '<span class="crm-v3-area-cliente-badge is-blocked" title="Sem acesso ao hub de mídia"><i class="fa-solid fa-door-closed" aria-hidden="true"></i><span>Hub bloqueado</span></span>'
             : '';
         return '<span class="crm-v3-cadu-usage is-' + escapeHtml(level) + '" title="' + escapeHtml(label) + '"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><span>' + escapeHtml(label) + '</span></span>' + area;
     }

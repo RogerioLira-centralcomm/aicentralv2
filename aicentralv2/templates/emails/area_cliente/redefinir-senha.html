@@ -1,15 +1,15 @@
 {% extends 'emails/area_cliente/base.html' %}
 {% from 'emails/area_cliente/_ui.html' import botao, nota, link_cru, badge, link_texto with context %}
 {% set eyebrow = 'Senha' %}
-{% block title %}Crie uma nova senha{% endblock %}
+{% block title %}{{ primeiro_nome }}, crie a sua nova senha{% endblock %}
 {% block preheader %}Seu link para criar uma nova senha. Ele vale por {{ minutos_validade }} minutos.{% endblock %}
 {% block icone %}{{ badge('key') }}{% endblock %}
 {% block headline %}Vamos criar uma nova senha{% endblock %}
 {% block content %}
-  <p style="margin:0">Oi, {{ primeiro_nome }}. Você pediu uma nova senha. É só tocar no botão abaixo.</p>
+  <p style="margin:0">Oi, {{ primeiro_nome }}. Você pediu uma nova senha para o seu hub de mídia. Toque no botão e escolha a nova.</p>
   <p style="margin:14px 0 0">O link funciona uma vez e vale por {{ minutos_validade }} minutos.</p>
   {{ botao(link_reset, 'Criar nova senha') }}
   {{ link_cru(link_reset) }}
-  {{ nota('Não foi você? Pode ignorar este e-mail. Sua senha continua a mesma.') }}
-  {{ link_texto(area_url, 'Abrir Área do Cliente', 'Depois de criar a senha:') }}
+  {{ nota('Não foi você? Pode ignorar este e-mail. A sua senha continua a mesma.') }}
+  {{ link_texto(area_url, HUB_BOTAO, 'Depois de criar a senha:') }}
 {% endblock %}

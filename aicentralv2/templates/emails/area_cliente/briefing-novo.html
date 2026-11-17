@@ -2,11 +2,11 @@
 {% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge with context %}
 {% set eyebrow = 'Novo briefing' %}
 {% block title %}Novo briefing de {{ cliente }}: {{ titulo }}{% endblock %}
-{% block preheader %}{{ nome }} enviou um briefing pela Área do Cliente.{% endblock %}
+{% block preheader %}{{ nome }} enviou um briefing pelo hub de mídia.{% endblock %}
 {% block icone %}{{ badge('file-text') }}{% endblock %}
 {% block headline %}Briefing novo da {{ cliente }}{% endblock %}
 {% block content %}
-  <p style="margin:0">{{ primeiro_nome_executivo }}, {{ nome }} mandou um briefing pela Área do Cliente. Dá para começar o planejamento.</p>
+  <p style="margin:0">{{ primeiro_nome_executivo }}, {{ nome }} mandou um briefing pelo hub de mídia. Dá para começar o planejamento.</p>
   {% if secoes %}
   {% if qualidade %}{{ nota('Nota do briefing: ' ~ qualidade.nota ~ '/100.' ~ ((' Perguntar ao cliente: ' ~ (qualidade.pendencias + qualidade.avisos)|join(' ')) if (qualidade.pendencias or qualidade.avisos) else ' Completo para cotar.'), 'alerta' if qualidade.pendencias else 'info') }}{% endif %}
   {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Enviado por', nome ~ ' · ' ~ email)]) }}

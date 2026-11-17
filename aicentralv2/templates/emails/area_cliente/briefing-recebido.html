@@ -1,21 +1,21 @@
 {% extends 'emails/area_cliente/base.html' %}
-{% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, passos, link_texto with context %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, badge, passos, link_texto with context %}
 {% set eyebrow = 'Briefing' %}
-{% block title %}Recebemos seu briefing: {{ titulo }}{% endblock %}
-{% block preheader %}Seu briefing chegou. Já estamos olhando.{% endblock %}
+{% block title %}{{ primeiro_nome }}, recebemos o seu briefing: {{ titulo }}{% endblock %}
+{% block preheader %}Seu briefing chegou e já está com {{ executivo.nome if executivo and executivo.nome else 'a equipe' }}.{% endblock %}
 {% block icone %}{{ badge('check-circle') }}{% endblock %}
-{% block headline %}Recebemos seu briefing. Obrigado, {{ primeiro_nome }}!{% endblock %}
+{% block headline %}Recebemos seu briefing, {{ primeiro_nome }}. Obrigado!{% endblock %}
 {% block content %}
-  <p style="margin:0">Chegou aqui e já está com {% if executivo and executivo.nome %}{{ executivo.nome }}{% else %}a equipe{% endif %}. Este é o resumo do que você enviou:</p>
+  <p style="margin:0">Ele já está com {% if executivo and executivo.nome %}{{ executivo.nome }}{% else %}a equipe{% endif %}. Este é o resumo do que você mandou:</p>
   {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Enviado em', quando)]) }}
 
   <p style="margin:34px 0 0;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#5b7a71">O que acontece agora</p>
   {{ passos([
     ('file-text', 'Análise', 'A equipe lê o briefing e tira as dúvidas com você, se precisar.'),
-    ('layers', 'Planejamento', 'Montamos o planejamento de mídia com canais, formatos e verba.'),
-    ('megaphone', 'Proposta e PI', 'Você recebe a proposta. Com o PI aprovado, as campanhas aparecem aqui.'),
+    ('layers', 'Planejamento', 'Montamos o planejamento de mídia, com canais, formatos e verba.'),
+    ('megaphone', 'Proposta e PI', 'Você recebe a proposta. Com o PI aprovado, as campanhas aparecem no seu hub.'),
   ]) }}
 
-  {{ botao(area_url, 'Abrir Área do Cliente') }}
+  {{ botao(area_url, HUB_BOTAO) }}
   {{ link_texto(link_briefing, 'Ver o briefing enviado', 'Quer rever o que mandou?') }}
 {% endblock %}

@@ -6,26 +6,23 @@
 {% set exec = usuario.executivo %}
 {% set quem = exec.nome if exec else 'a equipe Centralcomm' %}
 {% if estado == 'enviado' and recem %}
-<section class="pe-festa" data-pe-festa aria-labelledby="festa-titulo">
+<section class="pe-festa" data-pe-festa data-saida="{{ area_url('pis') }}" aria-labelledby="festa-titulo" role="dialog" aria-modal="true">
   <canvas class="pe-festa__fogos" aria-hidden="true"></canvas>
+  <a class="pe-festa__fechar" href="{{ area_url('pis') }}" aria-label="Fechar e acessar os PIs">{{ icon('close', 22) }}</a>
   <div class="pe-festa__conteudo">
-    <span class="pe-festa__selo">{{ icon('check', 38) }}</span>
+    <span class="pe-festa__selo">{{ icon('check', 44) }}</span>
     <p class="pe-festa__eyebrow">PI encaminhado</p>
     <h1 class="pe-festa__titulo" id="festa-titulo">{{ 'PI ' ~ numero_pi if numero_pi else 'PI' }} encaminhado com sucesso</h1>
     <p class="pe-festa__lead">{{ quem }} recebeu o PDF e a leitura realizada pelo hub e dará início à conferência.{% if usuario.email %} A confirmação foi enviada para <b>{{ usuario.email }}</b> e o executivo foi notificado por e-mail.{% endif %}</p>
-    <div class="pe-festa__passos">
-      <div><span>1</span><b>Conferência</b><small>O executivo compara o PI com a cotação e ajusta o que for necessário.</small></div>
-      <div><span>2</span><b>Cadastro</b><small>O PI é registrado e as campanhas são configuradas.</small></div>
-      <div><span>3</span><b>Veiculação</b><small>Com o PI aprovado, as campanhas passam a ser exibidas no hub.</small></div>
-    </div>
+    <p class="pe-festa__etapas"><span>Conferência</span><i aria-hidden="true"></i><span>Cadastro</span><i aria-hidden="true"></i><span>Veiculação</span></p>
     {% if exec %}
-    <div class="pe-festa__exec">
-      {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="48" height="48">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
-      <div><strong>{{ exec.nome }}</strong><span>Executivo responsável</span></div>
-      {% if whatsapp %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}WhatsApp</a>{% endif %}
-    </div>
+    <p class="pe-festa__exec">
+      {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="40" height="40">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
+      <span><strong>{{ exec.nome }}</strong>Executivo responsável</span>
+      {% if whatsapp %}<a class="pe-festa__zap" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}WhatsApp</a>{% endif %}
+    </p>
     {% endif %}
-    <div class="pe-acoes">
+    <div class="pe-festa__acoes">
       <a class="ac-btn ac-btn--primary" href="{{ area_url('pis') }}">Acessar PIs</a>
       <a class="ac-btn ac-btn--secondary" href="{{ area_url('pi_enviar') }}">Enviar novo PI</a>
     </div>
@@ -34,15 +31,23 @@
 <script src="{{ url_for('static', filename='js/area_cliente_festa.js') }}?v={{ static_fingerprint('js/area_cliente_festa.js') }}" defer></script>
 {% else %}
 <div class="pe" data-pe="enviado" data-estado="{{ estado }}" data-status-url="{{ status_url }}">
-  <p class="pe-voltar"><a class="ac-link" href="{{ area_url('pi_enviar') }}">{{ icon('arrow-left', 16) }} Enviar um PI</a></p>
+  {% if estado != 'lendo' %}<p class="pe-voltar"><a class="ac-link" href="{{ area_url('pi_enviar') }}">{{ icon('arrow-left', 16) }} Enviar um PI</a></p>{% endif %}
 
   {% if estado == 'lendo' %}
-  <h1 class="ac-h1 ac-page-title">Leitura do PI em andamento</h1>
-  <p class="ac-lead">O hub está realizando a leitura do documento. O processo leva cerca de um minuto e esta página é atualizada automaticamente.</p>
-  <section class="ac-card pe-lendo" role="status" aria-live="polite">
-    <span class="pe-lendo__icone">{{ icon('sparkles', 24) }}</span>
-    <div><strong>Identificando os dados principais do documento</strong><span>Não é necessário permanecer nesta tela: o PI fica registrado em “PIs enviados”.</span>
-      <span class="pe-barra pe-barra--indet"><i></i></span></div>
+  <section class="pe-proc" role="status" aria-live="polite" aria-labelledby="proc-titulo">
+    <div class="pe-proc__anel" aria-hidden="true">
+      <svg viewBox="0 0 120 120"><circle class="pe-proc__trilha" cx="60" cy="60" r="52"/><circle class="pe-proc__arco" cx="60" cy="60" r="52"/></svg>
+      <span class="pe-proc__icone">{{ icon('file', 34) }}</span>
+    </div>
+    <h1 class="pe-proc__titulo" id="proc-titulo">Processando o PI</h1>
+    <p class="pe-proc__fase" data-pe-fase>Realizando a leitura do documento…</p>
+    <ol class="pe-proc__etapas" aria-hidden="true">
+      <li data-pe-etapa="0">Leitura do documento</li>
+      <li data-pe-etapa="1">Identificação dos dados</li>
+      <li data-pe-etapa="2">Preparação da conferência</li>
+    </ol>
+    <p class="pe-proc__nota">O processo leva cerca de um minuto e esta página é atualizada automaticamente. Não é necessário permanecer nela: o PI fica registrado em “PIs enviados”.</p>
+    <a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ area_url('pis') }}">Acessar PIs</a>
   </section>
 
   {% elif estado == 'erro' %}

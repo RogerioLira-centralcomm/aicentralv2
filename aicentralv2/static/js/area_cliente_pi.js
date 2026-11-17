@@ -41,6 +41,15 @@
   }
 
   if (raiz.dataset.pe === 'enviado' && raiz.dataset.estado === 'lendo') {
+    /* Fases só ilustram o andamento: a leitura real termina quando o status responde "pronto". */
+    var fases = ['Realizando a leitura do documento…', 'Identificando campanha, período e valores…', 'Preparando a conferência…'];
+    var rotulo = $('[data-pe-fase]'), etapas = raiz.querySelectorAll('[data-pe-etapa]'), fase = 0;
+    function pintar() {
+      if (rotulo) rotulo.textContent = fases[fase];
+      Array.prototype.forEach.call(etapas, function (li, i) { li.classList.toggle('is-ativa', i === fase); li.classList.toggle('is-feita', i < fase); });
+    }
+    pintar();
+    setInterval(function () { if (fase < fases.length - 1) { fase += 1; pintar(); } }, 7000);
     var tentativas = 0;
     var timer = setInterval(function () {
       tentativas += 1;

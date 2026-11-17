@@ -174,7 +174,7 @@ def test_pagina_do_pi_lido_mostra_resumo_sem_vazar_e_o_formulario_de_envio(hub_h
 def test_estados_lendo_erro_e_isolamento_entre_contas(hub_http, mem):
     mem.entradas[UUID]["status"] = "lendo"
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert 'data-estado="lendo"' in html and "Leitura do PI em andamento" in html
+    assert 'data-estado="lendo"' in html and "Processando o PI" in html and "data-pe-fase" in html
     assert hub_http.get(f"/pis/enviados/{UUID}/status", base_url=HOST).get_json() == {"ok": True, "estado": "lendo", "pronto": False}
     mem.entradas[UUID].update(status="erro", erro="O PDF tem senha.")
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)

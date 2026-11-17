@@ -76,23 +76,51 @@
 
 
 /* ---------- Depois de enviar: tela cheia de comemoração, com fogos ---------- */
-.pe-festa { position: relative; display: grid; place-items: center; min-height: calc(100vh - 140px); padding: 40px 20px; border-radius: var(--radius-xl, 16px); overflow: hidden; text-align: center;
-  background: radial-gradient(1200px 600px at 50% -10%, var(--colors-brand-50, #eefaf5), transparent 60%), linear-gradient(180deg, var(--colors-brand-25, #f6fcf9), var(--surface)); border: 1px solid var(--line); }
-.pe-festa__fogos { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.pe-festa__conteudo { position: relative; z-index: 1; display: grid; justify-items: center; gap: 14px; max-width: 760px; }
-.pe-festa__selo { width: 76px; height: 76px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--accent); box-shadow: 0 0 0 10px rgba(0, 150, 110, .12), 0 12px 30px rgba(0, 120, 90, .3); animation: pe-pop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
-.pe-festa__eyebrow { margin: 6px 0 0; color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
-.pe-festa__titulo { margin: 0; font-size: clamp(26px, 4vw, 40px); line-height: 1.15; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
-.pe-festa__lead { margin: 0; max-width: 620px; color: var(--ink-2); font-size: 16px; line-height: 1.55; }
-.pe-festa__passos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; margin-top: 8px; text-align: left; }
-.pe-festa__passos > div { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .85); }
-.pe-festa__passos span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-size: 12px; font-weight: 700; }
-.pe-festa__passos b { font-size: 14px; }
-.pe-festa__passos small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
-.pe-festa__exec { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255, 255, 255, .9); text-align: left; }
-.pe-festa__exec img { border-radius: 50%; object-fit: cover; }
-.pe-festa__exec strong { display: block; font-size: 14px; }
-.pe-festa__exec span:not(.pe-exec__ini) { display: block; color: var(--muted); font-size: 12.5px; }
+html.pe-festa-aberta { overflow: hidden; }
+.pe-festa { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; overflow-y: auto; text-align: center;
+  padding: max(28px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  background: radial-gradient(1100px 700px at 50% 0%, #0e3b30 0%, #082a22 55%, #061d18 100%); color: #fff; }
+.pe-festa__fogos { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.pe-festa__fechar { position: fixed; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); z-index: 2; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .12); }
+.pe-festa__fechar:hover { background: rgba(255, 255, 255, .22); }
+.pe-festa__conteudo { position: relative; z-index: 1; display: grid; justify-items: center; gap: 16px; width: min(100%, 720px); padding: 24px 0; }
+.pe-festa__selo { width: 92px; height: 92px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #12b76a, #0e9f6e); box-shadow: 0 0 0 12px rgba(18, 183, 106, .18), 0 0 60px rgba(18, 183, 106, .45); animation: pe-pop .7s cubic-bezier(.2, 1.4, .4, 1) both; }
+.pe-festa__eyebrow { margin: 4px 0 0; color: #7ddcb0; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+.pe-festa__titulo { margin: 0; font-size: clamp(30px, 6vw, 56px); line-height: 1.08; font-weight: 800; letter-spacing: -.025em; color: #fff; }
+.pe-festa__lead { margin: 0; max-width: 600px; color: rgba(255, 255, 255, .82); font-size: clamp(15px, 2.2vw, 18px); line-height: 1.55; }
+.pe-festa__lead b { color: #fff; overflow-wrap: anywhere; }
+.pe-festa__etapas { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; margin: 4px 0 0; color: #7ddcb0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.pe-festa__etapas i { width: 28px; height: 1px; background: rgba(125, 220, 176, .5); }
+.pe-festa__exec { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 4px 0 0; text-align: left; color: rgba(255, 255, 255, .75); font-size: 13px; }
+.pe-festa__exec img, .pe-festa__exec .pe-exec__ini { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+.pe-festa__exec .pe-exec__ini { display: grid; place-items: center; background: rgba(255, 255, 255, .16); color: #fff; font-weight: 700; }
+.pe-festa__exec strong { display: block; color: #fff; font-size: 15px; }
+.pe-festa__zap { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 99px; background: rgba(255, 255, 255, .14); color: #fff; font-weight: 600; text-decoration: none; }
+.pe-festa__acoes { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.pe-festa__acoes .ac-btn { min-height: 46px; padding-inline: 22px; }
+.pe-festa__acoes .ac-btn--secondary { background: transparent; border-color: rgba(255, 255, 255, .45); color: #fff; }
+.pe-festa__acoes .ac-btn--secondary:hover { background: rgba(255, 255, 255, .12); }
 @keyframes pe-pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@media (max-width: 720px) { .pe-festa { min-height: calc(100vh - 110px); padding: 28px 14px; } .pe-festa__passos { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 560px) { .pe-festa__acoes { flex-direction: column; width: 100%; } .pe-festa__acoes .ac-btn { width: 100%; justify-content: center; } .pe-festa__etapas i { width: 14px; } }
 @media (prefers-reduced-motion: reduce) { .pe-festa__selo { animation: none; } }
+
+/* ---------- Processamento do PI: centralizado, para celular, tablet e desktop ---------- */
+.pe-proc { display: grid; justify-items: center; align-content: center; gap: 14px; min-height: calc(100dvh - 190px); padding: 24px 12px; text-align: center; max-width: 560px; margin: 0 auto; }
+.pe-proc__anel { position: relative; width: 132px; height: 132px; }
+.pe-proc__anel > svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pe-proc__anel > svg circle { fill: none; stroke-width: 6; }
+.pe-proc__trilha { stroke: var(--colors-gray-100); }
+.pe-proc__arco { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 90 330; transform-origin: 60px 60px; animation: pe-gira 1.6s linear infinite; }
+.pe-proc__icone { position: absolute; inset: 0; display: grid; place-items: center; color: var(--accent); }
+.pe-proc__titulo { margin: 6px 0 0; font-size: clamp(22px, 4vw, 28px); line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+.pe-proc__fase { margin: 0; min-height: 24px; color: var(--accent-strong); font-size: 16px; font-weight: 600; }
+.pe-proc__etapas { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 8px; width: min(100%, 320px); text-align: left; }
+.pe-proc__etapas li { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; transition: color .3s; }
+.pe-proc__etapas li::before { content: ""; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--colors-gray-200); transition: background .3s, box-shadow .3s; }
+.pe-proc__etapas li.is-ativa { color: var(--ink); font-weight: 600; }
+.pe-proc__etapas li.is-ativa::before { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.pe-proc__etapas li.is-feita { color: var(--ink-2); }
+.pe-proc__etapas li.is-feita::before { background: var(--accent); }
+.pe-proc__nota { margin: 8px 0 4px; max-width: 440px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+@keyframes pe-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pe-proc__arco { animation: none; } }

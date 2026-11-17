@@ -87,8 +87,11 @@ def _contato_executivo(executivo, nome_usuario, cliente, motivo):
 
 def renderizar(modelo: str, **ctx) -> str:
     from ..services.brevo_service import product_email_brand
+    from .marca import GLOBAIS_JINJA
+    # O nome do hub vai no contexto e não só nos globais do Jinja: scripts e workers que montam o
+    # app sem registrar a área não podem gerar botão ou cabeçalho em branco.
     return render_template(f"emails/area_cliente/{modelo}.html",
-                           brand=product_email_brand("clientes"), area_url=_url("/"), **ctx)
+                           brand=product_email_brand("clientes"), area_url=_url("/"), **{**GLOBAIS_JINJA, **ctx})
 
 
 def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetente_nome=None) -> bool:
@@ -250,10 +253,21 @@ def _de_empresa(cliente) -> str:
     return f"da {cliente}" if cliente else "da sua empresa"
 
 
-def ativacao(passo: int, contato: dict) -> bool:
-    """Passo 1 a 4 da sequência de ativação. O envio automático (dias e parada) é feito pelo agendador."""
+# Os e-mails 2 a 4 falam de enviar PI, ler arquivos e do retorno em 24 h (fases F4 a F6 do plano do hub).
+# Enquanto esses recursos não existem, só o envio de teste (``teste=True``) é permitido.
+ATIVACAO_LIBERADA = False
+
+
+def ativacao(passo: int, contato: dict, *, teste: bool = False) -> bool:
+    """Envia o passo 1 a 4 da sequência de ativação a um contato.
+
+    Ainda não há agendador: quando existir, ele decide dia e parada (pular o 2 se o cliente já enviou
+    briefing ou PI). Sem ``ATIVACAO_LIBERADA``, só ``teste=True`` envia."""
     if passo not in ATIVACAO_ASSUNTOS:
         raise ValueError(f"Passo de ativação inválido: {passo}")
+    if not (ATIVACAO_LIBERADA or teste):
+        logger.warning("Sequência de ativação ainda não liberada; passo %s não enviado.", passo)
+        return False
     executivo = _executivo_do_cliente(contato.get("pk_id_tbl_cliente"))
     empresa = executivo.get("cliente", "")
     executivo = _contato_executivo(executivo, contato.get("nome_completo"), empresa,

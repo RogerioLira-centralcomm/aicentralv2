@@ -1111,9 +1111,13 @@ def test_sequencia_de_ativacao_tem_assunto_pessoal_e_um_botao_do_hub(app, monkey
     monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None: enviados.append((modelo, assunto, ctx, remetente_nome)) or True)
     with app.test_request_context("/", base_url=HOST):
         for passo in (1, 2, 3, 4):
-            emails.ativacao(passo, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900})
+            emails.ativacao(passo, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900}, teste=True)
         with pytest.raises(ValueError):
-            emails.ativacao(5, {"email": "ana@cliente.test", "nome_completo": "Ana Souza"})
+            emails.ativacao(5, {"email": "ana@cliente.test", "nome_completo": "Ana Souza"}, teste=True)
+        # Sem a liberação da sequência, o envio real não sai (os e-mails citam recursos que ainda não existem).
+        antes = len(enviados)
+        assert emails.ativacao(1, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900}) is False
+        assert len(enviados) == antes
         htmls = [emails.renderizar(m, **ctx) for m, _a, ctx, _r in enviados]
     assert [m for m, *_ in enviados] == ["ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4"]
     assert all(a.startswith("Ana, ") for _m, a, _c, _r in enviados)

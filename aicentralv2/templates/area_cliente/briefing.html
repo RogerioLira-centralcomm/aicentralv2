@@ -23,6 +23,13 @@
   </div>
 </div>
 
+{% if modo == 'pi_antigo' and not historico %}
+<div class="ac-notice ac-notice--warning ac-enter" role="status">
+  <span class="ac-notice__icon">{{ icon('activity', 18) }}</span>
+  <p>Ainda não achei PIs ou campanhas anteriores nesta conta. Preencha o formulário abaixo ou fale com {{ usuario.executivo.nome if usuario.executivo else 'a Centralcomm' }}.</p>
+</div>
+{% endif %}
+
 {% if enviado_id %}
 <div class="ac-notice ac-notice--success ac-enter" role="status">
   <span class="ac-notice__icon">{{ icon('check', 18) }}</span>

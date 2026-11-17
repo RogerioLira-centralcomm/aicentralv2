@@ -464,6 +464,9 @@
       ev.preventDefault();
       btSeguir.click();
     }
+    else if (ev.key === 'Enter' && ev.target.tagName === 'INPUT' && ev.target !== busca && form.dataset.single && ev.target.type !== 'submit') {
+      ev.preventDefault();                       /* página única: Enter num campo não envia o briefing sem querer */
+    }
   });
   form.addEventListener('submit', function (ev) {
     if (busca.value.trim()) adicionarTextoLivre();

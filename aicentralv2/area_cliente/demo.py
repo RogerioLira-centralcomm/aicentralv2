@@ -75,20 +75,20 @@ def _campanha(n, id_pi, nome, plataforma, objetivo, inicio, fim, meta, pct, hoje
 def _definicao(hoje: date) -> list[dict]:
     d = lambda dias: hoje + timedelta(days=dias)                                 # noqa: E731
     pis = [
-        {"n": 1, "titulo": "Lançamento Coleção Verão", "codigo": "DEMO-001", "status": ("Em andamento", 3), "ini": d(-20), "fim": d(25),
+        {"n": 1, "titulo": "Lançamento Coleção Verão", "codigo": "DEMO-001", "cliente": "Moda Solaris", "agencia": "Agência Fullgás", "status": ("Em andamento", 3), "ini": d(-20), "fim": d(25),
          "bruto": 180000, "notas": (1, 0),
          "camps": [("Alcance · Redes sociais", "Meta Ads", "Alcance", 3_200_000, 58), ("Conversão · Busca", "Google Ads", "Tráfego", 85_000, 42),
                    ("Vídeo · Lançamento", "YouTube", "Visualizações", 600_000, 22)]},
-        {"n": 2, "titulo": "Black Friday Varejo", "codigo": "DEMO-002", "status": ("Em andamento", 3), "ini": d(-9), "fim": d(12),
+        {"n": 2, "titulo": "Black Friday Varejo", "codigo": "DEMO-002", "cliente": "Supermercados Horizonte", "agencia": "Estúdio Alvorada", "status": ("Em andamento", 3), "ini": d(-9), "fim": d(12),
          "bruto": 120000, "notas": (1, 0),
          "camps": [("Programática · Display", "DV360", "Impressões", 4_500_000, 49), ("Remarketing · Social", "Meta Ads", "Cliques", 60_000, 47)]},
-        {"n": 3, "titulo": "Dia das Mães", "codigo": "DEMO-003", "status": ("Finalizado", 5), "ini": d(-200), "fim": d(-170),
+        {"n": 3, "titulo": "Dia das Mães", "codigo": "DEMO-003", "cliente": "Joias Aurora", "agencia": "Agência Fullgás", "status": ("Finalizado", 5), "ini": d(-200), "fim": d(-170),
          "bruto": 95000, "notas": (2, 2),
          "camps": [("Presentes · Busca", "Google Ads", "Cliques", 70_000, 104), ("Emoção · Vídeo", "YouTube", "Visualizações", 500_000, 101)]},
-        {"n": 4, "titulo": "Conta Premiada App", "codigo": "DEMO-004", "status": ("Finalizado", 5), "ini": d(-120), "fim": d(-92),
+        {"n": 4, "titulo": "Conta Premiada App", "codigo": "DEMO-004", "cliente": "Cooperativa Nova Aliança", "agencia": "Pulso Comunicação", "status": ("Finalizado", 5), "ini": d(-120), "fim": d(-92),
          "bruto": 150000, "notas": (3, 3),
          "camps": [("Instalações · App", "Meta Ads", "Instalações", 18_000, 103), ("Programática · App", "DV360", "Impressões", 6_000_000, 99)]},
-        {"n": 5, "titulo": "Liquidação de Verão", "codigo": "DEMO-005", "status": ("Finalizado", 5), "ini": d(-310), "fim": d(-280),
+        {"n": 5, "titulo": "Liquidação de Verão", "codigo": "DEMO-005", "cliente": "Moda Solaris", "agencia": "Estúdio Alvorada", "status": ("Finalizado", 5), "ini": d(-310), "fim": d(-280),
          "bruto": 80000, "notas": (1, 1),
          "camps": [("Alcance · Social", "Meta Ads", "Alcance", 2_000_000, 106)]},
     ]
@@ -108,9 +108,9 @@ def _montar():
         total = max((p["fim"] - p["ini"]).days, 1)
         tempo = max(0, min(100, round(100 * (hoje - p["ini"]).days / total)))
         em_curso = p["fim"] >= hoje
-        contraparte = {"rotulo": "Agência", "nome": "Direto"}
+        contraparte = {"rotulo": "Agência", "nome": p["agencia"]}
         proj = {
-            "id": id_pi, "titulo": p["titulo"], "pi": p["codigo"], "cliente": "CENTRALCOMM", "contraparte": contraparte,
+            "id": id_pi, "titulo": p["titulo"], "pi": p["codigo"], "cliente": p["cliente"], "contraparte": contraparte,
             "status": status, "status_id": status_id, "ativo": status_id in dados.SUB_STATUS_ATIVOS,
             "periodo": {"inicio": p["ini"].isoformat(), "fim": p["fim"].isoformat()}, "atualizado_em": (hoje - timedelta(days=2 if em_curso else 60)).isoformat(),
             "n_campanhas": len(camps), "plataformas": sorted({c["plataforma"] for c in camps}),
@@ -124,7 +124,7 @@ def _montar():
         bruto = float(p["bruto"])
         pis.append({
             "id": id_pi, "pi": p["codigo"], "titulo": p["titulo"], "status": status, "status_id": status_id, "periodo": proj["periodo"],
-            "cliente": "CENTRALCOMM", "agencia": "", "bruto": bruto, "comissao": None, "liquido": bruto, "n_notas": n_notas, "n_pagas": n_pagas,
+            "cliente": p["cliente"], "agencia": p["agencia"], "bruto": bruto, "comissao": None, "liquido": bruto, "n_notas": n_notas, "n_pagas": n_pagas,
             "atualizado_em": proj["atualizado_em"], "criado_em": (p["ini"] - timedelta(days=12)).isoformat(), "documentos": [],
             "contraparte": contraparte,
         })

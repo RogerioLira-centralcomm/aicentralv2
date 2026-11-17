@@ -70,6 +70,7 @@ def test_telas_da_conta_174_mostram_os_cinco_pis_e_campanhas(conta174):
     assert "ac-modo-demo" in inicio and "Lançamento Coleção Verão" in inicio and "Ao vivo" in inicio and ">Plataformas<" in inicio
     pis = pagina(conta174, "/pis")
     assert pis.count("DEMO-00") >= 2 and "Black Friday Varejo" in pis
+    assert "Agência Fullgás" in pis and "Estúdio Alvorada" in pis and "Direto" not in pis and "ac-camp-wrap" in pis   # nomes hipotéticos e a mesma tabela de Campanhas
     assert "Dia das Mães" in pagina(conta174, "/pis?status=finalizados") and "Dia das Mães" not in pis
     camp = pagina(conta174, "/campanhas")
     assert "Alcance · Redes sociais" in camp and "Meta Ads" in camp

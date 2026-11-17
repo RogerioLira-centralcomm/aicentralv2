@@ -2135,3 +2135,20 @@ a.ac-op__kpi:hover { border-color: var(--accent); }
 .ac-table tr[hidden] { display: none; }
 .ac-subbar__opt { color: var(--accent-strong); font-weight: 600; text-decoration: none; }
 .ac-subbar__opt.is-on { text-decoration: underline; }
+
+/* Lista de PIs e de Relatórios: o mesmo cartão rente e a mesma célula de Campanhas, com colunas automáticas */
+.ac-camp-wrap--rolar { overflow-x: auto; }
+.ac-lista { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ac-lista thead th { padding: 10px 10px; text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--soft); border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ac-lista thead th:first-child { border-top-left-radius: var(--radius-xl); }
+.ac-lista thead th:last-child { border-top-right-radius: var(--radius-xl); }
+.ac-lista tbody td { padding: 10px 10px; border-bottom: 1px solid var(--colors-gray-100); vertical-align: middle; text-align: left; font-weight: 400; color: var(--ink-2); }
+.ac-lista tbody tr:last-child > * { border-bottom: 0; }
+.ac-lista tbody tr:hover > * { background: var(--colors-gray-25); }
+.ac-lista small { display: block; font-size: 11.5px; color: var(--muted); }
+.ac-lista .ac-num, .ac-lista th.ac-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ac-lista td:first-child { white-space: nowrap; }
+.ac-lista td:first-child small { white-space: normal; max-width: 260px; }
+.ac-lista .ac-camp__acts { width: 52px; }
+.ac-lista .ac-rel-table__entrega { min-width: 130px; }
+.ac-lista .ac-rel-table__entrega .ac-camp__bar { max-width: 150px; }

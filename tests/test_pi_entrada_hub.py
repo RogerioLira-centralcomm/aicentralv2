@@ -250,3 +250,12 @@ def app_emails():
     app.config["TESTING"] = True
     app.config["CLIENTES_URL"] = HOST
     return app
+
+
+def test_leitura_travada_vira_erro_para_o_cliente():
+    from datetime import datetime, timedelta, timezone
+    from aicentralv2.pi_entrada import hub
+    agora = datetime.now(timezone.utc)
+    assert hub.situacao({"status": "lendo", "atualizado_em": agora}) == "lendo"
+    assert hub.situacao({"status": "lendo", "atualizado_em": agora - timedelta(minutes=10)}) == "erro"
+    assert hub.situacao({"status": "lendo", "atualizado_em": agora - timedelta(minutes=10), "enviado_em": agora}) == "enviado"

@@ -8,6 +8,8 @@ Vale uma lista **permitida**: o que não está aqui não sai, mesmo que o modelo
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from . import normalizar as n
 
 MAX_PLATAFORMAS = 6
@@ -62,6 +64,12 @@ def situacao(entrada: dict) -> str:
         return "enviado"
     status = entrada.get("status")
     if status in ("recebido", "lendo"):
+        quando = entrada.get("atualizado_em")
+        if isinstance(quando, datetime):
+            if quando.tzinfo is None:
+                quando = quando.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc) - quando > timedelta(minutes=5):
+                return "erro"                      # o servidor reiniciou no meio da leitura: não fica "lendo" para sempre
         return "lendo"
     if status == "erro":
         return "erro"

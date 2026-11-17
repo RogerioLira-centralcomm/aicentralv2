@@ -260,9 +260,17 @@ def salvar_leitura(id_rascunho: int, resultado: dict) -> None:
               (json.dumps(leitura, ensure_ascii=False), resultado["modelo"], resultado["tokens_entrada"], resultado["tokens_saida"], id_rascunho), nenhuma=True, commit=True)
 
 
+def reservar(id_rascunho: int) -> str | None:
+    """Trava o rascunho para um único envio (duplo clique ou duas abas). Devolve o status anterior, ou None se outro envio já pegou."""
+    row = _executar("""UPDATE hub_briefing_cotacao h SET status = 'enviando', atualizado_em = NOW()
+                         FROM (SELECT id, status FROM hub_briefing_cotacao WHERE id = %s AND status IN ('lido', 'erro') FOR UPDATE) a
+                        WHERE h.id = a.id RETURNING a.status AS anterior""", (id_rascunho,), uma=True, commit=True)
+    return row["anterior"] if row else None
+
+
 def marcar_enviado(id_rascunho: int, briefing_id: int, prazo) -> bool:
     row = _executar("""UPDATE hub_briefing_cotacao SET status = 'enviado', briefing_id = %s, prazo_resposta_em = %s, atualizado_em = NOW()
-                        WHERE id = %s AND status IN ('lido', 'erro') RETURNING id""", (briefing_id, prazo, id_rascunho), uma=True, commit=True)
+                        WHERE id = %s AND status = 'enviando' RETURNING id""", (briefing_id, prazo, id_rascunho), uma=True, commit=True)
     return bool(row)
 
 
@@ -273,7 +281,7 @@ def contar_recentes(id_cliente: int, minutos: int = 60) -> int:
 
 def situacao(rascunho: dict) -> str:
     """lendo, erro, pronto ou enviado. Leitura presa há mais de 5 minutos conta como erro."""
-    if rascunho.get("status") == "enviado":
+    if rascunho.get("status") in ("enviado", "enviando"):
         return "enviado"
     if rascunho.get("status") in ("recebido", "lendo"):
         quando = rascunho.get("atualizado_em")
@@ -293,7 +301,7 @@ def processar(id_rascunho: int, uuid_rascunho: str, *, chamar=None) -> None:
         mudar_status(id_rascunho, "lendo")
         resultado = ler(rascunho["arquivos"], chamar=chamar)
         salvar_leitura(id_rascunho, resultado)
-    except CotacaoErro as exc:
+    except (CotacaoErro, leitor.LeituraErro) as exc:                                # mensagens escritas para o cliente (PDF com senha, grande demais…)
         mudar_status(id_rascunho, "erro", str(exc))
     except Exception:
         logger.exception("Leitura do briefing de cotação %s falhou", id_rascunho)

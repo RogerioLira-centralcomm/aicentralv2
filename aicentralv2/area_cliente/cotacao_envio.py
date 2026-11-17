@@ -118,7 +118,14 @@ def view_cotacao_enviar(usuario, uuid):
     prazo = cotacao.prazo_resposta()
     extra = {"modo": "cotacao", "prazo_resposta_em": prazo, "arquivos": [{k: a[k] for k in ("nome", "sha256", "tamanho", "caminho", "tipo")} for a in arquivos],
              "leitura_ia": {**leitura, "rascunho_uuid": rascunho["uuid"]}}
-    novo_id = briefing.enviar(usuario, valores, extra)
+    anterior = cotacao.reservar(rascunho["id"])
+    if not anterior:
+        return redirect(destino, code=303)                         # outro envio (duplo clique, outra aba) já pegou este rascunho
+    try:
+        novo_id = briefing.enviar(usuario, valores, extra)
+    except Exception:
+        cotacao.mudar_status(rascunho["id"], anterior, rascunho.get("erro"))    # nada foi gravado: libera para tentar de novo
+        raise
     cotacao.marcar_enviado(rascunho["id"], novo_id, prazo)
     valores["prazo_texto"], valores["anexos"] = cotacao.prazo_texto(prazo), nomes
     try:

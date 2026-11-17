@@ -123,10 +123,19 @@ def hub(monkeypatch, tmp_path):
     monkeypatch.setattr(cotacao, "contar_recentes", lambda c, minutos=60: 0)
     monkeypatch.setattr(cotacao, "iniciar_em_segundo_plano", lambda i, u: m.iniciadas.append(u))
 
+    def reservar(i):
+        r = next(r for r in m.rascunhos.values() if r["id"] == i)
+        if r["status"] not in ("lido", "erro"):
+            return None
+        anterior, r["status"] = r["status"], "enviando"
+        return anterior
+
     def enviado(i, bid, prazo):
         r = next(r for r in m.rascunhos.values() if r["id"] == i)
         r.update(status="enviado", prazo_resposta_em=prazo)
         return True
+    monkeypatch.setattr(cotacao, "reservar", reservar)
+    monkeypatch.setattr(cotacao, "mudar_status", lambda i, st, erro=None: next(r for r in m.rascunhos.values() if r["id"] == i).update(status=st))
     monkeypatch.setattr(cotacao, "marcar_enviado", enviado)
     monkeypatch.setattr(briefing, "enviar", lambda u, d, extra=None: m.briefings.append((d, extra)) or 55)
     monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i: m.emails.append(("novo", v)) or True)
@@ -274,8 +283,10 @@ def test_rascunho_e_envio_contra_postgres(monkeypatch):
     prazo = cotacao.prazo_resposta()
     novo = briefing.enviar({"cliente_id": 1, "user_id": 501, "nome": "Ana"}, valores,
                            {"modo": "cotacao", "prazo_resposta_em": prazo, "arquivos": lido["arquivos"], "leitura_ia": lido["leitura"]})
+    assert cotacao.marcar_enviado(r["id"], novo, prazo) is False                       # sem reservar antes, não marca
+    assert cotacao.reservar(r["id"]) == "lido" and cotacao.reservar(r["id"]) is None   # a trava vale para um envio só
     assert cotacao.marcar_enviado(r["id"], novo, prazo) is True
-    assert cotacao.marcar_enviado(r["id"], novo, prazo) is False                       # só vale uma vez
+    assert cotacao.marcar_enviado(r["id"], novo, prazo) is False
     with conn.cursor() as c:
         c.execute("SELECT modo, prazo_resposta_em, arquivos, leitura_ia, respondido_em FROM cadu_briefings WHERE id = %s", (novo,))
         b = c.fetchone()
@@ -338,3 +349,27 @@ def test_email_de_prazo_renderiza():
         html = emails.renderizar("briefing-prazo", titulo="Verão", cliente="Cliente Teste", prazo="18/11 às 12:00", situacao="faltam 12 horas",
                                  atraso=False, link_briefings="https://x/briefings", executivo=None, primeiro_nome="equipe")
     assert "Cliente Teste" in html and "18/11 às 12:00" in html and "vence em breve" in html
+
+
+def test_envio_duplicado_cria_um_so_briefing_e_falha_libera_o_rascunho(hub, monkeypatch):
+    pronto(hub)
+    assert hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form()).status_code == 303
+    assert hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form()).status_code == 303
+    assert len(hub.mem.briefings) == 1 and len(hub.mem.emails) == 2
+    # falha ao gravar o briefing: o rascunho volta a "lido" e dá para tentar de novo
+    hub.mem.rascunhos["u1"]["status"] = "lido"
+    def quebra(*a, **k):
+        raise RuntimeError("banco fora")
+    monkeypatch.setattr(briefing, "enviar", quebra)
+    assert hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form()).status_code >= 500
+    assert hub.mem.rascunhos["u1"]["status"] == "lido"
+
+
+def test_pdf_com_senha_mostra_a_mensagem_do_leitor(tmp_path, monkeypatch):
+    from aicentralv2.pi_entrada import leitor
+    estados = []
+    monkeypatch.setattr(cotacao, "obter", lambda u: {"arquivos": []})
+    monkeypatch.setattr(cotacao, "mudar_status", lambda i, st, erro=None: estados.append((st, erro)))
+    monkeypatch.setattr(cotacao, "ler", lambda a, chamar=None: (_ for _ in ()).throw(leitor.LeituraErro("O PDF tem senha.")))
+    cotacao.processar(1, "u")
+    assert estados[-1] == ("erro", "O PDF tem senha.")

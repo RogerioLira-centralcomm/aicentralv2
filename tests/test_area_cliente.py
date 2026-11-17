@@ -1348,25 +1348,3 @@ def test_listas_sem_segunda_busca_e_estados_vazios_amigaveis(app, monkeypatch):
     assert "Nenhum PI em andamento" in rel and "ac-empty__title" in rel
     lista = client.get("/relatorios", base_url=HOST).get_data(as_text=True)               # sem nada em andamento abre nos finalizados
     assert "ac-rel-table" in lista and "PI Velho" in lista and "Plataformas" in lista and "ac-page-head" in lista
-
-
-def test_pi_em_pre_aprovacao_nao_entra_nas_listas_do_hub(monkeypatch):
-    """Os filtros enviam ao banco a lista de status que o hub esconde (pré-aprovação e cancelado), em todas as consultas de PI."""
-    from aicentralv2.area_cliente import briefing, dados
-    vistos = []
-
-    def falso(sql, params):
-        vistos.append((sql, params))
-        return []
-    monkeypatch.setattr(dados, "_fetch", falso)
-    app = get_app()
-    with app.test_request_context("/", base_url=HOST):
-        dados.listar_projetos(80)
-        dados.listar_pis(80)
-        dados.listar_pis(80, id_pi=5)
-        dados.projeto_do_cliente(80, 5)
-        briefing.historico(80)
-    consultas_de_pi = [(sql, params) for sql, params in vistos if "id_sub_status_pi" in sql]
-    assert dados.SUB_STATUS_FORA_DO_HUB == [1, 6] and len(consultas_de_pi) == 5
-    for sql, params in consultas_de_pi:
-        assert "<> ALL(%s)" in sql and dados.SUB_STATUS_FORA_DO_HUB in params

@@ -14,10 +14,6 @@ from . import demo
 logger = logging.getLogger(__name__)
 
 SUB_STATUS_CANCELADO = 6
-SUB_STATUS_PRE_APROVACAO = 1      # PI ainda em pré-aprovação (recém-enviado ou em conferência): não entra nas listas do hub
-# PIs que o hub não mostra: cancelados e em pré-aprovação. O cliente acompanha o que enviou em "PIs enviados"; o PI passa a
-# aparecer nas listas quando é aprovado e atribuído ao cliente (ou à agência).
-SUB_STATUS_FORA_DO_HUB = [SUB_STATUS_PRE_APROVACAO, SUB_STATUS_CANCELADO]
 SUB_STATUS_FINALIZADO = 5
 SUB_STATUS_ATIVOS = (2, 3)  # Em configuração, Em andamento
 STATUS_CAMPANHA_NO_AR = ("ativa", "ativo", "em andamento")
@@ -97,7 +93,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
     """PIs do cliente (como cliente final ou como agência), sem os cancelados."""
     if demo.ativo(cliente_id):
         return demo.projetos(busca, id_pi)                      # conta de demonstração: dados fictícios, nada do banco
-    params: list = [cliente_id, cliente_id, SUB_STATUS_FORA_DO_HUB]
+    params: list = [cliente_id, cliente_id, SUB_STATUS_CANCELADO]
     filtro = ""
     if id_pi is not None:
         filtro += " AND pi.id_pi = %s"
@@ -118,7 +114,7 @@ def listar_projetos(cliente_id, busca: str = "", id_pi=None) -> list[dict]:
           LEFT JOIN tbl_cliente cli ON cli.id_cliente = pi.id_cliente
           LEFT JOIN tbl_cliente ag ON ag.id_cliente = pi.id_agencia
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
-           AND COALESCE(pi.id_sub_status_pi, 0) <> ALL(%s)
+           AND COALESCE(pi.id_sub_status_pi, 0) <> %s
            {filtro}
          ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC
         """,
@@ -385,9 +381,9 @@ def projeto_do_cliente(cliente_id, id_pi) -> dict | None:
         """
         SELECT id_pi FROM cadu_pi
          WHERE id_pi = %s AND (id_cliente = %s OR id_agencia = %s)
-           AND COALESCE(id_sub_status_pi, 0) <> ALL(%s)
+           AND COALESCE(id_sub_status_pi, 0) <> %s
         """,
-        (id_pi, cliente_id, cliente_id, SUB_STATUS_FORA_DO_HUB),
+        (id_pi, cliente_id, cliente_id, SUB_STATUS_CANCELADO),
     )
     if not rows:
         return None
@@ -419,7 +415,7 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
     if demo.ativo(cliente_id):
         return demo.pis(id_pi)
     filtro_pi = "AND pi.id_pi = %s" if id_pi is not None else ""
-    params = (cliente_id, cliente_id, SUB_STATUS_FORA_DO_HUB) + ((int(id_pi),) if id_pi is not None else ())
+    params = (cliente_id, cliente_id, SUB_STATUS_CANCELADO) + ((int(id_pi),) if id_pi is not None else ())
     rows = _fetch(
         f"""
         SELECT pi.id_pi, pi.codigo_pi_cc, pi.codigo_pi_ag, pi.titulo_pi, pi.periodo_inicio, pi.periodo_fim,
@@ -436,7 +432,7 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
           LEFT JOIN cadu_pi_nota_fiscal nf ON nf.id_pi = pi.id_pi
           LEFT JOIN cadu_pi_nota_fiscal_status nfs ON nfs.id = nf.status
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
-           AND COALESCE(pi.id_sub_status_pi, 0) <> ALL(%s)
+           AND COALESCE(pi.id_sub_status_pi, 0) <> %s
            {filtro_pi}
          GROUP BY pi.id_pi, ss.display, cli.nome_fantasia, ag.nome_fantasia
          ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC

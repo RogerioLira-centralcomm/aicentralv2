@@ -5,6 +5,34 @@
 {% block content %}
 {% set exec = usuario.executivo %}
 {% set quem = exec.nome.split()[0] if exec else 'a equipe Centralcomm' %}
+{% if estado == 'enviado' and recem %}
+<section class="pe-festa" data-pe-festa aria-labelledby="festa-titulo">
+  <canvas class="pe-festa__fogos" aria-hidden="true"></canvas>
+  <div class="pe-festa__conteudo">
+    <span class="pe-festa__selo">{{ icon('check', 38) }}</span>
+    <p class="pe-festa__eyebrow">PI enviado</p>
+    <h1 class="pe-festa__titulo" id="festa-titulo">{{ 'O PI ' ~ numero_pi if numero_pi else 'Seu PI' }} chegou para {{ quem }}!</h1>
+    <p class="pe-festa__lead">{{ quem|capitalize if exec else 'A equipe' }} recebeu o PDF e a leitura do hub e já vai conferir.{% if usuario.email %} Enviamos uma confirmação para <b>{{ usuario.email }}</b> e avisamos {{ quem }} por e-mail.{% endif %}</p>
+    <div class="pe-festa__passos">
+      <div><span>1</span><b>Conferência</b><small>{{ quem }} compara o PI com a cotação e ajusta o que precisar.</small></div>
+      <div><span>2</span><b>Cadastro</b><small>O PI entra no fluxo e as campanhas são configuradas.</small></div>
+      <div><span>3</span><b>No ar</b><small>Quando o PI for aprovado, as campanhas aparecem no seu hub.</small></div>
+    </div>
+    {% if exec %}
+    <div class="pe-festa__exec">
+      {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="48" height="48">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
+      <div><strong>{{ exec.nome }}</strong><span>Seu executivo na Centralcomm</span></div>
+      {% if whatsapp %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}WhatsApp</a>{% endif %}
+    </div>
+    {% endif %}
+    <div class="pe-acoes">
+      <a class="ac-btn ac-btn--primary" href="{{ area_url('pis') }}">Ver meus PIs</a>
+      <a class="ac-btn ac-btn--secondary" href="{{ area_url('pi_enviar') }}">Enviar outro PI</a>
+    </div>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='js/area_cliente_festa.js') }}?v={{ static_fingerprint('js/area_cliente_festa.js') }}" defer></script>
+{% else %}
 <div class="pe" data-pe="enviado" data-estado="{{ estado }}" data-status-url="{{ status_url }}">
   <p class="pe-voltar"><a class="ac-link" href="{{ area_url('pi_enviar') }}">{{ icon('arrow-left', 16) }} Enviar um PI</a></p>
 
@@ -93,5 +121,6 @@
   </div>
   {% endif %}
 </div>
+{% endif %}
 <script src="{{ url_for('static', filename='js/area_cliente_pi.js') }}?v={{ static_fingerprint('js/area_cliente_pi.js') }}" defer></script>
 {% endblock %}

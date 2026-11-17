@@ -84,19 +84,60 @@ def test_telas_da_conta_174_mostram_os_cinco_pis_e_campanhas(conta174):
     assert all(not isinstance(p, tuple) or all(not isinstance(x, list) or all(demo.eh_pi_demo(i) for i in x) for x in p) for p in conta174.consultas)
 
 
-def test_pi_enviado_na_demonstracao_le_mostra_e_envia_sem_gravar(conta174):
-    r = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"%PDF-1.4 x"), "PI cliente.pdf")}, content_type="multipart/form-data")
+def test_pi_enviado_na_demonstracao_le_o_pdf_mostra_o_que_entendeu_e_comemora(conta174, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from aicentralv2.pi_entrada import leitor
+    conta174.app.config["HUB_DEMO_DIR"] = str(tmp_path)
+    monkeypatch.setattr(demo, "EXECUTAR_EM_SEGUNDO_PLANO", False)
+    lidos = []
+    pi_lido = {"numero_pi": "86761", "cliente": {"razao_social": "SICOOB CREDICOM"}, "agencia": {"razao_social": "LAPIS RARO"}, "campanha": "INSTITUCIONAL SEGUNDO SEMESTRE",
+               "periodo_texto": "NOVEMBRO/2026", "totais": {"bruto": "R$ 10.000,00"}, "linhas": [{"plataforma": "Amazon Música", "praca": "MG", "formato": "Jingle"}]}
+    monkeypatch.setattr(leitor, "ler", lambda conteudo, nome="pi.pdf", **k: lidos.append((nome, conteudo)) or SimpleNamespace(pi=pi_lido))
+    r = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"%PDF-1.4 conteudo"), "PI cliente.pdf")}, content_type="multipart/form-data")
     url = r.get_json()["entradas"][0]["url"]
-    assert url.startswith("/pis/enviados/demo-")
+    assert url.startswith("/pis/enviados/demo-") and lidos == [("PI cliente.pdf", b"%PDF-1.4 conteudo")]       # o PDF enviado é o que foi lido
     assert conta174.get(url + "/status", base_url=HOST).get_json()["estado"] == "pronto"
     html = pagina(conta174, url)
-    assert "O que entendi" in html and "DEMO-0451" in html and "Enviar para João" in html
-    assert "Comissão" not in html and "CNPJ" not in html
+    assert "O que entendi" in html and "86761" in html and "INSTITUCIONAL SEGUNDO SEMESTRE" in html and "SICOOB CREDICOM" in html and "Enviar para João" in html
+    assert "DEMO-0451" not in html and "Comissão" not in html and "CNPJ" not in html                    # nada do exemplo fixo antigo
     assert conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok", "mensagem": "Teste"}).status_code == 303
-    assert "seguiu para João" in pagina(conta174, url + "?enviado=1")
+    festa = pagina(conta174, url + "?enviado=1")
+    assert "data-pe-festa" in festa and "chegou para João" in festa and "area_cliente_festa.js" in festa and "Enviamos uma confirmação para" in festa
+    assert "seguiu para João" in pagina(conta174, url) and "data-pe-festa" not in pagina(conta174, url)      # depois da comemoração, a tela normal
     assert "PI cliente.pdf" in pagina(conta174, "/pis/enviar")
     ruim = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"x"), "a.exe")}, content_type="multipart/form-data")
     assert "PDF" in ruim.get_json()["entradas"][0]["erro"]
+
+
+def test_pi_de_demonstracao_que_nao_le_mostra_o_erro_e_nao_envia(conta174, monkeypatch, tmp_path):
+    from aicentralv2.pi_entrada import leitor
+    conta174.app.config["HUB_DEMO_DIR"] = str(tmp_path)
+    monkeypatch.setattr(demo, "EXECUTAR_EM_SEGUNDO_PLANO", False)
+    def falha(*a, **k):
+        raise leitor.LeituraErro("O PDF tem senha.")
+    monkeypatch.setattr(leitor, "ler", falha)
+    url = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"%PDF-1.4 x"), "a.pdf")}, content_type="multipart/form-data").get_json()["entradas"][0]["url"]
+    assert conta174.get(url + "/status", base_url=HOST).get_json()["estado"] == "erro"
+    assert "O PDF tem senha." in pagina(conta174, url)
+    assert conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok"}).status_code == 303
+    assert "seguiu para João" not in pagina(conta174, url + "?enviado=1")
+
+
+def test_emails_da_demonstracao_so_vao_para_o_proprio_usuario(conta174, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from aicentralv2.pi_entrada import leitor
+    conta174.app.config.update(HUB_DEMO_DIR=str(tmp_path), HUB_DEMO_EMAILS=True)
+    monkeypatch.setattr(demo, "EXECUTAR_EM_SEGUNDO_PLANO", False)
+    monkeypatch.setattr(leitor, "ler", lambda *a, **k: SimpleNamespace(pi={"numero_pi": "1", "linhas": []}))
+    enviados = []
+    monkeypatch.setattr(emails, "pi_recebido", lambda u, resumo, i, msg="": enviados.append(("exec", u["executivo"]["email"])) or True)
+    monkeypatch.setattr(emails, "pi_enviado", lambda u, resumo: enviados.append(("cliente", u["email"])) or True)
+    try:
+        url = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"%PDF-1.4 x"), "a.pdf")}, content_type="multipart/form-data").get_json()["entradas"][0]["url"]
+        conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok"})
+    finally:
+        conta174.app.config["HUB_DEMO_EMAILS"] = False
+    assert enviados == [("exec", "ana@cliente.test"), ("cliente", "ana@cliente.test")]        # os dois e-mails, os dois para quem está testando
 
 
 def test_cotacao_e_planejamento_na_demonstracao(conta174):

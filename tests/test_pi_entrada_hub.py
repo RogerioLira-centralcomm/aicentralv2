@@ -199,7 +199,9 @@ def test_enviar_ao_executivo_marca_avisa_uma_vez_e_exige_csrf(hub_http, mem):
     de_novo = hub_http.post(url, base_url=HOST, data={"csrf": "tok"})
     assert de_novo.status_code == 303 and len(mem.enviados) == 1 and len(mem.emails) == 2                 # não avisa duas vezes
     html = hub_http.get(f"/pis/enviados/{UUID}?enviado=1", base_url=HOST).get_data(as_text=True)
-    assert "seguiu para João" in html and "Já tem cotação aprovada." in html and "Enviar para João" not in html
+    assert "chegou para João" in html and "data-pe-festa" in html and "Enviar para João" not in html            # logo após enviar: tela cheia de comemoração
+    normal = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
+    assert "seguiu para João" in normal and "Já tem cotação aprovada." in normal and "data-pe-festa" not in normal
 
 
 def test_envio_nao_acontece_se_a_leitura_nao_terminou(hub_http, mem):

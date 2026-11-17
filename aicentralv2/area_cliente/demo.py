@@ -10,9 +10,13 @@ resultado de exemplo, o envio ao executivo só muda a tela. Nenhuma linha é cri
 
 from __future__ import annotations
 
+import json
+import os
+import threading
 import time
 import uuid as uuidlib
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 from flask import current_app, session
 
@@ -287,7 +291,9 @@ def lendo(registro: dict) -> bool:
 
 def marcar_enviado(tipo: str, uuid, mensagem: str = "") -> bool:
     registro = envio(tipo, uuid)
-    if not registro or registro.get("enviado_em") or lendo(registro):
+    if not registro or registro.get("enviado_em"):
+        return False
+    if (estado_pi(registro) != "pronto") if tipo == "pi" else lendo(registro):
         return False
     registro["enviado_em"], registro["mensagem"] = time.time(), (mensagem or "")[:1000]
     session.modified = True
@@ -296,3 +302,68 @@ def marcar_enviado(tipo: str, uuid, mensagem: str = "") -> bool:
 
 def quando(ts) -> datetime:
     return datetime.fromtimestamp(ts, tz=timezone.utc)
+
+
+# ---------- PI de demonstração: o PDF enviado é lido de verdade, só que fora do banco ----------
+# O resultado (o resumo que o cliente vê) vai para um arquivo temporário em instance/hub_demo; nenhuma linha é criada.
+EXECUTAR_EM_SEGUNDO_PLANO = True      # os testes trocam por False para ler na hora
+LIMITE_LEITURA_PI = 180               # segundos até desistir de uma leitura sem resposta
+
+
+def _pasta() -> Path:
+    base = current_app.config.get("HUB_DEMO_DIR") or os.path.join(current_app.instance_path, "hub_demo")
+    pasta = Path(base)
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
+def _arquivo(uuid_envio: str, ext: str) -> Path:
+    seguro = "".join(c for c in str(uuid_envio) if c.isalnum() or c == "-")
+    return _pasta() / f"{seguro}.{ext}"
+
+
+def guardar_pdf(uuid_envio: str, conteudo: bytes) -> None:
+    _arquivo(uuid_envio, "pdf").write_bytes(conteudo)
+
+
+def _ler_agora(uuid_envio: str, nome: str) -> None:
+    from ..pi_entrada import hub, leitor
+    try:
+        leitura = leitor.ler(_arquivo(uuid_envio, "pdf").read_bytes(), nome)
+        resumo = hub.resumo_para_cliente(leitura.pi)
+        saida = {"resumo": resumo, "numero_pi": resumo.get("numero_pi") or ""}
+    except leitor.LeituraErro as exc:
+        saida = {"erro": str(exc)}
+    except Exception:
+        current_app.logger.warning("Leitura do PI de demonstração falhou.", exc_info=True)
+        saida = {"erro": "Não consegui ler o PDF agora. Tente de novo."}
+    _arquivo(uuid_envio, "json").write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")
+
+
+def iniciar_leitura_pi(uuid_envio: str, nome: str) -> None:
+    if not EXECUTAR_EM_SEGUNDO_PLANO:
+        return _ler_agora(uuid_envio, nome)
+    app = current_app._get_current_object()
+
+    def tarefa():
+        with app.app_context():
+            _ler_agora(uuid_envio, nome)
+    threading.Thread(target=tarefa, name=f"demo-pi-{uuid_envio[-6:]}", daemon=True).start()
+
+
+def resultado_pi(uuid_envio: str) -> dict | None:
+    caminho = _arquivo(uuid_envio, "json")
+    try:
+        return json.loads(caminho.read_text(encoding="utf-8")) if caminho.exists() else None
+    except (OSError, ValueError):
+        return None
+
+
+def estado_pi(registro: dict) -> str:
+    """lendo, erro, pronto ou enviado, para o PI de demonstração."""
+    if registro.get("enviado_em"):
+        return "enviado"
+    res = resultado_pi(registro["uuid"])
+    if res is None:
+        return "erro" if time.time() - registro["em"] > LIMITE_LEITURA_PI else "lendo"
+    return "erro" if res.get("erro") else "pronto"

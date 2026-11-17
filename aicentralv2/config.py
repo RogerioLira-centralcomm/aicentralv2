@@ -239,6 +239,8 @@ class Config:
 	BREVO_CLIENTES_SENDER_EMAIL = BREVO_SENDER_EMAIL
 	# Quem recebe pedidos e briefings quando o cliente não tem executivo cadastrado.
 	AREA_CLIENTE_EMAIL_EQUIPE = os.getenv('AREA_CLIENTE_EMAIL_EQUIPE', 'contato@centralcomm.media')
+	# Sequência de ativação do hub (4 e-mails). Fica desligada até as telas que ela cita estarem no ar; ligue com HUB_ATIVACAO_LIBERADA=1.
+	HUB_ATIVACAO_LIBERADA = os.getenv('HUB_ATIVACAO_LIBERADA', '').strip().lower() in ('1', 'true', 'sim', 'yes')
 	# Comercial: endereço real que recebe as respostas aos contatos de onboarding.
 	DEMETRIUS_EMAIL = os.getenv('DEMETRIUS_EMAIL', '')
 	DEMETRIUS_NAME = os.getenv('DEMETRIUS_NAME', 'Demétrius Decottignies')

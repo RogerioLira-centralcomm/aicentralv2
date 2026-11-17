@@ -6,6 +6,7 @@
   if (!area) return;
   document.body.appendChild(area);                     /* fora do conteúdo: cobre a barra lateral e o topo, a tela inteira */
   document.documentElement.classList.add('pe-festa-aberta');
+  var principal = area.querySelector('.pe-festa__acoes a'); if (principal) principal.focus({ preventScroll: true });   /* teclado e leitor de tela começam dentro da tela cheia */
   document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && area.dataset.saida) window.location.href = area.dataset.saida; });
   var canvas = area.querySelector('canvas');
   if (!canvas || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;

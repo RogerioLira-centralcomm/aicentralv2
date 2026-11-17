@@ -593,7 +593,7 @@ def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch)
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": campanhas}])
     html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
     assert html.index("Atrasada Y") < html.index("Ritmo Z") < html.index("Adiantada X")
-    assert "1 precisa de atenção" in html and "p.p." not in html
+    assert "1 em otimização" in html and "precisa de atenção" not in html and "p.p." not in html
 
 
 def test_logos_e_resumo_de_plataformas():
@@ -710,10 +710,10 @@ def test_relatorios_lista_pis_por_situacao_com_cliente_ou_agencia(app, monkeypat
     assert 'class="ac-utabs"' in html and "Finalizados<span>1</span>" in html and "Em andamento<span>2</span>" in html
     assert ">Agência</th>" in html and "Agência X" in html                     # coluna da outra parte
     assert html.index(">CC-123<") < html.index("PI Verão")                    # PI na primeira coluna
-    assert 'href="/campanha/p/cliente-pi-abc123"' in html and "1 em atenção" in html
+    assert 'href="/campanha/p/cliente-pi-abc123"' in html and "1 em otimização" in html
     finalizados = client.get("/relatorios?status=finalizados", base_url=HOST).get_data(as_text=True)
     assert "PI Antigo" in finalizados and "PI Verão" not in finalizados
-    assert "precisa de atenção" not in finalizados and "precisam de atenção" not in finalizados   # encerradas não contam
+    assert "em otimização" not in finalizados   # encerradas não contam
 
 
 def test_relatorios_abre_o_pi_pela_query(app, monkeypatch):

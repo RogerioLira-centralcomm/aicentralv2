@@ -28,7 +28,7 @@
   <article class="ac-rel-kpi"><span class="ac-rel-kpi__icon">{{ icon('megaphone', 24) }}</span><div><p>{{ 'Campanhas ativas' if p.no_ar else 'Campanhas' }}</p><b>{{ k.ativas }}</b></div></article>
   <article class="ac-rel-kpi"><span class="ac-rel-kpi__icon">{{ icon('target', 24) }}</span><div><p>Entrega média</p><b>{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b>{% if p.tempo_pct is not none %}<small>{{ p.tempo_pct }}% do período</small>{% endif %}</div></article>
   <article class="ac-rel-kpi"><span class="ac-rel-kpi__icon">{{ icon('trend', 24) }}</span><div><p>No ritmo</p><b>{{ k.no_ritmo }}</b>{% if k.adiantadas %}<small>{{ k.adiantadas }} {{ 'adiantada' if k.adiantadas == 1 else 'adiantadas' }}</small>{% endif %}</div></article>
-  <article class="ac-rel-kpi ac-rel-kpi--atencao"><span class="ac-rel-kpi__icon">{{ icon('alert', 24) }}</span><div><p>Atenção</p><b>{{ k.atencao }}</b></div></article>
+  <article class="ac-rel-kpi ac-rel-kpi--atencao"><span class="ac-rel-kpi__icon">{{ icon('sparkles', 24) }}</span><div><p>Em otimização</p><b>{{ k.atencao }}</b></div></article>
 </section>
 
 {% if p.ativas %}
@@ -107,7 +107,7 @@
   <p class="ac-subbar__sum">
     <span class="ac-dot ac-dot--{{ 'andamento' if filtro == 'abertos' else 'finalizadas' }}"></span><span><b>{{ lista|length }}</b> {{ 'PI' if lista|length == 1 else 'PIs' }}{% if filtro != 'todos' %} {{ filtros[filtro]|lower }}{% endif %}</span>
     {% if pcts %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span><b>{{ (pcts|sum / pcts|length)|round|int }}%</b> entrega média</span>{% endif %}
-    {% if n_atencao %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span class="ac-subbar__alert">{{ n_atencao }} {{ 'campanha precisa' if n_atencao == 1 else 'campanhas precisam' }} de atenção</span>{% endif %}
+    {% if n_atencao %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span class="ac-subbar__opt" title="A equipe de operações acompanha estas campanhas de perto">{{ n_atencao }} {{ 'campanha em otimização' if n_atencao == 1 else 'campanhas em otimização' }}</span>{% endif %}
   </p>
 </div>
 
@@ -126,7 +126,7 @@
         <td data-label="Plataformas"><span class="ac-platstack">{% for pl in p.plats[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if p.plats|length > 5 %}<span class="ac-platstack__more">+{{ p.plats|length - 5 }}</span>{% endif %}{% if not p.plats %}<span class="ac-muted">—</span>{% endif %}</span></td>
         <td data-label="Situação">
           {% if not p.aberto %}{{ status_badge(p.status) }}
-          {% elif k.atencao %}<span class="ac-badge ac-badge--warning ac-badge--ritmo">{{ icon('alert', 12) }}{{ k.atencao }} em atenção</span>
+          {% elif k.atencao %}<span class="ac-badge ac-badge--warning ac-badge--ritmo">{{ icon('sparkles', 12) }}{{ k.atencao }} em otimização</span>
           {% elif p.no_ar %}{{ ritmo_badge(p.ritmo) or '—' }}{% elif k.ativas %}{{ status_badge(p.status) }}{% else %}<span class="ac-muted">—</span>{% endif %}
         </td>
         <td data-label="Entrega" class="ac-rel-table__entrega">

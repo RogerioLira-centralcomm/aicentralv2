@@ -609,7 +609,7 @@ def view_campanhas(usuario):
                    painel_dados=[_painel_campanha(c, rotulos[filtro], ritmo["historico"]) for c in ritmo["grupos"][filtro]])
 
 
-RITMO_TXT = {"adiantado": "Adiantada", "no_ritmo": "No ritmo", "atencao": "Atenção"}
+RITMO_TXT = {"adiantado": "Adiantada", "no_ritmo": "No ritmo", "atencao": "Em otimização"}
 
 
 def _br(iso):

@@ -15,7 +15,7 @@
   <p class="ac-subbar__sum">
     <span class="ac-dot ac-dot--{{ filtro }}"></span><span><b>{{ lista|length }}</b> {{ grupos_rotulo[filtro]|lower }}</span>
     {% if pcts %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span><b>{{ (pcts|sum / pcts|length)|round|int }}%</b> entrega média</span>{% endif %}
-    {% if n_atencao %}<span class="ac-subbar__sep" aria-hidden="true">·</span><a class="ac-subbar__alert" href="#" data-camp-so-atencao>{{ n_atencao }} {{ 'precisa' if n_atencao == 1 else 'precisam' }} de atenção</a>{% endif %}
+    {% if n_atencao %}<span class="ac-subbar__sep" aria-hidden="true">·</span><a class="ac-subbar__opt" href="#" data-camp-so-atencao title="A equipe de operações acompanha estas campanhas de perto">{{ n_atencao }} em otimização</a>{% endif %}
     {% if filtro == 'andamento' and k.encerram_7d %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span>{{ k.encerram_7d }} {{ 'encerra' if k.encerram_7d == 1 else 'encerram' }} em 7 dias</span>{% endif %}
   </p>
   <div class="ac-toolbar2__tools">

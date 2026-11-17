@@ -85,7 +85,7 @@
 {% macro ritmo_badge(ritmo) -%}
 {% if ritmo == 'adiantado' %}<span class="ac-badge ac-badge--success ac-badge--ritmo">{{ icon('trend', 12) }}Adiantada</span>
 {% elif ritmo == 'no_ritmo' %}<span class="ac-badge ac-badge--brand ac-badge--ritmo">{{ icon('check', 12) }}No ritmo</span>
-{% elif ritmo == 'atencao' %}<span class="ac-badge ac-badge--warning ac-badge--ritmo">{{ icon('alert', 12) }}Atenção</span>
+{% elif ritmo == 'atencao' %}<span class="ac-badge ac-badge--warning ac-badge--ritmo" title="A equipe de operações acompanha esta campanha de perto">{{ icon('sparkles', 12) }}Em otimização</span>
 {% endif %}
 {%- endmacro %}
 

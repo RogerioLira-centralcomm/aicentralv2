@@ -30,45 +30,40 @@
 </div>
 
 {% if lista %}
-<div class="ac-camp-wrap">
-  <table class="ac-camp" data-camp-tabela>
+<div class="ac-card ac-table-card ac-enter">
+  <table class="ac-table ac-pis-table ac-rel-table" data-camp-tabela>
     <thead>
       <tr>
-        <th scope="col">PI</th>
-        <th scope="col">Campanha e formato</th>
+        <th scope="col">Campanha</th>
         <th scope="col">{{ rotulo_contraparte(lista) }}</th>
         <th scope="col">Plataforma</th>
-        <th scope="col">Entrega <small>(alcançado / meta)</small></th>
-        <th scope="col"><span class="ac-camp__th-tip">Ritmo<span class="ac-tip" tabindex="0" role="img" aria-label="Ritmo compara a entrega com o tempo já decorrido do período. O selo diz se a campanha está à frente, no ritmo ou atrás do que seria esperado até hoje.">{{ icon('info', 14) }}</span></span></th>
-        <th scope="col">Tempo / período</th>
+        <th scope="col"><span class="ac-camp__th-tip">Situação<span class="ac-tip" tabindex="0" role="img" aria-label="O selo compara a entrega com o tempo já decorrido do período: à frente, no ritmo ou atrás do que seria esperado até hoje.">{{ icon('info', 14) }}</span></span></th>
+        <th scope="col">Entrega</th>
+        <th scope="col">Período</th>
         <th scope="col"><span class="ac-sr">Ações</span></th>
       </tr>
     </thead>
     <tbody>
       {% for c in lista %}
-      {% set dif = (c.pct - c.tempo_pct) if (c.pct is not none and c.tempo_pct is not none) else none %}
-      <tr data-camp="{{ loop.index0 }}" data-painel-linha="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}" data-busca="{{ (c.nome ~ ' ' ~ c.pi ~ ' ' ~ c.projeto ~ ' ' ~ ((c.contraparte or {}).nome or ''))|lower }}">
-        <td class="ac-camp__picol"><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a></td>
-        <th scope="row">
-          <span class="ac-camp__name">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span><button type="button" class="ac-grid__name" data-painel="{{ loop.index0 }}">{{ c.nome }}</button><small>{{ c.objetivo }}</small></span></span>
-        </th>
-        <td class="ac-camp__parte" title="{{ (c.contraparte or {}).rotulo or 'Agência' }}: {{ (c.contraparte or {}).nome or '—' }}">{{ (c.contraparte or {}).nome or '—' }}</td>
-        <td><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 16) }}{{ c.plataforma or '—' }}</span></td>
-        <td class="ac-camp__entrega">
-          <span class="ac-camp__nums"><span>{{ c.atingido_label }} / {{ c.meta_label }}</span><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b></span>
+      <tr data-camp="{{ loop.index0 }}" data-painel-linha="{{ loop.index0 }}" data-plat="{{ c.plataforma or '' }}" data-ritmo="{{ c.ritmo or '' }}">
+        <td data-label="Campanha">
+          <span class="ac-camp__name">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}<span><button type="button" class="ac-grid__name" data-painel="{{ loop.index0 }}">{{ c.nome }}</button><small><a class="ac-link" href="{{ area_url('pi', id_pi=c.projeto_id) }}">{{ c.pi }}</a>{% if c.objetivo %} · {{ c.objetivo }}{% endif %}</small></span></span>
+        </td>
+        <td data-label="{{ (c.contraparte or {}).rotulo or 'Agência' }}">{{ (c.contraparte or {}).nome or '—' }}</td>
+        <td data-label="Plataforma"><span class="ac-platname">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 18) }}{{ c.plataforma or '—' }}</span></td>
+        <td data-label="Situação">
+          {% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% elif not c.no_ar %}<span class="ac-badge ac-badge--gray">Finalizada</span>{% else %}<span class="ac-muted">—</span>{% endif %}
+        </td>
+        <td data-label="Entrega" class="ac-rel-table__entrega">
+          <b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>
           <span class="ac-camp__bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ c.pct or 0 }}" aria-label="Entrega de {{ c.nome }}">
-            <span class="ac-camp__fill{% if c.ritmo %} ac-camp__fill--{{ c.ritmo }}{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>
-            {% if c.tempo_pct is not none %}<span class="ac-camp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%" title="Meta do período: {{ c.tempo_pct }}%"></span>{% endif %}
+            <span class="ac-camp__fill{% if c.ritmo %} ac-camp__fill--{{ c.ritmo }}{% elif (c.pct or 0) >= 100 %} ac-camp__fill--adiantado{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>
+            {% if c.no_ar and c.tempo_pct is not none %}<span class="ac-camp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%" title="Meta do período: {{ c.tempo_pct }}%"></span>{% endif %}
           </span>
-          {% if c.tempo_pct is not none %}<small>Meta do período: {{ c.tempo_pct }}%</small>{% endif %}
+          <small>{{ c.atingido_label }} de {{ c.meta_label }}</small>
         </td>
-        <td>
-          {% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% else %}<span class="ac-muted">—</span>{% endif %}
-        </td>
-        <td>
-          <span class="ac-camp__tempo">{{ icon('calendar', 16) }}<span><b>{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</b><small>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</small></span></span>
-        </td>
-        <td class="ac-camp__acts">
+        <td data-label="Período">{{ data_br(c.periodo.inicio) }} a {{ data_br(c.periodo.fim) }}{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}<small>{{ c.dias_restantes }} {{ 'dia' if c.dias_restantes == 1 else 'dias' }} restantes</small>{% endif %}</td>
+        <td class="ac-pis-table__acts">
           {# Dashboard por linha só quando é da própria campanha; o do PI (mesmo link em todas) fica no painel. #}
           {% if c.dash_abrir and not c.dash_compartilhado %}<a class="ac-icon-btn ac-icon-btn--xs" href="{{ c.dash_abrir }}" target="_blank" rel="noopener" title="Dashboard" aria-label="Dashboard de {{ c.nome }}">{{ icon('chart', 16) }}</a>{% endif %}
           <button type="button" class="ac-icon-btn ac-icon-btn--xs" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes de {{ c.nome }}">{{ icon('chevron-right', 16) }}</button>

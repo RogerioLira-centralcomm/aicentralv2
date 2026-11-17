@@ -725,6 +725,8 @@ def view_relatorios(usuario):
     media_pis = comp["media_pis"] if comp else None
     abas = [(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()]
     lista = grupos[filtro]
+    for p in lista:                                                          # mesmas peças de plataforma da lista de PIs
+        p["plats"] = [{"nome": n, "logo": plataformas.logo(n), "iniciais": plataformas.iniciais(n)} for n in p.get("plataformas") or []]
     painel = [] if atual else [_painel_pi(p, p["ativas"], {"nums": [
         {"rotulo": "Dashboards", "valor": p.get("dashboards") or 0},
         {"rotulo": "Em otimização", "valor": p["kpis"]["atencao"]} if p.get("no_ar") else {"rotulo": "Entrega média", "texto": f"{p['kpis']['entrega_media']}%" if p["kpis"]["entrega_media"] is not None else "—"},

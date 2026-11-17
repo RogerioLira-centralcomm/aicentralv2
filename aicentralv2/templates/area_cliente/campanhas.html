@@ -1,11 +1,11 @@
 {% extends 'area_cliente/base.html' %}
-{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat, abas, rotulo_contraparte %}
+{% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat, abas, rotulo_contraparte, vazio %}
 {% block title %}Campanhas{% endblock %}
 {% block content %}
 {% set k = ritmo.kpis %}
 {% set lista = ritmo.grupos[filtro] %}
 {% set plataformas = lista|map(attribute='plataforma')|reject('none')|reject('equalto', '')|unique|sort|list %}
-<h1 class="ac-h1 ac-page-title">Campanhas</h1>
+<div class="ac-page-head"><h1 class="ac-h1 ac-page-title">Campanhas</h1></div>
 
 {{ abas(abas_itens, filtro, area_url('campanhas'), 'Status de veiculação') }}
 
@@ -19,11 +19,6 @@
     {% if filtro == 'andamento' and k.encerram_7d %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span>{{ k.encerram_7d }} {{ 'encerra' if k.encerram_7d == 1 else 'encerram' }} em 7 dias</span>{% endif %}
   </p>
   <div class="ac-toolbar2__tools">
-    <div class="ac-search ac-search--inline ac-search--sm">
-      {{ icon('search', 16) }}
-      <label class="ac-sr" for="camp-busca">Buscar campanha</label>
-      <input id="camp-busca" type="search" placeholder="Buscar campanha ou PI" data-camp-busca>
-    </div>
     {% if plataformas|length > 1 %}
     <label class="ac-sr" for="camp-plat">Plataforma</label>
     <select id="camp-plat" class="ac-select ac-select--sm" data-camp-plat>
@@ -87,20 +82,18 @@
 
 <script>
 (function () {
-  var busca = document.querySelector('[data-camp-busca]');
   var plat = document.querySelector('[data-camp-plat]');
   var vazio = document.querySelector('[data-camp-vazio]');
   var soAtencao = document.querySelector('[data-camp-so-atencao]'), atencao = false;
   function filtrar() {
-    var t = (busca.value || '').trim().toLowerCase(), p = plat ? plat.value : '', n = 0;
+    var p = plat ? plat.value : '', n = 0;
     document.querySelectorAll('[data-camp]').forEach(function (tr) {
-      var ok = (!t || tr.getAttribute('data-busca').indexOf(t) !== -1) && (!p || tr.getAttribute('data-plat') === p)
+      var ok = (!p || tr.getAttribute('data-plat') === p)
         && (!atencao || tr.getAttribute('data-ritmo') === 'atencao');
       tr.hidden = !ok; if (ok) n++;
     });
     vazio.hidden = n > 0;
   }
-  busca.addEventListener('input', filtrar);
   if (soAtencao) soAtencao.addEventListener('click', function (e) {
     e.preventDefault(); atencao = !atencao;
     soAtencao.classList.toggle('is-on', atencao);
@@ -111,6 +104,14 @@
 })();
 </script>
 {% else %}
-<div class="ac-panel"><p class="ac-panel__empty">Nenhuma campanha {{ grupos_rotulo[filtro]|lower }}.</p></div>
+<div class="ac-card ac-enter">
+  {% if filtro == 'andamento' %}
+  {{ vazio('megaphone', 'Nenhuma campanha em andamento', 'Quando uma campanha entrar no ar, ela aparece aqui com entrega e ritmo. Veja as finalizadas ou envie um briefing para a próxima.', usuario) }}
+  {% elif filtro == 'finalizadas' %}
+  {{ vazio('megaphone', 'Nenhuma campanha finalizada ainda', 'Assim que uma campanha terminar, o resultado final fica guardado aqui.', usuario) }}
+  {% else %}
+  {{ vazio('megaphone', 'Nenhuma campanha ' ~ (grupos_rotulo[filtro]|lower), 'Quando houver campanhas nesta situação, elas aparecem aqui.', usuario) }}
+  {% endif %}
+</div>
 {% endif %}
 {% endblock %}

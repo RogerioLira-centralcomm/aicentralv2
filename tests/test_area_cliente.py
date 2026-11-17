@@ -1322,3 +1322,28 @@ def test_campanhas_abre_nas_finalizadas_quando_nada_esta_em_andamento(app, monke
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": [velha, viva]}])
     html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
     assert "Campanha Viva" in html and "Campanha Velha" not in html                                 # com campanha em andamento, abre nela
+
+
+def test_listas_sem_segunda_busca_e_estados_vazios_amigaveis(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    velha = _camp(id=7, nome="Campanha Velha", status="Finalizada", no_ar=False, ritmo="", tempo_pct=None, dias_restantes=-5,
+                  periodo={"inicio": "2026-01-01", "fim": "2026-02-01"})
+    projeto = {"id": 12, "titulo": "PI Velho", "pi": "CC-9", "status": "Finalizado", "status_id": 5, "ativo": False, "pct": 100, "tempo_pct": None,
+               "dias_restantes": -5, "ritmo": "", "campanhas": [velha], "plataformas": ["Meta Ads"], "n_campanhas": 1, "dash_pi": "",
+               "periodo": {"inicio": "2026-01-01", "fim": "2026-02-01"}, "contraparte": {"rotulo": "Agência", "nome": "Direto"}, "atualizado_em": "2026-02-01"}
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [projeto])
+    monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
+    monkeypatch.setattr(dados, "listar_pis", lambda c, id_pi=None: [{**projeto, "pi": "CC-9", "bruto": 1000.0, "liquido": 900.0, "n_notas": 0, "n_pagas": 0, "documentos": [],
+                                                                      "cliente": "", "agencia": "", "comissao": None, "criado_em": "2026-01-01"}])
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [velha])
+    client = _client(app, {"user_id": 501})
+    for url in ("/pis?status=finalizados", "/campanhas", "/relatorios"):
+        html = client.get(url, base_url=HOST).get_data(as_text=True)
+        assert html.count('type="search"') == 1, url                                  # só a busca da barra do topo
+    camp = client.get("/campanhas?status=andamento", base_url=HOST).get_data(as_text=True)
+    assert "Nenhuma campanha em andamento" in camp and "ac-empty__title" in camp and "Campanha Velha" not in camp
+    rel = client.get("/relatorios?status=abertos", base_url=HOST).get_data(as_text=True)
+    assert "Nenhum PI em andamento" in rel and "ac-empty__title" in rel
+    lista = client.get("/relatorios", base_url=HOST).get_data(as_text=True)               # sem nada em andamento abre nos finalizados
+    assert "ac-rel-table" in lista and "PI Velho" in lista and "Plataformas" in lista and "ac-page-head" in lista

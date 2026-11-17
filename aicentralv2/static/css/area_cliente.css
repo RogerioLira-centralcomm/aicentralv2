@@ -2125,3 +2125,12 @@ html.ac-painel-aberto { overflow: hidden; }
 .ac-op__body.is-exemplo .ac-op__nota { padding: 0; background: transparent; }
 .ac-hupd { grid-template-columns: minmax(0, 1fr); align-items: start; }
 .ac-hupd__title { white-space: normal; }
+
+/* Campanhas, PIs e Relatórios: cabeçalho com a mesma altura (o botão "Enviar um PI" não empurra as abas) */
+.ac-page-head { min-height: 40px; align-items: center; }
+.ac-page-head .ac-page-title { margin: 0; }
+.ac-rel-table__entrega { min-width: 150px; }
+.ac-rel-table__entrega > b { display: block; font-size: 14px; }
+.ac-rel-table__entrega .ac-camp__bar { display: block; margin-top: 6px; max-width: 160px; }
+.ac-rel-table__links a { display: block; font-size: 13px; line-height: 1.5; }
+.ac-rel-table__links small { display: block; color: var(--muted); }

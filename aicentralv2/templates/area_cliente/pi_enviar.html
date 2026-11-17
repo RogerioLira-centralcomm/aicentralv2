@@ -8,15 +8,12 @@
   <h1 class="ac-h1 ac-page-title">Enviar um PI</h1>
   <p class="ac-lead">Arraste o PDF do pedido de inserção. O hub lê o documento, mostra o que entendeu e segue para {{ usuario.executivo.nome.split()[0] if usuario.executivo else 'a equipe Centralcomm' }} conferir.</p>
 
-  {% if so_leitura %}
-  <div class="pe-aviso">{{ icon('info', 18) }}<span>Você está vendo o hub como cliente. O envio de PI fica desligado nesta visão.</span></div>
-  {% endif %}
 
-  <section class="pe-drop{% if so_leitura %} is-off{% endif %}" id="pe-drop" tabindex="0" aria-label="Enviar o PDF do PI">
+  <section class="pe-drop" id="pe-drop" tabindex="0" aria-label="Enviar o PDF do PI">
     <span class="pe-drop__icone">{{ icon('file', 28) }}</span>
     <div class="pe-drop__texto">
       <strong>Solte o PDF do PI aqui</strong>
-      <span>ou <button type="button" class="pe-link" id="pe-escolher" {% if so_leitura %}disabled{% endif %}>escolha no computador</button>. PDF de até 20 MB{% if limite > 1 %}, até {{ limite }} por vez{% endif %}.</span>
+      <span>ou <button type="button" class="pe-link" id="pe-escolher">escolha no computador</button>. PDF de até 20 MB{% if limite > 1 %}, até {{ limite }} por vez{% endif %}.</span>
     </div>
     <input type="file" id="pe-arquivo" accept="application/pdf,.pdf" multiple hidden>
     <div class="pe-drop__progresso" id="pe-progresso" hidden><span class="pe-barra"><i></i></span><em id="pe-progresso-texto">Enviando…</em></div>

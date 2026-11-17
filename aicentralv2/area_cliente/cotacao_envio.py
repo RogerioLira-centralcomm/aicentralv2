@@ -16,10 +16,6 @@ def _rotas():
     return routes
 
 
-def _so_leitura(usuario) -> bool:
-    return bool(usuario.get("ver_como"))
-
-
 def _do_usuario(usuario, uuid_rascunho) -> dict:
     rascunho = cotacao.obter(uuid_rascunho)
     if not rascunho or rascunho.get("id_cliente") != usuario["cliente_id"]:
@@ -36,11 +32,9 @@ def _valores_da_leitura(leitura: dict) -> dict:
 def view_cotacao(usuario):
     r = _rotas()
     if request.method == "GET":
-        return r._render("cotacao_enviar.html", usuario, "briefing", so_leitura=_so_leitura(usuario), csrf=r._csrf_token(),
+        return r._render("cotacao_enviar.html", usuario, "briefing", csrf=r._csrf_token(),
                          limite=cotacao.MAX_ARQUIVOS, prazo_horas=cotacao.HORAS_PRAZO)
     r._checar_csrf()
-    if _so_leitura(usuario):
-        return jsonify(ok=False, erro="Você está vendo o hub como cliente: o envio fica desligado."), 403
     arquivos = [a for a in request.files.getlist("arquivos") if a and a.filename]
     if not arquivos:
         return jsonify(ok=False, erro="Escolha ao menos um arquivo."), 400
@@ -71,7 +65,7 @@ def _render_rascunho(usuario, rascunho, *, valores=None, erros=None, status=200)
     resposta = r._render(
         "cotacao_lido.html", usuario, "briefing", rascunho=rascunho, estado=estado, leitura=leitura,
         v=valores if valores is not None else _valores_da_leitura(leitura), erros=erros or {}, csrf=r._csrf_token(),
-        canais=briefing.CANAIS, so_leitura=_so_leitura(usuario), status_url=r.area_url("briefing_cotacao_status", uuid=rascunho["uuid"]),
+        canais=briefing.CANAIS, status_url=r.area_url("briefing_cotacao_status", uuid=rascunho["uuid"]),
         enviar_url=r.area_url("briefing_cotacao_enviar", uuid=rascunho["uuid"]), prazo_horas=cotacao.HORAS_PRAZO,
         prazo=cotacao.prazo_texto(rascunho.get("prazo_resposta_em")), enviado=request.args.get("enviado") == "1",
         previsto=cotacao.prazo_texto(cotacao.prazo_resposta()), arquivos=rascunho.get("arquivos") or [])
@@ -94,8 +88,6 @@ def view_cotacao_enviar(usuario, uuid):
     from . import emails
     r = _rotas()
     r._checar_csrf()
-    if _so_leitura(usuario):
-        abort(403)
     rascunho = _do_usuario(usuario, uuid)
     destino = r.area_url("briefing_cotacao_rascunho", uuid=uuid)
     if cotacao.situacao(rascunho) not in ("pronto", "erro"):

@@ -152,15 +152,15 @@ def test_upload_exige_csrf_valida_pdf_cria_entrada_do_hub_e_comeca_a_ler(hub_htt
     assert hub_http.post("/pis/enviar", base_url=HOST, data={"csrf": "tok"}, content_type="multipart/form-data").status_code == 400
 
 
-def test_limite_por_hora_e_visao_como_cliente_bloqueiam_o_envio(hub_http, mem):
+def test_limite_por_hora_bloqueia_e_ver_como_envia_normalmente(hub_http, mem):
     mem.recentes = 10
     assert hub_http.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": pdf()}, content_type="multipart/form-data").status_code == 429
     mem.recentes = 0
-    hub_http.usuario["u"] = usuario(ver_como=True)
-    bloqueado = hub_http.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": pdf()}, content_type="multipart/form-data")
-    assert bloqueado.status_code == 403 and not mem.criadas
-    assert hub_http.post(f"/pis/enviados/{UUID}/enviar", base_url=HOST, data={"csrf": "tok"}).status_code == 403
-    assert "desligado" in hub_http.get("/pis/enviar", base_url=HOST).get_data(as_text=True)
+    hub_http.usuario["u"] = usuario(ver_como=True)                  # equipe vendo como cliente: o envio funciona, é para testar de verdade
+    enviado = hub_http.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": pdf()}, content_type="multipart/form-data")
+    assert enviado.status_code == 200 and mem.criadas
+    pagina = hub_http.get("/pis/enviar", base_url=HOST).get_data(as_text=True)
+    assert "desligado" not in pagina and "is-off" not in pagina and "disabled" not in pagina.split("pe-drop", 1)[1].split("</section>", 1)[0]
 
 
 def test_pagina_do_pi_lido_mostra_resumo_sem_vazar_e_o_formulario_de_envio(hub_http, mem):

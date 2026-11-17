@@ -26,11 +26,6 @@ def _rotas():
     return routes
 
 
-def _so_leitura(usuario) -> bool:
-    """Equipe vendo "como cliente" não envia PI em nome dele."""
-    return bool(usuario.get("ver_como"))
-
-
 def _entrada_do_usuario(usuario, uuid_entrada) -> dict:
     from ..pi_entrada import repositorio
     entrada = repositorio.obter_por_uuid(uuid_entrada)
@@ -63,12 +58,10 @@ def view_pi_enviar(usuario):
         recentes = repositorio.enviadas_pelo_cliente(usuario["cliente_id"], 8)
         for item in recentes:
             item["quando"] = _quando(item.get("criado_em"))
-        return r._render("pi_enviar.html", usuario, "pis", recentes=recentes, so_leitura=_so_leitura(usuario),
+        return r._render("pi_enviar.html", usuario, "pis", recentes=recentes,
                          csrf=r._csrf_token(), limite=LIMITE_ARQUIVOS)
 
     r._checar_csrf()
-    if _so_leitura(usuario):
-        return jsonify(ok=False, erro="Você está vendo o hub como cliente: o envio fica desligado."), 403
     arquivos = request.files.getlist("arquivos")
     if not arquivos:
         return jsonify(ok=False, erro="Escolha o PDF do PI."), 400
@@ -114,7 +107,7 @@ def view_pi_enviado(usuario, uuid):
     numero = (resumo or {}).get("numero_pi") or entrada.get("numero_pi") or ""
     return r._render("pi_enviado.html", usuario, "pis", entrada=entrada, estado=estado, resumo=resumo, numero_pi=numero,
                      whatsapp=_whatsapp(usuario, numero), enviado_quando=_quando(entrada.get("enviado_em")), csrf=r._csrf_token(),
-                     so_leitura=_so_leitura(usuario), status_url=r.area_url("pi_enviado_status", uuid=uuid))
+                     status_url=r.area_url("pi_enviado_status", uuid=uuid))
 
 
 def view_pi_enviado_status(usuario, uuid):
@@ -131,8 +124,6 @@ def view_pi_enviado_enviar(usuario, uuid):
     from . import emails
     r = _rotas()
     r._checar_csrf()
-    if _so_leitura(usuario):
-        abort(403)
     entrada = _entrada_do_usuario(usuario, uuid)
     destino = r.area_url("pi_enviado", uuid=uuid)
     if hub.situacao(entrada) != "pronto":

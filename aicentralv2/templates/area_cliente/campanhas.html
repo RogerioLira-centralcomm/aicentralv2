@@ -44,7 +44,7 @@
         <th scope="col">{{ rotulo_contraparte(lista) }}</th>
         <th scope="col">Plataforma</th>
         <th scope="col">Entrega <small>(alcançado / meta)</small></th>
-        <th scope="col"><span class="ac-camp__th-tip">Ritmo<span class="ac-tip" tabindex="0" role="img" aria-label="Ritmo compara a entrega com o tempo já decorrido do período. A diferença em pontos percentuais (p.p.) mostra quanto a campanha está à frente ou atrás da meta proporcional.">{{ icon('info', 14) }}</span></span></th>
+        <th scope="col"><span class="ac-camp__th-tip">Ritmo<span class="ac-tip" tabindex="0" role="img" aria-label="Ritmo compara a entrega com o tempo já decorrido do período. O selo diz se a campanha está à frente, no ritmo ou atrás do que seria esperado até hoje.">{{ icon('info', 14) }}</span></span></th>
         <th scope="col">Tempo / período</th>
         <th scope="col"><span class="ac-sr">Ações</span></th>
       </tr>
@@ -69,7 +69,6 @@
         </td>
         <td>
           {% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% else %}<span class="ac-muted">—</span>{% endif %}
-          {% if dif is not none and filtro == 'andamento' %}<small class="ac-camp__dif">{{ '+' if dif > 0 else '' }}{{ dif }} p.p. da meta</small>{% endif %}
         </td>
         <td>
           <span class="ac-camp__tempo">{{ icon('calendar', 16) }}<span><b>{% if filtro == 'andamento' and c.dias_restantes is not none and c.dias_restantes >= 0 %}{{ c.dias_restantes }} d{% elif c.tempo_pct is not none %}{{ c.tempo_pct }}%{% else %}—{% endif %}</b><small>{{ data_br(c.periodo.inicio)[:5] }} – {{ data_br(c.periodo.fim) }}</small></span></span>

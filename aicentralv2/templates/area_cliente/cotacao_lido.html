@@ -73,7 +73,7 @@
       {% else %}<p class="pe-exec__sem">Sua conta ainda não tem um executivo definido. A equipe Centralcomm recebe e responde.</p>{% endif %}
       <p class="pe-nota"><b>Anexos:</b> {{ arquivos|map(attribute='nome')|join(', ') }}</p>
       <p class="pe-nota">{{ icon('info', 16) }} Retorno previsto até {{ previsto }} (dias úteis, 9h às 18h), contando de agora.</p>
-      <button type="submit" class="ac-btn ac-btn--primary pe-enviar" {% if so_leitura %}disabled{% endif %}>{{ icon('send', 18) }}Enviar para {{ quem }}</button>
+      <button type="submit" class="ac-btn ac-btn--primary pe-enviar">{{ icon('send', 18) }}Enviar para {{ quem }}</button>
     </aside>
   </form>
   {% endif %}

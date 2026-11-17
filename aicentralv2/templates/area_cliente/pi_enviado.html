@@ -82,7 +82,7 @@
         <input type="hidden" name="csrf" value="{{ csrf }}">
         <label for="pe-msg">Algo que {{ quem }} precisa saber? <small>(opcional)</small></label>
         <textarea id="pe-msg" name="mensagem" rows="3" maxlength="1000" placeholder="Ex.: já tem cotação aprovada, é urgente, mudou a verba…"></textarea>
-        <button type="submit" class="ac-btn ac-btn--primary pe-enviar" {% if so_leitura %}disabled{% endif %}>{{ icon('send', 18) }}Enviar para {{ quem }}</button>
+        <button type="submit" class="ac-btn ac-btn--primary pe-enviar">{{ icon('send', 18) }}Enviar para {{ quem }}</button>
         <p class="pe-nota">Ao enviar, o PDF e esta leitura vão para {{ quem }}. Nada é aprovado automaticamente.</p>
       </form>
       {% elif estado == 'enviado' %}

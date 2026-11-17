@@ -101,10 +101,6 @@
 
 {{ abas(abas_itens, filtro, area_url('relatorios'), 'Situação dos PIs') }}
 
-{% if filtro == 'comparar' %}
-{% include 'area_cliente/_relatorios_comparar.html' %}
-{% else %}
-
 {% set pcts = lista|map(attribute='kpis')|map(attribute='entrega_media')|select('number')|list %}
 {% set n_atencao = lista|map(attribute='kpis')|map(attribute='atencao')|sum %}
 <div class="ac-subbar">
@@ -185,7 +181,6 @@
 </script>
 {% else %}
 <section class="ac-panel"><p class="ac-panel__empty">{% if filtro == 'abertos' %}Nenhum PI em andamento. Os relatórios aparecem aqui enquanto as campanhas estiverem no ar.{% else %}Nenhum PI nesta situação.{% endif %}</p></section>
-{% endif %}
 {% endif %}
 {% endif %}
 {% endblock %}

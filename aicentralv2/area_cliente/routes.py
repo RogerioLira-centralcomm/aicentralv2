@@ -363,11 +363,7 @@ def view_briefing_form(usuario, modo="planejamento"):
         origem_item = _item_do_historico(usuario, id_origem) if id_origem else None
         if request.method == "GET" and origem_item:
             valores, trazido = briefing.valores_do_historico(origem_item)
-    if request.method == "POST" and usuario.get("ver_como"):
-        # Modo de validação: nada é gravado em nome do cliente.
-        _checar_csrf()
-        erros = {"_ver_como": "Envio desativado enquanto você vê a área como outro cliente."}
-    elif request.method == "POST":
+    if request.method == "POST":
         _checar_csrf()
         if request.form.get("remover_item"):
             secao, _, item_id = request.form["remover_item"].partition(":")
@@ -570,10 +566,11 @@ def view_descobrir_selecao():
 
 
 def view_campanhas(usuario):
-    filtro = request.args.get("status", "andamento")
-    if filtro not in dados.GRUPOS_CAMPANHA:
-        filtro = "andamento"
     ritmo = dados.ritmo_campanhas(usuario["cliente_id"])
+    filtro = request.args.get("status")
+    if filtro not in dados.GRUPOS_CAMPANHA:
+        # Sem nada em andamento, a página abre nas finalizadas: é onde estão as campanhas para olhar.
+        filtro = "andamento" if ritmo["grupos"]["andamento"] else "finalizadas"
     rotulos = {k: v[0] for k, v in dados.GRUPOS_CAMPANHA.items()}
     abas_itens = [(k, rotulos[k], len(ritmo["grupos"][k])) for k in rotulos]
     return _render("campanhas.html", usuario, "campanhas", ritmo=ritmo, filtro=filtro, grupos_rotulo=rotulos, abas_itens=abas_itens,
@@ -688,15 +685,13 @@ def view_relatorios(usuario):
     pis = dados.relatorios(usuario["cliente_id"])
     escolhido = request.args.get("pi", type=int)
     atual = next((p for p in pis if p["id"] == escolhido), None) if escolhido else None
-    filtro = request.args.get("status", "abertos")
-    filtro = filtro if filtro in PIS_FILTROS or filtro == "comparar" else "abertos"
-    grupos = {"abertos": [p for p in pis if p["aberto"]], "finalizados": [p for p in pis if not p["aberto"]], "todos": pis}
+    grupos = {"abertos": [p for p in pis if p["aberto"]], "finalizados": [p for p in pis if not p["aberto"]]}
+    filtro = request.args.get("status")
+    if filtro not in PIS_FILTROS:
+        filtro = "abertos" if grupos["abertos"] else "finalizados"          # nada em andamento: abre nos finalizados
     comp = dados.comparativos(pis) if pis else None
     media_pis = comp["media_pis"] if comp else None
-    abas = [(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()] + [("comparar", "Comparar", len(comp["escolhas"]) if comp else 0)]
-    if filtro == "comparar" and not atual:
-        return _render("relatorios.html", usuario, "relatorios", pis=pis, atual=None, filtro=filtro, filtros=PIS_FILTROS,
-                       lista=[], abas_itens=abas, comp=comp, painel_dados=[])
+    abas = [(k, v, len(grupos[k])) for k, v in PIS_FILTROS.items()]
     lista = grupos[filtro]
     painel = [] if atual else [_painel_pi(p, p["ativas"], {"nums": [
         {"rotulo": "Dashboards", "valor": p.get("dashboards") or 0},
@@ -706,17 +701,19 @@ def view_relatorios(usuario):
                    lista=lista, abas_itens=abas, painel_dados=painel, comp=comp)
 
 
-PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados", "todos": "Todos"}
+PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados"}      # sem "Todos": só a busca olha os dois grupos
 
 
 def view_pis(usuario):
     termo = request.args.get("q", "").strip()[:80]
-    filtro = request.args.get("status", "abertos" if not termo else "todos")
-    filtro = filtro if filtro in PIS_FILTROS else "abertos"
     todos = dados.listar_pis(usuario["cliente_id"])
     contagem = {"abertos": sum(1 for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS),
                 "finalizados": sum(1 for p in todos if p["status_id"] not in dados.SUB_STATUS_ABERTOS),
                 "todos": len(todos)}
+    filtro = request.args.get("status")
+    if filtro not in PIS_FILTROS:
+        # Busca olha todos os PIs; sem busca, abre nos finalizados quando nada está em andamento.
+        filtro = "todos" if termo else ("abertos" if contagem["abertos"] else "finalizados")
     if filtro == "abertos":
         pis = [p for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS]
     elif filtro == "finalizados":

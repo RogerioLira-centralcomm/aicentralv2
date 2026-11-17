@@ -534,15 +534,16 @@ def test_admin_cc_ve_seletor_e_troca_de_cliente(app, monkeypatch):
         assert "area_cliente_ver_como" not in sess
 
 
-def test_ver_como_nao_envia_briefing(app, monkeypatch):
+def test_ver_como_envia_briefing(app, monkeypatch):
     _admin_cc(monkeypatch)
     from aicentralv2.area_cliente import briefing
     monkeypatch.setattr(briefing, "listar", lambda c: [])
-    monkeypatch.setattr(briefing, "enviar", lambda *a: pytest.fail("não pode gravar no modo ver como"))
+    gravados = []
+    monkeypatch.setattr(briefing, "enviar", lambda u, d, extra=None: gravados.append(u["cliente_id"]) or 91)
     client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok", "area_cliente_ver_como": 80})
     resp = client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Teste", "objetivo": "Objetivo de teste"})
-    assert resp.status_code == 422
-    assert "o envio fica desativado" in resp.get_data(as_text=True)
+    assert resp.status_code == 303 and gravados == [80]                 # o briefing vai para o cliente que a equipe está vendo
+    assert "envio fica desativado" not in client.get("/briefing/planejamento", base_url=HOST).get_data(as_text=True)
 
 
 def test_quem_nao_e_admin_cc_nao_troca(app, monkeypatch):
@@ -577,7 +578,7 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
     assert d["acoes"][0]["rotulo"] == "Abrir dashboard" and d["acoes"][0]["primario"] and d["acoes"][0]["externo"]
     assert {"rotulo": "PI", "valor": "CC-123", "href": "/pis/12"} in d["defs"]
     # resumo, diferença em p.p. sobre a meta proporcional ao tempo e coluna de responsável
-    assert "+10 p.p. da meta" in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" not in html
+    assert "p.p." not in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" not in html
 
 
 def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch):
@@ -592,7 +593,7 @@ def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch)
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": campanhas}])
     html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
     assert html.index("Atrasada Y") < html.index("Ritmo Z") < html.index("Adiantada X")
-    assert "1 precisa de atenção" in html and "-20 p.p. da meta" in html
+    assert "1 precisa de atenção" in html and "p.p." not in html
 
 
 def test_logos_e_resumo_de_plataformas():
@@ -740,7 +741,9 @@ def test_pis_abre_em_andamento(app, monkeypatch):
     client = _client(app, {"user_id": 501})
     html = client.get("/pis", base_url=HOST).get_data(as_text=True)
     assert "Aberto" in html and "Fechado" not in html and "Em andamento<span>1</span>" in html
-    assert "Fechado" in client.get("/pis?status=todos", base_url=HOST).get_data(as_text=True)
+    assert "Fechado" in client.get("/pis?status=finalizados", base_url=HOST).get_data(as_text=True)
+    assert ">Todos<" not in html and "Todos<span>" not in html                              # sem aba "Todos"; a busca olha os dois grupos
+    assert "Fechado" in client.get("/pis?q=Fechado", base_url=HOST).get_data(as_text=True)
 
 
 def test_selo_de_campanhas_e_brilho_do_briefing(app, monkeypatch):
@@ -1063,17 +1066,17 @@ def test_dashboard_do_pi_projecao_e_historico():
     assert dados.media_pis_encerrados(projetos) == 104
 
 
-def test_relatorios_aba_comparar(app, monkeypatch):
+def test_relatorios_sem_aba_comparar_e_abre_nos_finalizados_sem_pi_em_andamento(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     from aicentralv2.area_cliente import dados
-    projetos = _projetos_relatorio()
-    projetos[2]["pct"] = 102
-    projetos[2]["campanhas"] = [_camp(id=3, nome="Velha", no_ar=False, pct=102, periodo={"inicio": "2025-01-01", "fim": "2025-02-01"})]
+    projetos = [p for p in _projetos_relatorio() if not p.get("ativo")]
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: projetos)
     monkeypatch.setattr(dados, "_fetch", lambda sql, params: [])
-    html = _client(app, {"user_id": 501}).get("/relatorios?status=comparar", base_url=HOST).get_data(as_text=True)
-    assert "Comparar<span>" in html and "Entrega final por plataforma" in html and "Evolução dos PIs encerrados" in html
-    assert "Comparar dois PIs" in html and 'id="cmp-dados"' in html and "102%" in html
+    client = _client(app, {"user_id": 501})
+    html = client.get("/relatorios", base_url=HOST).get_data(as_text=True)
+    assert "Comparar<span>" not in html and "Todos<span>" not in html and "Finalizados<span>" in html
+    assert 'aria-current="page"' in html.split("Finalizados<span>")[0].rsplit("<a", 1)[1]        # a aba Finalizados abre selecionada
+    assert "Comparar dois PIs" not in client.get("/relatorios?status=comparar", base_url=HOST).get_data(as_text=True)
 
 
 def test_contato_do_executivo_leva_foto_publica_e_whatsapp_com_mensagem(app):
@@ -1303,3 +1306,18 @@ def test_slugs_dos_videos_cobrem_as_secoes_do_descobrir():
     from aicentralv2.area_cliente import descobrir, videos
     assert set(descobrir.SECOES) <= {v["slug"] for v in videos.VIDEOS}
     assert videos.vizinhos("visao-geral")[0] is None and videos.vizinhos("portais")[1] is None
+
+
+def test_campanhas_abre_nas_finalizadas_quando_nada_esta_em_andamento(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import dados
+    velha = _camp(id=7, nome="Campanha Velha", status="Finalizada", no_ar=False, ritmo="", tempo_pct=None, dias_restantes=-5,
+                  periodo={"inicio": "2026-01-01", "fim": "2026-02-01"})
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI Velho", "pi": "CC-9", "campanhas": [velha]}])
+    html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
+    assert "Campanha Velha" in html and "finalizadas" in html.lower()
+    assert html.split("Finalizadas")[0].rsplit("<a", 1)[1].count('aria-current="page"') == 1
+    viva = _camp(id=8, nome="Campanha Viva")
+    monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": [velha, viva]}])
+    html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
+    assert "Campanha Viva" in html and "Campanha Velha" not in html                                 # com campanha em andamento, abre nela

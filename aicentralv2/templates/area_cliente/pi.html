@@ -59,7 +59,7 @@
             {% if c.projecao is not none or c.vs_media %}
             <span class="ac-pi-camp__comp">
               {% if c.projecao is not none %}<span class="ac-chip">{{ icon('trend', 12) }}Projeção ao fim: <b>{{ c.projecao }}%</b></span>{% endif %}
-              {% if c.vs_media %}<span class="ac-chip {{ 'is-bom' if c.vs_media.dif >= 0 else 'is-baixo' }}" title="Média das suas {{ c.vs_media.n }} campanhas encerradas em {{ c.plataforma }}: {{ c.vs_media.media }}%">{{ '+' if c.vs_media.dif > 0 else '' }}{{ c.vs_media.dif }} p.p. vs sua média em {{ c.plataforma or 'outras' }}</span>{% endif %}
+              {% if c.vs_media %}<span class="ac-chip {{ 'is-bom' if c.vs_media.dif >= 0 else 'is-baixo' }}" title="Média das suas {{ c.vs_media.n }} campanhas encerradas em {{ c.plataforma }}: {{ c.vs_media.media }}%">{{ 'Acima' if c.vs_media.dif >= 0 else 'Abaixo' }} da sua média em {{ c.plataforma or 'outras' }}</span>{% endif %}
             </span>
             {% endif %}
           </div>
@@ -95,10 +95,9 @@
     <section class="ac-panel ac-pi-cmp" aria-labelledby="cmp-titulo">
       <header class="ac-panel__head"><h2 class="ac-h2" id="cmp-titulo">Comparado aos seus PIs</h2></header>
       <div class="ac-pi-cmp__corpo">
-        <p class="ac-pi-cmp__frase"><b class="{{ 'is-bom' if dif >= 0 else 'is-baixo' }}">{{ '+' if dif > 0 else '' }}{{ dif }} p.p.</b> {{ 'acima' if dif >= 0 else 'abaixo' }} da entrega média dos seus PIs encerrados.</p>
+        <p class="ac-pi-cmp__frase"><b class="{{ 'is-bom' if dif >= 0 else 'is-baixo' }}">{{ 'Acima' if dif >= 0 else 'Abaixo' }}</b> da entrega média dos seus PIs encerrados.</p>
         <div class="ac-pi-cmp__barra"><span>Este PI</span><span class="ac-camp__bar"><span class="ac-camp__fill ac-camp__fill--{{ 'adiantado' if dif >= 0 else 'atencao' }} ac-anima-largura" style="--w: {{ [[comp.pct, 0]|max, 100]|min }}%"></span></span><b>{{ comp.pct }}%</b></div>
         <div class="ac-pi-cmp__barra"><span>Média encerrados</span><span class="ac-camp__bar"><span class="ac-camp__fill ac-pi-cmp__media ac-anima-largura" style="--w: {{ [[comp.media_pis, 0]|max, 100]|min }}%"></span></span><b>{{ comp.media_pis }}%</b></div>
-        <a class="ac-home-link" href="{{ area_url('relatorios') }}?status=comparar">Comparar com outro PI{{ icon('chevron-right', 14) }}</a>
       </div>
     </section>
     {% endif %}

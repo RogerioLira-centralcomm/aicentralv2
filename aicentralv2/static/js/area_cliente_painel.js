@@ -90,7 +90,7 @@
         var badge = $('[data-p-ritmo]');
         badge.className = 'ac-badge ac-badge--ritmo ac-badge--' + r[0];
         badge.textContent = d.ritmo_txt || r[1];
-        texto('dif_txt', typeof d.dif === 'number' ? (d.dif > 0 ? '+' : '') + Math.round(d.dif) + ' p.p. da meta do período' : '');
+        texto('dif_txt', '');
       }
     }
 

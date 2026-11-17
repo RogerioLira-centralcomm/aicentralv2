@@ -45,12 +45,7 @@
 <div class="bw-layout">
   <form class="ac-card ac-form bw ac-enter" id="bw" method="post" action="{{ area_url('briefing_pi_antigo' if modo == 'pi_antigo' else 'briefing_planejamento') }}" data-single="1" novalidate>
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    {% if usuario.ver_como %}
-    <div class="ac-notice ac-notice--warning" role="status">
-      <span class="ac-notice__icon">{{ icon('lock', 18) }}</span>
-      <p>Modo de validação: você vê o briefing como {{ usuario.cliente_nome }}, mas o envio fica desativado.</p>
-    </div>
-    {% elif erros %}
+    {% if erros %}
     <div class="ac-notice ac-notice--warning" role="alert">
       <span class="ac-notice__icon">{{ icon('activity', 18) }}</span>
       <p>Revise os campos destacados para enviar.</p>
@@ -305,7 +300,7 @@
       <button type="button" class="ac-btn ac-btn--secondary" id="bw-voltar" hidden>{{ icon('arrow-left', 18) }}Voltar</button>
       <p class="ac-form__hint" id="bw-dica">Sem custo. O planejamento chega com o seu executivo.</p>
       <button type="button" class="ac-btn ac-btn--primary" id="bw-seguir" hidden>Continuar{{ icon('chevron-right', 18) }}</button>
-      <button type="submit" class="ac-btn ac-btn--primary" id="bw-enviar"{% if usuario.ver_como %} disabled data-ver-como{% endif %}>{{ icon('send', 18) }}Enviar para a Centralcomm</button>
+      <button type="submit" class="ac-btn ac-btn--primary" id="bw-enviar">{{ icon('send', 18) }}Enviar para a Centralcomm</button>
     </div>
   </form>
   {# Reserva sem JS para tirar um item; com JS, o item sai sem recarregar e o texto digitado fica. #}

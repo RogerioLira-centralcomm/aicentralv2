@@ -170,7 +170,7 @@ def test_upload_valida_guarda_e_comeca_a_ler(hub):
 def test_limites_e_ver_como(hub):
     assert sobe(hub, [(io.BytesIO(b"%PDF-1"), f"{i}.pdf") for i in range(cotacao.MAX_ARQUIVOS + 1)]).status_code == 400
     hub.usuario["u"] = usuario(ver_como=True)
-    assert sobe(hub, [(io.BytesIO(b"%PDF-1"), "a.pdf")]).status_code == 403
+    assert sobe(hub, [(io.BytesIO(b"%PDF-1"), "a.pdf")]).status_code == 200      # ver como: o envio funciona
 
 
 def pronto(hub, **extra):
@@ -228,10 +228,10 @@ def test_enviar_invalido_volta_com_erros_sem_gravar_e_nao_envia_se_ainda_le(hub)
     assert r.status_code == 303 and not hub.mem.briefings
 
 
-def test_ver_como_nao_envia(hub):
+def test_ver_como_envia(hub):
     pronto(hub)
     hub.usuario["u"] = usuario(ver_como=True)
-    assert hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form()).status_code == 403 and not hub.mem.briefings
+    assert hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form()).status_code == 303 and len(hub.mem.briefings) == 1
 
 
 # ---------- banco de verdade (descartável) ----------

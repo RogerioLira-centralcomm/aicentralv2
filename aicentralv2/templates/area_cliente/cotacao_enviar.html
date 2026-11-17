@@ -9,15 +9,12 @@
   <h1 class="ac-h1 ac-page-title">Tenho arquivos para cotar</h1>
   <p class="ac-lead">Anexe o briefing, o mídia kit ou a planilha. O hub lê os arquivos, mostra o que entendeu e {{ quem }} devolve a cotação em até {{ prazo_horas }} horas.</p>
 
-  {% if so_leitura %}
-  <div class="pe-aviso">{{ icon('info', 18) }}<span>Você está vendo o hub como cliente. O envio fica desligado nesta visão.</span></div>
-  {% endif %}
 
-  <section class="pe-drop{% if so_leitura %} is-off{% endif %}" id="pe-drop" tabindex="0" aria-label="Anexar arquivos para cotação">
+  <section class="pe-drop" id="pe-drop" tabindex="0" aria-label="Anexar arquivos para cotação">
     <span class="pe-drop__icone">{{ icon('file', 28) }}</span>
     <div class="pe-drop__texto">
       <strong>Solte os arquivos aqui</strong>
-      <span>ou <button type="button" class="pe-link" id="pe-escolher" {% if so_leitura %}disabled{% endif %}>escolha no computador</button>. PDF, imagem (PNG, JPG) ou planilha (XLSX, CSV), até 20 MB cada, até {{ limite }} por vez.</span>
+      <span>ou <button type="button" class="pe-link" id="pe-escolher">escolha no computador</button>. PDF, imagem (PNG, JPG) ou planilha (XLSX, CSV), até 20 MB cada, até {{ limite }} por vez.</span>
     </div>
     <input type="file" id="pe-arquivo" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv" multiple hidden>
     <div class="pe-drop__progresso" id="pe-progresso" hidden><span class="pe-barra"><i></i></span><em id="pe-progresso-texto">Enviando…</em></div>

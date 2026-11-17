@@ -1273,7 +1273,8 @@ def test_inicio_com_campanha_no_ar_tem_barra_tres_colunas_e_plataformas(app, mon
 def test_inicio_sem_campanha_no_ar_nao_tem_barra_e_mostra_o_exemplo(app, monkeypatch):
     html = _inicio(app, monkeypatch, _resumo_inicio([_camp_inicio("Antiga", False, pct=104)], aviso=False))
     assert "ac-aviso--barra" not in html and "Acima da meta" not in html
-    assert ">Exemplo<" in html and "Ao vivo" not in html and "Assim que uma campanha entrar no ar" in html
+    assert ">Exemplo<" not in html and "is-exemplo" in html and "Ao vivo" not in html and "Assim que uma campanha entrar no ar" in html
+    assert "ac-hero__nome" in html and "PIs em andamento" in html
 
 
 def test_dados_coluna_de_campanhas_e_plataformas():

@@ -5,7 +5,11 @@
 {% set k = resumo.kpis %}
 {% set ac = resumo.acompanhar %}
 {% set av = resumo.aviso %}
-<h1 class="ac-h1 ac-home-title">{{ usuario.cliente_nome }}</h1>
+<header class="ac-hero">
+  <p class="ac-hero__eyebrow">{{ icon('layout', 14) }}Hub de mídia</p>
+  <h1 class="ac-hero__nome">{{ usuario.cliente_nome }}</h1>
+  <p class="ac-hero__sub">{% if resumo.vazio %}Suas campanhas, PIs e relatórios com a Centralcomm, num só lugar.{% else %}<b>{{ k.projetos_ativos }}</b> {{ 'PI em andamento' if k.projetos_ativos == 1 else 'PIs em andamento' }}<span aria-hidden="true">·</span><b>{{ k.campanhas_no_ar }}</b> {{ 'campanha no ar' if k.campanhas_no_ar == 1 else 'campanhas no ar' }}{% endif %}</p>
+</header>
 
 {% if resumo.vazio %}
 {# Conta sem PI ainda: boas-vindas com ilustração, os 3 passos e uma prévia de como a tela vai ficar. #}
@@ -109,8 +113,8 @@
   {# ---------- Coluna 2: indicadores da operação ---------- #}
   <section class="ac-home-sec ac-home3__col ac-op" aria-labelledby="op-titulo">
     <header class="ac-home-sec__head">
-      <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="op-titulo">Operação</h2>
-      {% if k.campanhas_no_ar %}<span class="ac-op__live"><i aria-hidden="true"></i>Ao vivo</span>{% else %}<span class="ac-previa__tag">Exemplo</span>{% endif %}
+      <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="op-titulo">Operação{% if k.campanhas_no_ar %}<span class="ac-op__live"><i aria-hidden="true"></i>Ao vivo</span>{% endif %}</h2>
+      <a class="ac-home-link" href="{{ area_url('campanhas') }}">Ver campanhas{{ icon('chevron-right', 14) }}</a>
     </header>
     {% set ex = not k.campanhas_no_ar %}
     {% set no_ar = 4 if ex else k.campanhas_no_ar %}
@@ -181,7 +185,9 @@
 
 {% if resumo.atividades %}
 <section class="ac-hupd" aria-labelledby="upd-titulo">
-  <h2 class="ac-hupd__title" id="upd-titulo">Últimas atualizações</h2>
+  <header class="ac-home-sec__head">
+    <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="upd-titulo">Últimas atualizações</h2>
+  </header>
   <ol class="ac-hupd__list">
     {% for a in resumo.atividades[:3] %}
     <li title="{{ a.projeto }}"><span class="ac-hupd__check">{{ icon('check', 14) }}</span><span><b>{{ a.titulo }}</b><small>{{ a.em.strftime('%d/%m') }} · {{ a.projeto }}</small></span></li>

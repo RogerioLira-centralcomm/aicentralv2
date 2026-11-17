@@ -322,7 +322,19 @@ def _arquivo(uuid_envio: str, ext: str) -> Path:
     return _pasta() / f"{seguro}.{ext}"
 
 
+def _limpar_antigos(horas: int = 24) -> None:
+    """Apaga os PDFs e resultados temporários da demonstração com mais de um dia (a pasta não cresce sem fim)."""
+    limite = time.time() - horas * 3600
+    for f in _pasta().glob("demo-*"):
+        try:
+            if f.stat().st_mtime < limite:
+                f.unlink()
+        except OSError:
+            pass
+
+
 def guardar_pdf(uuid_envio: str, conteudo: bytes) -> None:
+    _limpar_antigos()
     _arquivo(uuid_envio, "pdf").write_bytes(conteudo)
 
 

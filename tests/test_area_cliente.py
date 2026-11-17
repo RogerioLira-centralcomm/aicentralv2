@@ -104,7 +104,7 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     assert "Envie um briefing" in html and 'class="ac-hk"' not in html and "Solicitar otimização" not in html
     assert 'href="/pis"' in html and 'href="/descobrir/canais"' in html
     nav = html.split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
-    ordem = [nav.index(t) for t in ("Início", "Briefing", "Campanhas", "Relatórios", "PIs", "Descobrir", "Canais", "Portais")]
+    ordem = [nav.index(t) for t in ("Início", "Briefing", "PIs", "Campanhas", "Relatórios", "Descobrir", "Canais", "Portais")]
     assert ordem == sorted(ordem) and "Projetos" not in nav and "Equipe" not in nav
     assert "ac-nav__sep" not in nav  # menu sem linhas
     assert nav.index("Planejar") < nav.index("Briefing") < nav.index("Acompanhar") < nav.index("Campanhas")

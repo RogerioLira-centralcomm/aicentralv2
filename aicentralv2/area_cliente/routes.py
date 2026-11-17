@@ -79,9 +79,9 @@ PASSAGEM_PREFIXO = ("/static/", "/reset-password/", "/auth/", "/campanha/p/")
 NAV_INICIO = ("inicio", "Início", "home")
 NAV_PRINCIPAL = (
     ("briefing", "Briefing", "send"),
+    ("pis", "PIs", "file"),
     ("campanhas", "Campanhas", "megaphone"),
     ("relatorios", "Relatórios", "chart"),
-    ("pis", "PIs", "file"),
 )
 
 EM_PREPARACAO = {

@@ -1118,6 +1118,14 @@ def test_sequencia_de_ativacao_tem_assunto_pessoal_e_um_botao_do_hub(app, monkey
         antes = len(enviados)
         assert emails.ativacao(1, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900}) is False
         assert len(enviados) == antes
+        # Liberada pela config, o envio real sai sem teste=True.
+        app.config["HUB_ATIVACAO_LIBERADA"] = True
+        try:
+            assert emails.ativacao(1, {"email": "ana@cliente.test", "nome_completo": "Ana Souza", "pk_id_tbl_cliente": 900}) is True
+        finally:
+            app.config.pop("HUB_ATIVACAO_LIBERADA", None)
+        assert len(enviados) == antes + 1
+        enviados.pop()
         htmls = [emails.renderizar(m, **ctx) for m, _a, ctx, _r in enviados]
     assert [m for m, *_ in enviados] == ["ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4"]
     assert all(a.startswith("Ana, ") for _m, a, _c, _r in enviados)

@@ -255,6 +255,7 @@ def _de_empresa(cliente) -> str:
 
 # Os e-mails 2 a 4 falam de enviar PI, ler arquivos e do retorno em 24 h (fases F4 a F6 do plano do hub).
 # Enquanto esses recursos não existem, só o envio de teste (``teste=True``) é permitido.
+# Liga-se pela config ``HUB_ATIVACAO_LIBERADA`` (sem deploy de código); este é o valor padrão.
 ATIVACAO_LIBERADA = False
 
 
@@ -265,7 +266,7 @@ def ativacao(passo: int, contato: dict, *, teste: bool = False) -> bool:
     briefing ou PI). Sem ``ATIVACAO_LIBERADA``, só ``teste=True`` envia."""
     if passo not in ATIVACAO_ASSUNTOS:
         raise ValueError(f"Passo de ativação inválido: {passo}")
-    if not (ATIVACAO_LIBERADA or teste):
+    if not (teste or current_app.config.get("HUB_ATIVACAO_LIBERADA", ATIVACAO_LIBERADA)):
         logger.warning("Sequência de ativação ainda não liberada; passo %s não enviado.", passo)
         return False
     executivo = _executivo_do_cliente(contato.get("pk_id_tbl_cliente"))

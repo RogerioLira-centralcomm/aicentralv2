@@ -1,0 +1,50 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}Todos os briefings{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
+<div class="ac-page-head ac-enter">
+  <div>
+    <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
+    <h1 class="ac-h1">Todos os briefings</h1>
+    <p class="ac-page-sub">{{ enviados|length }} briefing{{ 's' if enviados|length != 1 }} enviado{{ 's' if enviados|length != 1 }} por esta conta.</p>
+  </div>
+</div>
+{% if enviados %}
+<section class="ac-card ac-enter" id="bt" aria-label="Lista de briefings">
+  <div class="bw-filtros">
+    <div class="ac-field"><label for="bt-busca">Buscar</label><input id="bt-busca" type="search" placeholder="Título ou objetivo" autocomplete="off"></div>
+    <div class="ac-field"><label for="bt-status">Situação</label>
+      <select id="bt-status"><option value="">Todas</option>{% for r, tom in status %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select>
+    </div>
+  </div>
+  <ul class="ac-briefs" id="bt-lista">
+    {% for e in enviados %}
+    <li class="ac-brief" data-texto="{{ (e.titulo ~ ' ' ~ e.objetivo)|lower }}" data-status="{{ e.status }}">
+      <div class="ac-brief__top"><b>{{ e.titulo }}</b><span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span></div>
+      {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(200) }}</p>{% endif %}
+      <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="ac-form__hint" id="bt-vazio" role="status" hidden>Nenhum briefing com esse filtro.</p>
+</section>
+<script>
+(function () {
+  var busca = document.getElementById('bt-busca'), sit = document.getElementById('bt-status');
+  var itens = Array.prototype.slice.call(document.querySelectorAll('#bt-lista .ac-brief'));
+  function filtrar() {
+    var q = busca.value.trim().toLowerCase(), s = sit.value, n = 0;
+    itens.forEach(function (li) {
+      var ok = (!q || li.dataset.texto.indexOf(q) >= 0) && (!s || li.dataset.status === s);
+      li.hidden = !ok; if (ok) n++;
+    });
+    document.getElementById('bt-vazio').hidden = n > 0;
+  }
+  busca.addEventListener('input', filtrar); sit.addEventListener('change', filtrar);
+})();
+</script>
+{% else %}
+{{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
+{% endif %}
+{% endblock %}

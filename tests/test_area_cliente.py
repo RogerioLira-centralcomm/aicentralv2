@@ -218,10 +218,10 @@ def _briefing_client(app, monkeypatch, enviados=None):
 
 def test_briefing_mostra_formulario_e_nav_sem_integracoes(app, monkeypatch):
     client = _briefing_client(app, monkeypatch)
-    resp = client.get("/briefing", base_url=HOST)
+    resp = client.get("/briefing/planejamento", base_url=HOST)
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert 'name="csrf" value="tok"' in html
+    assert 'name="csrf" value="tok"' in html and 'data-single="1"' in html
     assert "Enviar para a Centralcomm" in html
     assert "Integrações" not in html
     assert client.get("/integracoes", base_url=HOST).status_code == 404
@@ -294,7 +294,7 @@ def test_descobrir_secao_lista_e_inclui_no_briefing(app, monkeypatch):
         "csrf": "tok", "secao": "canais", "id": "5", "nome": "Uber Ads", "voltar": "/descobrir/canais"})
     assert resp.status_code == 303 and resp.headers["Location"] == "/descobrir/canais"
     assert "No briefing" in client.get("/descobrir/canais", base_url=HOST).get_data(as_text=True)
-    form = client.get("/briefing", base_url=HOST).get_data(as_text=True)
+    form = client.get("/briefing/planejamento", base_url=HOST).get_data(as_text=True)
     assert "Uber Ads" in form and "Tirar Uber Ads do briefing" in form
 
     gravados = []
@@ -1133,3 +1133,35 @@ def test_sequencia_de_ativacao_tem_assunto_pessoal_e_um_botao_do_hub(app, monkey
     assert all(r == "João da Centralcomm" for *_x, r in enviados)
     for html in htmls:
         assert html.count("Abrir meu hub de mídia") == 1 and "Área do Cliente" not in html
+
+
+def test_briefing_sem_envios_mostra_os_tres_caminhos(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    html = client.get("/briefing", base_url=HOST).get_data(as_text=True)
+    assert "Como você quer começar?" in html
+    for texto in ("Tenho arquivos para cotar", "Quero repetir um PI antigo", "Quero montar um planejamento", "Em breve"):
+        assert texto in html
+    assert 'href="/briefing/planejamento"' in html and 'href="/briefing/pi-antigo"' in html
+    assert "Começar briefing" not in html and "Ver todos os briefings" not in html
+
+
+def test_briefing_com_envios_mostra_ultimos_e_link_para_todos(app, monkeypatch):
+    envios = [{"id": i, "titulo": f"Campanha {i}", "objetivo": "x", "status": "Enviado · em análise", "tom": "brand", "autor": "", "em": "01/11/2026"} for i in range(1, 6)]
+    client = _briefing_client(app, monkeypatch, envios)
+    html = client.get("/briefing", base_url=HOST).get_data(as_text=True)
+    assert "Novo briefing" in html and "Campanha 3" in html and "Campanha 4" not in html
+    assert 'href="/briefing/todos"' in html
+    todos = client.get("/briefing/todos", base_url=HOST).get_data(as_text=True)
+    assert all(f"Campanha {i}" in todos for i in range(1, 6)) and 'id="bt-busca"' in todos
+
+
+def test_briefing_todos_fica_fora_do_menu(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    nav = client.get("/briefing", base_url=HOST).get_data(as_text=True).split('aria-label="Seções"', 1)[1].split("</nav>", 1)[0]
+    assert "/briefing/todos" not in nav
+
+
+def test_briefing_pi_antigo_abre_o_formulario_com_origem(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    html = client.get("/briefing/pi-antigo", base_url=HOST).get_data(as_text=True)
+    assert "Repetir um PI antigo" in html and 'action="/briefing/pi-antigo"' in html

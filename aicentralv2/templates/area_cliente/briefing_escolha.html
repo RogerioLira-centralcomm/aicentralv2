@@ -1,0 +1,86 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}Briefing{% endblock %}
+{% set compacto = total > 0 %}
+{% macro ilustracao(nome) -%}
+<svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
+  <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
+  {% if nome == 'cotacao' %}
+  <rect x="22" y="16" width="48" height="62" rx="7" class="i-card"/><path d="M31 32h30M31 43h24M31 54h28" class="i-line-thin"/>
+  <rect x="48" y="28" width="48" height="62" rx="7" class="i-card"/><path d="M57 44h30M57 55h22M57 66h28" class="i-line-thin"/>
+  <circle cx="116" cy="52" r="20" class="i-strong"/><path d="m106 52 7 7 13-14" class="i-check"/>
+  {% elif nome == 'pi' %}
+  <rect x="26" y="14" width="56" height="72" rx="8" class="i-card"/><path d="M36 32h36M36 44h28M36 56h32" class="i-line-thin"/>
+  <circle cx="110" cy="50" r="24" class="i-soft"/>
+  <path d="M96 46a15 15 0 0 1 26-6" class="i-line"/><path d="m124 33 0 10-10-1z" class="i-strong"/>
+  <path d="M124 56a15 15 0 0 1-26 6" class="i-line"/><path d="m96 69 0-10 10 1z" class="i-strong"/>
+  {% else %}
+  <rect x="24" y="18" width="70" height="66" rx="8" class="i-card"/><path d="M24 34h70" class="i-line-thin"/>
+  <path d="M36 46h14M58 46h14M36 58h14M58 58h14M36 70h14" class="i-line-thin"/>
+  <circle cx="112" cy="40" r="22" class="i-soft"/><circle cx="112" cy="40" r="13" class="i-mid"/><circle cx="112" cy="40" r="5" class="i-strong"/>
+  <path d="M134 18 116 37" class="i-line"/><path d="m134 18-10 1 2 8z" class="i-strong"/>
+  {% endif %}
+</svg>
+{%- endmacro %}
+{% macro cartao(href, nome, titulo, texto, prazo, em_breve=False) -%}
+{% if em_breve %}
+<div class="bw-way is-soon" aria-disabled="true">
+  {{ ilustracao(nome) }}
+  <b>{{ titulo }}</b><span>{{ texto }}</span>
+  <em class="bw-way__tag">Em breve</em>
+</div>
+{% else %}
+<a class="bw-way" href="{{ href }}">
+  {{ ilustracao(nome) }}
+  <b>{{ titulo }}</b><span>{{ texto }}</span>
+  <em class="bw-way__tag">{{ prazo }}</em>
+</a>
+{% endif %}
+{%- endmacro %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1">{{ 'Novo briefing' if compacto else 'Como você quer começar?' }}</h1>
+    <p class="ac-page-sub">Escolha o caminho mais curto para o seu caso. A equipe da Centralcomm devolve o planejamento de mídia.</p>
+  </div>
+</div>
+
+{% if enviado_id %}
+<div class="ac-notice ac-notice--success ac-enter" role="status">
+  <span class="ac-notice__icon">{{ icon('check', 18) }}</span>
+  <div>
+    <p class="ac-notice__title">Briefing enviado</p>
+    <p>O briefing está com a equipe da Centralcomm{% if usuario.executivo %}, aos cuidados de {{ usuario.executivo.nome }}{% endif %}. O andamento aparece logo abaixo.</p>
+  </div>
+</div>
+{% endif %}
+
+<div class="bw-ways{% if compacto %} is-compact{% endif %} ac-enter">
+  {{ cartao(None, 'cotacao', 'Tenho arquivos para cotar', 'Já tenho PDF, planilha ou mídia kit. Você anexa e a cotação volta em até 24 horas.', '', True) }}
+  {{ cartao(area_url('briefing_pi_antigo'), 'pi', 'Quero repetir um PI antigo', 'Já fizemos algo parecido. O formulário abre quase todo preenchido.', 'Você só revisa') }}
+  {{ cartao(area_url('briefing_planejamento'), 'plano', 'Quero montar um planejamento', 'Ainda não tenho nada. Uma página só, com o essencial no topo.', 'Cerca de 5 minutos') }}
+</div>
+{% if not compacto %}
+<p class="bw-intro__flow ac-enter">{{ icon('activity', 16) }}Briefing → Planejamento → PI → Campanhas no ar, tudo acompanhado aqui.</p>
+{% else %}
+<section class="ac-card ac-enter" aria-labelledby="ult-titulo">
+  <header class="ac-card__head">
+    <div>
+      <h2 class="ac-h2" id="ult-titulo">Últimos briefings</h2>
+      <p class="ac-card__sub">Briefing → Planejamento → PI → Campanhas.</p>
+    </div>
+    <a class="ac-link" href="{{ area_url('briefing_todos') }}">Ver todos os briefings</a>
+  </header>
+  <ul class="ac-briefs">
+    {% for e in enviados %}
+    <li class="ac-brief{% if e.id == enviado_id %} is-new{% endif %}">
+      <div class="ac-brief__top"><b>{{ e.titulo }}</b><span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span></div>
+      {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(140) }}</p>{% endif %}
+      <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

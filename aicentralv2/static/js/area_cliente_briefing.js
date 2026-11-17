@@ -135,7 +135,7 @@
   }
   function validarPasso() {
     var p = passosVisiveis()[atual];
-    if (p.dataset.step !== 'objetivo') return true;
+    if (!form.dataset.single && p.dataset.step !== 'objetivo') return true;
     var ok = true;
     [['b-titulo', 3, 'Dê um nome para a campanha ou ação.'], ['b-objetivo', 10, 'Conte em uma ou duas frases o que você quer alcançar.']].forEach(function (r) {
       var el = document.getElementById(r[0]);
@@ -380,7 +380,18 @@
   }
 
   /* ---------- Ligações ---------- */
+  function iniciarPaginaUnica() {
+    /* Uma página só: todos os blocos abertos, com condições, nota e IA de praças; a revisão (só do passo a passo) fica de fora. */
+    btIA.hidden = false;
+    $('.bw-score', document).hidden = false;
+    busca.removeAttribute('name');
+    desenharReuso();
+    atualizar();
+    var err = form.querySelector('[aria-invalid="true"]');
+    if (err) err.focus({ preventScroll: false });
+  }
   function iniciar() {
+    if (form.dataset.single) return iniciarPaginaUnica();
     form.classList.add('is-wizard');
     nav.hidden = false;
     btSeguir.hidden = false;
@@ -427,7 +438,10 @@
   });
   document.querySelector('.bw-side').addEventListener('click', function (ev) {
     var t = ev.target.closest('[data-ir-passo]');
-    if (t && form.classList.contains('is-wizard')) irParaPasso(t.dataset.irPasso);
+    if (!t) return;
+    if (form.classList.contains('is-wizard')) return irParaPasso(t.dataset.irPasso);
+    var alvo = form.querySelector('.bw-step[data-step="' + t.dataset.irPasso + '"]');
+    if (alvo) alvo.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   });
   btSeguir.addEventListener('click', function () { if (validarPasso()) irPara(atual + 1, true); });
   btVoltar.addEventListener('click', function () { irPara(atual - 1, true); });
@@ -461,7 +475,7 @@
     var t = $('#b-titulo'), o = $('#b-objetivo');
     if (t.value.trim().length < 3 || o.value.trim().length < 10) {
       ev.preventDefault();
-      irParaPasso('objetivo');
+      if (!form.dataset.single) irParaPasso('objetivo');
       validarPasso();
       return;
     }

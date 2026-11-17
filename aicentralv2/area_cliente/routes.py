@@ -24,6 +24,9 @@ ROTAS = Map([
     Rule("/", endpoint="inicio"),
     Rule("/briefing", endpoint="briefing", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/pracas", endpoint="briefing_pracas", methods=["POST"]),
+    Rule("/briefing/planejamento", endpoint="briefing_planejamento", methods=["GET", "HEAD", "POST"]),
+    Rule("/briefing/pi-antigo", endpoint="briefing_pi_antigo", methods=["GET", "HEAD", "POST"]),
+    Rule("/briefing/todos", endpoint="briefing_todos"),
     Rule("/projetos", endpoint="projetos"),
     Rule("/projetos/<int:id_pi>", endpoint="projeto"),
     Rule("/campanhas", endpoint="campanhas"),
@@ -281,6 +284,30 @@ def view_ver_como_sair():
 
 
 def view_briefing(usuario):
+    """/briefing: escolha dos três caminhos. O POST (formulário antigo) segue para o formulário de planejamento."""
+    if request.method == "POST":
+        return view_briefing_form(usuario)
+    try:
+        enviados = briefing.listar(usuario["cliente_id"])
+    except Exception:
+        current_app.logger.warning("Lista de briefings indisponível.", exc_info=True)
+        enviados = []
+    return _render("briefing_escolha.html", usuario, "briefing", enviados=enviados[:3], total=len(enviados),
+                   enviado_id=request.args.get("enviado", type=int))
+
+
+def view_briefing_todos(usuario):
+    """Lista completa, sem item no menu: o acesso é por dentro da página de briefing."""
+    try:
+        enviados = briefing.listar(usuario["cliente_id"])
+    except Exception:
+        current_app.logger.warning("Lista de briefings indisponível.", exc_info=True)
+        enviados = []
+    return _render("briefing_todos.html", usuario, "briefing", enviados=enviados,
+                   status=sorted({(e["status"], e["tom"]) for e in enviados}))
+
+
+def view_briefing_form(usuario, modo="planejamento"):
     valores, erros = {}, {}
     if request.method == "POST" and usuario.get("ver_como"):
         # Modo de validação: nada é gravado em nome do cliente.
@@ -291,7 +318,7 @@ def view_briefing(usuario):
         if request.form.get("remover_item"):
             secao, _, item_id = request.form["remover_item"].partition(":")
             descobrir.alternar(session, secao, item_id, "")
-            return redirect(area_url("briefing"), code=303)
+            return redirect(area_url("briefing_pi_antigo" if modo == "pi_antigo" else "briefing_planejamento"), code=303)
         valores, erros = briefing.validar(request.form)
         if not erros:
             valores["descobrir"] = descobrir.texto_selecao(descobrir.selecao(session))
@@ -323,7 +350,7 @@ def view_briefing(usuario):
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
-        b=briefing, opcoes=opcoes, historico=historico,
+        b=briefing, opcoes=opcoes, historico=historico, modo=modo,
         itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),
         enviado_id=request.args.get("enviado", type=int),
@@ -730,7 +757,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar", "briefing_planejamento", "briefing_pi_antigo"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -759,6 +786,12 @@ def despachar():
         return view_briefing(usuario)
     if endpoint == "briefing_pracas":
         return view_briefing_pracas()
+    if endpoint == "briefing_planejamento":
+        return view_briefing_form(usuario)
+    if endpoint == "briefing_pi_antigo":
+        return view_briefing_form(usuario, "pi_antigo")
+    if endpoint == "briefing_todos":
+        return view_briefing_todos(usuario)
     if endpoint == "planejamento_antigo":
         return redirect(area_url("descobrir_secao", secao="canais"), code=301)
     if endpoint == "midia_antigo":

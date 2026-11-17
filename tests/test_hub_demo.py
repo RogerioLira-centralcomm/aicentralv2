@@ -123,3 +123,13 @@ def test_conta_demo_desligada_volta_ao_banco(conta174, monkeypatch):
         assert "ac-modo-demo" not in pagina(conta174, "/")
     finally:
         conta174.app.config.pop("HUB_DEMO_CLIENTE_ID", None)
+
+
+def test_listas_sem_resumo_acima_da_tabela_e_com_celulas_para_o_celular(conta174):
+    for url, valor in (("/pis", "valor"), ("/campanhas", "valor"), ("/relatorios", "valor")):
+        html = pagina(conta174, url)
+        assert "ac-subbar__sum" not in html and "entrega média" not in html and "precisa de atenção" not in html, url
+        for celula in ("nome", valor, "sub", "situacao"):                      # as quatro células das duas linhas do celular
+            assert f'data-c="{celula}"' in html, (url, celula)
+    inicio = pagina(conta174, "/")
+    assert "ac-hero__nome" in inicio and "ac-hero__sub" not in inicio           # contadores só na Operação, não repetidos sob o nome

@@ -578,7 +578,7 @@ def test_campanhas_grade_e_painel_lateral(app, monkeypatch):
     assert d["acoes"][0]["rotulo"] == "Abrir dashboard" and d["acoes"][0]["primario"] and d["acoes"][0]["externo"]
     assert {"rotulo": "PI", "valor": "CC-123", "href": "/pis/12"} in d["defs"]
     # resumo, diferença em p.p. sobre a meta proporcional ao tempo e coluna de responsável
-    assert "p.p." not in html and "Meta do período: 40%" in html and "entrega média" in html and "Ana Op" not in html
+    assert "p.p." not in html and "Meta do período: 40%" in html and "Ana Op" not in html
 
 
 def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch):
@@ -593,7 +593,7 @@ def test_campanhas_no_ar_mostram_primeiro_as_que_pedem_atencao(app, monkeypatch)
     monkeypatch.setattr(dados, "listar_projetos", lambda c, busca="", id_pi=None: [{"id": 12, "titulo": "PI", "pi": "CC-1", "campanhas": campanhas}])
     html = _client(app, {"user_id": 501}).get("/campanhas", base_url=HOST).get_data(as_text=True)
     assert html.index("Atrasada Y") < html.index("Ritmo Z") < html.index("Adiantada X")
-    assert "1 em otimização" in html and "precisa de atenção" not in html and "p.p." not in html
+    assert "Em otimização" in html and "precisa de atenção" not in html and "p.p." not in html
 
 
 def test_logos_e_resumo_de_plataformas():
@@ -1275,7 +1275,7 @@ def test_inicio_sem_campanha_no_ar_nao_tem_barra_e_mostra_o_exemplo(app, monkeyp
     assert "ac-aviso--barra" not in html and "Acima da meta" not in html
     assert ">Exemplo<" not in html and "is-vazio" in html and "ac-sk" in html and "Ao vivo" not in html and "Nenhuma campanha no ar agora" in html
     assert "72%" not in html and "4</b>" not in html                          # nenhum número inventado no estado vazio
-    assert "ac-hero__nome" in html and "PIs em andamento" in html
+    assert "ac-hero__nome" in html and "ac-hero__sub" not in html
 
 
 def test_dados_coluna_de_campanhas_e_plataformas():

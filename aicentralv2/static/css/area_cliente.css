@@ -2164,3 +2164,32 @@ a.ac-op__kpi:hover b { color: var(--accent-strong); }
 .ac-hc__item .ac-hcamp__logo { width: 30px; height: 30px; border: 0; background: transparent; box-shadow: none; }
 .ac-hc__item .ac-plat { width: 28px; height: 28px; border-radius: 50%; padding: 4px; }
 .ac-op__lista .ac-plat { border-radius: 50%; }
+
+.ac-subbar--filtro { justify-content: flex-end; }
+
+/* Celular: cada campanha, PI ou relatório vira um item de DUAS linhas.
+   Linha 1: nome e o valor principal (entrega ou valor líquido). Linha 2: PI ou período e a situação. */
+@media (max-width: 900px) {
+  .ac-camp-wrap table thead { display: none; }
+  .ac-camp-wrap table, .ac-camp-wrap tbody { display: block; width: 100%; }
+  .ac-camp-wrap tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nome valor" "sub situacao"; align-items: center; gap: 4px 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .ac-camp-wrap tbody tr:last-child { border-bottom: 0; }
+  .ac-camp-wrap td[data-c], .ac-camp-wrap th[data-c] { display: none; padding: 0; border: 0; overflow: hidden; background: transparent; }
+  .ac-camp-wrap td[data-c="nome"], .ac-camp-wrap th[data-c="nome"] { display: block; grid-area: nome; min-width: 0; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .ac-camp-wrap td[data-c="valor"] { display: block; grid-area: valor; text-align: right; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--ink); }
+  .ac-camp-wrap td[data-c="sub"] { display: block; grid-area: sub; min-width: 0; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--muted); }
+  .ac-camp-wrap td[data-c="situacao"] { display: flex; grid-area: situacao; justify-content: flex-end; align-items: center; }
+  /* dentro das células: só o que cabe numa linha */
+  .ac-camp-wrap td[data-c="nome"] small { display: inline; margin-left: 6px; font-weight: 400; }
+  .ac-camp-wrap th[data-c="nome"] .ac-camp__name { padding-right: 0; gap: 8px; }
+  .ac-camp-wrap th[data-c="nome"] .ac-camp__name small { display: none; }
+  .ac-camp-wrap td[data-c="valor"] .ac-camp__bar, .ac-camp-wrap td[data-c="valor"] small, .ac-camp-wrap td[data-c="valor"] .ac-camp__nums > span { display: none; }
+  .ac-camp-wrap td[data-c="valor"] .ac-camp__nums { display: block; }
+  .ac-camp-wrap td[data-c="valor"] b { font-size: 14px; }
+  .ac-camp-wrap td[data-c="sub"] small, .ac-camp-wrap td[data-c="sub"] .ac-camp__tempo small { display: none; }
+  .ac-camp-wrap td[data-c="sub"] .ac-camp__pi { font-size: 12px; }
+}
+@media (max-width: 900px) {
+  .ac-camp-wrap td[data-c="nome"] small, .ac-camp-wrap td[data-c="nome"] a { white-space: nowrap; max-width: none; }
+  .ac-camp-wrap td[data-c="nome"] { overflow: hidden; text-overflow: ellipsis; }
+}

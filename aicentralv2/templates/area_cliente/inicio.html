@@ -8,7 +8,7 @@
 <header class="ac-hero">
   <p class="ac-hero__eyebrow">{{ icon('layout', 14) }}Hub de mídia</p>
   <h1 class="ac-hero__nome">{{ usuario.cliente_nome }}</h1>
-  <p class="ac-hero__sub">{% if resumo.vazio %}Suas campanhas, PIs e relatórios com a Centralcomm, num só lugar.{% else %}<b>{{ k.projetos_ativos }}</b> {{ 'PI em andamento' if k.projetos_ativos == 1 else 'PIs em andamento' }}<span aria-hidden="true">·</span><b>{{ k.campanhas_no_ar }}</b> {{ 'campanha no ar' if k.campanhas_no_ar == 1 else 'campanhas no ar' }}{% endif %}</p>
+  {% if resumo.vazio %}<p class="ac-hero__sub">Suas campanhas, PIs e relatórios com a Centralcomm, num só lugar.</p>{% endif %}
 </header>
 
 {% if resumo.vazio %}

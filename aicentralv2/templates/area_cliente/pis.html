@@ -6,15 +6,9 @@
 
 {{ abas(abas_itens, filtro, area_url('pis'), 'Situação dos PIs', ('&q=' ~ termo|urlencode) if termo else '') }}
 
-{% set n_notas = pis|sum(attribute='n_notas') %}
-{% set n_pagas = pis|sum(attribute='n_pagas') %}
-<div class="ac-subbar">
-  <p class="ac-subbar__sum">
-    <span class="ac-dot ac-dot--{{ 'andamento' if filtro == 'abertos' else 'finalizadas' }}"></span><span><b>{{ pis|length }}</b> {{ 'PI' if pis|length == 1 else 'PIs' }}{% if filtro != 'todos' %} {{ filtros[filtro]|lower }}{% endif %}</span>
-    <span class="ac-subbar__sep" aria-hidden="true">·</span><span><b>{{ n_notas }}</b> {{ 'nota emitida' if n_notas == 1 else 'notas emitidas' }}{% if n_notas %}, {{ n_pagas }} {{ 'paga' if n_pagas == 1 else 'pagas' }}{% endif %}</span>
-    {% if termo %}<span class="ac-subbar__sep" aria-hidden="true">·</span><span>Busca “{{ termo }}” <a class="ac-link" href="{{ area_url('pis') }}?status={{ filtro }}">limpar</a></span>{% endif %}
-  </p>
-</div>
+{% if termo %}
+<div class="ac-subbar"><p class="ac-subbar__sum">Busca “{{ termo }}” <a class="ac-link" href="{{ area_url('pis') }}?status={{ filtro if filtro in filtros else 'abertos' }}">limpar</a></p></div>
+{% endif %}
 
 {% if pis %}
 <div class="ac-camp-wrap ac-camp-wrap--rolar ac-enter">
@@ -25,15 +19,15 @@
     <tbody>
       {% for p in pis %}
       <tr data-painel-linha="{{ loop.index0 }}">
-        <td data-label="PI"><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=p.id) }}">{{ p.pi }}</a><small>{{ p.titulo }}</small></td>
-        <td data-label="{{ (p.contraparte or {}).rotulo or 'Agência' }}">{{ (p.contraparte or {}).nome or '—' }}</td>
-        <td data-label="Plataformas"><span class="ac-platstack">{% for pl in p.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if p.plataformas|length > 5 %}<span class="ac-platstack__more">+{{ p.plataformas|length - 5 }}</span>{% endif %}{% if not p.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
-        <td data-label="Etapa">{{ status_badge(p.status) }}</td>
-        <td data-label="Período">{{ periodo(p.periodo) }}</td>
-        <td data-label="Valor bruto" class="ac-num">{{ p.bruto|format_brl if p.bruto is not none else '—' }}</td>
-        <td data-label="Valor líquido" class="ac-num"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
-        <td data-label="Notas fiscais">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
-        <td class="ac-camp__acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi', id_pi=p.id) }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
+        <td data-label="PI" data-c="nome"><a class="ac-camp__pi" href="{{ area_url('pi', id_pi=p.id) }}">{{ p.pi }}</a><small>{{ p.titulo }}</small></td>
+        <td data-label="{{ (p.contraparte or {}).rotulo or 'Agência' }}" data-c="parte">{{ (p.contraparte or {}).nome or '—' }}</td>
+        <td data-label="Plataformas" data-c="plat"><span class="ac-platstack">{% for pl in p.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if p.plataformas|length > 5 %}<span class="ac-platstack__more">+{{ p.plataformas|length - 5 }}</span>{% endif %}{% if not p.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
+        <td data-label="Etapa" data-c="situacao">{{ status_badge(p.status) }}</td>
+        <td data-label="Período" data-c="sub">{{ periodo(p.periodo) }}</td>
+        <td data-label="Valor bruto" class="ac-num" data-c="bruto">{{ p.bruto|format_brl if p.bruto is not none else '—' }}</td>
+        <td data-label="Valor líquido" class="ac-num" data-c="valor"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
+        <td data-label="Notas fiscais" data-c="nf">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
+        <td class="ac-camp__acts" data-c="acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi', id_pi=p.id) }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
       </tr>
       {% endfor %}
     </tbody>

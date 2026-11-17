@@ -1,50 +1,60 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, vazio %}
 {% block title %}Todos os briefings{% endblock %}
+{% set titulo_topo = 'Todos os briefings' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
 <div class="ac-page-head ac-enter">
   <div>
     <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
-    <h1 class="ac-h1">Todos os briefings</h1>
-    <p class="ac-page-sub">{{ enviados|length }} briefing{{ 's' if enviados|length != 1 }} enviado{{ 's' if enviados|length != 1 }} por esta conta.</p>
+    <h1 class="ac-h1 ac-page-title--topo">Todos os briefings</h1>
+    <p class="ac-page-sub">{{ enviados|length }} briefing{{ 's' if enviados|length != 1 }} enviado{{ 's' if enviados|length != 1 }} por esta conta. Clique em um para ver as informações.</p>
   </div>
 </div>
 {% if enviados %}
-<section class="ac-card ac-enter" id="bt" aria-label="Lista de briefings">
-  <div class="bw-filtros">
-    <div class="ac-field"><label for="bt-busca">Buscar</label><input id="bt-busca" type="search" placeholder="Título ou objetivo" autocomplete="off"></div>
-    <div class="ac-field"><label for="bt-status">Situação</label>
-      <select id="bt-status"><option value="">Todas</option>{% for r, tom in status %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select>
-    </div>
+<div class="bt-barra">
+  <div class="ac-search ac-search--inline ac-search--sm">
+    {{ icon('search', 16) }}
+    <label class="ac-sr" for="bt-busca">Buscar briefing</label>
+    <input id="bt-busca" type="search" placeholder="Buscar por título ou objetivo" autocomplete="off">
   </div>
-  <ul class="ac-briefs" id="bt-lista">
-    {% for e in enviados %}
-    <li class="ac-brief" data-texto="{{ (e.titulo ~ ' ' ~ e.objetivo)|lower }}" data-status="{{ e.status }}">
-      <div class="ac-brief__top"><b>{{ e.titulo }}</b><span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span></div>
-      {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(200) }}</p>{% endif %}
-      <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
-    </li>
-    {% endfor %}
-  </ul>
-  <p class="ac-form__hint" id="bt-vazio" role="status" hidden>Nenhum briefing com esse filtro.</p>
-</section>
+  <label class="ac-sr" for="bt-status">Situação</label>
+  <select id="bt-status" class="ac-select ac-select--sm"><option value="">Situação</option>{% for r, tom in status %}<option value="{{ r }}">{{ r }}</option>{% endfor %}</select>
+</div>
+<div class="ac-camp-wrap ac-camp-wrap--rolar ac-enter" id="bt">
+  <table class="ac-lista bt-tabela">
+    <thead><tr><th scope="col">Briefing</th><th scope="col">Situação</th><th scope="col">Enviado em</th><th scope="col">Enviado por</th></tr></thead>
+    <tbody id="bt-lista">
+      {% for e in enviados %}
+      <tr class="bt-linha" data-briefing="{{ e.id }}" data-texto="{{ (e.titulo ~ ' ' ~ e.objetivo)|lower }}" data-status="{{ e.status }}" tabindex="0">
+        <td data-c="nome"><button type="button" class="ac-grid__name bt-titulo" data-briefing="{{ e.id }}">{{ e.titulo }}</button>{% if e.objetivo %}<small>{{ e.objetivo|truncate(110) }}</small>{% endif %}</td>
+        <td data-c="situacao"><span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span></td>
+        <td data-c="valor">{{ e.em }}</td>
+        <td data-c="sub">{{ e.autor or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="ac-form__hint bt-vazio" id="bt-vazio" role="status" hidden>Nenhum briefing com esse filtro.</p>
+</div>
+{% include 'area_cliente/_briefing_modal.html' %}
 <script>
 (function () {
   var busca = document.getElementById('bt-busca'), sit = document.getElementById('bt-status');
-  var itens = Array.prototype.slice.call(document.querySelectorAll('#bt-lista .ac-brief'));
+  var linhas = Array.prototype.slice.call(document.querySelectorAll('#bt-lista .bt-linha'));
   function filtrar() {
     var q = busca.value.trim().toLowerCase(), s = sit.value, n = 0;
-    itens.forEach(function (li) {
-      var ok = (!q || li.dataset.texto.indexOf(q) >= 0) && (!s || li.dataset.status === s);
-      li.hidden = !ok; if (ok) n++;
+    linhas.forEach(function (tr) {
+      var ok = (!q || tr.dataset.texto.indexOf(q) >= 0) && (!s || tr.dataset.status === s);
+      tr.hidden = !ok; if (ok) n++;
     });
     document.getElementById('bt-vazio').hidden = n > 0;
   }
   busca.addEventListener('input', filtrar); sit.addEventListener('change', filtrar);
+  linhas.forEach(function (tr) { tr.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target === tr) tr.querySelector('.bt-titulo').click(); }); });
 })();
 </script>
 {% else %}
-{{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
+{{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.', usuario) }}
 {% endif %}
 {% endblock %}

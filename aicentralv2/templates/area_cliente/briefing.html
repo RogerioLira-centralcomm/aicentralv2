@@ -15,12 +15,13 @@
 {% macro selo(campo) -%}{% if origem_item and campo in trazido %}<span class="bw-selo" title="Trouxemos do histórico; revise">vem do {{ origem_item.fonte }} {{ origem_item.titulo|truncate(28) }}</span>{% endif %}{%- endmacro %}
 {% macro ajuda(texto) -%}<p class="bw-ajuda">{{ texto }}</p>{%- endmacro %}
 {% set v = valores %}
+{% set titulo_topo = 'Repetir um PI antigo' if modo == 'pi_antigo' else 'Montar um planejamento' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
 <div class="ac-page-head ac-enter">
   <div>
     <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
-    <h1 class="ac-h1">{{ 'Repetir um PI antigo' if modo == 'pi_antigo' else 'Montar um planejamento' }}</h1>
+    <h1 class="ac-h1 ac-page-title--topo">{{ 'Repetir um PI antigo' if modo == 'pi_antigo' else 'Montar um planejamento' }}</h1>
     <p class="ac-page-sub">{{ ('Revise o que trouxemos do histórico, complete o que falta e envie.' if origem_item else 'Escolha um projeto anterior no começo da página: trazemos o que dá para preencher e você revisa.') if modo == 'pi_antigo' else 'Tudo numa página só. Preencha o essencial; o resto é opcional.' }}</p>
   </div>
 </div>

@@ -330,7 +330,7 @@ def listar(cliente_id) -> list[dict]:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT b.id, b.titulo, b.status, b.objetivo, b.data_envio, b.created_at,
+                SELECT b.id, b.titulo, b.status, b.objetivo, b.briefing_original, b.data_envio, b.created_at,
                        autor.nome_completo AS autor_nome
                   FROM cadu_briefings b
                   LEFT JOIN tbl_contato_cliente autor ON autor.id_contato_cliente = b.id_contato_cliente
@@ -351,7 +351,7 @@ def listar(cliente_id) -> list[dict]:
         quando = r["data_envio"] or r["created_at"]
         saida.append({
             "id": r["id"], "titulo": r["titulo"] or "Briefing", "objetivo": r["objetivo"] or "",
-            "status": rotulo, "tom": tom, "autor": r["autor_nome"] or "",
+            "status": rotulo, "tom": tom, "autor": r["autor_nome"] or "", "texto": r.get("briefing_original") or "",
             "em": quando.strftime("%d/%m/%Y") if quando else "",
         })
     return saida

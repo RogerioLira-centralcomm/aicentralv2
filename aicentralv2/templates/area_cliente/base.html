@@ -90,6 +90,7 @@
   <div class="ac-main">
     <header class="ac-top">
       <button type="button" class="ac-icon-btn ac-top__menu" data-ac-toggle aria-controls="ac-side" aria-expanded="false" aria-label="Abrir ou recolher o menu">{{ icon('sidebar') }}</button>
+      {% if titulo_topo %}<h1 class="ac-top__titulo">{{ titulo_topo }}</h1>{% endif %}
       <form class="ac-search" action="{{ area_url('pis') }}" method="get" role="search">
         <label class="ac-sr" for="ac-busca">Buscar PIs</label>
         {{ icon('search', 18) }}

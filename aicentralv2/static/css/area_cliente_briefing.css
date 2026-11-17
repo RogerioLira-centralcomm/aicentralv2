@@ -249,3 +249,27 @@ form:not(.is-wizard) .bw-step__eyebrow { display: none; }
 .bw-apoio__n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; }
 .bw-apoio .ac-btn { justify-self: start; }
 @media (max-width: 700px) { .bw-apoio { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Lista de todos os briefings e modal com as informações ---------- */
+.bt-barra { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.bt-barra .ac-search { flex: 1 1 260px; max-width: 360px; }
+.bt-linha { cursor: pointer; }
+.bt-tabela td:first-child { white-space: normal; }
+.bt-tabela td:first-child small { max-width: 520px; white-space: normal; }
+.bt-titulo { font-weight: 600; color: var(--ink); text-align: left; }
+.bt-vazio { margin: 0; padding: 16px; }
+.ac-brief--abre { cursor: pointer; }
+.ac-brief--abre:hover, .ac-brief--abre:focus-visible { border-color: var(--accent); outline: none; }
+.bw-modal { width: min(640px, calc(100vw - 24px)); max-height: min(720px, calc(100vh - 32px)); padding: 0; border: 0; border-radius: var(--radius-xl, 16px); background: var(--surface); color: var(--ink); box-shadow: 0 24px 64px rgba(16, 24, 40, .28); }
+.bw-modal[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.bw-modal::backdrop { background: rgba(13, 23, 26, .55); }
+.bw-modal__head { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.bw-modal__quem { flex: 1; min-width: 0; }
+.bw-modal__titulo { margin: 0; font-size: 18px; line-height: 26px; font-weight: 700; overflow-wrap: anywhere; }
+.bw-modal__meta { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.bw-modal__corpo { overflow-y: auto; padding: 16px 20px; display: grid; gap: 14px; align-content: start; }
+.bw-modal__bloco h3 { margin: 0 0 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.bw-modal__bloco p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); overflow-wrap: anywhere; }
+.bw-modal__rodape { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.bw-modal__exec { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .bw-modal { width: 100vw; max-height: 100dvh; border-radius: 0; } }

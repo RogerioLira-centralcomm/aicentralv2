@@ -211,10 +211,14 @@ def briefings_enviados() -> list[dict]:
     hoje = date.today()
     fixos = [("Coleção de verão 2027", "Vender a nova coleção pelo site e nas lojas de BH.", "Em planejamento", "success", 9),
              ("Lançamento do app", "Gerar instalações de app com foco em Android.", "Enviado · em análise", "brand", 3)]
-    saida = [{"id": 900_100 + i, "titulo": t, "objetivo": o, "status": s, "tom": tom, "autor": "Equipe Centralcomm",
+    def texto(t, o):
+        return (f"## Objetivo\n{o}\n\n## Público\nMulheres 25-44, classes B e C, interessadas em moda e compras online.\n\n"
+                "## Praças\nBelo Horizonte; Contagem; Betim\n\n## Período\nDezembro a janeiro\n\n## Verba prevista\nR$ 50 a 150 mil\n\n"
+                "## Canais de interesse\nRedes sociais, Busca")
+    saida = [{"id": 900_100 + i, "titulo": t, "objetivo": o, "status": s, "tom": tom, "autor": "Equipe Centralcomm", "texto": texto(t, o),
               "em": (hoje - timedelta(days=dias)).strftime("%d/%m/%Y")} for i, (t, o, s, tom, dias) in enumerate(fixos)]
     nossos = [{"id": 900_200 + i, "titulo": b["titulo"], "objetivo": b["objetivo"], "status": "Enviado · em análise", "tom": "brand",
-               "autor": "Equipe Centralcomm", "em": hoje.strftime("%d/%m/%Y")} for i, b in enumerate(_loja()["briefings"])]
+               "autor": "Equipe Centralcomm", "texto": texto(b["titulo"], b["objetivo"]), "em": hoje.strftime("%d/%m/%Y")} for i, b in enumerate(_loja()["briefings"])]
     return list(reversed(nossos)) + saida
 
 

@@ -1,6 +1,7 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, plat, abas, rotulo_contraparte, vazio %}
 {% block title %}Relatórios{% endblock %}
+{% if not atual %}{% set titulo_topo = 'Relatórios' %}{% endif %}
 {% block content %}
 {% if atual %}
 <a class="ac-back" href="{{ area_url('relatorios') }}?status={{ 'abertos' if atual.aberto else 'finalizados' }}">{{ icon('arrow-left', 14) }}Relatórios</a>
@@ -97,7 +98,7 @@
 {% endif %}
 
 {% else %}
-<div class="ac-page-head"><h1 class="ac-h1 ac-page-title">Relatórios</h1></div>
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">Relatórios</h1></div>
 
 {{ abas(abas_itens, filtro, area_url('relatorios'), 'Situação dos PIs') }}
 

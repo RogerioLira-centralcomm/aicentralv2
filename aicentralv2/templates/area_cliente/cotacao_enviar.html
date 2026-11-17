@@ -2,11 +2,12 @@
 {% from 'area_cliente/_macros.html' import icon %}
 {% block title %}Briefing para cotação{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
+{% set titulo_topo = 'Tenho arquivos para cotar' %}
 {% block content %}
 {% set quem = usuario.executivo.nome.split()[0] if usuario.executivo else 'a equipe Centralcomm' %}
 <div class="pe" data-pe="enviar" data-upload-url="{{ area_url('briefing_cotacao') }}" data-csrf="{{ csrf }}">
   <p class="pe-voltar"><a class="ac-link" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }} Briefing</a></p>
-  <h1 class="ac-h1 ac-page-title">Tenho arquivos para cotar</h1>
+  <h1 class="ac-h1 ac-page-title ac-page-title--topo">Tenho arquivos para cotar</h1>
   <p class="ac-lead">Anexe o briefing, o mídia kit ou a planilha. O hub lê os arquivos, mostra o que entendeu e {{ quem }} devolve a cotação em até {{ prazo_horas }} horas.</p>
 
 

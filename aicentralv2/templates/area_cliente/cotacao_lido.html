@@ -3,6 +3,7 @@
 {% block title %}Briefing para cotação{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
 {% macro erro(campo) -%}{% if erros.get(campo) %}<p class="ac-field__error" id="erro-{{ campo }}">{{ erros[campo] }}</p>{% endif %}{%- endmacro %}
+{% set titulo_topo = 'Lendo os seus arquivos' if estado == 'lendo' else ('Briefing enviado' if estado == 'enviado' else ('Não consegui ler os arquivos' if estado == 'erro' else 'Li os seus arquivos')) %}
 {% block content %}
 {% set exec = usuario.executivo %}
 {% set quem = exec.nome.split()[0] if exec else 'a equipe Centralcomm' %}
@@ -10,7 +11,7 @@
   <p class="pe-voltar"><a class="ac-link" href="{{ area_url('briefing_cotacao') }}">{{ icon('arrow-left', 16) }} Tenho arquivos para cotar</a></p>
 
   {% if estado == 'lendo' %}
-  <h1 class="ac-h1 ac-page-title">Lendo os seus arquivos…</h1>
+  <h1 class="ac-h1 ac-page-title ac-page-title--topo">Lendo os seus arquivos…</h1>
   <p class="ac-lead">O hub está lendo o material. Leva cerca de um minuto e esta página atualiza sozinha.</p>
   <section class="ac-card pe-lendo" role="status" aria-live="polite">
     <span class="pe-lendo__icone">{{ icon('sparkles', 24) }}</span>
@@ -19,7 +20,7 @@
   </section>
 
   {% elif estado == 'enviado' %}
-  <h1 class="ac-h1 ac-page-title">Seu briefing seguiu para {{ quem }}</h1>
+  <h1 class="ac-h1 ac-page-title ac-page-title--topo">Seu briefing seguiu para {{ quem }}</h1>
   <p class="ac-lead">{% if prazo %}A cotação volta até <b>{{ prazo }}</b> (dias úteis, 9h às 18h).{% endif %} {{ quem|capitalize if exec else 'A equipe' }} já tem os arquivos e a leitura do hub.</p>
   <section class="ac-card pe-exec">
     <h2 class="ac-h2">Quem cuida da sua cotação</h2>
@@ -34,7 +35,7 @@
   </section>
 
   {% else %}
-  <h1 class="ac-h1 ac-page-title">{{ 'Não consegui ler os arquivos' if estado == 'erro' else 'Li os seus arquivos' }}</h1>
+  <h1 class="ac-h1 ac-page-title ac-page-title--topo">{{ 'Não consegui ler os arquivos' if estado == 'erro' else 'Li os seus arquivos' }}</h1>
   <p class="ac-lead">{% if estado == 'erro' %}{{ rascunho.erro or 'A leitura falhou agora.' }} Você ainda pode enviar: {{ quem }} recebe os anexos e preenche com você.{% else %}Confira e ajuste o que quiser. {{ quem|capitalize if exec else 'A equipe' }} retorna em até {{ prazo_horas }} horas.{% endif %}</p>
 
   <form method="post" action="{{ enviar_url }}" class="pe-cols ac-form" novalidate>

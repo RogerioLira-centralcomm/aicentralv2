@@ -133,3 +133,20 @@ def test_listas_sem_resumo_acima_da_tabela_e_com_celulas_para_o_celular(conta174
             assert f'data-c="{celula}"' in html, (url, celula)
     inicio = pagina(conta174, "/")
     assert "ac-hero__nome" in inicio and "ac-hero__sub" not in inicio           # contadores só na Operação, não repetidos sob o nome
+
+
+def test_todos_os_briefings_em_tabela_com_modal_e_titulo_no_topo(conta174):
+    html = pagina(conta174, "/briefing/todos")
+    assert 'class="ac-top__titulo"' in html and "Todos os briefings" in html
+    assert "ac-lista" in html and html.count('data-briefing="') >= 4 and 'id="bw-modal"' in html and "Coleção de verão 2027" in html
+    assert 'id="bw-modal-dados"' in html and "## Objetivo" in html                       # o texto do briefing vai junto para o modal
+    escolha = pagina(conta174, "/briefing")
+    assert "ac-top__titulo" in escolha and 'id="bw-modal"' in escolha and "ac-brief--abre" in escolha
+    for url, titulo in (("/briefing/planejamento", "Montar um planejamento"), ("/briefing/pi-antigo", "Qual PI") , ("/briefing/cotacao", "Tenho arquivos para cotar")):
+        pg = pagina(conta174, url)
+        assert 'class="ac-top__titulo"' in pg, url
+
+
+def test_pis_com_botao_na_linha_das_abas(conta174):
+    html = pagina(conta174, "/pis")
+    assert 'class="ac-top__titulo"' in html and "ac-utabs-row__tools" in html and html.count("Enviar um PI") >= 2

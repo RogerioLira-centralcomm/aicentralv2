@@ -1,0 +1,51 @@
+{# Modal com as informações de um briefing enviado. Quem inclui passa `enviados` (lista de listar()) e marca o item com data-briefing="<id>". #}
+<dialog class="bw-modal" id="bw-modal" aria-labelledby="bw-modal-titulo">
+  <header class="bw-modal__head">
+    <div class="bw-modal__quem">
+      <h2 class="bw-modal__titulo" id="bw-modal-titulo"></h2>
+      <p class="bw-modal__meta" id="bw-modal-meta"></p>
+    </div>
+    <span class="ac-badge" id="bw-modal-status"></span>
+    <button type="button" class="ac-icon-btn" id="bw-modal-x" aria-label="Fechar">{{ icon('close', 18) }}</button>
+  </header>
+  <div class="bw-modal__corpo" id="bw-modal-corpo"></div>
+  <footer class="bw-modal__rodape">
+    {% if usuario.executivo %}<span class="bw-modal__exec">{{ icon('users', 16) }}Com {{ usuario.executivo.nome }}</span>{% endif %}
+    <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-modal-fechar">Fechar</button>
+  </footer>
+</dialog>
+<script type="application/json" id="bw-modal-dados">{{ enviados|tojson }}</script>
+<script>
+(function () {
+  var dlg = document.getElementById('bw-modal');
+  if (!dlg || typeof dlg.showModal !== 'function') return;
+  var itens = {};
+  JSON.parse(document.getElementById('bw-modal-dados').textContent).forEach(function (e) { itens[e.id] = e; });
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function secoes(texto) {
+    var saida = [], re = /^## (.+)\n([\s\S]*?)(?=\n\n## |\s*$)/gm, m;
+    while ((m = re.exec(texto || ''))) { if (!/qualidade/i.test(m[1])) saida.push([m[1].trim(), m[2].trim()]); }
+    return saida;
+  }
+  function abrir(id) {
+    var e = itens[id];
+    if (!e) return;
+    document.getElementById('bw-modal-titulo').textContent = e.titulo;
+    document.getElementById('bw-modal-meta').textContent = 'Enviado em ' + e.em + (e.autor ? ' por ' + e.autor : '');
+    var st = document.getElementById('bw-modal-status');
+    st.textContent = e.status; st.className = 'ac-badge ac-badge--' + (e.tom || 'gray');
+    var partes = secoes(e.texto);
+    document.getElementById('bw-modal-corpo').innerHTML = partes.length
+      ? partes.map(function (p) { return '<section class="bw-modal__bloco"><h3>' + esc(p[0]) + '</h3><p>' + esc(p[1]).replace(/\n/g, '<br>') + '</p></section>'; }).join('')
+      : '<section class="bw-modal__bloco"><h3>Objetivo</h3><p>' + esc(e.objetivo || 'Sem detalhes registrados.') + '</p></section>';
+    dlg.showModal();
+    dlg.querySelector('.bw-modal__corpo').scrollTop = 0;
+  }
+  document.addEventListener('click', function (ev) {
+    var alvo = ev.target.closest('[data-briefing]');
+    if (alvo && !ev.target.closest('a')) { ev.preventDefault(); abrir(alvo.getAttribute('data-briefing')); }
+  });
+  ['bw-modal-x', 'bw-modal-fechar'].forEach(function (id) { document.getElementById(id).addEventListener('click', function () { dlg.close(); }); });
+  dlg.addEventListener('click', function (ev) { if (ev.target === dlg) dlg.close(); });       // clique no fundo fecha
+})();
+</script>

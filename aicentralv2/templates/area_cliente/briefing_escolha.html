@@ -2,6 +2,7 @@
 {% from 'area_cliente/_macros.html' import icon, vazio %}
 {% block title %}Briefing{% endblock %}
 {% set compacto = total > 0 %}
+{% set titulo_topo = 'Novo briefing' if compacto else 'Como você quer começar?' %}
 {% macro ilustracao(nome) -%}
 <svg viewBox="0 0 160 100" aria-hidden="true" class="bw-ill__svg">
   <rect x="0" y="0" width="160" height="100" rx="14" class="i-bg"/>
@@ -41,7 +42,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
 <div class="ac-page-head ac-enter">
   <div>
-    <h1 class="ac-h1">{{ 'Novo briefing' if compacto else 'Como você quer começar?' }}</h1>
+    <h1 class="ac-h1 ac-page-title--topo">{{ 'Novo briefing' if compacto else 'Como você quer começar?' }}</h1>
     <p class="ac-page-sub">Escolha o caminho mais curto para o seu caso. A equipe da Centralcomm devolve o planejamento de mídia.</p>
   </div>
 </div>
@@ -74,7 +75,7 @@
   </header>
   <ul class="ac-briefs">
     {% for e in enviados %}
-    <li class="ac-brief{% if e.id == enviado_id %} is-new{% endif %}">
+    <li class="ac-brief ac-brief--abre{% if e.id == enviado_id %} is-new{% endif %}" data-briefing="{{ e.id }}" tabindex="0">
       <div class="ac-brief__top"><b>{{ e.titulo }}</b><span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span></div>
       {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(140) }}</p>{% endif %}
       <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
@@ -82,5 +83,6 @@
     {% endfor %}
   </ul>
 </section>
+{% include 'area_cliente/_briefing_modal.html' %}
 {% endif %}
 {% endblock %}

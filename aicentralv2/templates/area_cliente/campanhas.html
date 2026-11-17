@@ -1,11 +1,12 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, data_br, periodo, ritmo_badge, barra, plat, abas, rotulo_contraparte, vazio %}
 {% block title %}Campanhas{% endblock %}
+{% set titulo_topo = 'Campanhas' %}
 {% block content %}
 {% set k = ritmo.kpis %}
 {% set lista = ritmo.grupos[filtro] %}
 {% set plataformas = lista|map(attribute='plataforma')|reject('none')|reject('equalto', '')|unique|sort|list %}
-<div class="ac-page-head"><h1 class="ac-h1 ac-page-title">Campanhas</h1></div>
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">Campanhas</h1></div>
 
 {% set plataformas_da_lista = plataformas %}
 <div class="ac-utabs-row">

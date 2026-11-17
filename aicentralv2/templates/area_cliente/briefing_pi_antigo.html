@@ -1,12 +1,13 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, vazio %}
 {% block title %}Repetir um PI antigo{% endblock %}
+{% set titulo_topo = 'Repetir um PI antigo' %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
 <div class="ac-page-head ac-enter">
   <div>
     <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
-    <h1 class="ac-h1">Qual PI você quer repetir?</h1>
+    <h1 class="ac-h1 ac-page-title--topo">Qual PI você quer repetir?</h1>
     <p class="ac-page-sub">O formulário abre com público, praças, objetivo e canais já preenchidos. Você revisa e envia. Valores e preços não vêm junto.</p>
   </div>
 </div>

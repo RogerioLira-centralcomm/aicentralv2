@@ -1,10 +1,14 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, periodo, status_badge, vazio, plat, abas, rotulo_contraparte %}
 {% block title %}PIs{% endblock %}
+{% set titulo_topo = 'PIs' %}
 {% block content %}
-<div class="ac-page-head"><h1 class="ac-h1 ac-page-title">PIs</h1><a class="ac-btn ac-btn--primary ac-btn--sm" href="{{ area_url('pi_enviar') }}">{{ icon('plus', 16) }}Enviar um PI</a></div>
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">PIs</h1><a class="ac-btn ac-btn--primary ac-btn--sm" href="{{ area_url('pi_enviar') }}">{{ icon('plus', 16) }}Enviar um PI</a></div>
 
-{{ abas(abas_itens, filtro, area_url('pis'), 'Situação dos PIs', ('&q=' ~ termo|urlencode) if termo else '') }}
+<div class="ac-utabs-row">
+  {{ abas(abas_itens, filtro, area_url('pis'), 'Situação dos PIs', ('&q=' ~ termo|urlencode) if termo else '') }}
+  <div class="ac-utabs-row__tools ac-so-desktop"><a class="ac-btn ac-btn--primary ac-btn--sm" href="{{ area_url('pi_enviar') }}">{{ icon('plus', 16) }}Enviar um PI</a></div>
+</div>
 
 {% if termo %}
 <div class="ac-subbar"><p class="ac-subbar__sum">Busca “{{ termo }}” <a class="ac-link" href="{{ area_url('pis') }}?status={{ filtro if filtro in filtros else 'abertos' }}">limpar</a></p></div>

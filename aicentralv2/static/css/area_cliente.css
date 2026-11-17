@@ -2201,3 +2201,18 @@ a.ac-op__kpi:hover b { color: var(--accent-strong); }
 .ac-utabs-row__tools .ac-select { max-width: 190px; }
 @media (max-width: 560px) { .ac-utabs-row__tools .ac-select { max-width: 130px; } }
 @media (max-width: 560px) { .ac-utabs-row__tools .ac-select { max-width: 112px; } }
+
+/* Desktop: o título da página (Campanhas, PIs, Relatórios) sobe para a barra do topo, ao lado da busca; no celular continua na página */
+.ac-top__titulo { display: none; margin: 0; padding-right: 14px; border-right: 1px solid var(--line); font-size: 17px; line-height: 24px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; }
+@media (min-width: 901px) {
+  .ac-top__titulo { display: block; }
+  .ac-page-title--topo { display: none; }
+  .ac-page-head--so-titulo { display: none; }
+}
+
+.ac-so-desktop { display: none; }
+@media (min-width: 901px) {
+  .ac-so-desktop { display: block; }
+  /* PIs: o cabeçalho some no desktop; no celular o botão fica no cabeçalho */
+}
+@media (max-width: 900px) { .ac-page-head--so-titulo .ac-page-title--topo { display: block; } }

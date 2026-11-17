@@ -1191,6 +1191,13 @@ def test_briefing_pi_antigo_abre_preenchido_com_selos_atalho_e_o_que_falta(app, 
     assert "R$" not in html.split("Falta só isso")[0].split("<form")[1]                 # nenhum valor de PI no formulário
 
 
+def test_briefing_pi_antigo_com_origem_inexistente_volta_para_a_escolha(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)
+    r = client.get("/briefing/pi-antigo?de=pi:999", base_url=HOST)
+    assert r.status_code == 303 and r.headers["Location"] == "/briefing/pi-antigo"
+
+
 def test_briefing_pi_antigo_envio_guarda_a_origem(app, monkeypatch):
     client = _briefing_client(app, monkeypatch)
     monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)

@@ -340,6 +340,8 @@ def view_briefing_pi_antigo(usuario):
             current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
             historico = []
         return _render("briefing_pi_antigo.html", usuario, "briefing", historico=historico)
+    if request.method == "GET" and not _item_do_historico(usuario, de):
+        return redirect(area_url("briefing_pi_antigo"), code=303)      # PI que não é mais desta conta: volta para a escolha
     return view_briefing_form(usuario, "pi_antigo")
 
 

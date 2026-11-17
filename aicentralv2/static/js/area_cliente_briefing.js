@@ -370,6 +370,12 @@
     desenharKpis(e);
     desenharNota(e);
     dicaPeriodo(e);
+    var faltaBox = document.querySelector('.bw-falta');
+    if (faltaBox) {                                    /* "Falta só isso" acompanha o que o cliente vai preenchendo */
+      var faltam = qualidade(e).checks.filter(function (c) { return !c[1]; });
+      faltaBox.querySelector('ul').innerHTML = faltam.map(function (c) { return '<li>' + esc(c[2]) + '</li>'; }).join('');
+      faltaBox.hidden = !faltam.length;
+    }
     $$('[data-fill]').forEach(function (b) {
       var alvo = document.getElementById(b.dataset.fill);
       if (alvo) b.classList.toggle('is-on', alvo.value.trim() === b.dataset.value);

@@ -2,18 +2,18 @@
 {% from 'emails/area_cliente/_ui.html' import botao, fatos, badge, passos, titulo_secao, hero_texto with context %}
 {% set eyebrow = 'PI enviado' %}
 {% set quem = executivo.nome.split()[0] if executivo and executivo.nome else 'a equipe' %}
-{% block title %}{{ primeiro_nome }}, o PI {{ numero_pi }} seguiu para {{ quem }}{% endblock %}
-{% block preheader %}O PI {{ numero_pi }} já está com {{ quem }}, que confere e dá andamento.{% endblock %}
+{% block title %}{{ primeiro_nome }}, o PI {{ numero_pi }} foi encaminhado a {{ quem }}{% endblock %}
+{% block preheader %}O PI {{ numero_pi }} foi encaminhado a {{ quem }}, responsável pela conferência e pelo andamento.{% endblock %}
 {% block icone %}{{ badge('check-circle') }}{% endblock %}
-{% block headline %}{% if numero_pi %}O PI {{ numero_pi }} seguiu para {{ quem }}{% else %}Seu PI seguiu para {{ quem }}{% endif %}{% endblock %}
-{% block hero_sub %}{{ hero_texto('Oi, ' ~ primeiro_nome ~ '. O hub já leu o PDF e ' ~ quem ~ ' confere tudo e dá andamento.') }}{% endblock %}
+{% block headline %}{% if numero_pi %}O PI {{ numero_pi }} foi encaminhado a {{ quem }}{% else %}O PI foi encaminhado a {{ quem }}{% endif %}{% endblock %}
+{% block hero_sub %}{{ hero_texto('Olá, ' ~ primeiro_nome ~ '. O hub realizou a leitura do PDF e ' ~ quem ~ ' fará a conferência e dará andamento ao PI.') }}{% endblock %}
 {% block content %}
   {{ fatos([('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('Enviado em', quando)]) }}
   {{ titulo_secao('O que acontece agora') }}
   {{ passos([
-    ('file-text', 'Conferência', quem ~ ' confere os dados do PI com a cotação e ajusta o que precisar.'),
-    ('layers', 'Andamento', 'Depois da conferência, o PI entra na operação.'),
-    ('megaphone', 'Campanhas no hub', 'Quando o PI for aprovado, as campanhas aparecem no seu hub.'),
+    ('file-text', 'Conferência', quem ~ ' confere os dados do PI com a cotação e ajusta o que for necessário.'),
+    ('layers', 'Andamento', 'Concluída a conferência, o PI segue para a operação.'),
+    ('megaphone', 'Campanhas no hub', 'Com o PI aprovado, as campanhas passam a ser exibidas no seu hub.'),
   ]) }}
   {{ botao(link_pis, HUB_BOTAO) }}
 {% endblock %}

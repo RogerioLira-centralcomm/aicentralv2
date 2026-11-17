@@ -3,17 +3,18 @@
 {% block title %}Enviar um PI{% endblock %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
 {% block content %}
+{% set resp = usuario.executivo.nome if usuario.executivo else 'a equipe Centralcomm' %}
 <div class="pe" data-pe="enviar" data-upload-url="{{ area_url('pi_enviar') }}" data-csrf="{{ csrf }}">
   <p class="pe-voltar"><a class="ac-link" href="{{ area_url('pis') }}">{{ icon('arrow-left', 16) }} PIs</a></p>
   <h1 class="ac-h1 ac-page-title">Enviar um PI</h1>
-  <p class="ac-lead">Arraste o PDF do pedido de inserção. O hub lê o documento, mostra o que entendeu e segue para {{ usuario.executivo.nome.split()[0] if usuario.executivo else 'a equipe Centralcomm' }} conferir.</p>
+  <p class="ac-lead">Anexe o PDF do pedido de inserção. O hub realiza a leitura do documento, apresenta os dados identificados e encaminha o PI para conferência de {{ resp }}.</p>
 
 
   <section class="pe-drop" id="pe-drop" tabindex="0" aria-label="Enviar o PDF do PI">
     <span class="pe-drop__icone">{{ icon('file', 28) }}</span>
     <div class="pe-drop__texto">
-      <strong>Solte o PDF do PI aqui</strong>
-      <span>ou <button type="button" class="pe-link" id="pe-escolher">escolha no computador</button>. PDF de até 20 MB{% if limite > 1 %}, até {{ limite }} por vez{% endif %}.</span>
+      <strong>Arraste o PDF do PI para esta área</strong>
+      <span>ou <button type="button" class="pe-link" id="pe-escolher">selecione o arquivo no computador</button>. Formato PDF, até 20 MB por arquivo{% if limite > 1 %} e {{ limite }} arquivos por envio{% endif %}.</span>
     </div>
     <input type="file" id="pe-arquivo" accept="application/pdf,.pdf" multiple hidden>
     <div class="pe-drop__progresso" id="pe-progresso" hidden><span class="pe-barra"><i></i></span><em id="pe-progresso-texto">Enviando…</em></div>
@@ -21,26 +22,26 @@
   <p class="pe-erro" id="pe-erro" role="alert" hidden></p>
 
   <ol class="pe-passos">
-    <li><span class="pe-passos__n">1</span><div><strong>Envie o PDF</strong><span>O hub lê o documento em cerca de um minuto.</span></div></li>
-    <li><span class="pe-passos__n">2</span><div><strong>Veja o que entendemos</strong><span>Campanha, período, plataformas e praças aparecem na tela.</span></div></li>
-    <li><span class="pe-passos__n">3</span><div><strong>{{ usuario.executivo.nome.split()[0] if usuario.executivo else 'A equipe' }} dá andamento</strong><span>A conferência detalhada e o cadastro são com {{ 'ele' if usuario.executivo else 'a equipe' }}.</span></div></li>
+    <li><span class="pe-passos__n">1</span><div><strong>Envio do PDF</strong><span>O hub realiza a leitura do documento em cerca de um minuto.</span></div></li>
+    <li><span class="pe-passos__n">2</span><div><strong>Dados identificados</strong><span>Campanha, período, plataformas e praças são apresentados para conferência.</span></div></li>
+    <li><span class="pe-passos__n">3</span><div><strong>Verificação pela Centralcomm</strong><span>A conferência detalhada e o cadastro ficam a cargo de {{ resp }}.</span></div></li>
   </ol>
 
   {% if recentes %}
-  <h2 class="ac-h2 pe-sub">Enviados por você</h2>
+  <h2 class="ac-h2 pe-sub">PIs enviados</h2>
   <div class="ac-card ac-table-card">
     <table class="ac-table">
-      <thead><tr><th scope="col">PI</th><th scope="col">Arquivo</th><th scope="col">Situação</th><th scope="col">Enviado</th><th scope="col"></th></tr></thead>
+      <thead><tr><th scope="col">PI</th><th scope="col">Arquivo</th><th scope="col">Situação</th><th scope="col">Data do envio</th><th scope="col"></th></tr></thead>
       <tbody>
         {% for r in recentes %}
         <tr>
           <td data-label="PI"><b>{{ r.numero_pi or '—' }}</b><small>{{ r.titulo or '' }}</small></td>
           <td data-label="Arquivo">{{ r.nome_original or '—' }}</td>
           <td data-label="Situação">
-            {% if r.enviado_em %}{{ status_badge('Enviado ao executivo', True) }}
-            {% elif r.status == 'erro' %}{{ status_badge('Não consegui ler') }}
-            {% elif r.status in ('recebido', 'lendo') %}{{ status_badge('Lendo') }}
-            {% else %}{{ status_badge('Falta enviar') }}{% endif %}
+            {% if r.enviado_em %}{{ status_badge('Encaminhado ao executivo', True) }}
+            {% elif r.status == 'erro' %}{{ status_badge('Leitura não concluída') }}
+            {% elif r.status in ('recebido', 'lendo') %}{{ status_badge('Em leitura') }}
+            {% else %}{{ status_badge('Aguardando envio') }}{% endif %}
           </td>
           <td data-label="Enviado">{{ r.quando }}</td>
           <td class="ac-pis-table__acts"><a class="ac-link" href="{{ area_url('pi_enviado', uuid=r.uuid) }}">Abrir</a></td>

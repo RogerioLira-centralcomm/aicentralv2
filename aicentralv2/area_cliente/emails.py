@@ -293,9 +293,9 @@ def pi_enviado(usuario: dict, resumo: dict) -> bool:
     """Confirmação ao cliente: o PI seguiu para o executivo, que confere e dá andamento."""
     numero = resumo.get("numero_pi") or ""
     executivo = _contato_executivo(usuario.get("executivo") or {}, usuario.get("nome"), usuario.get("cliente_nome"),
-                                   f"Enviei o PI {numero} pelo hub de mídia." if numero else "Enviei um PI pelo hub de mídia.")
+                                   f"Encaminhei o PI {numero} pelo hub de mídia." if numero else "Encaminhei um PI pelo hub de mídia.")
     ctx = {**_ctx_pi(resumo), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(), "link_pis": _url("/pis"), "executivo": executivo}
-    frase = f"o PI {numero} seguiu para {(executivo or {}).get('nome', 'a equipe').split()[0]}" if numero else "o seu PI seguiu para a equipe"
+    frase = f"o PI {numero} foi encaminhado a {(executivo or {}).get('nome', 'a equipe').split()[0]}" if numero else "o seu PI foi encaminhado à equipe"
     return _enviar("pi-enviado", usuario.get("email"), usuario.get("nome"), _com_nome(usuario.get("nome"), frase), ctx,
                    _reply_executivo(executivo), _remetente_executivo(executivo))
 

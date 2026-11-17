@@ -98,12 +98,12 @@ def test_pi_enviado_na_demonstracao_le_o_pdf_mostra_o_que_entendeu_e_comemora(co
     assert url.startswith("/pis/enviados/demo-") and lidos == [("PI cliente.pdf", b"%PDF-1.4 conteudo")]       # o PDF enviado é o que foi lido
     assert conta174.get(url + "/status", base_url=HOST).get_json()["estado"] == "pronto"
     html = pagina(conta174, url)
-    assert "O que entendi" in html and "86761" in html and "INSTITUCIONAL SEGUNDO SEMESTRE" in html and "SICOOB CREDICOM" in html and "Enviar para João" in html
+    assert "Dados identificados" in html and "86761" in html and "INSTITUCIONAL SEGUNDO SEMESTRE" in html and "SICOOB CREDICOM" in html and "Encaminhar ao executivo" in html
     assert "DEMO-0451" not in html and "Comissão" not in html and "CNPJ" not in html                    # nada do exemplo fixo antigo
     assert conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok", "mensagem": "Teste"}).status_code == 303
     festa = pagina(conta174, url + "?enviado=1")
-    assert "data-pe-festa" in festa and "chegou para João" in festa and "area_cliente_festa.js" in festa and "Enviamos uma confirmação para" in festa
-    assert "seguiu para João" in pagina(conta174, url) and "data-pe-festa" not in pagina(conta174, url)      # depois da comemoração, a tela normal
+    assert "data-pe-festa" in festa and "encaminhado com sucesso" in festa and "area_cliente_festa.js" in festa and "A confirmação foi enviada para" in festa
+    assert "encaminhado a João" in pagina(conta174, url) and "data-pe-festa" not in pagina(conta174, url)      # depois da comemoração, a tela normal
     assert "PI cliente.pdf" in pagina(conta174, "/pis/enviar")
     ruim = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"x"), "a.exe")}, content_type="multipart/form-data")
     assert "PDF" in ruim.get_json()["entradas"][0]["erro"]
@@ -120,7 +120,7 @@ def test_pi_de_demonstracao_que_nao_le_mostra_o_erro_e_nao_envia(conta174, monke
     assert conta174.get(url + "/status", base_url=HOST).get_json()["estado"] == "erro"
     assert "O PDF tem senha." in pagina(conta174, url)
     assert conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok"}).status_code == 303
-    assert "seguiu para João" not in pagina(conta174, url + "?enviado=1")
+    assert "encaminhado a João" not in pagina(conta174, url + "?enviado=1")
 
 
 def test_emails_da_demonstracao_so_vao_para_o_proprio_usuario(conta174, monkeypatch, tmp_path):

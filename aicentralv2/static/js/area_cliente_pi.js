@@ -19,9 +19,9 @@
       prog.hidden = false; zona.classList.add('is-enviando');
       progTexto.textContent = arquivos.length === 1 ? 'Enviando o PDF…' : 'Enviando ' + arquivos.length + ' PDFs…';
       fetch(raiz.dataset.uploadUrl, { method: 'POST', credentials: 'same-origin', body: dados })
-        .then(function (r) { return r.json().catch(function () { return { ok: false, erro: 'Resposta inesperada. Tente de novo.' }; }); })
+        .then(function (r) { return r.json().catch(function () { return { ok: false, erro: 'Resposta inesperada. Tente novamente.' }; }); })
         .then(function (res) {
-          if (!res.ok) throw new Error(res.erro || 'Não consegui enviar.');
+          if (!res.ok) throw new Error(res.erro || 'Não foi possível enviar o arquivo.');
           var boas = res.entradas.filter(function (e) { return e.url; });
           var ruins = res.entradas.filter(function (e) { return e.erro; });
           if (ruins.length) erro(ruins.map(function (e) { return e.nome + ': ' + e.erro; }).join(' · '));

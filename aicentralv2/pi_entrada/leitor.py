@@ -72,7 +72,7 @@ def paginas_do_pdf(conteudo: bytes) -> list[str]:
     except LeituraErro:
         raise
     except Exception as exc:
-        raise LeituraErro("Não consegui abrir o PDF.") from exc
+        raise LeituraErro("Não foi possível abrir o PDF.") from exc
 
 
 _CALENDARIO = re.compile(r"\d{1,2}|[DSTQ]|TOT|INS|P|E|Ç|A")
@@ -167,7 +167,7 @@ def ler(conteudo: bytes, nome: str = "pi.pdf", *, modelo: str | None = None, cha
                               temperature=0, response_format={"type": "json_object"})
         except Exception as exc:
             logger.warning("Leitura do PI falhou no modelo: %s", exc)
-            raise LeituraErro("O modelo de leitura não respondeu. Tente de novo em instantes.") from exc
+            raise LeituraErro("O serviço de leitura não respondeu. Tente novamente em instantes.") from exc
         uso = (resposta or {}).get("usage") or {}
         tokens_in += int(uso.get("prompt_tokens") or 0)
         tokens_out += int(uso.get("completion_tokens") or 0)
@@ -182,7 +182,7 @@ def ler(conteudo: bytes, nome: str = "pi.pdf", *, modelo: str | None = None, cha
 
     pi = esquema.normalizar_extracao(bruto)
     if not pi["numero_pi"] and not pi["linhas"]:
-        raise LeituraErro("Não encontrei um PI neste arquivo.")
+        raise LeituraErro("Não foi identificado um PI neste arquivo.")
     return Leitura(pi=pi, bruto=bruto, metodo=metodo, modelo=(resposta or {}).get("model") or modelo,
                    paginas=len(brutas), tokens_entrada=tokens_in, tokens_saida=tokens_out,
                    duracao_ms=int((time.monotonic() - inicio) * 1000), texto=texto, avisos=avisos)

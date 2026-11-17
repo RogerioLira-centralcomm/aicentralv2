@@ -67,7 +67,7 @@ def processar(id_entrada: int, *, chamar=None) -> None:
         repositorio.registrar_log(id_entrada, "erro", int((time.monotonic() - inicio) * 1000), str(exc))
     except Exception as exc:                                                   # nunca deixar a entrada presa em "lendo"
         logger.exception("Entrada de PI %s falhou", id_entrada)
-        repositorio.mudar_status(id_entrada, "erro", "Não consegui ler este PI agora. Tente de novo ou avise a equipe técnica.")
+        repositorio.mudar_status(id_entrada, "erro", "Não foi possível ler este PI neste momento. Tente novamente ou comunique a equipe técnica.")
         repositorio.registrar_log(id_entrada, "erro", int((time.monotonic() - inicio) * 1000), repr(exc))
 
 

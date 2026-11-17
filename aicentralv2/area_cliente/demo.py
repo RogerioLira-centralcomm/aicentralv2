@@ -348,7 +348,7 @@ def _ler_agora(uuid_envio: str, nome: str) -> None:
         saida = {"erro": str(exc)}
     except Exception:
         current_app.logger.warning("Leitura do PI de demonstração falhou.", exc_info=True)
-        saida = {"erro": "Não consegui ler o PDF agora. Tente de novo."}
+        saida = {"erro": "Não foi possível ler o PDF neste momento. Tente novamente."}
     _arquivo(uuid_envio, "json").write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")
 
 

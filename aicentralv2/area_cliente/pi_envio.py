@@ -98,7 +98,7 @@ def view_pi_enviar(usuario):
             saida.append({"nome": nome, "url": r.area_url("pi_enviado", uuid=novo)})
         return jsonify(ok=True, entradas=saida)
     if repositorio.contar_envios_recentes(usuario["cliente_id"], 60) + len(arquivos) > LIMITE_POR_HORA:
-        return jsonify(ok=False, erro="Muitos envios seguidos. Tente de novo em alguns minutos ou fale com o seu executivo."), 429
+        return jsonify(ok=False, erro="Foram feitos muitos envios em sequência. Tente novamente em alguns minutos ou contate o seu executivo."), 429
     executivo_id = cadastro.executivo_da_conta(usuario["cliente_id"])
     saida = []
     for arquivo in arquivos:

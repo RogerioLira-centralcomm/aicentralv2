@@ -136,7 +136,7 @@ def pdf(nome="pi.pdf"):
 def test_pagina_de_enviar_mostra_dropzone_executivo_e_o_botao_em_pis(hub_http, mem):
     html = hub_http.get("/pis/enviar", base_url=HOST).get_data(as_text=True)
     assert "Enviar um PI" in html and 'id="pe-drop"' in html and 'data-csrf="tok"' in html and "João" in html
-    assert "Enviados por você" in html and "86761" in html
+    assert "PIs enviados" in html and "86761" in html
 
 
 def test_upload_exige_csrf_valida_pdf_cria_entrada_do_hub_e_comeca_a_ler(hub_http, mem):
@@ -165,7 +165,7 @@ def test_limite_por_hora_bloqueia_e_ver_como_envia_normalmente(hub_http, mem):
 
 def test_pagina_do_pi_lido_mostra_resumo_sem_vazar_e_o_formulario_de_envio(hub_http, mem):
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert "O que entendi" in html and "86761" in html and "R$ 10.000,00" in html and "Enviar para João" in html
+    assert "Dados identificados" in html and "86761" in html and "R$ 10.000,00" in html and "Encaminhar ao executivo" in html
     assert "wa.me/5531999990000" in html and 'name="csrf" value="tok"' in html
     for proibido in ("8.000,00", "2.000,00", CNPJ_CLIENTE, CNPJ_AGENCIA, "ODE-26-001841", "MARIANA", "623221310098", "Nota fiscal pelo valor líquido"):
         assert proibido not in html, proibido
@@ -174,11 +174,11 @@ def test_pagina_do_pi_lido_mostra_resumo_sem_vazar_e_o_formulario_de_envio(hub_h
 def test_estados_lendo_erro_e_isolamento_entre_contas(hub_http, mem):
     mem.entradas[UUID]["status"] = "lendo"
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert 'data-estado="lendo"' in html and "Lendo o seu PI" in html
+    assert 'data-estado="lendo"' in html and "Leitura do PI em andamento" in html
     assert hub_http.get(f"/pis/enviados/{UUID}/status", base_url=HOST).get_json() == {"ok": True, "estado": "lendo", "pronto": False}
     mem.entradas[UUID].update(status="erro", erro="O PDF tem senha.")
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert "Não consegui ler este PI" in html and "O PDF tem senha." in html and "Enviar de novo" in html
+    assert "Não foi possível ler este PI" in html and "O PDF tem senha." in html and "Enviar novamente" in html
     mem.entradas[UUID]["id_cliente_envio"] = 999                                    # entrada de outra conta
     assert hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).status_code == 404
     assert hub_http.get(f"/pis/enviados/{UUID}/status", base_url=HOST).status_code == 404
@@ -199,9 +199,9 @@ def test_enviar_ao_executivo_marca_avisa_uma_vez_e_exige_csrf(hub_http, mem):
     de_novo = hub_http.post(url, base_url=HOST, data={"csrf": "tok"})
     assert de_novo.status_code == 303 and len(mem.enviados) == 1 and len(mem.emails) == 2                 # não avisa duas vezes
     html = hub_http.get(f"/pis/enviados/{UUID}?enviado=1", base_url=HOST).get_data(as_text=True)
-    assert "chegou para João" in html and "data-pe-festa" in html and "Enviar para João" not in html            # logo após enviar: tela cheia de comemoração
+    assert "encaminhado com sucesso" in html and "data-pe-festa" in html and "Encaminhar ao executivo" not in html            # logo após enviar: tela cheia de comemoração
     normal = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert "seguiu para João" in normal and "Já tem cotação aprovada." in normal and "data-pe-festa" not in normal
+    assert "encaminhado a João" in normal and "Já tem cotação aprovada." in normal and "data-pe-festa" not in normal
 
 
 def test_envio_nao_acontece_se_a_leitura_nao_terminou(hub_http, mem):
@@ -239,11 +239,11 @@ def test_emails_do_pi_enviado(app_emails, monkeypatch):
         html_cliente = emails.renderizar(enviados[0][0], **enviados[0][3])
         html_interno = emails.renderizar(enviados[1][0], **enviados[1][3])
     cliente, interno = enviados
-    assert cliente[0] == "pi-enviado" and cliente[1] == "ana@cliente.test" and cliente[2] == "Ana, o PI 86761 seguiu para João" and cliente[5] == "João da Centralcomm"
+    assert cliente[0] == "pi-enviado" and cliente[1] == "ana@cliente.test" and cliente[2] == "Ana, o PI 86761 foi encaminhado a João" and cliente[5] == "João da Centralcomm"
     assert interno[0] == "pi-recebido" and interno[1] == "joao@centralcomm.media" and interno[2] == "PI 86761 enviado por Cliente Teste"
     assert interno[3]["link_entrada"].endswith("/pi-entrada/7") and interno[4] == {"name": "Ana Souza", "email": "ana@cliente.test"}
     assert "Pode seguir?" in html_interno and "Verificar no CentralX" in html_interno and "Área do Cliente" not in html_cliente + html_interno
-    assert "O PI 86761 seguiu para João" in html_cliente and "8.000,00" not in html_cliente + html_interno
+    assert "O PI 86761 foi encaminhado a João" in html_cliente and "8.000,00" not in html_cliente + html_interno
 
 
 @pytest.fixture()

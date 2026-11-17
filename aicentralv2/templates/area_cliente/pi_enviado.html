@@ -4,30 +4,30 @@
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">{% endblock %}
 {% block content %}
 {% set exec = usuario.executivo %}
-{% set quem = exec.nome.split()[0] if exec else 'a equipe Centralcomm' %}
+{% set quem = exec.nome if exec else 'a equipe Centralcomm' %}
 {% if estado == 'enviado' and recem %}
 <section class="pe-festa" data-pe-festa aria-labelledby="festa-titulo">
   <canvas class="pe-festa__fogos" aria-hidden="true"></canvas>
   <div class="pe-festa__conteudo">
     <span class="pe-festa__selo">{{ icon('check', 38) }}</span>
-    <p class="pe-festa__eyebrow">PI enviado</p>
-    <h1 class="pe-festa__titulo" id="festa-titulo">{{ 'O PI ' ~ numero_pi if numero_pi else 'Seu PI' }} chegou para {{ quem }}!</h1>
-    <p class="pe-festa__lead">{{ quem|capitalize if exec else 'A equipe' }} recebeu o PDF e a leitura do hub e já vai conferir.{% if usuario.email %} Enviamos uma confirmação para <b>{{ usuario.email }}</b> e avisamos {{ quem }} por e-mail.{% endif %}</p>
+    <p class="pe-festa__eyebrow">PI encaminhado</p>
+    <h1 class="pe-festa__titulo" id="festa-titulo">{{ 'PI ' ~ numero_pi if numero_pi else 'PI' }} encaminhado com sucesso</h1>
+    <p class="pe-festa__lead">{{ quem }} recebeu o PDF e a leitura realizada pelo hub e dará início à conferência.{% if usuario.email %} A confirmação foi enviada para <b>{{ usuario.email }}</b> e o executivo foi notificado por e-mail.{% endif %}</p>
     <div class="pe-festa__passos">
-      <div><span>1</span><b>Conferência</b><small>{{ quem }} compara o PI com a cotação e ajusta o que precisar.</small></div>
-      <div><span>2</span><b>Cadastro</b><small>O PI entra no fluxo e as campanhas são configuradas.</small></div>
-      <div><span>3</span><b>No ar</b><small>Quando o PI for aprovado, as campanhas aparecem no seu hub.</small></div>
+      <div><span>1</span><b>Conferência</b><small>O executivo compara o PI com a cotação e ajusta o que for necessário.</small></div>
+      <div><span>2</span><b>Cadastro</b><small>O PI é registrado e as campanhas são configuradas.</small></div>
+      <div><span>3</span><b>Veiculação</b><small>Com o PI aprovado, as campanhas passam a ser exibidas no hub.</small></div>
     </div>
     {% if exec %}
     <div class="pe-festa__exec">
       {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="48" height="48">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
-      <div><strong>{{ exec.nome }}</strong><span>Seu executivo na Centralcomm</span></div>
+      <div><strong>{{ exec.nome }}</strong><span>Executivo responsável</span></div>
       {% if whatsapp %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}WhatsApp</a>{% endif %}
     </div>
     {% endif %}
     <div class="pe-acoes">
-      <a class="ac-btn ac-btn--primary" href="{{ area_url('pis') }}">Ver meus PIs</a>
-      <a class="ac-btn ac-btn--secondary" href="{{ area_url('pi_enviar') }}">Enviar outro PI</a>
+      <a class="ac-btn ac-btn--primary" href="{{ area_url('pis') }}">Acessar PIs</a>
+      <a class="ac-btn ac-btn--secondary" href="{{ area_url('pi_enviar') }}">Enviar novo PI</a>
     </div>
   </div>
 </section>
@@ -37,37 +37,37 @@
   <p class="pe-voltar"><a class="ac-link" href="{{ area_url('pi_enviar') }}">{{ icon('arrow-left', 16) }} Enviar um PI</a></p>
 
   {% if estado == 'lendo' %}
-  <h1 class="ac-h1 ac-page-title">Lendo o seu PI…</h1>
-  <p class="ac-lead">O hub está lendo o PDF. Leva cerca de um minuto e esta página atualiza sozinha.</p>
+  <h1 class="ac-h1 ac-page-title">Leitura do PI em andamento</h1>
+  <p class="ac-lead">O hub está realizando a leitura do documento. O processo leva cerca de um minuto e esta página é atualizada automaticamente.</p>
   <section class="ac-card pe-lendo" role="status" aria-live="polite">
     <span class="pe-lendo__icone">{{ icon('sparkles', 24) }}</span>
-    <div><strong>Lendo o documento e separando os dados principais</strong><span>Você não precisa ficar nesta tela: o PI fica salvo em “Enviados por você”.</span>
+    <div><strong>Identificando os dados principais do documento</strong><span>Não é necessário permanecer nesta tela: o PI fica registrado em “PIs enviados”.</span>
       <span class="pe-barra pe-barra--indet"><i></i></span></div>
   </section>
 
   {% elif estado == 'erro' %}
-  <h1 class="ac-h1 ac-page-title">Não consegui ler este PI</h1>
-  <p class="ac-lead">{{ entrada.erro or 'O arquivo não pôde ser lido agora.' }}</p>
+  <h1 class="ac-h1 ac-page-title">Não foi possível ler este PI</h1>
+  <p class="ac-lead">{{ entrada.erro or 'O arquivo não pôde ser lido neste momento.' }}</p>
   <section class="ac-card pe-erro-card">
-    <p>Tente enviar o PDF de novo. Se continuar, fale com {{ quem }}: ele recebe o PI direto, sem depender da leitura do hub.</p>
+    <p>Envie o PDF novamente. Persistindo a falha, entre em contato com {{ quem }}, que recebe o PI diretamente, sem depender da leitura do hub.</p>
     <div class="pe-acoes">
-      <a class="ac-btn ac-btn--primary" href="{{ area_url('pi_enviar') }}">Enviar de novo</a>
-      {% if whatsapp %}<a class="ac-btn ac-btn--secondary" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Chamar {{ quem }}</a>{% endif %}
+      <a class="ac-btn ac-btn--primary" href="{{ area_url('pi_enviar') }}">Enviar novamente</a>
+      {% if whatsapp %}<a class="ac-btn ac-btn--secondary" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Contato por WhatsApp</a>{% endif %}
     </div>
   </section>
 
   {% else %}
   {% if estado == 'enviado' %}
-  <h1 class="ac-h1 ac-page-title">O PI {{ numero_pi }} seguiu para {{ quem }}</h1>
-  <p class="ac-lead">Enviado em {{ enviado_quando }}. {{ quem|capitalize if exec else 'A equipe' }} confere os dados e dá andamento. Você acompanha pelo hub quando o PI for aprovado.</p>
+  <h1 class="ac-h1 ac-page-title">PI {{ numero_pi }} encaminhado a {{ quem }}</h1>
+  <p class="ac-lead">Encaminhado em {{ enviado_quando }}. A conferência dos dados e o andamento do PI ficam a cargo de {{ quem }}. O acompanhamento estará disponível no hub após a aprovação do PI.</p>
   {% else %}
-  <h1 class="ac-h1 ac-page-title">Li o seu PI{% if numero_pi %} {{ numero_pi }}{% endif %}</h1>
-  <p class="ac-lead">Confira se os dados abaixo fazem sentido. {{ quem|capitalize if exec else 'A equipe' }} faz a conferência detalhada e dá andamento.</p>
+  <h1 class="ac-h1 ac-page-title">Dados identificados{% if numero_pi %} no PI {{ numero_pi }}{% endif %}</h1>
+  <p class="ac-lead">Revise as informações abaixo. A conferência detalhada e o andamento do PI ficam a cargo de {{ quem }}.</p>
   {% endif %}
 
   <div class="pe-cols">
     <section class="ac-card pe-entendi">
-      <h2 class="ac-h2">O que entendi</h2>
+      <h2 class="ac-h2">Dados identificados</h2>
       <dl class="pe-dl">
         {% if resumo.numero_pi %}<dt>PI</dt><dd>{{ resumo.numero_pi }}</dd>{% endif %}
         {% if resumo.campanha %}<dt>Campanha</dt><dd>{{ resumo.campanha }}</dd>{% endif %}
@@ -81,41 +81,41 @@
         <dt>Itens de mídia</dt><dd>{{ resumo.n_linhas }}</dd>
       </dl>
       {% if resumo.linhas %}
-      <details class="pe-linhas"><summary>Ver os {{ resumo.n_linhas }} itens de mídia</summary>
+      <details class="pe-linhas"><summary>Exibir os {{ resumo.n_linhas }} itens de mídia</summary>
         <table class="ac-table"><thead><tr><th scope="col">Plataforma</th><th scope="col">Praça</th><th scope="col">Formato</th></tr></thead>
           <tbody>{% for l in resumo.linhas %}<tr><td data-label="Plataforma">{{ l.plataforma or '—' }}</td><td data-label="Praça">{{ l.praca or '—' }}</td><td data-label="Formato">{{ l.formato or '—' }}</td></tr>{% endfor %}</tbody></table>
         {% if resumo.linhas_mais %}<p class="pe-mais">e mais {{ resumo.linhas_mais }} itens</p>{% endif %}
       </details>
       {% endif %}
-      <p class="pe-nota">{{ icon('info', 16) }} Não achou algo que devia estar aqui? Sem problema: {{ quem }} confere o PDF inteiro.</p>
+      <p class="pe-nota">{{ icon('info', 16) }} Alguma informação não foi identificada? A conferência do documento completo é realizada por {{ quem }}.</p>
     </section>
 
     <aside class="ac-card pe-exec">
-      <h2 class="ac-h2">{% if estado == 'enviado' %}Quem cuida do seu PI{% else %}Para quem vai{% endif %}</h2>
+      <h2 class="ac-h2">{% if estado == 'enviado' %}Responsável pelo PI{% else %}Encaminhamento{% endif %}</h2>
       {% if exec %}
       <div class="pe-exec__quem">
         {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="56" height="56">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
-        <div><strong>{{ exec.nome }}</strong><span>Seu executivo na Centralcomm</span></div>
+        <div><strong>{{ exec.nome }}</strong><span>Executivo responsável</span></div>
       </div>
       <ul class="pe-exec__contatos">
         {% if exec.email %}<li>{{ icon('mail', 16) }}<a class="ac-link" href="mailto:{{ exec.email }}">{{ exec.email }}</a></li>{% endif %}
       </ul>
-      {% if whatsapp %}<a class="ac-btn ac-btn--secondary pe-zap" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Chamar {{ quem }} no WhatsApp</a>{% endif %}
+      {% if whatsapp %}<a class="ac-btn ac-btn--secondary pe-zap" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Contato por WhatsApp</a>{% endif %}
       {% else %}
-      <p class="pe-exec__sem">Sua conta ainda não tem um executivo definido. A equipe Centralcomm recebe o PI e responde.</p>
+      <p class="pe-exec__sem">A conta ainda não possui executivo definido. A equipe Centralcomm receberá o PI e dará retorno.</p>
       {% endif %}
 
       {% if estado == 'pronto' %}
       <form class="pe-form" method="post" action="{{ area_url('pi_enviado_enviar', uuid=entrada.uuid) }}">
         <input type="hidden" name="csrf" value="{{ csrf }}">
-        <label for="pe-msg">Algo que {{ quem }} precisa saber? <small>(opcional)</small></label>
-        <textarea id="pe-msg" name="mensagem" rows="3" maxlength="1000" placeholder="Ex.: já tem cotação aprovada, é urgente, mudou a verba…"></textarea>
-        <button type="submit" class="ac-btn ac-btn--primary pe-enviar">{{ icon('send', 18) }}Enviar para {{ quem }}</button>
-        <p class="pe-nota">Ao enviar, o PDF e esta leitura vão para {{ quem }}. Nada é aprovado automaticamente.</p>
+        <label for="pe-msg">Observações para o executivo <small>(opcional)</small></label>
+        <textarea id="pe-msg" name="mensagem" rows="3" maxlength="1000" placeholder="Ex.: cotação já aprovada, prazo urgente, alteração de verba…"></textarea>
+        <button type="submit" class="ac-btn ac-btn--primary pe-enviar">{{ icon('send', 18) }}Encaminhar ao executivo</button>
+        <p class="pe-nota">Ao encaminhar, o PDF e a leitura serão enviados ao executivo. Nenhum PI é aprovado automaticamente.</p>
       </form>
       {% elif estado == 'enviado' %}
-      <p class="pe-ok">{{ icon('check', 18) }} Enviado em {{ enviado_quando }}</p>
-      {% if entrada.mensagem_cliente %}<p class="pe-recado"><b>Seu recado:</b> {{ entrada.mensagem_cliente }}</p>{% endif %}
+      <p class="pe-ok">{{ icon('check', 18) }} Encaminhado em {{ enviado_quando }}</p>
+      {% if entrada.mensagem_cliente %}<p class="pe-recado"><b>Observação enviada:</b> {{ entrada.mensagem_cliente }}</p>{% endif %}
       {% endif %}
     </aside>
   </div>

@@ -2153,3 +2153,14 @@ a.ac-op__kpi:hover { border-color: var(--accent); }
 .ac-lista .ac-rel-table__entrega { min-width: 130px; }
 .ac-lista .ac-rel-table__entrega .ac-camp__bar { max-width: 150px; }
 .ac-lista tbody tr.is-selected > * { background: var(--accent-soft); }
+
+/* Operação: números em colunas simples (sem cartões), rótulos numa linha só; logos com um único círculo */
+.ac-op__kpis { gap: 0; }
+.ac-op__kpi, .ac-op__kpi.is-main, .ac-op__body.is-vazio .ac-op__kpi, .ac-op__body.is-vazio .ac-op__kpi.is-main { padding: 0 0 0 14px; border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; }
+.ac-op__kpi:first-child, .ac-op__body.is-vazio .ac-op__kpi:first-child { padding-left: 0; border-left: 0; }
+.ac-op__kpi .ac-op__label { white-space: nowrap; font-size: 10.5px; letter-spacing: .03em; overflow: hidden; text-overflow: ellipsis; }
+a.ac-op__kpi:hover { border-color: var(--line); }
+a.ac-op__kpi:hover b { color: var(--accent-strong); }
+.ac-hc__item .ac-hcamp__logo { width: 30px; height: 30px; border: 0; background: transparent; box-shadow: none; }
+.ac-hc__item .ac-plat { width: 28px; height: 28px; border-radius: 50%; padding: 4px; }
+.ac-op__lista .ac-plat { border-radius: 50%; }

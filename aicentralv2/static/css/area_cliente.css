@@ -2132,3 +2132,4 @@ a.ac-op__kpi:hover { border-color: var(--accent); }
 /* marcador discreto da conta de demonstração (sem texto: o foco do topo é a busca, o briefing e a conta) */
 .ac-modo-demo { flex: none; align-self: center; width: 26px; height: 26px; display: inline-grid; place-items: center; border-radius: 50%; background: var(--colors-gray-100); color: var(--muted); }
 @keyframes ac-live { 70% { box-shadow: 0 0 0 7px rgba(0, 150, 110, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 150, 110, 0); } }
+.ac-table tr[hidden] { display: none; }

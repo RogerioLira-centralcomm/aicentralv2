@@ -311,8 +311,46 @@ def view_briefing_todos(usuario):
                    status=sorted({(e["status"], e["tom"]) for e in enviados}))
 
 
+def _item_do_historico(usuario, id_item):
+    try:
+        return next((h for h in briefing.historico(usuario["cliente_id"]) if h["id"] == id_item), None)
+    except Exception:
+        current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
+        return None
+
+
+def _atalho_datas(item):
+    """Datas do PI anterior deslocadas para o próximo mês (botão "mesmas datas, mês que vem")."""
+    if not item or not item.get("inicio_iso") or not item.get("fim_iso"):
+        return None
+    try:
+        ini, fim = briefing.deslocar_para_proximo_mes(date.fromisoformat(item["inicio_iso"]), date.fromisoformat(item["fim_iso"]))
+    except ValueError:
+        return None
+    return {"inicio": ini.isoformat(), "fim": fim.isoformat(), "rotulo": f"{ini:%d/%m} a {fim:%d/%m/%Y}"}
+
+
+def view_briefing_pi_antigo(usuario):
+    """Repetir um PI antigo: 1) escolher o PI ou briefing; 2) o formulário abre com o que dá para trazer e o que falta."""
+    de = request.args.get("de", "")
+    if request.method == "GET" and not de:
+        try:
+            historico = briefing.historico(usuario["cliente_id"])
+        except Exception:
+            current_app.logger.warning("Histórico do briefing indisponível.", exc_info=True)
+            historico = []
+        return _render("briefing_pi_antigo.html", usuario, "briefing", historico=historico)
+    return view_briefing_form(usuario, "pi_antigo")
+
+
 def view_briefing_form(usuario, modo="planejamento"):
     valores, erros = {}, {}
+    origem_item, trazido = None, []
+    if modo == "pi_antigo":
+        id_origem = request.args.get("de") or request.form.get("origem") or ""
+        origem_item = _item_do_historico(usuario, id_origem) if id_origem else None
+        if request.method == "GET" and origem_item:
+            valores, trazido = briefing.valores_do_historico(origem_item)
     if request.method == "POST" and usuario.get("ver_como"):
         # Modo de validação: nada é gravado em nome do cliente.
         _checar_csrf()
@@ -354,7 +392,8 @@ def view_briefing_form(usuario, modo="planejamento"):
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
-        b=briefing, opcoes=opcoes, historico=historico, modo=modo,
+        b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido,
+        atalho_datas=_atalho_datas(origem_item), falta=briefing.qualidade(valores)["pendencias"] if origem_item else [],
         itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),
         enviado_id=request.args.get("enviado", type=int),
@@ -793,7 +832,7 @@ def despachar():
     if endpoint == "briefing_planejamento":
         return view_briefing_form(usuario)
     if endpoint == "briefing_pi_antigo":
-        return view_briefing_form(usuario, "pi_antigo")
+        return view_briefing_pi_antigo(usuario)
     if endpoint == "briefing_todos":
         return view_briefing_todos(usuario)
     if endpoint == "briefing_cotacao":

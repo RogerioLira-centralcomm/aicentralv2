@@ -1161,7 +1161,55 @@ def test_briefing_todos_fica_fora_do_menu(app, monkeypatch):
     assert "/briefing/todos" not in nav
 
 
-def test_briefing_pi_antigo_abre_o_formulario_com_origem(app, monkeypatch):
+HIST = [{"id": "pi:7", "fonte": "PI", "titulo": "Leilão de imóveis", "quando": "10/2026", "objetivo": "Divulgar o leilão", "objetivo_tipo": "trafego",
+         "kpi": "Cliques", "plataformas": ["META ADS"], "canais": ["social"], "pracas": ["Pirapora", "Itajubá"], "publico": "Classes AB, 30+",
+         "dias": 30, "inicio_iso": "2026-10-26", "fim_iso": "2026-11-25"}]
+
+
+def test_briefing_pi_antigo_lista_os_pis_para_escolher(app, monkeypatch):
     client = _briefing_client(app, monkeypatch)
+    monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)
     html = client.get("/briefing/pi-antigo", base_url=HOST).get_data(as_text=True)
-    assert "Repetir um PI antigo" in html and 'action="/briefing/pi-antigo"' in html
+    assert "Qual PI você quer repetir?" in html and "Leilão de imóveis" in html and "?de=pi%3A7" in html
+    monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: [])
+    assert "Ainda não achei PIs anteriores" in client.get("/briefing/pi-antigo", base_url=HOST).get_data(as_text=True)
+
+
+def briefing_mod():
+    from aicentralv2.area_cliente import briefing
+    return briefing
+
+
+def test_briefing_pi_antigo_abre_preenchido_com_selos_atalho_e_o_que_falta(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)
+    html = client.get("/briefing/pi-antigo?de=pi:7", base_url=HOST).get_data(as_text=True)
+    assert 'value="Leilão de imóveis (nova edição)"' in html and "Pirapora" in html and "Divulgar o leilão" in html
+    assert 'name="origem" value="pi:7"' in html and "vem do PI Leilão de imóveis" in html and "Trouxemos de PI" in html
+    assert "Mesmas datas do PI anterior, no próximo mês" in html and "data-shift-dates" in html
+    assert "Falta só isso" in html and "Informar início e fim." in html and "Informar a verba ou uma faixa." in html
+    assert "R$" not in html.split("Falta só isso")[0].split("<form")[1]                 # nenhum valor de PI no formulário
+
+
+def test_briefing_pi_antigo_envio_guarda_a_origem(app, monkeypatch):
+    client = _briefing_client(app, monkeypatch)
+    monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)
+    gravados = []
+    monkeypatch.setattr(briefing_mod(), "enviar", lambda u, d, extra=None: gravados.append(d) or 31)
+    r = client.post("/briefing/pi-antigo", base_url=HOST, data={"csrf": "tok", "origem": "pi:7", "titulo": "Leilão 2", "objetivo": "Divulgar o leilão de novo"})
+    assert r.status_code == 303 and gravados[0]["origem"] == "pi:7" and gravados[0]["origem_rotulo"].startswith("PI Leilão de imóveis")
+
+
+def test_datas_deslocadas_para_o_proximo_mes():
+    from datetime import date
+    from aicentralv2.area_cliente.briefing import deslocar_para_proximo_mes as d
+    assert d(date(2026, 10, 26), date(2026, 11, 25), date(2026, 11, 17)) == (date(2026, 12, 26), date(2027, 1, 25))
+    assert d(date(2026, 1, 31), date(2026, 2, 28), date(2026, 1, 10)) == (date(2026, 2, 28), date(2026, 2, 28) + (date(2026, 2, 28) - date(2026, 1, 31)))
+    assert d(date(2027, 3, 5), date(2027, 3, 20), date(2026, 11, 17)) == (date(2027, 3, 5), date(2027, 3, 20))      # PI futuro não anda para trás
+
+
+def test_valores_do_historico_nao_trazem_valores_nem_datas():
+    from aicentralv2.area_cliente.briefing import valores_do_historico
+    v, trazido = valores_do_historico({**HIST[0], "valor": "R$ 19.000"})
+    assert "valor" not in v and "verba" not in v and "inicio" not in v and "fim" not in v
+    assert {"titulo", "objetivo", "pracas", "canais", "publico"} <= set(trazido) and v["abrangencia"] == "cidades"

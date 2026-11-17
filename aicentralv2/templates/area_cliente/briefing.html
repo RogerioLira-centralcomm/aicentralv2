@@ -12,6 +12,7 @@
   {% if texto %}<p class="bw-step__text">{{ texto }}</p>{% endif %}
 </header>
 {%- endmacro %}
+{% macro selo(campo) -%}{% if origem_item and campo in trazido %}<span class="bw-selo" title="Trouxemos do histórico; revise">vem do {{ origem_item.fonte }} {{ origem_item.titulo|truncate(28) }}</span>{% endif %}{%- endmacro %}
 {% set v = valores %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
@@ -19,7 +20,7 @@
   <div>
     <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
     <h1 class="ac-h1">{{ 'Repetir um PI antigo' if modo == 'pi_antigo' else 'Montar um planejamento' }}</h1>
-    <p class="ac-page-sub">{{ 'Escolha um projeto anterior no começo da página: trazemos o que dá para preencher e você revisa.' if modo == 'pi_antigo' else 'Tudo numa página só. Preencha o essencial; o resto é opcional.' }}</p>
+    <p class="ac-page-sub">{{ ('Revise o que trouxemos do histórico, complete o que falta e envie.' if origem_item else 'Escolha um projeto anterior no começo da página: trazemos o que dá para preencher e você revisa.') if modo == 'pi_antigo' else 'Tudo numa página só. Preencha o essencial; o resto é opcional.' }}</p>
   </div>
 </div>
 
@@ -62,7 +63,13 @@
     </nav>
 
     {# ---------- 0. Ponto de partida (só com histórico) ---------- #}
-    {% if historico %}
+    {% if origem_item %}
+    <input type="hidden" name="origem" value="{{ origem_item.id }}">
+    <section class="bw-trouxe" aria-label="De onde vieram os dados">
+      <p><b>Trouxemos de {{ origem_item.fonte }} "{{ origem_item.titulo|truncate(60) }}"</b>{% if origem_item.quando %} ({{ origem_item.quando }}){% endif %}: tudo que dava para aproveitar já está preenchido, com um selo. Revise e ajuste.</p>
+      <a class="ac-link" href="{{ area_url('briefing_pi_antigo') }}">Trocar de PI</a>
+    </section>
+    {% elif historico %}
     <section class="bw-step" data-step="origem" data-label="Ponto de partida">
       {{ passo_head(1, 'Quer aproveitar algo que já fizemos juntos?', 'Escolha um projeto anterior para trazer público, praças, objetivo e canais. Você revisa tudo depois.') }}
       <div class="bw-origens" role="radiogroup" aria-label="Ponto de partida">
@@ -97,13 +104,13 @@
     <section class="bw-step" data-step="objetivo" data-label="Objetivo">
       {{ passo_head(2 if historico else 1, 'O que a campanha precisa entregar?', 'O tipo de objetivo define como a mídia é comprada e o que a proposta promete.') }}
       <div class="ac-field">
-        <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
+        <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span> {{ selo('titulo') }}</label>
         <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ v.titulo or '' }}"
                placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
         {{ erro('titulo') }}
       </div>
       <fieldset class="ac-field">
-        <legend>Tipo de objetivo</legend>
+        <legend>Tipo de objetivo {{ selo('objetivo_tipo') }}</legend>
         <div class="bw-cards">
           {% for o in b.OBJETIVOS %}
           <label class="bw-card"><input type="radio" name="objetivo_tipo" value="{{ o[0] }}"{% if v.objetivo_tipo == o[0] %} checked{% endif %}><span>{{ o[1] }}</span></label>
@@ -112,7 +119,7 @@
       </fieldset>
       <div class="ac-field-row bw-row-2">
         <div class="ac-field">
-          <label for="b-kpi">KPI principal</label>
+          <label for="b-kpi">KPI principal {{ selo('kpi') }}</label>
           <input id="b-kpi" name="kpi" type="text" maxlength="80" list="bw-kpis" value="{{ v.kpi or '' }}" placeholder="Ex.: Leads">
           <datalist id="bw-kpis">{% for o in b.OBJETIVOS %}{% for k in o[2] %}<option value="{{ k }}">{% endfor %}{% endfor %}</datalist>
           <div class="ac-chips__list" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
@@ -123,7 +130,7 @@
         </div>
       </div>
       <div class="ac-field">
-        <label for="b-objetivo">Conte com suas palavras <span class="ac-req" aria-hidden="true">*</span></label>
+        <label for="b-objetivo">Conte com suas palavras <span class="ac-req" aria-hidden="true">*</span> {{ selo('objetivo') }}</label>
         <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
                   placeholder="O que você quer alcançar e por quê agora? Ex.: abrir a temporada de verão e vender a nova coleção pelo site."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ v.objetivo or '' }}</textarea>
         {{ erro('objetivo') }}
@@ -138,7 +145,7 @@
         <div class="ac-chips__list" id="bw-reuse-publico"></div>
       </div>
       <div class="ac-field">
-        <label for="b-publico">Quem você quer atingir</label>
+        <label for="b-publico">Quem você quer atingir {{ selo('publico') }}</label>
         <textarea id="b-publico" name="publico" rows="3" maxlength="1000" placeholder="Ex.: mulheres que compram moda online, interessadas em praia e viagens.">{{ v.publico or '' }}</textarea>
       </div>
       <fieldset class="ac-field ac-chips">
@@ -175,7 +182,7 @@
           <div class="ac-chips__list" id="bw-reuse-pracas"></div>
         </div>
         <div class="ac-field">
-          <label for="b-praca-busca">Praças</label>
+          <label for="b-praca-busca">Praças {{ selo('pracas') }}</label>
           <div class="bw-tokens" id="bw-tokens">
             <ul class="bw-tokens__list" id="bw-tokens-list">
               {% for p in v.pracas or [] %}<li class="ac-tag">{{ p }}<input type="hidden" name="pracas" value="{{ p }}"><button type="button" class="ac-tag__remove" aria-label="Tirar {{ p }}">{{ icon('close', 14) }}</button></li>{% endfor %}
@@ -220,6 +227,7 @@
           <input id="b-datas" name="datas_chave" type="text" maxlength="400" value="{{ v.datas_chave or '' }}" placeholder="Ex.: Black Friday, Dia das Mães">
         </div>
       </div>
+      {% if atalho_datas %}<p class="bw-atalho"><button type="button" class="bw-pill" data-shift-dates data-inicio="{{ atalho_datas.inicio }}" data-fim="{{ atalho_datas.fim }}">Mesmas datas do PI anterior, no próximo mês: {{ atalho_datas.rotulo }}</button></p>{% endif %}
       <p class="bw-hint" id="bw-periodo-hint" role="status"></p>
       <div class="ac-field">
         <label for="b-verba">Verba prevista</label>
@@ -234,7 +242,7 @@
     <section class="bw-step" data-step="canais" data-label="Canais e materiais">
       {{ passo_head(6 if historico else 5, 'Canais, peças e mensuração', 'Se não souber os canais, peça sugestão: é para isso que estamos aqui.') }}
       <fieldset class="ac-field ac-chips">
-        <legend>Canais de interesse</legend>
+        <legend>Canais de interesse {{ selo('canais') }}</legend>
         <div class="ac-chips__list">{% for valor, rotulo in canais %}{{ chip('canais', valor, rotulo, valor in (v.canais or [])) }}{% endfor %}</div>
       </fieldset>
       <fieldset class="ac-field ac-chips">
@@ -285,6 +293,13 @@
       {{ passo_head(7 if historico else 6, 'Confira o que vai para a Centralcomm', 'É este resumo que o seu executivo recebe. Clique em um bloco para ajustar.') }}
       <div class="bw-review" id="bw-review"></div>
     </section>
+
+    {% if origem_item and falta %}
+    <section class="bw-falta" aria-label="O que falta">
+      <p class="bw-falta__titulo">Falta só isso</p>
+      <ul>{% for f in falta %}<li>{{ f }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
 
     <div class="ac-form__actions bw-actions">
       <button type="button" class="ac-btn ac-btn--secondary" id="bw-voltar" hidden>{{ icon('arrow-left', 18) }}Voltar</button>

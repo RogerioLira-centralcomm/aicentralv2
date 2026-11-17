@@ -1,0 +1,33 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon, vazio %}
+{% block title %}Repetir um PI antigo{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_briefing.css') }}?v={{ static_fingerprint('css/area_cliente_briefing.css') }}">
+<div class="ac-page-head ac-enter">
+  <div>
+    <a class="ac-link ac-back" href="{{ area_url('briefing') }}">{{ icon('arrow-left', 16) }}Briefing</a>
+    <h1 class="ac-h1">Qual PI você quer repetir?</h1>
+    <p class="ac-page-sub">O formulário abre com público, praças, objetivo e canais já preenchidos. Você revisa e envia. Valores e preços não vêm junto.</p>
+  </div>
+</div>
+{% if historico %}
+<ul class="bw-origens bw-origens--lista ac-enter">
+  {% for h in historico %}
+  <li>
+    <a class="bw-origem__box" href="{{ area_url('briefing_pi_antigo') }}?de={{ h.id|urlencode }}">
+      <span class="bw-origem__meta"><span class="ac-badge ac-badge--{{ 'brand' if h.fonte == 'PI' else 'gray' }}">{{ h.fonte }}</span>{% if h.quando %}<small>{{ h.quando }}</small>{% endif %}</span>
+      <b>{{ h.titulo|truncate(70) }}</b>
+      <small class="bw-origem__tags">
+        {% if h.pracas %}<span>{{ icon('pin', 13) }}{{ h.pracas|length }} praça{{ 's' if h.pracas|length > 1 }}</span>{% endif %}
+        {% if h.publico %}<span>{{ icon('users', 13) }}público</span>{% endif %}
+        {% if h.plataformas %}<span>{{ icon('megaphone', 13) }}{{ h.plataformas[:3]|join(', ') }}{% if h.plataformas|length > 3 %} +{{ h.plataformas|length - 3 }}{% endif %}</span>{% endif %}
+      </small>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{{ vazio('file', 'Ainda não achei PIs anteriores', 'Quando houver PIs ou briefings desta conta, eles aparecem aqui para você repetir. Enquanto isso, monte um planejamento do zero.') }}
+<p class="ac-enter"><a class="ac-btn ac-btn--primary" href="{{ area_url('briefing_planejamento') }}">Montar um planejamento</a></p>
+{% endif %}
+{% endblock %}

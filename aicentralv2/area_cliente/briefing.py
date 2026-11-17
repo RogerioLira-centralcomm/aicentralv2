@@ -456,6 +456,8 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
             "objetivo": objetivo, "objetivo_tipo": _MODELO_OBJETIVO.get(modelo or "", ""),
             "kpi": _KPI_MODELO.get(modelo or "", ""), "plataformas": plataformas, "canais": canais,
             "pracas": pracas[:20], "publico": " | ".join(publicos[:2])[:900], "dias": dias,
+            "inicio_iso": r["periodo_inicio"].isoformat() if r["periodo_inicio"] else "",
+            "fim_iso": r["periodo_fim"].isoformat() if r["periodo_fim"] else "",
         })
 
     briefs = _fetch(
@@ -481,6 +483,39 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
             "publico": publico[:900], "dias": None,
         })
     return [h for h in saida if h["objetivo"] or h["pracas"] or h["publico"] or h["plataformas"]]
+
+
+def deslocar_para_proximo_mes(inicio: date, fim: date, hoje: date | None = None) -> tuple[date, date]:
+    """As mesmas datas do PI anterior, no primeiro mês que ainda está por vir (mesmo dia do mês, mesma duração)."""
+    import calendar
+    hoje = hoje or date.today()
+    alvo = (hoje.year * 12 + hoje.month) + 1                 # próximo mês, contado em meses desde o ano 0
+    meses = alvo - (inicio.year * 12 + inicio.month)
+    total = inicio.year * 12 + (inicio.month - 1) + max(meses, 0)
+    ano, mes = divmod(total, 12)
+    mes += 1
+    novo = date(ano, mes, min(inicio.day, calendar.monthrange(ano, mes)[1]))
+    return novo, novo + (fim - inicio)
+
+
+def valores_do_historico(item: dict) -> tuple[dict, list[str]]:
+    """Valores do formulário vindos de um PI ou briefing anterior, mais os campos que vieram dele (selos "vem do PI X").
+    Nunca traz valor, preço ou margem: o histórico não os carrega, e a verba é sempre o cliente quem informa."""
+    v, trazido = {"origem": item["id"]}, []
+    if item.get("titulo"):
+        v["titulo"] = f"{item['titulo']} (nova edição)"[:160]
+        trazido.append("titulo")
+    for campo, rotulo in (("objetivo", "objetivo"), ("objetivo_tipo", "objetivo_tipo"), ("kpi", "kpi"), ("publico", "publico")):
+        if item.get(campo):
+            v[campo] = item[campo]
+            trazido.append(rotulo)
+    if item.get("pracas"):
+        v["pracas"], v["abrangencia"] = list(item["pracas"]), "cidades"
+        trazido += ["pracas"]
+    if item.get("canais"):
+        v["canais"] = list(item["canais"])
+        trazido.append("canais")
+    return v, trazido
 
 
 def _secao(texto: str, nome: str) -> str:

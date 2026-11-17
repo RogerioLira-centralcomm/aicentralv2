@@ -423,6 +423,10 @@
       if (t.dataset.fill === 'b-publico' && alvo.value.trim() && alvo.value.indexOf(t.dataset.value) < 0) alvo.value = alvo.value.trim() + '\n' + t.dataset.value;
       else alvo.value = t.dataset.value;
       atualizar();
+    } else if (t.hasAttribute('data-shift-dates')) {
+      $('#b-inicio').value = t.dataset.inicio;
+      $('#b-fim').value = t.dataset.fim;
+      atualizar();
     } else if (t.dataset.addPraca) {
       addToken(t.dataset.addPraca);
     } else if (t.classList.contains('ac-tag__remove') && t.closest('#bw-tokens-list')) {

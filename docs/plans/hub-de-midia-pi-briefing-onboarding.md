@@ -128,35 +128,49 @@ Tudo cai na mesma tabela e no mesmo serviço de leitura:
 
 Nomes de tabela (substituem os de 3.4): `pi_entrada`, `pi_entrada_arquivo`, `pi_entrada_log`.
 
-### 3B.2 Leitura completa no CentralX e parcial no hub
-É o mesmo trabalho de leitura; muda só **o que cada tela mostra**:
+### 3B.2 Leitura completa no CentralX e simples no hub
+É o mesmo trabalho de leitura; muda **o que cada tela mostra** (decidido em 2026-11-17):
 
-| Dado | Hub de mídia (parcial) | CentralX (completa) |
-|---|---|---|
-| Nº do PI, cliente, agência, campanha, período, produto | sim | sim |
-| Linhas: meio, plataforma, formato, praça, segmentação, entrega | sim | sim |
-| Total bruto | decisão D1 | sim |
-| Comissão da agência, líquido, CNPJs, endereços, contatos | não | sim |
-| Regras de faturamento, centro de custos, prazo de pagamento | não | sim |
-| Conferências, confiança por campo, trecho de origem | resumo ("li tudo") | completo |
-| Executivo da conta (foto, telefone, WhatsApp) | sim | sim |
+- **CentralX (executivo): mostra tudo.** Todos os dados lidos, incluindo valores bruto, comissão e líquido, e as conferências.
+- **Hub (cliente ou agência): simples.** Lê alguns dados, mostra na tela e **avança para o executivo**, que confere e dá andamento manualmente. Mostra: nº do PI, cliente, agência, campanha, período, um resumo das linhas e o executivo da conta. Não mostra comissão, líquido, CNPJs, regras de faturamento nem conferências. (Suposição minha para o total bruto: aparece só se constar no documento enviado; confirme.)
+
+### 3B.2a Dois jeitos de começar, uma verificação só
+- **Pelo hub:** o cliente envia, o hub lê o básico e a entrada cai na fila do CentralX com o selo "enviado pelo cliente".
+- **Pelo CentralX:** o executivo arrasta o PDF e inicia o processo.
+- **Em ambos, nenhuma entrada vira PI sem verificação humana** na página da seção 3B.3. Os PIs que vêm dos clientes passam pela mesma verificação.
 
 ### 3B.3 A tela "Entrada de PI" (Comercial)
-1. **Fila**: entradas recebidas (origem, cliente detectado, executivo, idade, status). Filtro "minhas".
-2. **Arrastar e soltar** um ou mais PDFs. Barra de progresso animada durante a leitura.
-3. **Tela de entrada** em duas colunas:
-   - à esquerda, o PDF página a página; ao clicar num campo, destaca o trecho de origem;
-   - à direita, o formulário **já preenchido ao máximo**, em blocos: Identificação, Partes (cliente, agência, veículo), Período, Campanhas e linhas (tabela editável), Valores, Pagamento e faturamento, Contatos, Observações.
-   - cada campo mostra a confiança; divergências em âmbar; o que não foi encontrado em cinza ("não encontrei").
-4. **Conferências automáticas** (3B.5) no topo, com o que precisa de atenção.
-5. **Cotação:** o executivo seleciona uma cotação do cliente (`cadu_cotacoes`); a tela compara PI e cotação (valor, período, praças, plataformas, CPM ou CPC) e mostra as diferenças. A escolha grava `cotacao_id` no rascunho.
-6. **Preparar entrada do PI:** gera o rascunho no formato de `_coletar_dados_pi_form()` e abre a **próxima tela** (por enquanto uma tela de revisão final; no fim, `/cadu_pi/novo` pré-preenchido).
+Pensada para **verificar** o PI dentro do CentralX contra os dados da cotação, ajustar o que precisar e só então seguir.
+
+1. **Fila** (início): entradas por origem, cliente detectado, executivo, idade e status. Filtro "minhas". Arrastar e soltar o PDF aqui cria uma entrada.
+2. **Página de verificação, duas colunas comparativas e poucas linhas:**
+
+| Coluna esquerda: **PI lido** | Coluna direita: **Cotação selecionada** |
+|---|---|
+| Valor lido do PDF, editável | Valor da cotação |
+| Selo por linha: igual, diferente, só no PI, só na cotação, sem leitura | |
+
+   - **Poucas linhas:** 12 a 15 linhas-chave por padrão (cliente, agência, nº do PI, campanha, período, meio e plataforma, formato, modelo de compra, preço unitário, entrega contratada, valor bruto, comissão, líquido, prazo de pagamento). As linhas de campanha e as regras de faturamento ficam em blocos recolhidos ("Linhas (9)", "Regras de faturamento").
+   - **Cotação:** um seletor no topo escolhe uma cotação do cliente (`cadu_cotacoes`). Ao escolher, a página **faz sozinha a checagem de tudo** e mostra no cabeçalho "14 de 16 conferem" e o que diverge. Sem cotação, mostra só as conferências internas do PI (3B.5).
+   - **PDF ao lado:** um painel recolhível com o PDF; clicar numa linha leva à página e destaca o trecho de origem.
+3. **Ajustes com justificativa (3B.3a)** antes de seguir.
+4. **Aprovar e preparar entrada do PI:** gera o rascunho no formato de `_coletar_dados_pi_form()` e abre a próxima tela.
+
+**Componentes:** os do design system do CentralX (classes `cx-*`, folha `static/css/tailwind/enterprise-system.css`, a mesma dos drawers de CRM v3 e do cadastro de clientes), sem criar componente novo se já houver um equivalente. Confirmar o mapa de componentes antes de construir.
+
+### 3B.3a Ajustes com justificativa
+- Qualquer campo que o executivo mude (ou aceite divergente da cotação) exige **motivo** (erro de leitura, erro do PI, combinado com o cliente, diferente da cotação aprovada, outro) e **justificativa em texto**.
+- Fica numa tabela `pi_entrada_ajuste` (campo, valor lido, valor final, motivo, justificativa, quem, quando) e na auditoria que já existe (`registrar_auditoria`).
+- Nada segue para "preparar entrada" com divergência sem justificativa.
 
 ### 3B.4 Preparação dos dados para a tela atual
 O rascunho usa as chaves que a tela atual já coleta, entre elas: `codigo_pi_ag`, `titulo_pi`, `id_cliente`, `id_agencia`, `valor_bruto`, `valor_liquido`, `perc_comissao_agencia`, `periodo_inicio`, `periodo_fim`, `mes_ref_comp`, `plataforma_campanha`, `obs_operacao`, `obs_financeiro`, contatos de mídia e financeiro do cliente e da agência, `cotacao_id`, `resp_comercial`.
 
 Obrigatórios hoje na tela atual: executivo de vendas (`resp_comercial`), tipo de PI (`id_pi_tipo`) e datas de início e fim. A nova tela preenche o executivo pelo cadastro do cliente e as datas pelo PI; o **tipo de PI** é do executivo.
 Ficam para o executivo, porque não vêm do PDF: margem, tech fee, impostos %, comissão de vendas, status e sub-status.
+
+### 3B.4a Conferência do texto depois do OCR
+Duas passadas independentes: (1) a leitura extrai os campos; (2) uma **segunda checagem** recebe o texto bruto e os campos extraídos e devolve, por campo, "confirmado", "divergente" ou "não encontrado no texto". Campo divergente nasce em âmbar na página de verificação. Você sugeriu usar uma API para isso ("api do jev"): preciso saber qual é (ver D11). Sem ela, a segunda passada roda no mesmo provedor de OCR com outro modelo.
 
 ### 3B.5 Conferências (calculadas nos 3 PIs de amostra)
 - **Soma das linhas = total bruto.** No PI da CEMIG, as 9 segmentações da Meta somam R$ 13.500 e a LinkedIn R$ 5.500, total R$ 19.000.
@@ -264,15 +278,16 @@ F3 e F6 compartilham a base de leitura (F2). F4 pode andar em paralelo a F2/F3.
 
 | # | Decisão | Recomendação |
 |---|---|---|
-| D1 | Mostrar valores bruto e líquido do PI ao cliente na tela "o que entendi"? Hoje a regra da casa proíbe valor de PI no hub. | Mostrar **só o que está no documento que o próprio cliente enviou**, só para quem enviou, sem custo, margem, fee ou comissão da Centralcomm. |
+| D1 | Mostrar valores bruto e líquido do PI. | **Decidido (2026-11-17):** o CentralX mostra tudo; o hub só um resumo simples (ver 3B.2). |
 | D2 | Trocar o domínio `clientes.centralcomm.media` e o nome do pacote? | Não agora. Manter o domínio e redirecionar depois, junto com um domínio novo (ex.: `hub.`). |
 | D3 | Quando o PI vem de uma **agência**, quem recebe: o executivo da agência ou o do cliente final? | O executivo do cadastro da conta de quem enviou; mostrar também o cliente detectado. |
 | D4 | O prazo de 24 h conta horas corridas ou úteis? | Úteis (seg a sex, 9h às 18h), com o limite visível ao cliente. |
 | D5 | Modelo de OCR: Gemini 2.5 Flash (padrão atual) ou outro? | Começar com Flash e medir contra um modelo mais forte no lote de amostra. |
 | D6 | A sequência de ativação para ao enviar o primeiro PI ou briefing? | Sim: pula o e-mail 2 e segue. |
 | D7 | Material do método Leandro Ladeira para e-mail. | Você envia; eu reescrevo os textos com ele. |
-| D8 | O que a visão **parcial** do hub mostra do PI? | Identificação, período, linhas e executivo. Sem comissão, líquido, CNPJ, regras de faturamento. Total bruto conforme D1. |
+| D8 | O que a visão do hub mostra do PI? | **Decidido:** simples (nº, cliente, agência, campanha, período, resumo das linhas, executivo) e avança para o executivo. Falta confirmar o total bruto. |
 | D9 | Os PIs 86761, 86698 e 036826 já estão cadastrados no CentralX? São a verdade de referência. | Sim: comparar campo a campo antes de liberar. |
+| D11 | Qual é a "API do jev" para conferir o texto depois do OCR? | Você me diz o nome ou o endereço da documentação. |
 | D10 | Quem vê a fila Entrada de PI no CentralX? | Comercial (executivos) e administradores; cada executivo vê primeiro as suas. |
 
 ## 9. O que eu preciso de você

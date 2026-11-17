@@ -23,9 +23,11 @@
   JSON.parse(document.getElementById('bw-modal-dados').textContent).forEach(function (e) { itens[e.id] = e; });
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function secoes(texto) {
-    var saida = [], re = /^## (.+)\n([\s\S]*?)(?=\n\n## |\s*$)/gm, m;
-    while ((m = re.exec(texto || ''))) { if (!/qualidade/i.test(m[1])) saida.push([m[1].trim(), m[2].trim()]); }
-    return saida;
+    /* "## Título\nconteúdo (várias linhas)" repetido; a nota de qualidade é interna e não aparece */
+    return String(texto || '').split(/^## /m).slice(1).map(function (bloco) {
+      var i = bloco.indexOf('\n');
+      return [(i < 0 ? bloco : bloco.slice(0, i)).trim(), (i < 0 ? '' : bloco.slice(i + 1)).trim()];
+    }).filter(function (p) { return p[0] && !/qualidade/i.test(p[0]); });
   }
   function abrir(id) {
     var e = itens[id];

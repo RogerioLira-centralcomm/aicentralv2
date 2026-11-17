@@ -7,21 +7,19 @@
 {% set plataformas = lista|map(attribute='plataforma')|reject('none')|reject('equalto', '')|unique|sort|list %}
 <div class="ac-page-head"><h1 class="ac-h1 ac-page-title">Campanhas</h1></div>
 
-{{ abas(abas_itens, filtro, area_url('campanhas'), 'Status de veiculação') }}
-
-{% set n_atencao = lista|selectattr('ritmo', 'equalto', 'atencao')|list|length %}
-{% set pcts = lista|selectattr('pct', 'number')|map(attribute='pct')|list %}
-{% if plataformas|length > 1 %}
-<div class="ac-subbar ac-subbar--filtro">
-  <div class="ac-toolbar2__tools">
+{% set plataformas_da_lista = plataformas %}
+<div class="ac-utabs-row">
+  {{ abas(abas_itens, filtro, area_url('campanhas'), 'Status de veiculação') }}
+  {% if plataformas|length > 1 %}
+  <div class="ac-utabs-row__tools">
     <label class="ac-sr" for="camp-plat">Plataforma</label>
     <select id="camp-plat" class="ac-select ac-select--sm" data-camp-plat>
-      <option value="">Todas as plataformas</option>
+      <option value="">Plataformas</option>
       {% for p in plataformas %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
     </select>
   </div>
+  {% endif %}
 </div>
-{% endif %}
 
 {% if lista %}
 <div class="ac-camp-wrap">

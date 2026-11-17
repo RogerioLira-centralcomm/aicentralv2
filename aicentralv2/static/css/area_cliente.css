@@ -2193,3 +2193,11 @@ a.ac-op__kpi:hover b { color: var(--accent-strong); }
   .ac-camp-wrap td[data-c="nome"] small, .ac-camp-wrap td[data-c="nome"] a { white-space: nowrap; max-width: none; }
   .ac-camp-wrap td[data-c="nome"] { overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* Abas e filtro de plataforma na mesma linha: o seletor fica à direita, as abas rolam se faltar espaço */
+.ac-utabs-row { display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); margin: 0 0 14px; }
+.ac-utabs-row .ac-utabs { flex: 1 1 auto; min-width: 0; margin: 0; border-bottom: 0; }
+.ac-utabs-row__tools { flex: none; padding-bottom: 4px; }
+.ac-utabs-row__tools .ac-select { max-width: 190px; }
+@media (max-width: 560px) { .ac-utabs-row__tools .ac-select { max-width: 130px; } }
+@media (max-width: 560px) { .ac-utabs-row__tools .ac-select { max-width: 112px; } }

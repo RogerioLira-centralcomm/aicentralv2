@@ -173,7 +173,7 @@ def test_listas_sem_resumo_acima_da_tabela_e_com_celulas_para_o_celular(conta174
         for celula in ("nome", valor, "sub", "situacao"):                      # as quatro células das duas linhas do celular
             assert f'data-c="{celula}"' in html, (url, celula)
     inicio = pagina(conta174, "/")
-    assert "ac-hero__nome" in inicio and "ac-hero__sub" not in inicio           # contadores só na Operação, não repetidos sob o nome
+    assert 'class="ac-top__titulo">Início<' in inicio and "ac-hero" not in inicio     # sem nome nem "Hub de mídia" repetidos na página: o título fica na barra do topo
 
 
 def test_todos_os_briefings_em_tabela_com_modal_e_titulo_no_topo(conta174):

@@ -1275,7 +1275,7 @@ def test_inicio_sem_campanha_no_ar_nao_tem_barra_e_mostra_o_exemplo(app, monkeyp
     assert "ac-aviso--barra" not in html and "Acima da meta" not in html
     assert ">Exemplo<" not in html and "is-vazio" in html and "ac-sk" in html and "Ao vivo" not in html and "Nenhuma campanha no ar agora" in html
     assert "72%" not in html and "4</b>" not in html                          # nenhum número inventado no estado vazio
-    assert "ac-hero__nome" in html and "ac-hero__sub" not in html
+    assert 'class="ac-top__titulo">Início<' in html and "ac-hero" not in html and "Hub de mídia</p>" not in html
 
 
 def test_dados_coluna_de_campanhas_e_plataformas():

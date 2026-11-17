@@ -1,15 +1,12 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, periodo, status_badge, ritmo_badge, plat %}
 {% block title %}Início{% endblock %}
+{% set titulo_topo = 'Início' %}
 {% block content %}
 {% set k = resumo.kpis %}
 {% set ac = resumo.acompanhar %}
 {% set av = resumo.aviso %}
-<header class="ac-hero">
-  <p class="ac-hero__eyebrow">{{ icon('layout', 14) }}Hub de mídia</p>
-  <h1 class="ac-hero__nome">{{ usuario.cliente_nome }}</h1>
-  {% if resumo.vazio %}<p class="ac-hero__sub">Suas campanhas, PIs e relatórios com a Centralcomm, num só lugar.</p>{% endif %}
-</header>
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">Início</h1></div>
 
 {% if resumo.vazio %}
 {# Conta sem PI ainda: boas-vindas com ilustração, os 3 passos e uma prévia de como a tela vai ficar. #}

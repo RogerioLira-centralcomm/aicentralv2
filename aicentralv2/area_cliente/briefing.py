@@ -398,7 +398,7 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
     from . import demo
     if demo.ativo(cliente_id):
         return demo.historico_briefing()
-    from .dados import SUB_STATUS_CANCELADO, _fetch
+    from .dados import SUB_STATUS_FORA_DO_HUB, _fetch
 
     pis = _fetch(
         """
@@ -407,11 +407,11 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
           FROM cadu_pi pi
           LEFT JOIN cadu_cotacoes cot ON cot.id = pi.cotacao_id
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
-           AND COALESCE(pi.id_sub_status_pi, 0) <> %s
+           AND COALESCE(pi.id_sub_status_pi, 0) <> ALL(%s)
          ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC
          LIMIT %s
         """,
-        (cliente_id, cliente_id, SUB_STATUS_CANCELADO, limite),
+        (cliente_id, cliente_id, SUB_STATUS_FORA_DO_HUB, limite),
     )
     ids = [r["id_pi"] for r in pis]
     camps, linhas = [], []

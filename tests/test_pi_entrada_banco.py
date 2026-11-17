@@ -118,3 +118,36 @@ def test_cotacoes_do_cliente_e_linhas(banco):
     completa = cadastro.cotacao_completa(cot)
     assert completa["numero_cotacao"] == "COT-1" and len(completa["linhas"]) == 1 and completa["linhas"][0]["plataforma"] == "Amazon DSP"
     assert cadastro.cotacao_completa(99999) is None
+
+
+def test_entrada_do_hub_so_chega_a_fila_da_equipe_depois_de_enviada(banco):
+    with banco.cursor() as c:
+        c.execute("INSERT INTO tbl_contato_cliente (nome_completo, email) VALUES ('Executivo da conta', 'e@x.exemplo') RETURNING id_contato_cliente")
+        dono = c.fetchone()["id_contato_cliente"]
+        c.execute("INSERT INTO tbl_contato_cliente (nome_completo, email) VALUES ('Outro executivo', 'o@x.exemplo') RETURNING id_contato_cliente")
+        outro = c.fetchone()["id_contato_cliente"]
+        c.execute("INSERT INTO tbl_cliente (cnpj, razao_social, nome_fantasia, vendas_central_comm) VALUES ('11.222.333/0001-81', 'CLIENTE EXEMPLO S.A.', 'CLIENTE EXEMPLO', %s) RETURNING id_cliente", (outro,))
+        cliente_pi = c.fetchone()["id_cliente"]
+    banco.commit()
+    entrada = repositorio.criar_entrada("hub", id_cliente_envio=500, id_contato_envio=9, id_executivo=dono)
+    repositorio.registrar_arquivo(entrada, "pi.pdf", "d" * 64, 10, "/tmp/z.pdf")
+    assert repositorio.listar() == []                                                        # rascunho do cliente não aparece para a equipe
+    assert repositorio.marcar_enviado(entrada, "oi") is False                                # ainda não foi lido
+    pi = esquema.normalizar_extracao(resposta_modelo())
+    ctx = {"cliente_id": cliente_pi, "agencia_id": None, "executivo_id": outro}              # o PI é de um cliente com OUTRO executivo
+    repositorio.salvar_leitura(entrada, pi=pi, bruto={}, metodo="texto", modelo="m", prompt_versao="v", tokens_entrada=1, tokens_saida=1, resumo={}, ids=ctx)
+    assert repositorio.obter(entrada)["id_executivo"] == dono                                # no hub vale o executivo de quem enviou
+    assert repositorio.listar() == []
+    assert repositorio.marcar_enviado(entrada, "  Recado  ") is True and repositorio.marcar_enviado(entrada, "de novo") is False
+    visto = repositorio.obter(entrada)
+    assert visto["mensagem_cliente"] == "Recado" and visto["enviado_em"] is not None
+    fila = repositorio.listar()
+    assert [f["id"] for f in fila] == [entrada] and fila[0]["origem"] == "hub"
+    assert repositorio.contar_envios_recentes(500, 60) == 1 and repositorio.contar_envios_recentes(501, 60) == 0
+    assert [e["status"] for e in repositorio.enviadas_pelo_cliente(500)] == ["lido"]
+    assert repositorio.obter_por_uuid(visto["uuid"])["id"] == entrada and repositorio.obter_por_uuid("00000000-0000-0000-0000-000000000000") is None
+    # pelo CentralX o executivo continua sendo o do cliente do PI
+    interna = repositorio.criar_entrada("centralx", id_usuario=dono, id_executivo=dono)
+    repositorio.salvar_leitura(interna, pi=pi, bruto={}, metodo="texto", modelo="m", prompt_versao="v", tokens_entrada=1, tokens_saida=1, resumo={}, ids=ctx)
+    assert repositorio.obter(interna)["id_executivo"] == outro
+    assert cadastro.executivo_da_conta(cliente_pi) == outro and cadastro.contato_por_id(dono)["nome_completo"] == "Executivo da conta"

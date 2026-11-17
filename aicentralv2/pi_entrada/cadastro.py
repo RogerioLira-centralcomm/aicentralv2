@@ -96,3 +96,21 @@ def contexto(pi: dict) -> dict:
         "emails": {"cliente": emails_dos_contatos((cliente or {}).get("id_cliente")), "agencia": emails_dos_contatos((agencia or {}).get("id_cliente"))},
         "observacoes": {"cliente": (cliente or {}).get("observacoes_comerciais_adicionais") or ""},
     }
+
+
+def executivo_da_conta(id_cliente):
+    """Executivo comercial (``vendas_central_comm``) da conta de quem envia pelo hub; None se a conta não tem."""
+    if not id_cliente:
+        return None
+    row = _consulta("SELECT vendas_central_comm FROM tbl_cliente WHERE id_cliente = %s", (id_cliente,), uma=True)
+    return (row or {}).get("vendas_central_comm")
+
+
+def contato_por_id(id_contato):
+    if not id_contato:
+        return None
+    row = _consulta(
+        """SELECT c.id_contato_cliente, c.nome_completo, c.email, cli.nome_fantasia AS cliente_nome
+             FROM tbl_contato_cliente c LEFT JOIN tbl_cliente cli ON cli.id_cliente = c.pk_id_tbl_cliente
+            WHERE c.id_contato_cliente = %s""", (id_contato,), uma=True)
+    return dict(row) if row else None

@@ -139,3 +139,9 @@
   .pie-tabela--linhas { display: block; overflow-x: auto; }
 }
 @media (prefers-reduced-motion: reduce) { .pie-barra i { animation: none; width: 100%; } }
+
+/* entrada enviada pelo cliente no hub */
+.pie-hub { display: flex; gap: 12px; align-items: flex-start; }
+.pie-hub > div { display: grid; gap: 2px; font-size: 14px; }
+.pie-hub small { color: var(--cx-text-muted, #64748b); }
+.pie-recado { margin: 6px 0; padding: 6px 12px; border-left: 3px solid var(--cx-info, #1d4ed8); background: var(--cx-surface, #fff); white-space: pre-wrap; }

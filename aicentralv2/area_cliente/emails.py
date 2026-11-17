@@ -26,7 +26,7 @@ TAGS_EXTRA: list[str] = []  # scripts de teste adicionam "teste" para não entra
 HORAS_CRIAR_SENHA = 72
 MODELOS = ("novo-acesso", "acesso-liberado", "redefinir-senha", "senha-alterada",
            "pedido-acesso", "briefing-novo", "briefing-recebido",
-           "ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4")
+           "ativacao-1", "ativacao-2", "ativacao-3", "ativacao-4", "pi-enviado", "pi-recebido")
 
 
 def _url(path="/"):
@@ -281,6 +281,24 @@ def ativacao(passo: int, contato: dict, *, teste: bool = False) -> bool:
                    _reply_executivo(executivo), _remetente_executivo(executivo))
 
 
+def _ctx_pi(resumo: dict) -> dict:
+    """O resumo permitido ao cliente (``pi_entrada.hub``) em forma de contexto de e-mail."""
+    return {"numero_pi": resumo.get("numero_pi") or "", "campanha": resumo.get("campanha") or "", "periodo": resumo.get("periodo") or "",
+            "agencia": resumo.get("agencia") or "", "plataformas": ", ".join(resumo.get("plataformas") or []),
+            "pracas": ", ".join(resumo.get("pracas") or []), "total_bruto": resumo.get("total_bruto") or ""}
+
+
+def pi_enviado(usuario: dict, resumo: dict) -> bool:
+    """Confirmação ao cliente: o PI seguiu para o executivo, que confere e dá andamento."""
+    numero = resumo.get("numero_pi") or ""
+    executivo = _contato_executivo(usuario.get("executivo") or {}, usuario.get("nome"), usuario.get("cliente_nome"),
+                                   f"Enviei o PI {numero} pelo hub de mídia." if numero else "Enviei um PI pelo hub de mídia.")
+    ctx = {**_ctx_pi(resumo), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(), "link_pis": _url("/pis"), "executivo": executivo}
+    frase = f"o PI {numero} seguiu para {(executivo or {}).get('nome', 'a equipe').split()[0]}" if numero else "o seu PI seguiu para a equipe"
+    return _enviar("pi-enviado", usuario.get("email"), usuario.get("nome"), _com_nome(usuario.get("nome"), frase), ctx,
+                   _reply_executivo(executivo), _remetente_executivo(executivo))
+
+
 # ---------- Para a equipe Centralcomm ----------
 
 def _destino_equipe(executivo) -> tuple[str, str]:
@@ -298,6 +316,18 @@ def briefing_novo(usuario: dict, valores: dict, briefing_id: int) -> bool:
            "link_briefings": product_url("centralx", f"/briefings?busca={briefing_id}"), "executivo": None}
     reply = {"name": usuario.get("nome"), "email": usuario.get("email")} if usuario.get("email") else None
     return _enviar("briefing-novo", para, nome, f"Novo briefing de {usuario.get('cliente_nome')}: {valores.get('titulo')}", ctx, reply)
+
+
+def pi_recebido(usuario: dict, resumo: dict, entrada_id: int, mensagem: str = "") -> bool:
+    """Aviso ao executivo da conta: PI enviado pelo hub, já lido, esperando a verificação no CentralX."""
+    from ..product_domains import product_url
+    para, nome = _destino_equipe(usuario.get("executivo") or {})
+    ctx = {**_ctx_pi(resumo), "nome": usuario.get("nome"), "email": usuario.get("email"), "cliente": usuario.get("cliente_nome"),
+           "quando": _agora_br(), "mensagem": (mensagem or "").strip(), "primeiro_nome_executivo": _primeiro(nome),
+           "link_entrada": product_url("centralx", f"/pi-entrada/{entrada_id}"), "executivo": None}
+    reply = {"name": usuario.get("nome"), "email": usuario.get("email")} if usuario.get("email") else None
+    numero = resumo.get("numero_pi") or ""
+    return _enviar("pi-recebido", para, nome, f"PI {numero} enviado por {usuario.get('cliente_nome')}".replace("PI  ", "PI "), ctx, reply)
 
 
 def pedido_acesso(usuario: dict) -> bool:
@@ -345,6 +375,11 @@ def previa(modelo: str) -> str:
         "briefing-recebido": {**exemplo_briefing, "primeiro_nome": "Ana", "quando": _agora_br(), "link_briefing": _url("/briefing"),
                               "executivo": executivo},
     }
+    exemplo_pi = {"numero_pi": "86761", "campanha": "Institucional segundo semestre", "periodo": "NOVEMBRO/2026", "agencia": "AGENCIA EXEMPLO LTDA",
+                  "plataformas": "Amazon Música", "pracas": "MG, PA, Salvador e SP", "total_bruto": "R$ 10.000,00"}
+    ctx["pi-enviado"] = {**exemplo_pi, "primeiro_nome": "Ana", "quando": _agora_br(), "link_pis": _url("/pis"), "executivo": executivo}
+    ctx["pi-recebido"] = {**exemplo_pi, "nome": "Ana Souza", "email": "ana@cliente.com.br", "cliente": "CLIENTE EXEMPLO", "quando": _agora_br(),
+                          "mensagem": "Esse PI já tem cotação aprovada. Pode seguir?", "primeiro_nome_executivo": "João", "link_entrada": "#", "executivo": None}
     for passo in (1, 2, 3, 4):
         ctx[f"ativacao-{passo}"] = {"primeiro_nome": "Ana", "email": "ana@cliente.com.br", "cliente": "CLIENTE EXEMPLO",
                                     "de_empresa": "da CLIENTE EXEMPLO", "executivo": executivo,

@@ -62,6 +62,16 @@
     <div class="pie-chip"><span>Leitura</span><strong>{{ (entrada.metodo_leitura or '')|upper }}{% if entrada.confianca %} · confiança {{ (entrada.confianca * 100)|round|int }}%{% endif %}</strong></div>
   </section>
 
+  {% if entrada.origem == 'hub' %}
+  <div class="cx-alert cx-alert-info pie-hub" role="note">
+    <i class="fa-solid fa-circle-user" aria-hidden="true"></i>
+    <div><strong>Enviado pelo cliente no hub de mídia</strong>
+      <span>{% if remetente %}{{ remetente.nome_completo }}{% if remetente.cliente_nome %} · {{ remetente.cliente_nome }}{% endif %}{% else %}Contato não identificado{% endif %}{% if entrada.enviado_em %} · {{ entrada.enviado_em.strftime('%d/%m/%Y %H:%M') }}{% endif %}</span>
+      {% if entrada.mensagem_cliente %}<blockquote class="pie-recado">{{ entrada.mensagem_cliente }}</blockquote>{% endif %}
+      <small>O cliente viu só um resumo. A verificação completa e o andamento são seus.</small></div>
+  </div>
+  {% endif %}
+
   <form class="pie-cotacao" method="post" action="{{ url_for('pi_entrada.escolher_cotacao', id_entrada=entrada.id) }}">
     <label for="pie-cot"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> Cotação</label>
     <select id="pie-cot" name="cotacao_id" class="cx-select">

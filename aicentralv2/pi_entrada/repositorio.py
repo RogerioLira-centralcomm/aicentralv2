@@ -67,7 +67,7 @@ def arquivo_da_entrada(id_entrada):
 
 
 def listar(limite=100, *, status=None, id_executivo=None):
-    condicoes, params = [], []
+    condicoes, params = ["NOT (e.origem = 'hub' AND e.enviado_em IS NULL)"], []     # rascunho do cliente não entra na fila da equipe
     if status:
         condicoes.append("e.status = %s")
         params.append(status)
@@ -77,7 +77,7 @@ def listar(limite=100, *, status=None, id_executivo=None):
     where = ("WHERE " + " AND ".join(condicoes)) if condicoes else ""
     rows = _executar(
         f"""SELECT e.id, e.origem, e.status, e.numero_pi, e.titulo, e.confianca, e.erro, e.criado_em, e.id_executivo,
-                   e.id_cliente_detectado, e.cotacao_id, e.conferencias,
+                   e.id_cliente_detectado, e.cotacao_id, e.conferencias, e.enviado_em,
                    a.nome_original, cli.nome_fantasia AS cliente_nome, ex.nome_completo AS executivo_nome
               FROM pi_entrada e
               LEFT JOIN LATERAL (SELECT nome_original FROM pi_entrada_arquivo WHERE id_entrada = e.id ORDER BY id LIMIT 1) a ON TRUE
@@ -101,12 +101,12 @@ def salvar_leitura(id_entrada, *, pi, bruto, metodo, modelo, prompt_versao, toke
                   tokens_entrada = %s, tokens_saida = %s, confianca = %s,
                   json_extraido = %s::jsonb, json_revisado = %s::jsonb, conferencias = %s::jsonb,
                   id_cliente_detectado = %s, id_agencia_detectada = %s,
-                  id_executivo = COALESCE(%s, id_executivo)
+                  id_executivo = CASE WHEN origem = 'hub' THEN COALESCE(id_executivo, %s) ELSE COALESCE(%s, id_executivo) END
             WHERE id = %s""",
         (pi.get("numero_pi") or None, (pi.get("campanha") or (pi.get("cliente") or {}).get("nome") or "")[:200] or None,
          modelo, prompt_versao, metodo, tokens_entrada, tokens_saida, pi.get("confianca_geral"),
          _json({"pi": pi, "bruto": bruto}), _json(pi), _json(resumo),
-         ids.get("cliente_id"), ids.get("agencia_id"), ids.get("executivo_id"), id_entrada), nenhuma=True, commit=True)
+         ids.get("cliente_id"), ids.get("agencia_id"), ids.get("executivo_id"), ids.get("executivo_id"), id_entrada), nenhuma=True, commit=True)
 
 
 def salvar_revisado(id_entrada, pi_revisado) -> None:
@@ -146,3 +146,32 @@ def registrar_log(id_entrada, etapa, duracao_ms=None, detalhe=None) -> None:
                   (id_entrada, etapa[:40], duracao_ms, (detalhe or "")[:2000]), nenhuma=True, commit=True)
     except Exception:                                                       # log nunca derruba a leitura
         pass
+
+
+# ---------- hub do cliente ----------
+
+def obter_por_uuid(uuid_entrada):
+    return _linha(_executar("SELECT * FROM pi_entrada WHERE uuid = %s", (str(uuid_entrada),), uma=True))
+
+
+def enviadas_pelo_cliente(id_cliente, limite=10):
+    rows = _executar(
+        """SELECT e.uuid, e.status, e.numero_pi, e.titulo, e.criado_em, e.enviado_em, e.erro,
+                  (SELECT nome_original FROM pi_entrada_arquivo WHERE id_entrada = e.id ORDER BY id LIMIT 1) AS nome_original
+             FROM pi_entrada e WHERE e.origem = 'hub' AND e.id_cliente_envio = %s ORDER BY e.id DESC LIMIT %s""", (id_cliente, int(limite)))
+    return [dict(r) for r in rows]
+
+
+def contar_envios_recentes(id_cliente, minutos=60) -> int:
+    row = _executar("""SELECT COUNT(*) AS n FROM pi_entrada WHERE origem = 'hub' AND id_cliente_envio = %s
+                          AND criado_em > NOW() - (%s || ' minutes')::interval""", (id_cliente, str(int(minutos))), uma=True)
+    return int(row["n"])
+
+
+def marcar_enviado(id_entrada, mensagem=None) -> bool:
+    """Cliente confirmou o envio ao executivo. Só vale uma vez e só para entrada já lida."""
+    row = _executar(
+        """UPDATE pi_entrada SET enviado_em = NOW(), mensagem_cliente = %s, atualizado_em = NOW()
+            WHERE id = %s AND origem = 'hub' AND status = 'lido' AND enviado_em IS NULL RETURNING id""",
+        ((mensagem or "").strip()[:1000] or None, id_entrada), uma=True, commit=True)
+    return bool(row)

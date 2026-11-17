@@ -32,9 +32,15 @@ CREATE TABLE IF NOT EXISTS pi_entrada (
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     lido_em TIMESTAMPTZ,
     aprovado_em TIMESTAMPTZ,
-    id_usuario_aprovou INTEGER
+    id_usuario_aprovou INTEGER,
+    enviado_em TIMESTAMPTZ,                                  -- hub: quando o cliente enviou ao executivo
+    mensagem_cliente TEXT                                    -- hub: recado do cliente ao executivo
 );
+-- Entradas criadas antes destas colunas (quem aplicou a primeira versão localmente).
+ALTER TABLE pi_entrada ADD COLUMN IF NOT EXISTS enviado_em TIMESTAMPTZ;
+ALTER TABLE pi_entrada ADD COLUMN IF NOT EXISTS mensagem_cliente TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS ux_pi_entrada_uuid ON pi_entrada (uuid);
+CREATE INDEX IF NOT EXISTS ix_pi_entrada_hub ON pi_entrada (id_cliente_envio, criado_em DESC) WHERE origem = 'hub';
 CREATE INDEX IF NOT EXISTS ix_pi_entrada_status ON pi_entrada (status, criado_em DESC);
 CREATE INDEX IF NOT EXISTS ix_pi_entrada_executivo ON pi_entrada (id_executivo, status);
 CREATE INDEX IF NOT EXISTS ix_pi_entrada_numero ON pi_entrada (numero_pi);

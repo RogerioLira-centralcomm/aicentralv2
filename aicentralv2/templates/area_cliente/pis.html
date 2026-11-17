@@ -2,7 +2,7 @@
 {% from 'area_cliente/_macros.html' import icon, periodo, status_badge, vazio, plat, abas, rotulo_contraparte %}
 {% block title %}PIs{% endblock %}
 {% block content %}
-<h1 class="ac-h1 ac-page-title">PIs</h1>
+<div class="ac-page-head"><h1 class="ac-h1 ac-page-title">PIs</h1><a class="ac-btn ac-btn--primary ac-btn--sm" href="{{ area_url('pi_enviar') }}">{{ icon('plus', 16) }}Enviar um PI</a></div>
 
 {{ abas(abas_itens, filtro, area_url('pis'), 'Situação dos PIs', ('&q=' ~ termo|urlencode) if termo else '') }}
 

@@ -18,7 +18,7 @@ from flask import abort, current_app, jsonify, redirect, render_template, reques
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, dados, descobrir, emails, plataformas
+from . import acesso, briefing, dados, descobrir, emails, pi_envio, plataformas
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
@@ -39,6 +39,10 @@ ROTAS = Map([
     Rule("/<empresa>/estrategias/<endereco>/simulacao", endpoint="estrategia_publica_simulacao"),
     Rule("/planejamento", endpoint="planejamento_antigo"),
     Rule("/pis", endpoint="pis"),
+    Rule("/pis/enviar", endpoint="pi_enviar", methods=["GET", "HEAD", "POST"]),
+    Rule("/pis/enviados/<uuid>", endpoint="pi_enviado"),
+    Rule("/pis/enviados/<uuid>/status", endpoint="pi_enviado_status"),
+    Rule("/pis/enviados/<uuid>/enviar", endpoint="pi_enviado_enviar", methods=["POST"]),
     Rule("/pis/<int:id_pi>", endpoint="pi"),
     Rule("/midia", endpoint="midia_antigo"),
     Rule("/relatorios", endpoint="relatorios"),
@@ -726,7 +730,7 @@ def despachar():
         endpoint, args = ROTAS.bind_to_environ(request.environ).match()
     except (NotFound, MethodNotAllowed):
         abort(404)
-    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso"}:
+    if request.method not in {"GET", "HEAD"} and endpoint not in {"briefing", "briefing_pracas", "descobrir_selecao", "ver_como", "ver_como_sair", "solicitar_acesso", "pi_enviar", "pi_enviado_enviar"}:
         abort(405)
     if endpoint == "sair":
         return view_sair()
@@ -765,6 +769,14 @@ def despachar():
         return view_campanhas(usuario)
     if endpoint == "pis":
         return view_pis(usuario)
+    if endpoint == "pi_enviar":
+        return pi_envio.view_pi_enviar(usuario)
+    if endpoint == "pi_enviado":
+        return pi_envio.view_pi_enviado(usuario, **args)
+    if endpoint == "pi_enviado_status":
+        return pi_envio.view_pi_enviado_status(usuario, **args)
+    if endpoint == "pi_enviado_enviar":
+        return pi_envio.view_pi_enviado_enviar(usuario, **args)
     if endpoint == "relatorios":
         return view_relatorios(usuario)
     if endpoint == "pi":

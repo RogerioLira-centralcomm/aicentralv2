@@ -1,0 +1,14 @@
+{% extends 'emails/area_cliente/base.html' %}
+{% from 'emails/area_cliente/_ui.html' import botao, fatos, badge, hero_texto, nota with context %}
+{% set eyebrow = 'PI pelo hub' %}
+{% block title %}PI {{ numero_pi }} enviado por {{ cliente }}{% endblock %}
+{% block preheader %}{{ nome }} enviou o PI {{ numero_pi }}. O hub já leu; falta a sua verificação.{% endblock %}
+{% block icone %}{{ badge('file-text') }}{% endblock %}
+{% block headline %}{{ cliente }} enviou o PI {{ numero_pi }}{% endblock %}
+{% block hero_sub %}{{ hero_texto(primeiro_nome_executivo ~ ', o hub já leu o PDF. Falta a sua verificação no CentralX antes de dar andamento.') }}{% endblock %}
+{% block content %}
+  {{ fatos([('Enviado por', nome ~ ' · ' ~ email), ('Empresa', cliente), ('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('Total bruto', total_bruto), ('Enviado em', quando)]) }}
+  {% if mensagem %}{{ nota('Recado do cliente: ' ~ mensagem) }}{% endif %}
+  {{ botao(link_entrada, 'Verificar no CentralX') }}
+{% endblock %}
+{% block footer_note %}Aviso interno. Responda ao cliente pelo seu e-mail ou WhatsApp.{% endblock %}

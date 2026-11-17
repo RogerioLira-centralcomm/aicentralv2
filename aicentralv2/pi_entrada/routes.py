@@ -174,6 +174,8 @@ def verificar(id_entrada):
     contexto = {"entrada": entrada, "travada": parada, "status_rotulo": ROTULO_STATUS.get(entrada["status"], (entrada["status"], "cx-badge-muted"))}
     if entrada["status"] in ("recebido", "lendo", "erro") or not entrada.get("json_revisado"):
         return render_template("pi_entrada/verificar.html", carregando=entrada["status"] in ("recebido", "lendo") and not parada, v=None, **contexto)
+    if entrada.get("origem") == "hub":
+        contexto["remetente"] = cadastro.contato_por_id(entrada.get("id_contato_envio"))
     return render_template("pi_entrada/verificar.html", carregando=False, v=_visao(entrada), **contexto)
 
 

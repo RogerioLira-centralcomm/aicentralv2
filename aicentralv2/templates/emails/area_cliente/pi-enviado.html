@@ -8,7 +8,7 @@
 {% block headline %}{% if numero_pi %}O PI {{ numero_pi }} foi encaminhado a {{ quem }}{% else %}O PI foi encaminhado a {{ quem }}{% endif %}{% endblock %}
 {% block hero_sub %}{{ hero_texto('Olá, ' ~ primeiro_nome ~ '. O hub realizou a leitura do PDF e ' ~ quem ~ ' fará a conferência e dará andamento ao PI.') }}{% endblock %}
 {% block content %}
-  {{ fatos([('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('Enviado em', quando)]) }}
+  {{ fatos([('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('PDF enviado', pdf), ('Enviado em', quando)]) }}
   {{ titulo_secao('O que acontece agora') }}
   {{ passos([
     ('file-text', 'Conferência', quem ~ ' confere os dados do PI com a cotação e ajusta o que for necessário.'),

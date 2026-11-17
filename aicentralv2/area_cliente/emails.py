@@ -94,7 +94,7 @@ def renderizar(modelo: str, **ctx) -> str:
                            brand=product_email_brand("clientes"), area_url=_url("/"), **{**GLOBAIS_JINJA, "ano": datetime.now().year, **ctx})
 
 
-def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetente_nome=None) -> bool:
+def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetente_nome=None, anexos=None) -> bool:
     """Monta o HTML agora e entrega em segundo plano. Devolve False se não há destinatário."""
     if not para_email:
         return False
@@ -113,7 +113,8 @@ def _enviar(modelo, para_email, para_nome, assunto, ctx, reply_to=None, remetent
             try:
                 resultado = servico.enviar_email(to_email=para_email, to_name=para_nome or para_email,
                                                  subject=assunto, html_content=html, reply_to=reply_to,
-                                                 tags=["area-cliente", modelo, *TAGS_EXTRA], sender=sender)
+                                                 tags=["area-cliente", modelo, *TAGS_EXTRA], sender=sender,
+                                                 attachments=anexos or None)
                 if not (resultado or {}).get("success"):
                     logger.warning("E-mail %s não enviado para %s: %s", modelo, para_email, (resultado or {}).get("error"))
             except Exception:
@@ -289,15 +290,32 @@ def _ctx_pi(resumo: dict) -> dict:
             "pracas": ", ".join(resumo.get("pracas") or []), "total_bruto": resumo.get("total_bruto") or ""}
 
 
-def pi_enviado(usuario: dict, resumo: dict) -> bool:
+LIMITE_ANEXO = 2_800_000      # bytes do PDF: a Brevo aceita cerca de 4 MB por e-mail e o base64 cresce um terço
+
+
+def anexo_pdf(caminho, nome: str = "PI.pdf"):
+    """PDF como anexo de e-mail (formato da Brevo), ou None se não existe ou passa do limite (o e-mail avisa que o PDF está no sistema)."""
+    import base64
+    from pathlib import Path
+    try:
+        arquivo = Path(caminho)
+        if not arquivo.is_file() or arquivo.stat().st_size > LIMITE_ANEXO:
+            return None
+        return [{"name": (nome or "PI.pdf")[:120], "content": base64.b64encode(arquivo.read_bytes()).decode("ascii")}]
+    except OSError:
+        return None
+
+
+def pi_enviado(usuario: dict, resumo: dict, anexos=None) -> bool:
     """Confirmação ao cliente: o PI seguiu para o executivo, que confere e dá andamento."""
     numero = resumo.get("numero_pi") or ""
     executivo = _contato_executivo(usuario.get("executivo") or {}, usuario.get("nome"), usuario.get("cliente_nome"),
                                    f"Encaminhei o PI {numero} pelo hub de mídia." if numero else "Encaminhei um PI pelo hub de mídia.")
-    ctx = {**_ctx_pi(resumo), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(), "link_pis": _url("/pis"), "executivo": executivo}
+    ctx = {**_ctx_pi(resumo), "primeiro_nome": usuario.get("primeiro_nome"), "quando": _agora_br(), "link_pis": _url("/pis"), "executivo": executivo,
+           "pdf": anexos[0]["name"] if anexos else ""}
     frase = f"o PI {numero} foi encaminhado a {(executivo or {}).get('nome', 'a equipe').split()[0]}" if numero else "o seu PI foi encaminhado à equipe"
     return _enviar("pi-enviado", usuario.get("email"), usuario.get("nome"), _com_nome(usuario.get("nome"), frase), ctx,
-                   _reply_executivo(executivo), _remetente_executivo(executivo))
+                   _reply_executivo(executivo), _remetente_executivo(executivo), anexos)
 
 
 # ---------- Para a equipe Centralcomm ----------
@@ -319,16 +337,16 @@ def briefing_novo(usuario: dict, valores: dict, briefing_id: int) -> bool:
     return _enviar("briefing-novo", para, nome, f"Novo briefing de {usuario.get('cliente_nome')}: {valores.get('titulo')}", ctx, reply)
 
 
-def pi_recebido(usuario: dict, resumo: dict, entrada_id: int, mensagem: str = "") -> bool:
+def pi_recebido(usuario: dict, resumo: dict, entrada_id: int, mensagem: str = "", anexos=None) -> bool:
     """Aviso ao executivo da conta: PI enviado pelo hub, já lido, esperando a verificação no CentralX."""
     from ..product_domains import product_url
     para, nome = _destino_equipe(usuario.get("executivo") or {})
     ctx = {**_ctx_pi(resumo), "nome": usuario.get("nome"), "email": usuario.get("email"), "cliente": usuario.get("cliente_nome"),
            "quando": _agora_br(), "mensagem": (mensagem or "").strip(), "primeiro_nome_executivo": _primeiro(nome),
-           "link_entrada": product_url("centralx", f"/pi-entrada/{entrada_id}"), "executivo": None}
+           "pdf": anexos[0]["name"] if anexos else "", "link_entrada": product_url("centralx", f"/pi-entrada/{entrada_id}"), "executivo": None}
     reply = {"name": usuario.get("nome"), "email": usuario.get("email")} if usuario.get("email") else None
     numero = resumo.get("numero_pi") or ""
-    return _enviar("pi-recebido", para, nome, f"PI {numero} enviado por {usuario.get('cliente_nome')}".replace("PI  ", "PI "), ctx, reply)
+    return _enviar("pi-recebido", para, nome, f"PI {numero} enviado por {usuario.get('cliente_nome')}".replace("PI  ", "PI "), ctx, reply, anexos=anexos)
 
 
 def pedido_acesso(usuario: dict) -> bool:

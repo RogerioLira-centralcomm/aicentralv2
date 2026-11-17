@@ -183,9 +183,11 @@ def view_pi_enviado_enviar(usuario, uuid):
     if not repositorio.marcar_enviado(entrada["id"], mensagem):
         return redirect(destino, code=303)
     resumo = hub.resumo_para_cliente(entrada["json_revisado"])
+    arquivo = repositorio.arquivo_da_entrada(entrada["id"]) or {}
+    anexos = emails.anexo_pdf(arquivo.get("caminho") or "", arquivo.get("nome_original") or "PI.pdf")        # o PDF segue nos dois e-mails
     try:
-        emails.pi_recebido(usuario, resumo, entrada["id"], mensagem)
-        emails.pi_enviado(usuario, resumo)
+        emails.pi_recebido(usuario, resumo, entrada["id"], mensagem, anexos=anexos)
+        emails.pi_enviado(usuario, resumo, anexos=anexos)
     except Exception:                                                      # o envio já valeu; e-mail que falha só vai para o log
         current_app.logger.warning("E-mails do PI enviado %s não saíram.", entrada["id"], exc_info=True)
     return redirect(destino + "?enviado=1", code=303)
@@ -203,7 +205,8 @@ def _emails_da_demonstracao(usuario, uuid, mensagem):
         return
     para_mim = {**usuario, "executivo": {**(usuario.get("executivo") or {}), "email": usuario["email"], "nome": (usuario.get("executivo") or {}).get("nome") or "Executivo"}}
     try:
-        emails.pi_recebido(para_mim, resumo, 0, mensagem)
-        emails.pi_enviado(usuario, resumo)
+        anexos = emails.anexo_pdf(demo._arquivo(uuid, "pdf"), (demo.envio("pi", uuid) or {}).get("nomes", ["PI.pdf"])[0])
+        emails.pi_recebido(para_mim, resumo, 0, mensagem, anexos=anexos)
+        emails.pi_enviado(usuario, resumo, anexos=anexos)
     except Exception:
         current_app.logger.warning("E-mails de demonstração do PI não saíram.", exc_info=True)

@@ -130,8 +130,8 @@ def test_emails_da_demonstracao_so_vao_para_o_proprio_usuario(conta174, monkeypa
     monkeypatch.setattr(demo, "EXECUTAR_EM_SEGUNDO_PLANO", False)
     monkeypatch.setattr(leitor, "ler", lambda *a, **k: SimpleNamespace(pi={"numero_pi": "1", "linhas": []}))
     enviados = []
-    monkeypatch.setattr(emails, "pi_recebido", lambda u, resumo, i, msg="": enviados.append(("exec", u["executivo"]["email"])) or True)
-    monkeypatch.setattr(emails, "pi_enviado", lambda u, resumo: enviados.append(("cliente", u["email"])) or True)
+    monkeypatch.setattr(emails, "pi_recebido", lambda u, resumo, i, msg="", anexos=None: enviados.append(("exec", u["executivo"]["email"])) or True)
+    monkeypatch.setattr(emails, "pi_enviado", lambda u, resumo, anexos=None: enviados.append(("cliente", u["email"])) or True)
     try:
         url = conta174.post("/pis/enviar", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"%PDF-1.4 x"), "a.pdf")}, content_type="multipart/form-data").get_json()["entradas"][0]["url"]
         conta174.post(url + "/enviar", base_url=HOST, data={"csrf": "tok"})

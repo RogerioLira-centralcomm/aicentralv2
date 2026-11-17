@@ -97,6 +97,7 @@ def mem(monkeypatch):
         m.enviados.append((i, mensagem))
         return True
     monkeypatch.setattr(repositorio, "marcar_enviado", marcar)
+    monkeypatch.setattr(repositorio, "arquivo_da_entrada", lambda i: {"caminho": "/nao/existe.pdf", "nome_original": "PI.pdf"})
     monkeypatch.setattr(servico, "guardar_arquivo", lambda i, nome, c: {"sha256": "c" * 64, "caminho": "/tmp/y", "tamanho": len(c)})
     monkeypatch.setattr(servico, "iniciar_em_segundo_plano", lambda i: m.iniciadas.append(i))
     monkeypatch.setattr(cadastro, "executivo_da_conta", lambda c: 7)
@@ -230,7 +231,7 @@ def test_pagina_de_pis_ganha_o_botao_enviar_um_pi(hub_http, monkeypatch):
 
 def test_emails_do_pi_enviado(app_emails, monkeypatch):
     enviados = []
-    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None: enviados.append((modelo, para, assunto, ctx, reply_to, remetente_nome)) or True)
+    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None, anexos=None: enviados.append((modelo, para, assunto, ctx, reply_to, remetente_nome)) or True)
     u = usuario()
     resumo = hub.resumo_para_cliente(pi_completo())
     with app_emails.test_request_context("/", base_url=HOST):
@@ -261,3 +262,28 @@ def test_leitura_travada_vira_erro_para_o_cliente():
     assert hub.situacao({"status": "lendo", "atualizado_em": agora}) == "lendo"
     assert hub.situacao({"status": "lendo", "atualizado_em": agora - timedelta(minutes=10)}) == "erro"
     assert hub.situacao({"status": "lendo", "atualizado_em": agora - timedelta(minutes=10), "enviado_em": agora}) == "enviado"
+
+
+def test_pdf_vai_anexo_nos_dois_emails_do_pi(tmp_path, monkeypatch):
+    import base64
+    from aicentralv2.area_cliente import emails
+    pdf = tmp_path / "PI 86761.pdf"
+    pdf.write_bytes(b"%PDF-1.4 conteudo do pi")
+    anexos = emails.anexo_pdf(pdf, "PI 86761.pdf")
+    assert anexos == [{"name": "PI 86761.pdf", "content": base64.b64encode(b"%PDF-1.4 conteudo do pi").decode()}]
+    assert emails.anexo_pdf(tmp_path / "nao-existe.pdf") is None
+    grande = tmp_path / "grande.pdf"
+    grande.write_bytes(b"0" * (emails.LIMITE_ANEXO + 1))
+    assert emails.anexo_pdf(grande) is None                                          # passou do limite da Brevo: segue sem anexo
+    enviados = []
+    monkeypatch.setattr(emails, "_enviar", lambda modelo, para, nome, assunto, ctx, reply_to=None, remetente_nome=None, anexos=None: enviados.append((modelo, ctx.get("pdf"), anexos)) or True)
+    app = get_app()
+    with app.test_request_context("/", base_url=HOST):
+        u = usuario()
+        resumo = {"numero_pi": "86761", "campanha": "X", "plataformas": [], "pracas": []}
+        emails.pi_recebido(u, resumo, 1, "", anexos=anexos)
+        emails.pi_enviado(u, resumo, anexos=anexos)
+        emails.pi_enviado(u, resumo)
+    assert enviados[0][:2] == ("pi-recebido", "PI 86761.pdf") and enviados[0][2] == anexos
+    assert enviados[1][:2] == ("pi-enviado", "PI 86761.pdf") and enviados[1][2] == anexos
+    assert enviados[2][1] == "" and enviados[2][2] is None                           # sem PDF disponível, o e-mail não promete anexo

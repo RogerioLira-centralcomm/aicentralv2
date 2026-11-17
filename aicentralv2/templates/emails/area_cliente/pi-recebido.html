@@ -7,7 +7,7 @@
 {% block headline %}{{ cliente }} enviou o PI {{ numero_pi }}{% endblock %}
 {% block hero_sub %}{{ hero_texto(primeiro_nome_executivo ~ ', o hub realizou a leitura do PDF. É necessária a sua verificação no CentralX antes de dar andamento.') }}{% endblock %}
 {% block content %}
-  {{ fatos([('Enviado por', nome ~ ' · ' ~ email), ('Empresa', cliente), ('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('Total bruto', total_bruto), ('Enviado em', quando)]) }}
+  {{ fatos([('Enviado por', nome ~ ' · ' ~ email), ('Empresa', cliente), ('PI', numero_pi), ('Campanha', campanha), ('Período', periodo), ('Agência', agencia), ('Plataformas', plataformas), ('Praças', pracas), ('Total bruto', total_bruto), ('PDF do PI', ('anexado a este e-mail: ' ~ pdf) if pdf else 'disponível na verificação do CentralX'), ('Enviado em', quando)]) }}
   {% if mensagem %}{{ nota('Recado do cliente: ' ~ mensagem) }}{% endif %}
   {{ botao(link_entrada, 'Verificar no CentralX') }}
 {% endblock %}

@@ -738,12 +738,33 @@ def view_relatorios(usuario):
 PIS_FILTROS = {"abertos": "Em andamento", "finalizados": "Finalizados"}      # sem "Todos": só a busca olha os dois grupos
 
 
+def _pre_pis(usuario, codigos_reais) -> list[dict]:
+    """Pré-PIs (Entrada de PI) do cliente ou da agência, para a etapa "Pré-aprovação" da lista de PIs. Some quando o PI já virou PI de verdade."""
+    from ..pi_entrada import hub, repositorio
+    try:
+        if demo.ativo(usuario["cliente_id"]):
+            brutas = demo.pre_pis()
+        else:
+            brutas = repositorio.pre_pis_do_cliente(usuario["cliente_id"])
+        linhas = [hub.linha_pre_pi(e) for e in brutas]
+    except Exception:
+        current_app.logger.warning("Pré-PIs indisponíveis na lista de PIs.", exc_info=True)
+        return []
+    saida = []
+    for l in linhas:
+        l["plataformas"] = [{"nome": n, "logo": plataformas.logo(n), "iniciais": plataformas.iniciais(n)} for n in l["plataformas"]]
+        if l["pi"] not in codigos_reais or l["pi"] == "—":
+            saida.append(l)
+    return saida
+
+
 def view_pis(usuario):
     termo = request.args.get("q", "").strip()[:80]
     todos = dados.listar_pis(usuario["cliente_id"])
-    contagem = {"abertos": sum(1 for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS),
+    pre = _pre_pis(usuario, {p["pi"] for p in todos})
+    contagem = {"abertos": sum(1 for p in todos if p["status_id"] in dados.SUB_STATUS_ABERTOS) + len(pre),
                 "finalizados": sum(1 for p in todos if p["status_id"] not in dados.SUB_STATUS_ABERTOS),
-                "todos": len(todos)}
+                "todos": len(todos) + len(pre)}
     filtro = request.args.get("status")
     if filtro not in PIS_FILTROS:
         # Busca olha todos os PIs; sem busca, abre nos finalizados quando nada está em andamento.
@@ -754,10 +775,12 @@ def view_pis(usuario):
         pis = [p for p in todos if p["status_id"] not in dados.SUB_STATUS_ABERTOS]
     else:
         pis = todos
+    pre_visiveis = pre if filtro in ("abertos", "todos") else []
     if termo:
         t = termo.lower()
         pis = [p for p in pis if t in p["pi"].lower() or t in (p["titulo"] or "").lower()
                or t in ((p.get("contraparte") or {}).get("nome") or "").lower()]
+        pre_visiveis = [p for p in pre_visiveis if t in p["pi"].lower() or t in (p["titulo"] or "").lower() or t in (p["agencia"] or "").lower()]
     por_pi: dict = {}
     for c in dados.campanhas_dos_pis([p["id"] for p in pis]):
         por_pi.setdefault(c["id_pi"], []).append(c)
@@ -768,7 +791,7 @@ def view_pis(usuario):
             {"rotulo": "Valor líquido", "valor": p.get("liquido"), "formato": "brl"} if p.get("liquido") is not None else {"rotulo": "Valor líquido", "texto": "—"},
             {"rotulo": "Notas fiscais", "valor": p.get("n_notas") or 0, "nota": f"{p.get('n_pagas') or 0} pagas" if p.get("n_notas") else "nenhuma ainda"},
         ]}))
-    return _render("pis.html", usuario, "pis", pis=pis, etapas=dados.ETAPAS_PI, termo=termo,
+    return _render("pis.html", usuario, "pis", pis=pis, pre_pis=pre_visiveis, etapas=dados.ETAPAS_PI, termo=termo,
                    filtro=filtro, filtros=PIS_FILTROS, contagem=contagem, painel_dados=painel,
                    abas_itens=[(k, v, contagem[k]) for k, v in PIS_FILTROS.items()])
 

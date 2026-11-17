@@ -151,3 +151,31 @@ def test_entrada_do_hub_so_chega_a_fila_da_equipe_depois_de_enviada(banco):
     repositorio.salvar_leitura(interna, pi=pi, bruto={}, metodo="texto", modelo="m", prompt_versao="v", tokens_entrada=1, tokens_saida=1, resumo={}, ids=ctx)
     assert repositorio.obter(interna)["id_executivo"] == outro
     assert cadastro.executivo_da_conta(cliente_pi) == outro and cadastro.contato_por_id(dono)["nome_completo"] == "Executivo da conta"
+
+
+def test_pre_pis_visiveis_ao_cliente_e_a_agencia(banco):
+    """Pré-PI no hub: os que a conta enviou e os do CentralX atribuídos a ela (cliente ou agência), sem os que deram erro."""
+    pi = esquema.normalizar_extracao(resposta_modelo())
+
+    def lido(origem, **kw):
+        i = repositorio.criar_entrada(origem, **kw)
+        repositorio.salvar_leitura(i, pi=pi, bruto={}, metodo="texto", modelo="m", prompt_versao="v", tokens_entrada=1, tokens_saida=1, resumo={},
+                                   ids={"cliente_id": kw.pop("detectado", None), "agencia_id": None, "executivo_id": None})
+        return i
+
+    def atribuir(i, cliente=None, agencia=None):
+        with banco.cursor() as c:
+            c.execute("UPDATE pi_entrada SET id_cliente_detectado = %s, id_agencia_detectada = %s WHERE id = %s", (cliente, agencia, i))
+        banco.commit()
+    meu = lido("hub", id_cliente_envio=500)                                   # enviado por esta conta (ainda sem enviar ao executivo)
+    de_outro = lido("hub", id_cliente_envio=501)
+    da_equipe_cliente = lido("centralx"); atribuir(da_equipe_cliente, cliente=500)
+    da_equipe_agencia = lido("centralx"); atribuir(da_equipe_agencia, cliente=77, agencia=500)
+    da_equipe_outro = lido("centralx"); atribuir(da_equipe_outro, cliente=77, agencia=78)
+    lendo = repositorio.criar_entrada("centralx"); atribuir(lendo, cliente=500)               # equipe ainda lendo: não aparece
+    com_erro = lido("hub", id_cliente_envio=500)
+    repositorio.mudar_status(com_erro, "erro", "falhou")
+    ids = lambda r: sorted(repositorio.obter_por_uuid(x["uuid"])["id"] for x in r)                  # noqa: E731
+    assert ids(repositorio.pre_pis_do_cliente(500)) == sorted([meu, da_equipe_cliente, da_equipe_agencia])
+    assert ids(repositorio.pre_pis_do_cliente(501)) == [de_outro]
+    assert ids(repositorio.pre_pis_do_cliente(999)) == []

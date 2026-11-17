@@ -14,7 +14,7 @@
 <div class="ac-subbar"><p class="ac-subbar__sum">Busca “{{ termo }}” <a class="ac-link" href="{{ area_url('pis') }}?status={{ filtro if filtro in filtros else 'abertos' }}">limpar</a></p></div>
 {% endif %}
 
-{% if pis %}
+{% if pis or pre_pis %}
 <div class="ac-camp-wrap ac-camp-wrap--rolar ac-enter">
   <table class="ac-lista">
     <thead>
@@ -32,6 +32,19 @@
         <td data-label="Valor líquido" class="ac-num" data-c="valor"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
         <td data-label="Notas fiscais" data-c="nf">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
         <td class="ac-camp__acts" data-c="acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi', id_pi=p.id) }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
+      </tr>
+      {% endfor %}
+      {% for q in pre_pis %}
+      <tr class="ac-pre-pi">
+        <td data-label="PI" data-c="nome"><a class="ac-camp__pi" href="{{ area_url('pi_enviado', uuid=q.uuid) }}">{{ q.pi }}</a><small>{{ q.titulo }}</small></td>
+        <td data-label="Agência" data-c="parte">{{ q.agencia or '—' }}</td>
+        <td data-label="Plataformas" data-c="plat"><span class="ac-platstack">{% for pl in q.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if not q.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
+        <td data-label="Etapa" data-c="situacao"><span class="ac-badge ac-badge--gray" title="O PI está em verificação pela Centralcomm">Pré-aprovação</span></td>
+        <td data-label="Período" data-c="sub">{{ q.periodo or '—' }}</td>
+        <td data-label="Valor bruto" class="ac-num" data-c="bruto">{{ q.bruto or '—' }}</td>
+        <td data-label="Valor líquido" class="ac-num" data-c="valor">—</td>
+        <td data-label="Notas fiscais" data-c="nf"><small>Nenhuma ainda</small></td>
+        <td class="ac-camp__acts" data-c="acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi_enviado', uuid=q.uuid) }}" title="Ver dados identificados" aria-label="Ver o pré-PI {{ q.pi }}">{{ icon('chevron-right', 16) }}</a></td>
       </tr>
       {% endfor %}
     </tbody>

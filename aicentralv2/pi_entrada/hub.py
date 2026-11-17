@@ -58,8 +58,18 @@ def resumo_para_cliente(pi: dict) -> dict:
 CAMPOS_PERMITIDOS = frozenset(resumo_para_cliente({}).keys())
 
 
+def linha_pre_pi(entrada: dict) -> dict:
+    """Pré-PI como linha da lista de PIs do hub (etapa "Pré-aprovação"), só com o que o resumo permitido mostra."""
+    r = resumo_para_cliente(entrada.get("json_revisado") or {})
+    return {"uuid": entrada.get("uuid"), "pi": r["numero_pi"] or entrada.get("numero_pi") or "—", "titulo": r["campanha"] or entrada.get("titulo") or "",
+            "agencia": r["agencia"], "plataformas": r["plataformas"], "periodo": r["periodo"], "bruto": r["total_bruto"],
+            "origem": entrada.get("origem") or "hub", "status": entrada.get("status")}
+
+
 def situacao(entrada: dict) -> str:
-    """Estado que o cliente enxerga: lendo, erro, pronto (lido, ainda não enviado) ou enviado."""
+    """Estado que o cliente enxerga: lendo, erro, pronto (lido, ainda não enviado), enviado ou em_verificacao (cadastrado pela equipe)."""
+    if (entrada.get("origem") or "hub") != "hub":
+        return "em_verificacao"
     if entrada.get("enviado_em"):
         return "enviado"
     status = entrada.get("status")

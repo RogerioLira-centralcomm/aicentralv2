@@ -287,3 +287,29 @@ def test_pdf_vai_anexo_nos_dois_emails_do_pi(tmp_path, monkeypatch):
     assert enviados[0][:2] == ("pi-recebido", "PI 86761.pdf") and enviados[0][2] == anexos
     assert enviados[1][:2] == ("pi-enviado", "PI 86761.pdf") and enviados[1][2] == anexos
     assert enviados[2][1] == "" and enviados[2][2] is None                           # sem PDF disponível, o e-mail não promete anexo
+
+
+def test_lista_de_pis_mostra_pre_pi_com_etapa_pre_aprovacao_e_a_tela_dele(hub_http, mem, monkeypatch):
+    from aicentralv2.area_cliente import dados
+    from aicentralv2.pi_entrada import repositorio
+    monkeypatch.setattr(dados, "listar_pis", lambda c, id_pi=None: [])
+    monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
+    pi = pi_completo()
+    meu = {"uuid": "meu-1", "origem": "hub", "status": "lido", "numero_pi": "86761", "titulo": "X", "json_revisado": pi, "enviado_em": None}
+    equipe = {"uuid": "eq-1", "origem": "centralx", "status": "lido", "numero_pi": "99999", "titulo": "Y", "json_revisado": {**pi, "numero_pi": "99999"},
+              "id_cliente_detectado": 900, "id_agencia_detectada": None, "enviado_em": None}
+    monkeypatch.setattr(repositorio, "pre_pis_do_cliente", lambda c, limite=30: [meu, equipe])
+    html = hub_http.get("/pis", base_url=HOST).get_data(as_text=True)
+    assert "Pré-aprovação" in html and "86761" in html and "99999" in html and "Em andamento<span>2</span>" in html
+    assert "Comissão" not in html and "CNPJ" not in html
+    # PI que já virou PI de verdade some da etapa de pré-aprovação (sem duplicar)
+    monkeypatch.setattr(dados, "listar_pis", lambda c, id_pi=None: [{"id": 1, "pi": "86761", "titulo": "Real", "status": "Em andamento", "status_id": 3, "contraparte": {}, "bruto": 1.0, "liquido": 1.0,
+                                                                  "n_notas": 0, "n_pagas": 0, "periodo": {"inicio": "2026-11-01", "fim": "2026-11-30"}, "documentos": []}])
+    html = hub_http.get("/pis", base_url=HOST).get_data(as_text=True)
+    assert html.count("Pré-aprovação") == 1 and "99999" in html
+    # tela do pré-PI cadastrado pela equipe: só leitura, sem formulário de envio; outra conta não vê
+    monkeypatch.setattr(repositorio, "obter_por_uuid", lambda u: {"eq-1": equipe}.get(u))
+    ver = hub_http.get("/pis/enviados/eq-1", base_url=HOST).get_data(as_text=True)
+    assert "em pré-aprovação" in ver and "Dados identificados" in ver and "Encaminhar ao executivo" not in ver
+    hub_http.usuario["u"] = usuario(cliente_id=555)
+    assert hub_http.get("/pis/enviados/eq-1", base_url=HOST).status_code == 404

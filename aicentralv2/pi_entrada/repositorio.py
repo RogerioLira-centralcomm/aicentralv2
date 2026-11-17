@@ -162,6 +162,20 @@ def enviadas_pelo_cliente(id_cliente, limite=10):
     return [dict(r) for r in rows]
 
 
+def pre_pis_do_cliente(id_cliente, limite=30):
+    """Pré-PIs (Entrada de PI) que o cliente ou a agência pode ver no hub: os que a própria conta enviou e os que a equipe
+    cadastrou no CentralX e atribuiu a ela (cliente ou agência detectados no PDF). Os da equipe só aparecem depois da leitura."""
+    rows = _executar(
+        """SELECT e.uuid, e.origem, e.status, e.numero_pi, e.titulo, e.criado_em, e.enviado_em, e.json_revisado
+             FROM pi_entrada e
+            WHERE e.status <> 'erro'
+              AND ((e.origem = 'hub' AND e.id_cliente_envio = %s)
+                   OR (e.origem <> 'hub' AND e.status IN ('lido', 'aprovado', 'rascunho')
+                       AND (e.id_cliente_detectado = %s OR e.id_agencia_detectada = %s)))
+            ORDER BY e.id DESC LIMIT %s""", (id_cliente, id_cliente, id_cliente, int(limite)))
+    return [dict(r) for r in rows]
+
+
 def contar_envios_recentes(id_cliente, minutos=60) -> int:
     row = _executar("""SELECT COUNT(*) AS n FROM pi_entrada WHERE origem = 'hub' AND id_cliente_envio = %s
                           AND criado_em > NOW() - (%s || ' minutes')::interval""", (id_cliente, str(int(minutos))), uma=True)

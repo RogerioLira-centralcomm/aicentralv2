@@ -62,7 +62,10 @@
   </section>
 
   {% else %}
-  {% if estado == 'enviado' %}
+  {% if estado == 'em_verificacao' %}
+  <h1 class="ac-h1 ac-page-title">PI {{ numero_pi }} em pré-aprovação</h1>
+  <p class="ac-lead">O PI está em verificação pela Centralcomm. Os dados abaixo foram identificados no documento; o andamento fica a cargo de {{ quem }}.</p>
+  {% elif estado == 'enviado' %}
   <h1 class="ac-h1 ac-page-title">PI {{ numero_pi }} encaminhado a {{ quem }}</h1>
   <p class="ac-lead">Encaminhado em {{ enviado_quando }}. A conferência dos dados e o andamento do PI ficam a cargo de {{ quem }}. O acompanhamento estará disponível no hub após a aprovação do PI.</p>
   {% else %}
@@ -96,7 +99,7 @@
     </section>
 
     <aside class="ac-card pe-exec">
-      <h2 class="ac-h2">{% if estado == 'enviado' %}Responsável pelo PI{% else %}Encaminhamento{% endif %}</h2>
+      <h2 class="ac-h2">{% if estado in ('enviado', 'em_verificacao') %}Responsável pelo PI{% else %}Encaminhamento{% endif %}</h2>
       {% if exec %}
       <div class="pe-exec__quem">
         {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="56" height="56">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}

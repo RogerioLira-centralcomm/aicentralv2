@@ -31,7 +31,13 @@ def _rotas():
 def _entrada_do_usuario(usuario, uuid_entrada) -> dict:
     from ..pi_entrada import repositorio
     entrada = repositorio.obter_por_uuid(uuid_entrada)
-    if not entrada or entrada.get("origem") != "hub" or entrada.get("id_cliente_envio") != usuario["cliente_id"]:
+    if not entrada:
+        abort(404)
+    meu = entrada.get("origem") == "hub" and entrada.get("id_cliente_envio") == usuario["cliente_id"]
+    # Pré-PI cadastrado pela equipe no CentralX: visível à conta (ou à agência) a que foi atribuído, depois da leitura.
+    atribuido = (entrada.get("origem") != "hub" and entrada.get("status") in ("lido", "aprovado", "rascunho")
+                 and usuario["cliente_id"] in (entrada.get("id_cliente_detectado"), entrada.get("id_agencia_detectada")))
+    if not (meu or atribuido):
         abort(404)
     return entrada
 
@@ -143,7 +149,7 @@ def view_pi_enviado(usuario, uuid):
                          csrf=r._csrf_token(), status_url=r.area_url("pi_enviado_status", uuid=uuid), recem=request.args.get("enviado") == "1")
     entrada = _entrada_do_usuario(usuario, uuid)
     estado = hub.situacao(entrada)
-    resumo = hub.resumo_para_cliente(entrada["json_revisado"]) if estado in ("pronto", "enviado") and entrada.get("json_revisado") else None
+    resumo = hub.resumo_para_cliente(entrada["json_revisado"]) if estado in ("pronto", "enviado", "em_verificacao") and entrada.get("json_revisado") else None
     numero = (resumo or {}).get("numero_pi") or entrada.get("numero_pi") or ""
     return r._render("pi_enviado.html", usuario, "pis", entrada=entrada, estado=estado, resumo=resumo, numero_pi=numero,
                      whatsapp=_whatsapp(usuario, numero), enviado_quando=_quando(entrada.get("enviado_em")), csrf=r._csrf_token(),

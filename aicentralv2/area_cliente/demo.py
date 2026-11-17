@@ -371,6 +371,20 @@ def resultado_pi(uuid_envio: str) -> dict | None:
         return None
 
 
+def pre_pis() -> list[dict]:
+    """PIs enviados nesta sessão de demonstração, no formato de ``pi_entrada`` (para a etapa "Pré-aprovação" da lista de PIs)."""
+    saida = []
+    for e in envios("pi"):
+        res = resultado_pi(e["uuid"]) or {}
+        if res.get("resumo"):
+            r = res["resumo"]
+            saida.append({"uuid": e["uuid"], "origem": "hub", "status": "lido", "numero_pi": r.get("numero_pi"), "titulo": r.get("campanha"),
+                          "json_revisado": {"numero_pi": r.get("numero_pi"), "campanha": r.get("campanha"), "agencia": {"razao_social": r.get("agencia")},
+                                            "cliente": {"razao_social": r.get("cliente")}, "periodo_texto": r.get("periodo"),
+                                            "totais": {"bruto": r.get("total_bruto")}, "linhas": [{"plataforma": p} for p in r.get("plataformas") or []]}})
+    return saida
+
+
 def estado_pi(registro: dict) -> str:
     """lendo, erro, pronto ou enviado, para o PI de demonstração."""
     if registro.get("enviado_em"):

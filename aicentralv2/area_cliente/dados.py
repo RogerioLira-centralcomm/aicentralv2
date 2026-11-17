@@ -312,6 +312,21 @@ def _aviso(acompanhar: dict) -> dict:
             "frase": f"As últimas campanhas entregaram {media}% da meta em média." if media is not None else "Sem campanhas no ar agora."}
 
 
+def _campanhas_coluna(campanhas, limite=5) -> list[dict]:
+    """Coluna Campanhas do Início: as no ar primeiro (atenção antes, menor entrega antes), depois as finalizadas mais recentes.
+    As finalizadas só mostram o resultado: ritmo e barra de acompanhamento só fazem sentido para quem está no ar."""
+    no_ar = sorted((c for c in campanhas if c["no_ar"]),
+                   key=lambda c: (_ORDEM_RITMO.get(c["ritmo"] or "", 3), c["pct"] if c["pct"] is not None else -1))
+    fim = sorted((c for c in campanhas if not c["no_ar"]), key=lambda c: c["periodo"]["fim"] or "", reverse=True)
+    return (no_ar + fim)[:limite]
+
+
+def _plataformas_no_ar(campanhas) -> list[dict]:
+    from . import plataformas
+    return [{"nome": g["nome"], "logo": g["logo"], "iniciais": g["iniciais"], "no_ar": g["no_ar"]}
+            for g in plataformas.resumo([c for c in campanhas if c["no_ar"]]) if g["no_ar"]]
+
+
 def resumo_inicio(cliente_id) -> dict:
     """Tudo o que a tela Início mostra, em uma chamada."""
     projetos = listar_projetos(cliente_id)
@@ -332,7 +347,12 @@ def resumo_inicio(cliente_id) -> dict:
             "dashboards": n_dashboards([c for c in campanhas if c["no_ar"]]),
         },
         "acompanhar": acompanhar,
-        "aviso": _aviso(acompanhar),
+        # A barra de aviso só existe com campanha no ar: sem operação em andamento não há o que avisar.
+        "aviso": _aviso(acompanhar) if acompanhar["no_ar"] else None,
+        "campanhas": _campanhas_coluna(campanhas),
+        "campanhas_mais": max(len(campanhas) - 5, 0),
+        "plataformas_no_ar": _plataformas_no_ar(campanhas),
+        "ritmos": {r: sum(1 for c in campanhas if c["no_ar"] and c["ritmo"] == r) for r in ("adiantado", "no_ritmo", "atencao")},
         "vazio": not projetos,
         "plataformas": sorted({c["plataforma"] for c in campanhas if c["plataforma"]}),
         "pis": recentes[:5],

@@ -1,0 +1,21 @@
+/* Vídeos do hub: página com navegação própria, vídeo horizontal em destaque e botões grandes. */
+.ac-vnav { display: grid; gap: 6px; }
+.ac-vnav__voltar { justify-content: center; margin: 4px 0 10px; width: 100%; }
+.ac-vnav__grupo { margin: 10px 8px 2px; }
+.ac-video { max-width: 1040px; margin: 0 auto; display: grid; gap: 14px; }
+.ac-video__eyebrow { margin: 0; color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.ac-video__titulo { margin: 0; }
+.ac-video__tela { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-xl, 16px); overflow: hidden; background: #0d171a; box-shadow: 0 10px 30px rgba(16, 24, 40, .16); }
+.ac-video__tela iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ac-video__resumo { margin: 0; color: var(--muted); max-width: 720px; font-size: 16px; line-height: 1.55; }
+.ac-video__nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 4px; }
+.ac-video__btn { display: flex; align-items: center; gap: 14px; min-height: 76px; padding: 14px 20px; border: 1px solid var(--line); border-radius: var(--radius-xl, 16px); background: var(--surface); color: var(--ink); text-decoration: none; transition: border-color .15s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease); }
+.ac-video__btn small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+.ac-video__btn b { display: block; font-size: 17px; font-weight: 600; line-height: 1.3; }
+.ac-video__btn:hover { border-color: var(--accent); box-shadow: 0 6px 18px rgba(16, 24, 40, .08); transform: translateY(-1px); }
+.ac-video__btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ac-video__btn--prox { justify-content: space-between; background: var(--accent); border-color: var(--accent); color: #fff; }
+.ac-video__btn--prox small { color: rgba(255, 255, 255, .8); }
+.ac-video__btn--prox:hover { border-color: var(--accent-strong); background: var(--accent-strong); }
+@media (max-width: 700px) { .ac-video__nav { grid-template-columns: minmax(0, 1fr); } .ac-video__btn--prox { order: -1; } .ac-video__btn { min-height: 68px; } }
+@media (prefers-reduced-motion: reduce) { .ac-video__btn { transition: none; } .ac-video__btn:hover { transform: none; } }

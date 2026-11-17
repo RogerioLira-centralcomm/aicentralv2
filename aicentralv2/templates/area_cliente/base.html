@@ -53,6 +53,7 @@
     {% macro nav_link(item) -%}
     <li><a class="ac-nav__link{% if item.ativo %} is-active{% endif %}{% if item.id == 'briefing' and not item.ativo %} ac-nav__link--shine{% endif %}" href="{{ item.url }}" title="{{ item.rotulo }}"{% if item.ativo %} aria-current="page"{% endif %}>{{ icon(item.icone) }}<span class="ac-nav__text">{{ item.rotulo }}</span>{% if item.id == 'briefing' and n_selecao %}<span class="ac-nav__count" aria-label="{{ n_selecao }} itens do Descobrir para o briefing">{{ n_selecao }}</span>{% endif %}{% if item.id == 'campanhas' and n_campanhas_no_ar %}<span class="ac-nav__count ac-nav__count--live" aria-label="{{ n_campanhas_no_ar }} campanhas em andamento">{{ n_campanhas_no_ar }}</span>{% endif %}</a></li>
     {%- endmacro %}
+    {% block side_nav %}
     <nav class="ac-nav" aria-label="Seções">
       <ul class="ac-nav__group">
         <li><a class="ac-nav__link{% if nav_inicio.ativo %} is-active{% endif %}" href="{{ nav_inicio.url }}" title="Início"{% if nav_inicio.ativo %} aria-current="page"{% endif %}>{{ icon('home') }}<span class="ac-nav__text">Início</span></a></li>
@@ -72,6 +73,7 @@
       </ul>
       {% endfor %}
     </nav>
+    {% endblock %}
 
 
     {% if usuario.executivo %}

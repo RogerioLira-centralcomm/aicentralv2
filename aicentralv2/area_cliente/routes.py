@@ -18,10 +18,12 @@ from flask import abort, current_app, jsonify, redirect, render_template, reques
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, Rule
 
-from . import acesso, briefing, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas
+from . import acesso, briefing, cotacao_envio, dados, descobrir, emails, pi_envio, plataformas, videos
 
 ROTAS = Map([
     Rule("/", endpoint="inicio"),
+    Rule("/conhecer", endpoint="conhecer", defaults={"slug": None}),
+    Rule("/conhecer/<slug>", endpoint="conhecer"),
     Rule("/briefing", endpoint="briefing", methods=["GET", "HEAD", "POST"]),
     Rule("/briefing/pracas", endpoint="briefing_pracas", methods=["POST"]),
     Rule("/briefing/planejamento", endpoint="briefing_planejamento", methods=["GET", "HEAD", "POST"]),
@@ -195,12 +197,20 @@ def _exigir_acesso():
 
 def view_inicio(usuario):
     resumo = dados.resumo_inicio(usuario["cliente_id"])
-    try:
-        sugestoes = descobrir.sugestoes_estrategias(resumo["plataformas"])
-    except Exception:
-        current_app.logger.warning("Sugestões de estratégias indisponíveis no Início.", exc_info=True)
-        sugestoes = {"itens": [], "motivo": ""}
-    return _render("inicio.html", usuario, "inicio", resumo=resumo, sugestoes=sugestoes)
+    # Exemplo claro para a coluna de indicadores quando não há campanha no ar (etiqueta "Exemplo" na tela).
+    exemplo = [{"nome": n, "logo": plataformas.logo(n), "iniciais": plataformas.iniciais(n)} for n in ("Meta Ads", "Google Ads", "YouTube")]
+    return _render("inicio.html", usuario, "inicio", resumo=resumo, exemplo_plataformas=exemplo, video=videos.destaque())
+
+
+def view_conhecer(usuario, slug):
+    """Vídeos do hub, em página própria: navegação lateral só dos vídeos, botão de voltar e botões grandes de avançar."""
+    video = videos.obter(slug)
+    if video is None:
+        abort(404)
+    anterior, proximo = videos.vizinhos(video["slug"])
+    return _render("conhecer.html", usuario, "conhecer", video=video, anterior=anterior, proximo=proximo,
+                   grupos=videos.grupos(), embed=videos.embed_url(video), total=len(videos.VIDEOS),
+                   posicao=[v["slug"] for v in videos.VIDEOS].index(video["slug"]) + 1)
 
 
 def view_projeto(usuario, id_pi):
@@ -853,6 +863,8 @@ def despachar():
         return redirect(area_url("pis"), code=301)
     if endpoint == "campanhas":
         return view_campanhas(usuario)
+    if endpoint == "conhecer":
+        return view_conhecer(usuario, **args)
     if endpoint == "pis":
         return view_pis(usuario)
     if endpoint == "pi_enviar":

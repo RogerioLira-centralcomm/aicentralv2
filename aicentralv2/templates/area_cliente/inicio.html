@@ -61,122 +61,123 @@
 </section>
 {% else %}
 
-<section class="ac-hk" aria-label="Indicadores">
-  <a class="ac-hk__item" href="{{ area_url('pis') }}">
-    <span class="ac-hk__icon">{{ icon('folder', 22) }}</span>
-    <span><span class="ac-hk__label">PIs ativos</span><span class="ac-hk__value"><b>{{ k.projetos_ativos }}</b> de {{ k.projetos_total }}</span></span>
-  </a>
-  <a class="ac-hk__item" href="{{ area_url('campanhas') }}">
-    <span class="ac-hk__icon">{{ icon('megaphone', 22) }}</span>
-    <span><span class="ac-hk__label">Campanhas no ar</span><span class="ac-hk__value"><b>{{ k.campanhas_no_ar }}</b> de {{ k.campanhas_total }}</span></span>
-  </a>
-  <a class="ac-hk__item" href="{{ area_url('campanhas') }}">
-    <span class="ac-hk__icon">{{ icon('trend', 22) }}</span>
-    <span><span class="ac-hk__label">Entrega média</span><span class="ac-hk__value"><b>{% if k.entrega_media is not none %}{{ k.entrega_media }}%{% else %}—{% endif %}</b> {% if k.tempo_medio is not none %}com {{ k.tempo_medio }}% do período{% else %}sobre a meta{% endif %}</span></span>
-  </a>
-  <a class="ac-hk__item" href="{{ area_url('relatorios') }}">
-    <span class="ac-hk__icon">{{ icon('layout', 22) }}</span>
-    <span><span class="ac-hk__label">Dashboards no ar</span><span class="ac-hk__value"><b>{{ k.dashboards }}</b> de {{ k.campanhas_no_ar }} {{ 'campanha' if k.campanhas_no_ar == 1 else 'campanhas' }}</span></span>
-  </a>
+{# Barra de aviso: só existe com campanha no ar, e fala da operação em andamento. #}
+{% if av %}
+<section class="ac-aviso ac-aviso--barra ac-aviso--{{ av.tom }}" aria-labelledby="aviso-titulo">
+  <h2 class="ac-aviso__title" id="aviso-titulo">{{ icon('sparkles' if av.titulo == 'Em otimização' else 'check', 18) }}{{ av.titulo }}</h2>
+  <p class="ac-aviso__frase">{{ av.frase }}</p>
+  <a class="ac-home-link" href="{{ area_url('campanhas') }}">Ver campanhas no ar{{ icon('chevron-right', 14) }}</a>
 </section>
+{% endif %}
 
-<div class="ac-home-main">
-  <section class="ac-home-sec" aria-labelledby="acomp-titulo">
+<div class="ac-home3">
+  {# ---------- Coluna 1: Campanhas (até 5) ---------- #}
+  <section class="ac-home-sec ac-home3__col" aria-labelledby="camp-titulo">
     <header class="ac-home-sec__head">
-      <div>
-        <h2 class="ac-home-sec__title" id="acomp-titulo">Acompanhe suas campanhas</h2>
-        <p class="ac-home-sec__sub">{% if ac.no_ar %}Performance e ritmo de entrega das campanhas em andamento.{% elif ac.itens %}Nenhuma campanha no ar agora. Estas são as mais recentes.{% else %}As campanhas aparecem aqui quando entrarem no ar.{% endif %}</p>
-      </div>
-      {% if ac.mais %}<a class="ac-home-link" href="{{ area_url('campanhas') }}">+{{ ac.mais }} campanhas{{ icon('chevron-right', 14) }}</a>{% endif %}
+      <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="camp-titulo">Campanhas</h2>
+      <a class="ac-home-link" href="{{ area_url('campanhas') }}">Ver todas{% if resumo.campanhas_mais %} (+{{ resumo.campanhas_mais }}){% endif %}{{ icon('chevron-right', 14) }}</a>
     </header>
-    {% if ac.itens %}
-    <table class="ac-hcamp">
-      <thead><tr><th scope="col">Campanha</th><th scope="col" class="is-num">Entrega</th><th scope="col">Ritmo</th></tr></thead>
-      <tbody>
-        {% for c in ac.itens %}
-        <tr>
-          <th scope="row">
-            <a class="ac-hcamp__name" href="{{ area_url('pi', id_pi=c.id_pi) }}">
-              <span class="ac-hcamp__logo">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 22) }}</span>
-              <span class="ac-hcamp__text">
-                <b>{{ c.nome }}</b>
-                <small>{{ c.plataforma or c.objetivo }} · {{ c.atingido_label }} de {{ c.meta_label }}</small>
-                <span class="ac-hcamp__bar" aria-hidden="true">
-                  <span class="ac-hcamp__fill{% if c.ritmo %} ac-hcamp__fill--{{ c.ritmo }}{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>
-                  {% if ac.no_ar and c.tempo_pct is not none %}<span class="ac-hcamp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%"></span>{% endif %}
-                </span>
-              </span>
-            </a>
-          </th>
-          <td class="is-num"><b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b></td>
-          <td>{% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% else %}<span class="ac-muted">—</span>{% endif %}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% if resumo.campanhas %}
+    <ul class="ac-hc">
+      {% for c in resumo.campanhas %}
+      <li>
+        <a class="ac-hc__item" href="{{ area_url('pi', id_pi=c.id_pi) }}">
+          <span class="ac-hcamp__logo">{{ plat(c.plataforma, c.plataforma_logo, c.plataforma_iniciais, 24) }}</span>
+          <span class="ac-hc__text">
+            <b>{{ c.nome }}</b>
+            <small>{{ c.plataforma or c.objetivo }}</small>
+            {% if c.no_ar %}
+            <span class="ac-hcamp__bar" aria-hidden="true">
+              <span class="ac-hcamp__fill{% if c.ritmo %} ac-hcamp__fill--{{ c.ritmo }}{% endif %}" style="width: {{ [[c.pct or 0, 0]|max, 100]|min }}%"></span>
+              {% if c.tempo_pct is not none %}<span class="ac-hcamp__mark" style="left: {{ [[c.tempo_pct, 0]|max, 100]|min }}%"></span>{% endif %}
+            </span>
+            {% endif %}
+          </span>
+          <span class="ac-hc__fim">
+            {% if c.no_ar %}<b>{% if c.pct is not none %}{{ c.pct }}%{% else %}—{% endif %}</b>{% if c.ritmo %}{{ ritmo_badge(c.ritmo) }}{% endif %}
+            {% else %}{% if c.pct is not none %}<b>{{ c.pct }}%</b>{% endif %}<span class="ac-badge ac-badge--gray">Finalizada</span>{% endif %}
+          </span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
     {% else %}
-    <p class="ac-home-empty">Nenhuma campanha com meta por enquanto.</p>
+    <p class="ac-home-empty">As campanhas aparecem aqui quando entrarem no ar.</p>
     {% endif %}
   </section>
 
-  <aside class="ac-home-side">
-    <section class="ac-aviso ac-aviso--{{ av.tom }}" aria-labelledby="aviso-titulo">
-      <h2 class="ac-aviso__title" id="aviso-titulo">{{ icon('sparkles' if av.titulo == 'Em otimização' else 'check', 18) }}{{ av.titulo }}</h2>
-      <p class="ac-aviso__frase">{{ av.frase }}</p>
-    </section>
+  {# ---------- Coluna 2: indicadores da operação ---------- #}
+  <section class="ac-home-sec ac-home3__col ac-op" aria-labelledby="op-titulo">
+    <header class="ac-home-sec__head">
+      <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="op-titulo">Operação</h2>
+      {% if k.campanhas_no_ar %}<span class="ac-op__live"><i aria-hidden="true"></i>Ao vivo</span>{% else %}<span class="ac-previa__tag">Exemplo</span>{% endif %}
+    </header>
+    {% set ex = not k.campanhas_no_ar %}
+    {% set no_ar = 4 if ex else k.campanhas_no_ar %}
+    {% set total = 6 if ex else k.campanhas_total %}
+    {% set entrega = 72 if ex else k.entrega_media %}
+    <div class="ac-op__body{% if ex %} is-exemplo{% endif %}"{% if ex %} aria-label="Exemplo de como a operação aparece com campanhas no ar"{% endif %}>
+      <a class="ac-op__destaque" href="{{ area_url('campanhas') }}"{% if ex %} tabindex="-1" aria-hidden="true"{% endif %}>
+        <span class="ac-op__label">Campanhas no ar</span>
+        <span class="ac-op__big"><b>{{ no_ar }}</b> de {{ total }}</span>
+        <span class="ac-op__sub">{% if ex %}2 PIs ativos{% else %}{{ k.projetos_ativos }} {{ 'PI ativo' if k.projetos_ativos == 1 else 'PIs ativos' }}{% endif %}</span>
+      </a>
+      <div class="ac-op__graficos" {% if ex %}aria-hidden="true"{% endif %}>
+        <div class="ac-op__donut">
+          <svg viewBox="0 0 42 42" role="img" aria-label="Entrega média {{ entrega if entrega is not none else 'sem dados' }}{{ '%' if entrega is not none }}">
+            <circle class="ac-op__trilha" cx="21" cy="21" r="15.9"/>
+            <circle class="ac-op__arco" cx="21" cy="21" r="15.9" style="stroke-dasharray: {{ [[entrega or 0, 0]|max, 100]|min }} 100"/>
+          </svg>
+          <span><b>{% if entrega is not none %}{{ entrega }}%{% else %}—{% endif %}</b><small>entrega<br>média</small></span>
+        </div>
+        {% set rt = {'adiantado': 1, 'no_ritmo': 2, 'atencao': 1} if ex else resumo.ritmos %}
+        {% set rt_total = (rt.adiantado + rt.no_ritmo + rt.atencao) or 1 %}
+        <div class="ac-op__ritmo">
+          <span class="ac-op__label">Ritmo das campanhas</span>
+          <span class="ac-op__stack" role="img" aria-label="{{ rt.adiantado }} adiantadas, {{ rt.no_ritmo }} no ritmo, {{ rt.atencao }} em otimização">
+            <i class="is-adiantado" style="flex: {{ rt.adiantado }}"></i><i class="is-no_ritmo" style="flex: {{ rt.no_ritmo }}"></i><i class="is-atencao" style="flex: {{ rt.atencao }}"></i>
+          </span>
+          <small>{{ rt.adiantado }} adiantadas · {{ rt.no_ritmo }} no ritmo · {{ rt.atencao }} em otimização</small>
+        </div>
+      </div>
+      <div class="ac-op__plats" {% if ex %}aria-hidden="true"{% endif %}>
+        <span class="ac-op__label">Plataformas em execução</span>
+        <ul>
+          {% for p in (exemplo_plataformas if ex else resumo.plataformas_no_ar) %}
+          <li>{{ plat(p.nome, p.logo, p.iniciais, 22) }}<span>{{ p.nome }}</span>{% if not ex and p.no_ar > 1 %}<small>{{ p.no_ar }} campanhas</small>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if ex %}<p class="ac-op__nota">Assim que uma campanha entrar no ar, estes números passam a ser os da sua conta.</p>{% endif %}
+    </div>
+  </section>
 
-    <section class="ac-hpis-side" aria-labelledby="pis-titulo">
-      <header class="ac-home-sec__head">
-        <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="pis-titulo">PIs recentes</h2>
-        <a class="ac-home-link" href="{{ area_url('pis') }}">Ver todos{% if resumo.pis_mais %} ({{ resumo.pis|length + resumo.pis_mais }}){% endif %}{{ icon('chevron-right', 14) }}</a>
-      </header>
-      {% if resumo.pis %}
-      <ul class="ac-hpis-list">
-        {% for p in resumo.pis %}
-        <li>
-          <a class="ac-hpis-list__item" href="{{ area_url('pi', id_pi=p.id) }}">
-            <span class="ac-hpis-list__top"><b>{{ p.titulo }}</b><span class="ac-hpis-list__pct">{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</span></span>
-            <span class="ac-hcamp__bar"><span class="ac-hcamp__fill{% if p.ativo and p.ritmo %} ac-hcamp__fill--{{ p.ritmo }}{% elif (p.pct or 0) >= 100 %} ac-hcamp__fill--adiantado{% endif %}" style="width: {{ [[p.pct or 0, 0]|max, 100]|min }}%"></span></span>
-            <span class="ac-hpis-list__meta"><small>{{ p.pi }} · {{ periodo(p.periodo) }}</small>{{ status_badge(p.status) }}</span>
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="ac-home-empty">Nenhum PI ainda.</p>
-      {% endif %}
-    </section>
-  </aside>
+  {# ---------- Coluna 3: PIs (até 5, com resultado) ---------- #}
+  <section class="ac-home-sec ac-home3__col" aria-labelledby="pis-titulo">
+    <header class="ac-home-sec__head">
+      <h2 class="ac-home-sec__title ac-home-sec__title--sm" id="pis-titulo">PIs</h2>
+      <a class="ac-home-link" href="{{ area_url('pis') }}">Ver todos{% if resumo.pis_mais %} ({{ resumo.pis|length + resumo.pis_mais }}){% endif %}{{ icon('chevron-right', 14) }}</a>
+    </header>
+    {% if resumo.pis %}
+    <ul class="ac-hpis-list">
+      {% for p in resumo.pis %}
+      <li>
+        <a class="ac-hpis-list__item" href="{{ area_url('pi', id_pi=p.id) }}">
+          <span class="ac-hpis-list__top"><b>{{ p.titulo }}</b><span class="ac-hpis-list__pct">{% if p.pct is not none %}{{ p.pct }}%{% else %}—{% endif %}</span></span>
+          <span class="ac-hcamp__bar"><span class="ac-hcamp__fill{% if p.ativo and p.ritmo %} ac-hcamp__fill--{{ p.ritmo }}{% elif (p.pct or 0) >= 100 %} ac-hcamp__fill--adiantado{% endif %}" style="width: {{ [[p.pct or 0, 0]|max, 100]|min }}%"></span></span>
+          <span class="ac-hpis-list__meta"><small>{{ p.pi }} · {{ periodo(p.periodo) }}</small>{{ status_badge(p.status) }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="ac-home-empty">Nenhum PI ainda.</p>
+    {% endif %}
+  </section>
 </div>
 
 {% endif %}
 
-{% if sugestoes and sugestoes.itens %}
-<section class="ac-ideias" aria-labelledby="ideias-titulo">
-  <header class="ac-home-sec__head">
-    <div>
-      <h2 class="ac-home-sec__title" id="ideias-titulo">{{ 'Ideias para começar' if resumo.vazio else 'Ideias para a próxima campanha' }}</h2>
-      <p class="ac-home-sec__sub">{{ sugestoes.motivo }}</p>
-    </div>
-    <a class="ac-home-link" href="{{ area_url('descobrir_secao', secao='estrategias') }}">Todas as estratégias{{ icon('chevron-right', 14) }}</a>
-  </header>
-  <ul class="ac-ideias__lista">
-    {% for c in sugestoes.itens %}
-    <li>
-      <a class="ac-ideia" href="{{ area_url('descobrir_estrategia', endereco=c.url_slug) }}">
-        <span class="ac-ideia__img">{% if c.imagem %}<img src="{{ c.imagem }}" alt="" loading="lazy">{% else %}{{ icon('target', 28) }}{% endif %}<span class="ac-ideia__obj">{{ c.objetivo }}</span></span>
-        <span class="ac-ideia__txt">
-          <b>{{ c.nome }}</b>
-          <small>{{ c.resumo|truncate(110) }}</small>
-          <span class="ac-ideia__canais">{% for x in c.canais[:4] %}<span class="ac-ideia__canal{% if x.nome in c.conhecidos %} is-conhecido{% endif %}" title="{{ x.nome }}{% if x.nome in c.conhecidos %} (vocês já usam){% endif %}">{{ x.nome }}</span>{% endfor %}</span>
-          <span class="ac-ideia__verba">{{ c.verba_rotulo }}</span>
-        </span>
-      </a>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-{% endif %}
 
 {% if resumo.atividades %}
 <section class="ac-hupd" aria-labelledby="upd-titulo">
@@ -198,4 +199,16 @@
   {% endif %}
 </section>
 {% endif %}
+
+{# Cartão flutuante: convida para o vídeo de visão geral depois de alguns segundos; quem dispensa não vê por 14 dias. #}
+<aside class="ac-vcard" id="ac-vcard" role="complementary" aria-label="Conheça o seu hub" data-delay="5000" hidden>
+  <button type="button" class="ac-vcard__x" id="ac-vcard-x" aria-label="Dispensar">{{ icon('close', 16) }}</button>
+  <a class="ac-vcard__play" href="{{ area_url('conhecer', slug=video.slug) }}" id="ac-vcard-go" aria-label="Assistir: {{ video.titulo }}">{{ icon('play', 22) }}</a>
+  <div class="ac-vcard__txt">
+    <b>{{ video.titulo }}</b>
+    <small>Um vídeo rápido para aproveitar melhor a sua área.</small>
+    <a class="ac-vcard__link" href="{{ area_url('conhecer', slug=video.slug) }}">Assistir agora{{ icon('chevron-right', 14) }}</a>
+  </div>
+</aside>
+<script src="{{ url_for('static', filename='js/area_cliente_video.js') }}?v={{ static_fingerprint('js/area_cliente_video.js') }}" defer></script>
 {% endblock %}

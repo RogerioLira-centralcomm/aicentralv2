@@ -1220,3 +1220,86 @@ def test_valores_do_historico_nao_trazem_valores_nem_datas():
     v, trazido = valores_do_historico({**HIST[0], "valor": "R$ 19.000"})
     assert "valor" not in v and "verba" not in v and "inicio" not in v and "fim" not in v
     assert {"titulo", "objetivo", "pracas", "canais", "publico"} <= set(trazido) and v["abrangencia"] == "cidades"
+
+
+# ---------- Início: barra, três colunas e vídeo ----------
+
+def _camp_inicio(nome, no_ar, plataforma="Meta Ads", pct=80, ritmo="no_ritmo", fim="2026-11-30", id_pi=12):
+    return {"id_pi": id_pi, "nome": nome, "no_ar": no_ar, "plataforma": plataforma, "plataforma_logo": "", "plataforma_iniciais": plataforma[:2],
+            "objetivo": "Alcance", "pct": pct, "ritmo": ritmo if no_ar else "", "tempo_pct": 60 if no_ar else None, "meta": 100,
+            "periodo": {"inicio": "2026-10-01", "fim": fim}}
+
+
+def _resumo_inicio(campanhas, aviso=True, plats=()):
+    no_ar = [c for c in campanhas if c["no_ar"]]
+    return {
+        "kpis": {"projetos_ativos": 2, "projetos_total": 6, "campanhas_no_ar": len(no_ar), "campanhas_total": len(campanhas),
+                 "entrega_media": 101 if no_ar else None, "tempo_medio": 60 if no_ar else None, "dashboards": 0, "ritmo": None},
+        "acompanhar": {"itens": campanhas, "mais": 0, "no_ar": bool(no_ar)},
+        "aviso": {"tom": "bom", "titulo": "No ritmo", "frase": "As campanhas acompanham o tempo decorrido."} if aviso and no_ar else None,
+        "campanhas": campanhas, "campanhas_mais": 0, "plataformas_no_ar": [{"nome": p, "logo": "", "iniciais": p[:2], "no_ar": 1} for p in plats],
+        "ritmos": {"adiantado": 0, "no_ritmo": len(no_ar), "atencao": 0}, "vazio": False, "plataformas": list(plats),
+        "pis": [{"id": 1, "titulo": "App Behavior", "pi": "036826", "periodo": {"inicio": "2026-08-13", "fim": "2026-09-13"}, "status": "Finalizado",
+                 "pct": 101, "ativo": False, "ritmo": None}], "pis_mais": 5, "atividades": [], "hoje": __import__("datetime").date(2026, 11, 17),
+    }
+
+
+def _inicio(app, monkeypatch, resumo):
+    from aicentralv2.area_cliente import dados
+    _logado(monkeypatch, _usuario())
+    monkeypatch.setattr(dados, "resumo_inicio", lambda cliente_id: resumo)
+    monkeypatch.setattr(dados, "campanhas_em_andamento", lambda cliente_id: resumo["kpis"]["campanhas_no_ar"])
+    return _client(app, {"user_id": 501, "area_cliente_csrf": "tok"}).get("/", base_url=HOST).get_data(as_text=True)
+
+
+def test_inicio_com_campanha_no_ar_tem_barra_tres_colunas_e_plataformas(app, monkeypatch):
+    camps = [_camp_inicio("Conta Premiada", True, "Meta Ads"), _camp_inicio("Mais Fácil", False, "Google Ads", pct=104)]
+    html = _inicio(app, monkeypatch, _resumo_inicio(camps, plats=("Meta Ads",)))
+    assert "ac-aviso--barra" in html and "No ritmo" in html
+    assert html.index("ac-aviso--barra") < html.index('class="ac-home3"')                  # a barra vem antes das colunas
+    for titulo in (">Campanhas<", ">Operação<", ">PIs<"):
+        assert titulo in html
+    assert "PIs recentes" not in html and "Dashboards no ar" not in html and "Ideias para" not in html
+    assert "Plataformas em execução" in html and "Meta Ads" in html and "Ao vivo" in html
+    # finalizada: só o resultado, sem barra de acompanhamento nem selo de ritmo
+    finalizada = html.split("Mais Fácil")[1].split("</li>")[0]
+    assert "Finalizada" in finalizada and "ac-hcamp__bar" not in finalizada and "No ritmo" not in finalizada
+    assert 'data-delay="5000"' in html and "Conheça o seu hub de mídia" in html and 'href="/conhecer/visao-geral"' in html
+
+
+def test_inicio_sem_campanha_no_ar_nao_tem_barra_e_mostra_o_exemplo(app, monkeypatch):
+    html = _inicio(app, monkeypatch, _resumo_inicio([_camp_inicio("Antiga", False, pct=104)], aviso=False))
+    assert "ac-aviso--barra" not in html and "Acima da meta" not in html
+    assert ">Exemplo<" in html and "Ao vivo" not in html and "Assim que uma campanha entrar no ar" in html
+
+
+def test_dados_coluna_de_campanhas_e_plataformas():
+    from aicentralv2.area_cliente import dados
+    camps = [_camp_inicio(f"Fim {i}", False, fim=f"2026-0{i}-28") for i in range(1, 5)] + [_camp_inicio("Atenção", True, ritmo="atencao", pct=20), _camp_inicio("Ok", True, "Google Ads", pct=70),
+                                                                                  _camp_inicio("Outra Meta", True, "Meta Ads", pct=50)]
+    col = dados._campanhas_coluna(camps)
+    assert len(col) == 5 and [c["nome"] for c in col[:3]] == ["Atenção", "Outra Meta", "Ok"]       # no ar primeiro, atenção antes
+    assert [c["nome"] for c in col[3:]] == ["Fim 4", "Fim 3"]                                     # depois as finalizadas mais recentes
+    assert {p["nome"]: p["no_ar"] for p in dados._plataformas_no_ar(camps)} == {"Meta Ads": 2, "Google Ads": 1}
+
+
+# ---------- Vídeos ----------
+
+def test_pagina_de_video_tem_navegacao_propria_voltar_e_botoes(app, monkeypatch):
+    _logado(monkeypatch, _usuario())
+    c = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
+    html = c.get("/conhecer", base_url=HOST).get_data(as_text=True)
+    assert "Voltar ao hub" in html and 'aria-label="Vídeos do hub"' in html and "youtube-nocookie.com/embed/" in html
+    assert 'aria-label="Seções"' not in html                                                      # o menu do hub sai: a navegação é dos vídeos
+    assert "Conheça o seu hub de mídia" in html and "Próximo vídeo" in html and "Briefings, campanhas, relatórios e PIs" in html
+    for nome in ("Estratégias", "Canais", "Formatos", "Formatos interativos", "Audiências", "Portais"):
+        assert nome in html
+    ultimo = c.get("/conhecer/portais", base_url=HOST).get_data(as_text=True)
+    assert "Anterior" in ultimo and "Terminou" in ultimo
+    assert c.get("/conhecer/nao-existe", base_url=HOST).status_code == 404
+
+
+def test_slugs_dos_videos_cobrem_as_secoes_do_descobrir():
+    from aicentralv2.area_cliente import descobrir, videos
+    assert set(descobrir.SECOES) <= {v["slug"] for v in videos.VIDEOS}
+    assert videos.vizinhos("visao-geral")[0] is None and videos.vizinhos("portais")[1] is None

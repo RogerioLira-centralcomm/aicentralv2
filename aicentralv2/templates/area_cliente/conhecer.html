@@ -1,0 +1,40 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}{{ video.titulo }}{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_video.css') }}?v={{ static_fingerprint('css/area_cliente_video.css') }}">
+{# Aqui o menu lateral é a lista de vídeos: abre expandido (sem gravar a preferência do cliente). #}
+<script>document.documentElement.classList.remove('ac-rail');</script>{% endblock %}
+
+{# Navegação própria: no lugar do menu do hub, a lista dos vídeos e um botão grande para voltar. #}
+{% block side_nav %}
+<nav class="ac-nav ac-vnav" aria-label="Vídeos do hub">
+  <a class="ac-btn ac-btn--secondary ac-vnav__voltar" href="{{ area_url('inicio') }}">{{ icon('arrow-left', 18) }}<span>Voltar ao hub</span></a>
+  {% for grupo, itens in grupos %}
+  <p class="ac-nav__label ac-vnav__grupo">{{ grupo }}</p>
+  <ul class="ac-nav__group">
+    {% for v in itens %}
+    <li><a class="ac-nav__link{% if v.slug == video.slug %} is-active{% endif %}" href="{{ area_url('conhecer', slug=v.slug) }}" title="{{ v.titulo }}"{% if v.slug == video.slug %} aria-current="page"{% endif %}>{{ icon(v.icone) }}<span class="ac-nav__text">{{ v.titulo }}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="ac-video">
+  <p class="ac-video__eyebrow">{{ video.grupo }} · vídeo {{ posicao }} de {{ total }}</p>
+  <h1 class="ac-h1 ac-video__titulo">{{ video.titulo }}</h1>
+  <div class="ac-video__tela">
+    <iframe src="{{ embed }}" title="{{ video.titulo }}" loading="lazy" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+  </div>
+  <p class="ac-video__resumo">{{ video.resumo }}</p>
+  <div class="ac-video__nav">
+    {% if anterior %}
+    <a class="ac-video__btn ac-video__btn--ant" href="{{ area_url('conhecer', slug=anterior.slug) }}">{{ icon('chevron-left', 22) }}<span><small>Anterior</small><b>{{ anterior.titulo }}</b></span></a>
+    {% else %}<a class="ac-video__btn ac-video__btn--ant" href="{{ area_url('inicio') }}">{{ icon('arrow-left', 22) }}<span><small>Voltar</small><b>Ao hub</b></span></a>{% endif %}
+    {% if proximo %}
+    <a class="ac-video__btn ac-video__btn--prox" href="{{ area_url('conhecer', slug=proximo.slug) }}"><span><small>Próximo vídeo</small><b>{{ proximo.titulo }}</b></span>{{ icon('chevron-right', 22) }}</a>
+    {% else %}<a class="ac-video__btn ac-video__btn--prox" href="{{ area_url('inicio') }}"><span><small>Terminou</small><b>Voltar ao hub</b></span>{{ icon('chevron-right', 22) }}</a>{% endif %}
+  </div>
+</div>
+{% endblock %}

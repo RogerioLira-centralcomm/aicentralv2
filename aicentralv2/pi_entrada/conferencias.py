@@ -32,7 +32,13 @@ def _item(id_, titulo, status, detalhe=""):
 
 
 def _perto(a: Decimal, b: Decimal) -> bool:
+    """Tolerância relativa: só para entrega × preço (CPM e CPC arredondados)."""
     return abs(a - b) <= max(TOLERANCIA_ABS, abs(b) * TOLERANCIA_REL)
+
+
+def _centavos(a: Decimal, b: Decimal, n_linhas: int = 1) -> bool:
+    """Soma, líquido e valor por extenso fecham em centavos (alguns centavos de arredondamento por linha)."""
+    return abs(a - b) <= TOLERANCIA_ABS * max(1, n_linhas)
 
 
 def valor_da_linha(linha: dict):
@@ -70,7 +76,7 @@ def conferir(pi: dict, contexto: dict | None = None) -> list[dict]:
     soma = sum((v for v in valores if v is not None), Decimal("0"))
     if bruto is None or not any(v is not None for v in valores):
         saida.append(_item("soma_linhas", "Soma das linhas = total bruto", "info", "Sem valores por linha para somar."))
-    elif _perto(soma, bruto):
+    elif _centavos(soma, bruto, len(linhas)):
         saida.append(_item("soma_linhas", "Soma das linhas = total bruto", "ok", f"{len(linhas)} linhas somam {_brl(soma)}."))
     else:
         saida.append(_item("soma_linhas", "Soma das linhas = total bruto", "erro",
@@ -79,7 +85,7 @@ def conferir(pi: dict, contexto: dict | None = None) -> list[dict]:
     # 3. líquido = bruto − comissão
     if None in (bruto, comissao, liquido):
         saida.append(_item("liquido", "Líquido = bruto − comissão", "info", "Comissão ou líquido não constam no PI."))
-    elif _perto(bruto - comissao, liquido):
+    elif _centavos(bruto - comissao, liquido):
         perc = (comissao / bruto * 100).quantize(Decimal("0.1")) if bruto else Decimal("0")
         saida.append(_item("liquido", "Líquido = bruto − comissão", "ok", f"Comissão de {perc}% ({_brl(comissao)}); líquido {_brl(liquido)}."))
     else:
@@ -106,7 +112,7 @@ def conferir(pi: dict, contexto: dict | None = None) -> list[dict]:
     ext = _d(pi.get("valor_extenso_num"))
     if ext is None:
         saida.append(_item("extenso", "Valor por extenso = valor numérico", "info", "O PI não traz valor por extenso."))
-    elif bruto is not None and _perto(ext, bruto):
+    elif bruto is not None and _centavos(ext, bruto):
         saida.append(_item("extenso", "Valor por extenso = valor numérico", "ok", f"Ambos dizem {_brl(bruto)}."))
     else:
         saida.append(_item("extenso", "Valor por extenso = valor numérico", "erro",

@@ -119,6 +119,9 @@ def test_cotacao_sugerida_e_aplicada_na_tela_sem_gravar(http, banco):
     assert "Confirmar esta cotação" in html and "Sugerida pelo valor" in html and banco.entradas[1]["cotacao_id"] is None
 
 
+REFERENCIA_EXTENSO = "Por extenso: R$ 42.000,00; numérico: R$ 10.000,00. O PI se contradiz."
+
+
 def test_divergencia_exige_justificativa_antes_de_preparar(http, banco):
     pi = banco.entradas[1]["json_revisado"]
     pi["valor_extenso_num"] = "42000"                      # o PI se contradiz: por extenso 42.000, numérico 10.000
@@ -128,11 +131,11 @@ def test_divergencia_exige_justificativa_antes_de_preparar(http, banco):
     bloqueado = http.post("/pi-entrada/1/aprovar")
     assert bloqueado.status_code == 302 and banco.entradas[1]["status"] == "lido"
 
-    sem_motivo = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "", "justificativa": "ok ok ok"}]})
+    sem_motivo = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "", "justificativa": "ok ok ok", "referencia": REFERENCIA_EXTENSO}]})
     assert sem_motivo.status_code == 422 and "motivo" in sem_motivo.get_json()["erro"]
-    curta = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "erro_do_pi", "justificativa": "x"}]})
+    curta = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "erro_do_pi", "justificativa": "x", "referencia": REFERENCIA_EXTENSO}]})
     assert curta.status_code == 422
-    feito = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "erro_do_pi", "justificativa": "O extenso está errado no PDF da agência."}]})
+    feito = http.post("/pi-entrada/1/ajustes", json={"itens": [{"campo": "conf:extenso", "tipo": "aceite", "motivo": "erro_do_pi", "justificativa": "O extenso está errado no PDF da agência.", "referencia": REFERENCIA_EXTENSO}]})
     assert feito.get_json() == {"ok": True, "salvos": 1}
 
     html = http.get("/pi-entrada/1").get_data(as_text=True)
@@ -164,3 +167,36 @@ def test_entrada_lendo_mostra_carregamento_e_erro_mostra_mensagem(http, banco):
     assert "Não consegui ler este PI" in html and "O PDF tem senha." in html and "Ler de novo" in html
     assert http.get("/pi-entrada/3/status").get_json() == {"ok": True, "status": "lendo", "erro": None, "pronto": False}
     assert http.get("/pi-entrada/999").status_code == 404
+
+
+def test_entrada_presa_em_lendo_ganha_botao_de_nova_leitura(http, banco):
+    from datetime import datetime, timedelta, timezone
+    banco.entradas[7] = {**banco.entradas[1], "id": 7, "status": "lendo", "json_revisado": None, "json_extraido": None,
+                         "atualizado_em": datetime.now(timezone.utc) - timedelta(minutes=30)}
+    html = http.get("/pi-entrada/7").get_data(as_text=True)
+    assert 'data-carregando="0"' in html and "Ler de novo" in html and "A leitura parou antes de terminar" in html
+    mudancas = []
+    import aicentralv2.pi_entrada.repositorio as repo
+    original = repo.mudar_status
+    repo.mudar_status = lambda i, st, erro=None: mudancas.append((i, st))
+    try:
+        assert http.post("/pi-entrada/7/reler").status_code == 302
+    finally:
+        repo.mudar_status = original
+    assert mudancas == [(7, "recebido")] and 7 in banco.iniciadas
+    recente = {**banco.entradas[7], "id": 8, "atualizado_em": datetime.now(timezone.utc)}
+    banco.entradas[8] = recente
+    assert 'data-carregando="1"' in http.get("/pi-entrada/8").get_data(as_text=True)         # lendo há segundos: segue carregando
+
+
+def test_aceite_so_vale_para_os_numeros_aceitos(http, banco):
+    banco.entradas[1]["json_revisado"]["valor_extenso_num"] = "42000"
+    aceite = {"campo": "conf:extenso", "tipo": "aceite", "motivo": "erro_do_pi", "justificativa": "O extenso está errado no PDF.",
+              "referencia": REFERENCIA_EXTENSO}
+    sem_ref = {k: v for k, v in aceite.items() if k != "referencia"}
+    assert http.post("/pi-entrada/1/ajustes", json={"itens": [sem_ref]}).status_code == 422                # aceite sem referência não vale
+    assert http.post("/pi-entrada/1/ajustes", json={"itens": [aceite]}).get_json()["ok"]
+    assert "Divergências justificadas" in http.get("/pi-entrada/1").get_data(as_text=True)
+    banco.entradas[1]["json_revisado"]["valor_extenso_num"] = "30000"                       # o valor por extenso mudou depois
+    html = http.get("/pi-entrada/1").get_data(as_text=True)
+    assert "Precisa de justificativa (1)" in html

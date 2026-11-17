@@ -8,6 +8,7 @@ Nada vira PI sem a verificação humana desta página; o resultado é um rascunh
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -30,6 +31,18 @@ def _usuario() -> int | None:
 
 def _erro(mensagem: str, codigo: int = 400):
     return jsonify({"ok": False, "erro": mensagem}), codigo
+
+
+def travada(entrada: dict, minutos: int = 5) -> bool:
+    """Presa em 'recebido' ou 'lendo' há mais que alguns minutos (o servidor reiniciou no meio da leitura)."""
+    if entrada.get("status") not in ("recebido", "lendo"):
+        return False
+    quando = entrada.get("atualizado_em")
+    if not isinstance(quando, datetime):
+        return False
+    if quando.tzinfo is None:
+        quando = quando.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - quando > timedelta(minutes=minutos)
 
 
 def _entrada_ou_404(id_entrada: int) -> dict:
@@ -129,7 +142,7 @@ def arquivo(id_entrada):
 @centralcomm_required
 def reler(id_entrada):
     entrada = _entrada_ou_404(id_entrada)
-    if entrada["status"] in ("erro", "lido"):
+    if entrada["status"] in ("erro", "lido") or travada(entrada):
         repositorio.mudar_status(id_entrada, "recebido")
         servico.iniciar_em_segundo_plano(id_entrada)
     return redirect(url_for("pi_entrada.verificar", id_entrada=id_entrada))
@@ -157,9 +170,10 @@ def _visao(entrada: dict, cotacao_id=None) -> dict:
 @centralcomm_required
 def verificar(id_entrada):
     entrada = _entrada_ou_404(id_entrada)
-    contexto = {"entrada": entrada, "status_rotulo": ROTULO_STATUS.get(entrada["status"], (entrada["status"], "cx-badge-muted"))}
+    parada = travada(entrada)
+    contexto = {"entrada": entrada, "travada": parada, "status_rotulo": ROTULO_STATUS.get(entrada["status"], (entrada["status"], "cx-badge-muted"))}
     if entrada["status"] in ("recebido", "lendo", "erro") or not entrada.get("json_revisado"):
-        return render_template("pi_entrada/verificar.html", carregando=entrada["status"] in ("recebido", "lendo"), v=None, **contexto)
+        return render_template("pi_entrada/verificar.html", carregando=entrada["status"] in ("recebido", "lendo") and not parada, v=None, **contexto)
     return render_template("pi_entrada/verificar.html", carregando=False, v=_visao(entrada), **contexto)
 
 
@@ -185,7 +199,7 @@ def ajustes(id_entrada):
     try:
         for item in itens:
             campo, tipo = str(item.get("campo") or ""), str(item.get("tipo") or "ajuste")
-            visao.validar_justificativa(campo, tipo, str(item.get("motivo") or ""), str(item.get("justificativa") or ""))
+            visao.validar_justificativa(campo, tipo, str(item.get("motivo") or ""), str(item.get("justificativa") or ""), str(item.get("referencia") or ""))
             antigo = novo = ""
             if tipo == "ajuste" and not campo.startswith(("cmp:", "conf:")):
                 pi, antigo, novo = visao.definir_valor(pi, campo, item.get("valor"))

@@ -123,11 +123,13 @@ def normalizar_extracao(bruto: dict) -> dict:
     def pegar(grupo: str, campo: str, no, converter=n.limpo):
         valor, conf, pag = _folha(no)
         chave = f"{grupo}.{campo}" if grupo else campo
-        if conf is not None:
-            confianca[chave] = conf
-        if pag is not None:
-            paginas[chave] = pag
-        return converter(valor)
+        convertido = converter(valor)
+        if convertido not in ("", None):                 # campo vazio não entra na confiança (o modelo manda 0)
+            if conf is not None:
+                confianca[chave] = conf
+            if pag is not None:
+                paginas[chave] = pag
+        return convertido
 
     doc = bruto.get("documento") or {}
     periodo_texto = pegar("", "periodo_texto", doc.get("periodo"))

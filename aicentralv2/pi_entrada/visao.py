@@ -131,7 +131,9 @@ def montar(entrada: dict, *, ctx: dict, cotacao: dict | None, cotacoes: list[dic
             exigem.append({"campo": f"conf:{item['id']}", "titulo": item["titulo"], "detalhe": item["detalhe"]})
     for e in exigem:
         a = por_campo.get(e["campo"])
-        e["justificado"] = bool(a and n.limpo(a.get("justificativa")) and a.get("motivo") in MOTIVOS_VALIDOS)
+        e["justificado"] = bool(a and n.limpo(a.get("justificativa")) and a.get("motivo") in MOTIVOS_VALIDOS
+                                # o aceite vale para os números que foram aceitos: se mudaram, justifica de novo
+                                and (a.get("tipo") != "aceite" or n.limpo(a.get("valor_lido")) == n.limpo(e["detalhe"])))
         e["ajuste"] = a
     pendentes = [e for e in exigem if not e["justificado"]]
     return {
@@ -143,9 +145,11 @@ def montar(entrada: dict, *, ctx: dict, cotacao: dict | None, cotacoes: list[dic
     }
 
 
-def validar_justificativa(campo: str, tipo: str, motivo: str, texto: str) -> None:
+def validar_justificativa(campo: str, tipo: str, motivo: str, texto: str, referencia: str = "") -> None:
     if tipo not in ("ajuste", "aceite"):
         raise EdicaoInvalida("Tipo de registro inválido.")
+    if tipo == "aceite" and not n.limpo(referencia):
+        raise EdicaoInvalida("Faltou a referência do que está sendo aceito.")
     if motivo not in MOTIVOS_VALIDOS:
         raise EdicaoInvalida("Escolha o motivo.")
     if len(n.limpo(texto)) < 5:

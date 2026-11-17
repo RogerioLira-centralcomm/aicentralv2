@@ -75,25 +75,39 @@ def paginas_do_pdf(conteudo: bytes) -> list[str]:
         raise LeituraErro("Não consegui abrir o PDF.") from exc
 
 
+_CALENDARIO = re.compile(r"\d{1,2}|[DSTQ]|TOT|INS|P|E|Ç|A")
+_COLUNAS = {"CUSTO", "UNITARIO", "UNITÁRIO", "%", "DESCONTO", "TOTAL R$", "TOTAL", "TOT", "INS"}
+
+
+def _fim_do_cabecalho(prefixo: list[str]) -> int:
+    """Onde acaba o cabeçalho dentro do prefixo comum: depois do calendário de dias e das colunas da tabela.
+    Sem calendário, o prefixo todo é cabeçalho. Assim, um corpo que começa igual em toda página não é apagado."""
+    ultimo = max((i for i, l in enumerate(prefixo) if _CALENDARIO.fullmatch(l)), default=-1)
+    if ultimo < 0:
+        return len(prefixo)
+    fim = ultimo + 1
+    while fim < len(prefixo) and prefixo[fim].upper().strip("()") in _COLUNAS:
+        fim += 1
+    return fim
+
+
 def limpar_paginas(paginas: list[str]) -> list[str]:
-    """Tira o calendário de dias e o cabeçalho que se repete em toda página (mantém a primeira)."""
+    """Tira o calendário de dias e o cabeçalho que se repete no topo de toda página (mantém o da primeira).
+
+    Só o **prefixo comum** das páginas, até o fim do cabeçalho, é removido. Linhas do corpo que por acaso se
+    repetem em todas as páginas (um público ou um CPM igual em várias segmentações) precisam chegar ao modelo."""
     linhas = [[l.strip() for l in p.splitlines() if l.strip()] for p in paginas]
-    repetidas: set[str] = set()
+    corte = 0
     if len(linhas) >= 2:
-        comuns = set(linhas[0])
-        for outra in linhas[1:]:
-            comuns &= set(outra)
-        repetidas = {l for l in comuns if len(l) > 3}
+        limite = min(len(l) for l in linhas)
+        comum = 0
+        while comum < limite and all(l[comum] == linhas[0][comum] for l in linhas):
+            comum += 1
+        corte = _fim_do_cabecalho(linhas[0][:comum])
     saida = []
     for i, ls in enumerate(linhas):
-        mantidas = []
-        for l in ls:
-            if re.fullmatch(r"\d{1,2}|[DSTQ]|TOT|INS|P|E|Ç|A", l):
-                continue                                                      # calendário e colunas vazias
-            if i > 0 and l in repetidas:
-                continue                                                      # cabeçalho repetido
-            mantidas.append(l)
-        saida.append("\n".join(mantidas))
+        restantes = ls[corte:] if i > 0 else ls
+        saida.append("\n".join(l for l in restantes if not _CALENDARIO.fullmatch(l)))
     return saida
 
 

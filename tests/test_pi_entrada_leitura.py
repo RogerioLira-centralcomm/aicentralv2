@@ -320,3 +320,30 @@ def test_rascunho_segue_as_chaves_da_tela_atual():
     assert "id_pi_tipo" in pendentes and "plataforma_campanha" in pendentes and "margens" in pendentes and "id_cliente" not in pendentes
     sem = rascunho.montar(pi, cliente_id=None, agencia_id=None, executivo_id=None)
     assert {"id_cliente", "resp_comercial", "cotacao_id"} <= {p["campo"] for p in sem["pendencias"]}
+
+
+# ---------- correções da revisão ----------
+
+def test_limpar_paginas_nao_apaga_linhas_do_corpo_que_se_repetem():
+    """PI de 3 páginas só de segmentações: depois do calendário, 'TARGET', 'CPM' e os asteriscos se repetem em todas e ficam."""
+    calendario = "COLOCAÇÃO\nNOVEMBRO/2026\nP\nE\nÇ\nA\n01\nD\n02\nS\nTOT\nINS\nCUSTO\nUNITARIO\n%\nDESCONTO\nCUSTO\n(TOTAL R$)"
+    corpo = "TARGET: AB AS 30+\nCPM CONTRATADO: R$ 8,16\n********************"
+    paginas = [f"{CABECALHO}\n{calendario}\n{corpo}\nBotumirim", f"{CABECALHO}\n{calendario}\n{corpo}\nCristália", f"{CABECALHO}\n{calendario}\n{corpo}\nBetim"]
+    limpas = leitor.limpar_paginas(paginas)
+    assert all(corpo in p for p in limpas)                                     # nenhuma linha real foi perdida
+    assert CABECALHO in limpas[0] and not any(CABECALHO in p for p in limpas[1:])
+    assert "COLOCAÇÃO" not in limpas[1] and "(TOTAL R$)" not in limpas[2]      # calendário e colunas saem
+    assert "Cristália" in limpas[1] and "Betim" in limpas[2]
+
+
+def test_soma_e_liquido_fecham_em_centavos_nao_em_meio_por_cento():
+    pi = esquema.normalizar_extracao(resposta_modelo(bruto="R$ 19.000,00", comissao="R$ 3.800,00", liquido="R$ 15.290,00", valor_linha="R$ 18.910,00"))
+    itens = conferencias.conferir(pi)
+    assert status_de(itens, "soma_linhas") == "erro" and status_de(itens, "liquido") == "erro"       # R$ 90 de diferença não passa mais
+
+
+def test_confianca_geral_ignora_campos_vazios():
+    bruto = resposta_modelo()
+    bruto["documento"]["projeto"] = {"valor": None, "confianca": 0, "pagina": None}
+    pi = esquema.normalizar_extracao(bruto)
+    assert "projeto" not in pi["confianca"] and pi["confianca_geral"] > 0.9

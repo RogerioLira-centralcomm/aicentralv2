@@ -14,7 +14,7 @@
     /* O desenho padrão (estilos inline) já é o do celular: 100% da largura, sem margens, fonte 16px.
        Este bloco só melhora a tela grande; se o aplicativo de e-mail ignorar <style>, nada quebra. */
     html,body{margin:0!important;padding:0!important;background:#eef3f0!important}
-    table{border-spacing:0!important;border-collapse:collapse!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
+    table{border-spacing:0!important;border-collapse:separate!important;mso-table-lspace:0pt;mso-table-rspace:0pt}
     img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
     a{color:#0c2e24}
     @media only screen and (min-width:621px){
@@ -60,7 +60,7 @@
         <div style="font-size:16px;line-height:1.6;color:#2a3b36">{% block content %}{% endblock %}</div>
       </td></tr>
 
-      {% if executivo and executivo.nome %}
+      {% if executivo and executivo.nome and executivo.nome.split() %}
       {% set partes = executivo.nome.split() %}
       <tr><td class="px" style="padding:20px 20px 28px">
         <table role="presentation" width="100%" bgcolor="#f1f7f4" style="background:#f1f7f4;border-radius:18px"><tr><td style="padding:18px">
@@ -91,7 +91,7 @@
         <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:#ffffff">Centralcomm</p>
         <p style="margin:0;font-size:13px;line-height:1.6;color:#b7cfc6">{% block footer_note %}Campanhas, PIs e entregas num lugar só.<br><a href="{{ area_url }}" style="color:#fcb600;text-decoration:none;font-weight:700">{{ area_url|replace('https://', '')|replace('/', '') }}</a>{% endblock %}</p>
         <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#b7cfc6">Precisa de ajuda? <a href="mailto:contato@centralcomm.media" style="color:#ffffff;font-weight:700;text-decoration:none">contato@centralcomm.media</a></p>
-        <p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:#86a398">Você recebe este e-mail por ser cliente da Centralcomm. Avisos de segurança da conta são enviados sempre.</p>
+        {% block footer_legal %}<p style="margin:14px 0 0;font-size:11px;line-height:1.6;color:#86a398">Você recebe este e-mail por ser cliente da Centralcomm. Avisos de segurança da conta são enviados sempre.</p>{% endblock %}
       </td></tr>
 
     </table>

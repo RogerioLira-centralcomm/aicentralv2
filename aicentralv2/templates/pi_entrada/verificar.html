@@ -1,0 +1,194 @@
+{% extends 'base_erp.html' %}
+{% block title %}Verificar PI {{ entrada.numero_pi or '' }}{% endblock %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Entrada de PI automática{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-entrada.css') }}?v={{ static_fingerprint('css/pi-entrada.css') }}">
+{% endblock %}
+
+{% macro estado(status) -%}
+  {%- if status == 'igual' -%}<span class="pie-estado is-ok" title="Confere"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="sr-only">Confere</span></span>
+  {%- elif status == 'proximo' -%}<span class="pie-estado is-prox" title="Confere dentro da tolerância"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="sr-only">Quase igual</span></span>
+  {%- elif status == 'diferente' -%}<span class="pie-estado is-dif" title="Diferente"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span class="sr-only">Diferente</span></span>
+  {%- elif status in ('so_pi', 'so_cotacao') -%}<span class="pie-estado is-meio" title="Só de um lado"><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i><span class="sr-only">Só de um lado</span></span>
+  {%- else -%}<span class="pie-estado is-nada" title="Sem cotação para comparar"><i class="fa-solid fa-minus" aria-hidden="true"></i><span class="sr-only">Sem comparação</span></span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro motivos(nome) -%}
+<select class="cx-select pie-motivo" name="{{ nome }}"><option value="">Motivo…</option>{% for valor, rotulo in v.motivos %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select>
+{%- endmacro %}
+
+{% block content %}
+{% set rotulo_status, classe_status = status_rotulo %}
+<div class="pie-page" data-pie="verificar" data-id="{{ entrada.id }}"
+     data-status-url="{{ url_for('pi_entrada.status', id_entrada=entrada.id) }}"
+     data-ajustes-url="{{ url_for('pi_entrada.ajustes', id_entrada=entrada.id) }}"
+     data-carregando="{{ 1 if carregando else 0 }}">
+  <nav class="pie-migalha"><a href="{{ url_for('pi_entrada.fila') }}">Entrada de PI</a> / PI {{ entrada.numero_pi or entrada.id }}</nav>
+  <header class="pie-head">
+    <div>
+      <h1>PI {{ entrada.numero_pi or ('#' ~ entrada.id) }} <span class="cx-badge {{ classe_status }}">{{ rotulo_status }}</span></h1>
+      <p>{% if v %}{{ v.pi.cliente.razao_social or v.pi.cliente.nome }}{% if v.pi.agencia.razao_social %} · via {{ v.pi.agencia.razao_social }}{% endif %} · {{ v.pi.periodo_texto or '' }}{% else %}{{ entrada.titulo or 'Lendo o arquivo…' }}{% endif %}</p>
+    </div>
+    <div class="pie-head__acoes">
+      <button type="button" class="cx-btn cx-btn-outline cx-btn-sm" id="pie-ver-pdf" aria-controls="pie-pdf"><i class="fa-solid fa-file-pdf" aria-hidden="true"></i>Ver PDF</button>
+      {% if entrada.status in ('lido', 'erro') %}<form method="post" action="{{ url_for('pi_entrada.reler', id_entrada=entrada.id) }}"><button class="cx-btn cx-btn-outline cx-btn-sm" type="submit"><i class="fa-solid fa-rotate" aria-hidden="true"></i>Ler de novo</button></form>{% endif %}
+    </div>
+  </header>
+
+  <aside class="pie-pdf" id="pie-pdf" hidden>
+    <div class="pie-pdf__topo"><strong>PDF do PI</strong><button type="button" class="cx-btn cx-btn-ghost cx-btn-xs" id="pie-fechar-pdf">Fechar</button></div>
+    <iframe title="PDF do PI" src="" data-src="{{ url_for('pi_entrada.arquivo', id_entrada=entrada.id) }}"></iframe>
+  </aside>
+
+  {% if carregando %}
+  <section class="cx-card pie-lendo" role="status" aria-live="polite">
+    <div class="pie-lendo__icone"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></div>
+    <div><strong>Lendo o PDF e conferindo as contas…</strong><span>Costuma levar cerca de um minuto. Esta página atualiza sozinha.</span>
+      <span class="pie-barra pie-barra--indet"><i></i></span></div>
+  </section>
+  {% elif not v %}
+  <div class="cx-alert cx-alert-danger" role="alert"><strong>Não consegui ler este PI.</strong> {{ entrada.erro or 'Tente de novo.' }}</div>
+  {% else %}
+
+  <section class="pie-resumo" aria-label="Resumo da verificação">
+    <div class="pie-chip"><span>Conferências do PI</span>
+      <strong>{{ v.conferencias_resumo.ok }} ok{% if v.conferencias_resumo.atencao %} · {{ v.conferencias_resumo.atencao }} atenção{% endif %}{% if v.conferencias_resumo.erro %} · <em class="is-erro">{{ v.conferencias_resumo.erro }} erro(s)</em>{% endif %}</strong></div>
+    <div class="pie-chip"><span>Contra a cotação</span>
+      <strong>{% if v.cotacao %}{{ v.comparacao_resumo.conferem }} de {{ v.comparacao_resumo.comparaveis }} conferem{% else %}Escolha uma cotação{% endif %}</strong></div>
+    <div class="pie-chip"><span>Cadastro</span>
+      <strong>{% if v.oportunidades_resumo.total %}{{ v.oportunidades_resumo.total }} oportunidade(s){% else %}Completo{% endif %}</strong></div>
+    <div class="pie-chip"><span>Leitura</span><strong>{{ (entrada.metodo_leitura or '')|upper }}{% if entrada.confianca %} · confiança {{ (entrada.confianca * 100)|round|int }}%{% endif %}</strong></div>
+  </section>
+
+  <form class="pie-cotacao" method="post" action="{{ url_for('pi_entrada.escolher_cotacao', id_entrada=entrada.id) }}">
+    <label for="pie-cot"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i> Cotação</label>
+    <select id="pie-cot" name="cotacao_id" class="cx-select">
+      <option value="">{% if v.cotacoes %}Sem cotação{% else %}Nenhuma cotação deste cliente{% endif %}</option>
+      {% for c in v.cotacoes %}<option value="{{ c.id }}" {% if v.cotacao and v.cotacao.id == c.id %}selected{% endif %}>{{ c.numero_cotacao or ('#' ~ c.id) }} · {{ c.nome_campanha }} · {{ c.valor_total_proposta|pi_brl }} · {{ c.status }}{% if loop.first and c.pontuacao >= 0.8 %} · sugerida{% endif %}</option>{% endfor %}
+    </select>
+    <button class="cx-btn cx-btn-secondary cx-btn-sm" type="submit">{% if v.cotacao_sugerida %}Confirmar esta cotação{% else %}Comparar{% endif %}</button>
+    {% if v.cotacao_sugerida %}<span class="pie-dica">Sugerida pelo valor, período e nome. Confirme ou troque.</span>{% endif %}
+  </form>
+
+  {% if v.exigem %}
+  <section class="cx-card pie-pendencias-card" id="pie-pendencias">
+    <h2 class="cx-card-title">{% if v.pendentes %}Precisa de justificativa ({{ v.pendentes|length }}){% else %}Divergências justificadas{% endif %}</h2>
+    <p class="pie-sub">Toda divergência precisa de um motivo e de uma frase antes de seguir. Fica registrado quem justificou e quando.</p>
+    {% for e in v.exigem %}
+    <article class="pie-pend{% if e.justificado %} is-ok{% endif %}" data-campo="{{ e.campo }}" data-referencia="{{ e.detalhe }}">
+      <div><strong>{{ e.titulo }}</strong><span>{{ e.detalhe }}</span></div>
+      {% if e.justificado %}
+        <div class="pie-pend__feito"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ e.ajuste.motivo|replace('_', ' ') }}: {{ e.ajuste.justificativa }}</div>
+      {% else %}
+        <div class="pie-pend__form">{{ motivos('motivo') }}<textarea class="cx-textarea pie-just" rows="2" placeholder="Justificativa" aria-label="Justificativa"></textarea>
+          <button type="button" class="cx-btn cx-btn-secondary cx-btn-xs" data-acao="aceitar">Registrar</button></div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% set editaveis = {'campanha': 'campanha', 'periodo_inicio': 'periodo_inicio', 'periodo_fim': 'periodo_fim', 'bruto': 'totais.bruto', 'liquido': 'totais.liquido'} %}
+  <section class="cx-card pie-comparar">
+    <h2 class="cx-card-title">PI lido × cotação</h2>
+    <table class="cx-table pie-tabela pie-tabela--comp">
+      <thead><tr><th>Campo</th><th>PI lido <small>(editável)</small></th><th class="pie-col-estado"><span class="sr-only">Estado</span></th><th>Cotação</th></tr></thead>
+      <tbody>
+      {% for l in v.comparacao %}
+        {% set caminho = editaveis.get(l.chave) %}
+        <tr class="pie-linha is-{{ l.status }}" data-grupo="cmp-{{ l.chave }}">
+          <th scope="row">{{ l.rotulo }}</th>
+          <td>{% if caminho %}<input class="cx-input pie-edit" type="text" value="{{ l.pi }}" data-original="{{ l.pi }}" data-caminho="{{ caminho }}" data-grupo="cmp-{{ l.chave }}" aria-label="{{ l.rotulo }} lido">{% else %}<span class="pie-valor">{{ l.pi or '—' }}</span>{% if l.chave in ('plataforma','formato','modelo_compra','praca','entrega','preco') %}<small>edite nas linhas</small>{% endif %}{% endif %}</td>
+          <td class="pie-col-estado">{{ estado(l.status) }}</td>
+          <td><span class="pie-valor">{{ l.cotacao or '—' }}</span>{% if l.nota %}<small>{{ l.nota }}</small>{% endif %}</td>
+        </tr>
+        <tr class="pie-ajuste" hidden data-ajuste-de="cmp-{{ l.chave }}"><td colspan="4"><div class="pie-ajuste__form">{{ motivos('motivo') }}<textarea class="cx-textarea pie-just" rows="2" placeholder="Justifique a mudança deste campo" aria-label="Justificativa"></textarea></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <details class="cx-card pie-bloco" {% if v.pi.linhas|length <= 3 %}open{% endif %}>
+    <summary><h2 class="cx-card-title">Linhas do PI ({{ v.pi.linhas|length }})</h2><span>praça, plataforma, preço, entrega e valor</span></summary>
+    <table class="cx-table pie-tabela pie-tabela--linhas">
+      <thead><tr><th>#</th><th>Praça e público</th><th>Plataforma</th><th>Formato</th><th>Compra</th><th>Preço</th><th>Entrega</th><th>Valor bruto</th></tr></thead>
+      <tbody>
+      {% for l in v.pi.linhas %}{% set i = loop.index %}
+        <tr data-grupo="lin-{{ i }}">
+          <td>{{ i }}</td>
+          <td><input class="cx-input pie-edit" value="{{ l.praca }}" data-original="{{ l.praca }}" data-caminho="linhas.{{ i }}.praca" data-grupo="lin-{{ i }}" aria-label="Praça da linha {{ i }}"><small>{{ l.target }}</small></td>
+          <td><input class="cx-input pie-edit" value="{{ l.plataforma or l.meio }}" data-original="{{ l.plataforma or l.meio }}" data-caminho="linhas.{{ i }}.plataforma" data-grupo="lin-{{ i }}" aria-label="Plataforma da linha {{ i }}"></td>
+          <td><input class="cx-input pie-edit" value="{{ l.formato }}" data-original="{{ l.formato }}" data-caminho="linhas.{{ i }}.formato" data-grupo="lin-{{ i }}" aria-label="Formato da linha {{ i }}"></td>
+          <td><input class="cx-input pie-edit pie-curto" value="{{ l.modelo_compra }}" data-original="{{ l.modelo_compra }}" data-caminho="linhas.{{ i }}.modelo_compra" data-grupo="lin-{{ i }}" aria-label="Modelo de compra da linha {{ i }}"></td>
+          <td><input class="cx-input pie-edit pie-num" value="{{ l.preco_unitario|pi_brl if l.preco_unitario else '' }}" data-original="{{ l.preco_unitario|pi_brl if l.preco_unitario else '' }}" data-caminho="linhas.{{ i }}.preco_unitario" data-grupo="lin-{{ i }}" aria-label="Preço da linha {{ i }}"></td>
+          <td><input class="cx-input pie-edit pie-num" value="{{ l.entrega|pi_int if l.entrega else '' }}" data-original="{{ l.entrega|pi_int if l.entrega else '' }}" data-caminho="linhas.{{ i }}.entrega" data-grupo="lin-{{ i }}" aria-label="Entrega da linha {{ i }}"></td>
+          <td><input class="cx-input pie-edit pie-num" value="{{ l.valor_bruto|pi_brl if l.valor_bruto else '' }}" data-original="{{ l.valor_bruto|pi_brl if l.valor_bruto else '' }}" data-caminho="linhas.{{ i }}.valor_bruto" data-grupo="lin-{{ i }}" aria-label="Valor bruto da linha {{ i }}"></td>
+        </tr>
+        <tr class="pie-ajuste" hidden data-ajuste-de="lin-{{ i }}"><td colspan="8"><div class="pie-ajuste__form">{{ motivos('motivo') }}<textarea class="cx-textarea pie-just" rows="2" placeholder="Justifique a mudança nesta linha" aria-label="Justificativa"></textarea></div></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </details>
+
+  <details class="cx-card pie-bloco" open>
+    <summary><h2 class="cx-card-title">Conferências do documento</h2><span>as contas que o próprio PI precisa fechar</span></summary>
+    <ul class="pie-conf">
+      {% for c in v.conferencias %}
+      <li class="is-{{ c.status }}"><i class="fa-solid {% if c.status == 'ok' %}fa-circle-check{% elif c.status == 'erro' %}fa-circle-xmark{% elif c.status == 'atencao' %}fa-triangle-exclamation{% else %}fa-circle-info{% endif %}" aria-hidden="true"></i>
+        <div><strong>{{ c.titulo }}</strong><span>{{ c.detalhe }}</span></div></li>
+      {% endfor %}
+    </ul>
+  </details>
+
+  <details class="cx-card pie-bloco" {% if v.oportunidades %}open{% endif %}>
+    <summary><h2 class="cx-card-title">Cadastro: oportunidades ({{ v.oportunidades_resumo.total }})</h2><span>dados do PI que o cadastro não tem ou tem diferente</span></summary>
+    {% if v.oportunidades %}
+    <ul class="pie-oport">
+      {% for o in v.oportunidades %}
+      <li class="is-{{ o.tipo }}">
+        <span class="cx-badge {% if o.tipo == 'novo' %}cx-badge-danger{% elif o.tipo == 'revisar' %}cx-badge-warning{% else %}cx-badge-info{% endif %}">{{ {'novo': 'Cadastrar', 'revisar': 'Revisar', 'preencher': 'Preencher', 'contato': 'Contato', 'regras': 'Regras'}[o.tipo] }}</span>
+        <div><strong>{{ 'Cliente' if o.entidade == 'cliente' else 'Agência' }} · {{ o.rotulo }}</strong>
+          <span>PI: {{ o.valor_pi or '—' }}{% if o.valor_cadastro %} · Cadastro: {{ o.valor_cadastro }}{% endif %}</span>
+          <small>{{ o.sugestao }}</small>
+          {% if o.dados %}<small>{% for d in o.dados %}{{ d.rotulo }}: {{ d.valor_pi }}{% if not loop.last %} · {% endif %}{% endfor %}</small>{% endif %}</div>
+        <a class="cx-btn cx-btn-outline cx-btn-xs" href="{{ url_for('clientes') if o.entidade == 'cliente' else url_for('crm_v3.crm_v3_agencias') }}" target="_blank" rel="noopener">Abrir cadastro</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="pie-sub">O cadastro do cliente e da agência já tem tudo o que este PI traz.</p>{% endif %}
+  </details>
+
+  <details class="cx-card pie-bloco">
+    <summary><h2 class="cx-card-title">Pagamento e faturamento</h2><span>prazo, retenções e regras do PI</span></summary>
+    {% set pag = v.pi.pagamento %}
+    <dl class="pie-dl">
+      {% for rotulo, chave in (('Prazo de pagamento', 'prazo'), ('Centro de custos', 'centro_custos'), ('Help desk', 'help_desk'), ('Responsável no cliente', 'responsavel_cliente'), ('Retenções', 'retencoes'), ('Entrega da NF', 'local_entrega_nf'), ('Cobrança', 'local_cobranca')) %}
+        {% if pag.get(chave) %}<dt>{{ rotulo }}</dt><dd>{{ pag[chave] }}</dd>{% endif %}
+      {% endfor %}
+      {% if pag.emails_faturamento %}<dt>E-mails de faturamento</dt><dd>{{ pag.emails_faturamento|join(', ') }}</dd>{% endif %}
+    </dl>
+    {% if pag.regras %}<ul class="pie-regras">{% for r in pag.regras %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+  </details>
+
+  <footer class="pie-rodape" id="pie-rodape">
+    <div class="pie-rodape__info">
+      <span id="pie-edicoes" hidden><strong id="pie-edicoes-n">0</strong> edição(ões) para salvar</span>
+      {% if v.pendentes %}<span class="is-erro"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ v.pendentes|length }} divergência(s) sem justificativa</span>{% else %}<span class="is-ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Pronto para preparar a entrada</span>{% endif %}
+      <span class="pie-erro" id="pie-msg" role="alert" hidden></span>
+    </div>
+    <div class="pie-rodape__acoes">
+      <button type="button" class="cx-btn cx-btn-secondary cx-btn-sm" id="pie-salvar" disabled>Salvar ajustes</button>
+      <form method="post" action="{{ url_for('pi_entrada.aprovar', id_entrada=entrada.id) }}">
+        <button type="submit" class="cx-btn cx-btn-primary cx-btn-sm" id="pie-aprovar" {% if not v.pode_preparar %}disabled{% endif %}>Preparar entrada do PI</button>
+      </form>
+    </div>
+  </footer>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pi_entrada.js') }}?v={{ static_fingerprint('js/pi_entrada.js') }}"></script>
+{% endblock %}

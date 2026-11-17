@@ -1,0 +1,36 @@
+{% extends 'base_erp.html' %}
+{% block title %}Rascunho do PI {{ entrada.numero_pi or '' }}{% endblock %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Entrada de PI automática{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-entrada.css') }}?v={{ static_fingerprint('css/pi-entrada.css') }}">
+{% endblock %}
+{% block content %}
+<div class="pie-page">
+  <nav class="pie-migalha"><a href="{{ url_for('pi_entrada.fila') }}">Entrada de PI</a> / <a href="{{ url_for('pi_entrada.verificar', id_entrada=entrada.id) }}">PI {{ entrada.numero_pi }}</a> / Rascunho</nav>
+  <header class="pie-head">
+    <div><h1>Rascunho pronto: PI {{ entrada.numero_pi }}</h1>
+      <p>Verificado e preparado no formato da tela de PI recebido. Ainda <strong>não cria o PI</strong>: o próximo passo é plugar este rascunho na tela atual.</p></div>
+    <div class="pie-head__acoes">
+      <a class="cx-btn cx-btn-outline cx-btn-sm" href="{{ url_for('pi_entrada.verificar', id_entrada=entrada.id) }}">Voltar à verificação</a>
+      <a class="cx-btn cx-btn-secondary cx-btn-sm" href="{{ url_for('cadu_pi_novo') }}">Abrir PI recebido (tela atual)</a>
+    </div>
+  </header>
+  <div class="pie-duas">
+    <section class="cx-card">
+      <h2 class="cx-card-title">Campos preparados</h2>
+      <table class="cx-table pie-tabela"><tbody>
+      {% for chave, valor in rascunho.campos.items() %}
+        <tr><td><code>{{ chave }}</code></td><td>{% if valor is none or valor == '' %}<span class="pie-vazio-campo">—</span>{% else %}<pre class="pie-pre">{{ valor }}</pre>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody></table>
+    </section>
+    <section class="cx-card">
+      <h2 class="cx-card-title">Fica para o executivo</h2>
+      <ul class="pie-pendencias">
+      {% for p in rascunho.pendencias %}<li><strong>{{ p.rotulo }}</strong><span>{{ p.motivo }}</span></li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -526,6 +526,10 @@ def create_app(config_class=Config):
         from .pi_operacao_routes import bp as pi_operacao_bp
         app.register_blueprint(pi_operacao_bp)
 
+        # Entrada de PI automatizada (tela nova ao lado de /cadu_pi/novo): lê o PDF, confere e prepara o rascunho.
+        from .pi_entrada.routes import bp as pi_entrada_bp
+        app.register_blueprint(pi_entrada_bp)
+
         from .pi_financeiro_routes import bp as pi_financeiro_bp
         app.register_blueprint(pi_financeiro_bp)
 

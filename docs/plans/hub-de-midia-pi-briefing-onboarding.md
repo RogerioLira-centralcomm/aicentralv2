@@ -1,6 +1,6 @@
 # Seu hub de mídia na Centralcomm: plano de PI, briefing e onboarding
 
-Data: 2026-11-17. Status: **planejamento, nada construído ainda**.
+Data: 2026-11-17. Status: **F0 e F1 (nome e e-mails) prontos. F2 e F3a (base de leitura e Entrada de PI no CentralX) construídas em 2026-11-17, ainda sem teste com PDF real nem deploy.** O que falta está nas seções 3B.8 e 5.
 
 ## 0. Decisões já tomadas
 
@@ -169,6 +169,16 @@ O rascunho usa as chaves que a tela atual já coleta, entre elas: `codigo_pi_ag`
 Obrigatórios hoje na tela atual: executivo de vendas (`resp_comercial`), tipo de PI (`id_pi_tipo`) e datas de início e fim. A nova tela preenche o executivo pelo cadastro do cliente e as datas pelo PI; o **tipo de PI** é do executivo.
 Ficam para o executivo, porque não vêm do PDF: margem, tech fee, impostos %, comissão de vendas, status e sub-status.
 
+### 3B.4b Oportunidades de cadastro (pedido de 2026-11-17)
+Cada PI que chega é uma chance de deixar o CentralX mais completo. A página de verificação mostra um bloco **"Cadastro: oportunidades"** e a fila mostra um selo ("3 oportunidades") quando o PI traz dado que o cadastro não tem ou tem diferente:
+- **Cliente ou agência que não existe** (CNPJ não encontrado): sugerir o cadastro, com razão social, CNPJ, endereço, CEP, município e UF, inscrições estadual e municipal já lidos.
+- **Campo vazio no cadastro e preenchido no PI** (endereço, CEP, município, UF, IE, IM, telefone, e-mail): "preencher".
+- **Campo diferente** (por exemplo, endereço ou razão social): "revisar e atualizar", mostrando o valor do cadastro ao lado do valor do PI.
+- **Contato novo**: e-mail de faturamento, contato de mídia ou responsável que o PI cita e o cadastro não tem.
+- **Regras de faturamento da conta** (prazo, retenções, centro de custos, documentos exigidos): sugerir guardar na ficha do cliente ou da agência para as próximas entradas.
+
+Primeira versão **só sinaliza** (leitura): cada oportunidade abre o cadastro certo para o executivo atualizar. Aplicar a atualização direto, com um clique, fica para depois e só com sua aprovação, porque escreve no cadastro de produção.
+
 ### 3B.4a Conferência do texto depois do OCR
 Duas passadas independentes: (1) a leitura extrai os campos; (2) uma **segunda checagem** recebe o texto bruto e os campos extraídos e devolve, por campo, "confirmado", "divergente" ou "não encontrado no texto". Campo divergente nasce em âmbar na página de verificação. Você sugeriu usar uma API para isso ("api do jev"): preciso saber qual é (ver D11). Sem ela, a segunda passada roda no mesmo provedor de OCR com outro modelo.
 
@@ -215,6 +225,13 @@ Os PDFs têm dados de pessoas e valores comerciais. Arquivos em área privada, a
 | **Quero repetir um PI antigo** | Já fiz algo parecido | Formulário quase todo preenchido |
 | **Quero montar um planejamento** | Não tenho nada | Formulário único, tudo na tela |
 
+### 4.1a Tela inicial do briefing (sem briefing) e lista de todos
+Hoje, sem nenhum briefing, a página mostra "Seu primeiro briefing" com 4 passos ilustrados (Objetivo, Público, Praças, Período) e um botão "Começar briefing": é o desenho do wizard antigo. Passa a mostrar os **3 caminhos**:
+
+- **Sem nenhum briefing:** título "Como você quer começar?" e **3 cartões grandes** com ilustração no mesmo estilo (fundo verde-claro, traço verde): "Tenho arquivos para cotar", "Quero repetir um PI antigo" e "Quero montar um planejamento". Embaixo, a linha "Briefing → Planejamento → PI → Campanhas". O botão único "Começar briefing" sai.
+- **Com briefings:** os 3 cartões ficam compactos no topo, seguidos dos 3 últimos briefings e do link **"Ver todos os briefings"**.
+- **Lista de todos os briefings:** página própria (`/briefing/todos`), com busca, filtro por status e modo, e por linha: título, modo, data, status, executivo e, nos de cotação, o relógio das 24 h. **Sem item na barra lateral:** o acesso é só por dentro da página de briefing (link "Ver todos os briefings" e migalha de pão), para não poluir o menu.
+
 ### 4.2 Briefing para cotação
 - O cliente anexa arquivos (PDF, imagem, planilha). O mesmo `leitor_documentos` extrai objetivo, praças, período, verba, canais, formatos e materiais.
 - Tela "o que entendi" com os campos principais, o que faltou e um campo livre. O cliente confirma ou corrige.
@@ -250,7 +267,7 @@ Os PDFs têm dados de pessoas e valores comerciais. Arquivos em área privada, a
 | F3b | Hub: upload de PI, tela "o que entendi" parcial, envio ao executivo | F3a |
 | F3c | Seleção de cotação e comparação PI × cotação | F3a |
 | F3d | "Preparar entrada do PI" no formato da tela atual | F3a e F3c |
-| F4 | Briefing: tela de entrada + planejamento (formulário único) | F0 |
+| F4 | Briefing: tela inicial com os 3 caminhos (inclusive sem briefing), lista de todos por dentro da página e planejamento (formulário único) | F0 |
 | F5 | Briefing a partir de PI antigo | F4 |
 | F6 | Briefing para cotação: arquivos, OCR, aviso, prazo de 24 h e lembretes | F2 e F4 |
 | F7 | Sequência de ativação automática + deploy e verificação em tela | F1 a F6 |

@@ -1,0 +1,73 @@
+{% extends 'base_erp.html' %}
+{% block title %}Entrada de PI automática{% endblock %}
+{% block page_label %}Comercial{% endblock %}
+{% block page_subtitle %}Leitura automática de PI com verificação{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-entrada.css') }}?v={{ static_fingerprint('css/pi-entrada.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="pie-page" data-pie="fila" data-upload-url="{{ url_for('pi_entrada.upload') }}">
+  <header class="pie-head">
+    <div>
+      <h1>Entrada de PI automática</h1>
+      <p>Arraste o PDF do PI. O sistema lê, confere as contas, compara com a cotação e prepara a entrada para você verificar.</p>
+    </div>
+    <a class="cx-btn cx-btn-outline cx-btn-sm" href="{{ url_for('cadu_pi_novo') }}"><i class="fa-solid fa-inbox" aria-hidden="true"></i>PI recebido (tela atual)</a>
+  </header>
+
+  <section class="pie-drop" id="pie-drop" tabindex="0" aria-label="Enviar PDFs de PI">
+    <i class="fa-solid fa-file-arrow-up pie-drop__icon" aria-hidden="true"></i>
+    <div class="pie-drop__texto">
+      <strong>Solte os PDFs aqui</strong>
+      <span>ou <button type="button" class="pie-link" id="pie-escolher">escolha no computador</button>. Até 10 arquivos de 20 MB.</span>
+    </div>
+    <input type="file" id="pie-arquivo" accept="application/pdf,.pdf" multiple hidden>
+    <div class="pie-drop__progresso" id="pie-progresso" hidden><span class="pie-barra"><i></i></span><em id="pie-progresso-texto">Enviando…</em></div>
+  </section>
+  <p class="pie-erro" id="pie-erro" role="alert" hidden></p>
+
+  <section class="cx-card pie-lista">
+    <div class="pie-lista__topo">
+      <h2 class="cx-card-title">Entradas recentes</h2>
+      <div class="pie-abas" role="tablist">
+        <a class="pie-aba{% if not minhas %} is-ativa{% endif %}" href="{{ url_for('pi_entrada.fila') }}">Todas</a>
+        <a class="pie-aba{% if minhas %} is-ativa{% endif %}" href="{{ url_for('pi_entrada.fila', minhas=1) }}">Minhas</a>
+      </div>
+    </div>
+    {% if entradas %}
+    <table class="cx-table pie-tabela">
+      <thead><tr><th>PI</th><th>Cliente</th><th>Origem</th><th>Executivo</th><th>Situação</th><th>Atenção</th><th></th></tr></thead>
+      <tbody>
+      {% for e in entradas %}
+        {% set rotulo, classe = pi_entrada_status.get(e.status, (e.status, 'cx-badge-muted')) %}
+        <tr data-id="{{ e.id }}" data-status="{{ e.status }}">
+          <td><a href="{{ url_for('pi_entrada.verificar', id_entrada=e.id) }}"><strong>{{ e.numero_pi or e.nome_original or ('Entrada ' ~ e.id) }}</strong></a>
+              <small>{{ e.titulo or e.nome_original or '' }}</small></td>
+          <td>{{ e.cliente_nome or '—' }}</td>
+          <td>{% if e.origem == 'hub' %}<span class="cx-badge cx-badge-info">Hub do cliente</span>{% else %}<span class="cx-badge cx-badge-muted">CentralX</span>{% endif %}</td>
+          <td>{{ e.executivo_nome or '—' }}</td>
+          <td><span class="cx-badge {{ classe }}">{{ rotulo }}</span>{% if e.status == 'erro' and e.erro %}<small>{{ e.erro }}</small>{% endif %}</td>
+          <td>
+            {% if e.resumo.get('erro') %}<span class="cx-badge cx-badge-danger" title="Conferências com erro">{{ e.resumo.erro }} erro(s)</span>{% endif %}
+            {% if e.resumo.get('oportunidades') %}<span class="cx-badge cx-badge-info" title="Dados novos para o cadastro">{{ e.resumo.oportunidades }} p/ cadastro</span>{% endif %}
+          </td>
+          <td class="pie-acoes"><a class="cx-btn cx-btn-secondary cx-btn-xs" href="{{ url_for('pi_entrada.verificar', id_entrada=e.id) }}">{% if e.status in ('lido', 'rascunho', 'aprovado') %}Verificar{% else %}Abrir{% endif %}</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="cx-empty-state pie-vazio">
+      <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+      <strong>Nenhum PI lido ainda</strong>
+      <span>Solte um PDF acima para começar. A leitura leva cerca de um minuto.</span>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pi_entrada.js') }}?v={{ static_fingerprint('js/pi_entrada.js') }}"></script>
+{% endblock %}

@@ -17,6 +17,7 @@
 {% if v.objetivos %}
 <nav class="ac-bchips ac-bchips--rola" aria-label="Filtrar por objetivo">
   <a class="ac-bchip es-bchip{% if not v.objetivo %} is-on{% endif %}" href="{{ url_para(objetivo='') }}"{% if not v.objetivo %} aria-current="true"{% endif %}>Todos os objetivos</a>
+  {% if v.verba %}<a class="ac-bchip is-on" href="{{ url_para(verba='') }}" aria-label="Tirar o filtro de verba">Até {{ (v.faixas|selectattr(0, 'equalto', v.verba)|map(attribute=1)|first) or v.verba }} ✕</a>{% endif %}
   {% for k, rotulo in v.objetivos %}
   <a class="ac-bchip es-bchip{% if v.objetivo == k %} is-on{% endif %}" href="{{ url_para(objetivo='' if v.objetivo == k else k) }}"{% if v.objetivo == k %} aria-current="true"{% endif %}>{{ rotulo }}</a>
   {% endfor %}

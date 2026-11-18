@@ -22,6 +22,10 @@
 </nav>
 {% endif %}
 
+{% if v.canal and secao != 'formatos' %}
+<nav class="ac-bchips" aria-label="Filtro ativo"><a class="ac-bchip is-on" href="{{ url_para(canal='') }}" aria-label="Tirar o filtro de canal">{{ v.canal }} ✕</a></nav>
+{% endif %}
+
 {% with busca=v.busca, total=v.total, singular='formato', plural='formatos', limpar=url_para(q='') %}{% include 'area_cliente/_descobrir_busca.html' %}{% endwith %}
 
 {% if v.grupos %}

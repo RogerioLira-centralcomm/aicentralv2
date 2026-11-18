@@ -1,12 +1,26 @@
 {% extends 'area_cliente/acesso/_base.html' %}
+{% from 'area_cliente/acesso/_aside.html' import aside %}
+{% from 'area_cliente/_macros.html' import icon %}
 {% block title %}Esqueci minha senha{% endblock %}
+{% block aside %}{{ aside('Você volta em um minuto', [
+  ('streaming-premium-portais', 'Suas campanhas seguem no ar enquanto isso.', 'seguem no ar'),
+  ('reengajamento-base-clientes', 'Um link no seu e-mail e você está de volta.', 'de volta'),
+  ('programatica-dados-proprios', 'PIs e relatórios esperam por você.', 'esperam por você'),
+]) }}{% endblock %}
+{% block troca %}<a class="ac-split__swap" href="/login">{{ icon('lock', 18) }}Entrar</a>{% endblock %}
 {% block content %}
-<h1 class="ac-auth__title">Criar nova senha</h1>
+<div class="ac-split__intro">
+  <p class="ac-split__eyebrow">Esqueceu a senha?</p>
+  <h1 class="ac-auth__title">Recuperar senha</h1>
+  {% if request_sent %}
+  <p class="ac-auth__lead">Se o e-mail tiver uma conta ativa, enviamos um link para criar a nova senha. Ele vale por 60 minutos.</p>
+  {% else %}
+  <p class="ac-auth__lead">Informe seu e-mail. Enviamos um link para você criar a senha.</p>
+  {% endif %}
+</div>
 {% if request_sent %}
-<p class="ac-auth__lead">Se o e-mail tiver uma conta ativa, enviamos um link para criar a nova senha. Ele vale por 60 minutos.</p>
 <a class="ac-btn ac-btn--secondary ac-auth__submit" href="/login">Voltar para entrar</a>
 {% else %}
-<p class="ac-auth__lead">Informe seu e-mail. Enviamos um link para você criar a senha.</p>
 <form class="ac-auth__form" method="post" action="/forgot-password" novalidate>
   <label class="ac-auth__field"><span>E-mail</span><input type="email" name="email" autocomplete="username" required autofocus></label>
   <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Enviar link</button>

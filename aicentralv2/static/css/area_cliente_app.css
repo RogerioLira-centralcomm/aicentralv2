@@ -79,100 +79,216 @@
   to   { opacity: 1; transform: none; }
 }
 
-/* ---------- Cartão de acesso ---------- */
+/* ---------- Cartão dividido: painel escuro com imagens + formulário claro ---------- */
 
-.ac-stage .ac-auth {
+.ac-split {
   position: relative;
-  min-width: 0;
-  width: 100%;
-  min-height: 0;
-  max-width: 420px;
-  padding: 28px 28px 24px;
+  z-index: 1;
+  width: min(1080px, calc(100% - 48px));
+  height: min(740px, calc(100dvh - 48px));
   display: grid;
-  align-content: start;
-  justify-content: stretch;
-  gap: 16px;
-  background: rgba(255, 255, 255, .96);
-  border-radius: 22px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, .35);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--cc-ink);
+  border-radius: 28px;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, .45);
+  overflow: hidden;
   animation: ac-rise .6s cubic-bezier(.2, .7, .2, 1) both;
   animation-delay: 3s; /* aparece logo depois da tela de carregamento */
 }
 
-.ac-auth__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.ac-auth__head img { width: 44px; height: 31px; object-fit: contain; }
-.ac-auth__head b { display: block; font-size: 16px; letter-spacing: -.2px; color: var(--cc-ink); }
-.ac-auth__head small { display: block; font-size: 12px; font-weight: 600; color: #8a6400; text-transform: uppercase; letter-spacing: .08em; }
-
-.ac-stage .ac-auth__title {
-  margin: 0;
-  font-size: 26px;
-  line-height: 1.12;
-  letter-spacing: -.6px;
-  font-weight: 800;
-  color: var(--cc-ink);
-}
-.ac-stage .ac-auth__lead { margin: 0; font-size: 15px; line-height: 1.5; color: var(--cc-muted); }
-
-.ac-stage .ac-auth__form { gap: 12px; }
-.ac-stage .ac-auth__field { gap: 6px; font-size: 13px; font-weight: 600; color: var(--cc-ink-2); }
-.ac-stage .ac-auth__field input {
-  height: 48px;
-  padding: 0 14px;
-  font-size: 16px; /* 16px evita o zoom automático do iPhone */
-  border-radius: 12px;
-  border: 1.5px solid #e4e7ec;
-  background: #fff;
-  transition: border-color .2s, box-shadow .2s;
-}
-.ac-stage .ac-auth__field input:focus {
-  border-color: var(--cc-yellow);
-  box-shadow: 0 0 0 4px rgba(252, 182, 0, .25);
-}
-
-.ac-stage .ac-auth__submit {
-  height: 50px;
-  min-height: 50px;
-  border-radius: 12px;
-  font-size: 15px;
-  font-weight: 700;
+/* Painel escuro */
+.ac-split__aside {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  color: #fff;
   background: var(--cc-ink);
-  color: var(--cc-yellow);
-  border: 0;
-  cursor: pointer;
-  transition: transform .15s, box-shadow .2s;
 }
-.ac-stage .ac-auth__submit:hover { box-shadow: 0 10px 24px rgba(13, 23, 26, .25); }
-.ac-stage .ac-auth__submit:active { transform: scale(.98); }
+.ac-split__kicker {
+  position: absolute;
+  z-index: 2;
+  top: 32px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, .62);
+}
+.ac-split__slides { position: absolute; inset: 0; }
+.ac-split__slide {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  transition: opacity .9s var(--ease);
+}
+.ac-split__slide.is-on { opacity: 1; }
+.ac-split__slide img {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 64%;
+  object-fit: cover;
+  /* Imagem funde no escuro do topo, onde fica a tagline. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 34%);
+  transform: scale(1.04);
+  transition: transform 3.6s ease-out;
+}
+.ac-split__slide.is-on img { transform: scale(1); }
+.ac-split__slide figcaption {
+  position: absolute;
+  top: 84px;
+  left: 40px;
+  right: 40px;
+  font-size: clamp(32px, 3.6vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -.035em;
+  font-weight: 700;
+  text-align: center;
+  text-wrap: balance;
+  color: #fff;
+  transform: translateY(10px);
+  transition: transform .9s var(--ease);
+}
+.ac-split__slide.is-on figcaption { transform: none; }
+.ac-split__slide figcaption em { font-style: normal; color: var(--colors-brand-300); }
+.ac-split__dots {
+  position: absolute;
+  z-index: 2;
+  left: 32px;
+  bottom: 28px;
+  display: flex;
+  gap: 6px;
+}
+.ac-split__dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, .45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  transition: width .4s var(--ease), background .4s;
+}
+.ac-split__dots span.is-on { width: 24px; background: var(--cc-yellow); }
 
-.ac-stage .ac-auth__hint,
-.ac-stage .ac-auth__foot { font-size: 13px; color: var(--cc-muted); text-align: center; }
-.ac-stage .ac-auth__foot { color: rgba(255, 255, 255, .6); }
-.ac-stage .ac-auth__foot a { color: inherit; }
+/* Painel claro com o formulário */
+.ac-split .ac-split__main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 48px 24px;
+  background: var(--surface);
+  border-radius: 28px;
+  overflow-y: auto;
+  color: var(--ink-2);
+}
+.ac-split__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ac-split__brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.ac-split__brand img { width: 40px; height: 28px; object-fit: contain; }
+.ac-split__brand b { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.ac-split__brand small { display: block; font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; }
+.ac-split__swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: background .2s, color .2s;
+}
+.ac-split__swap:hover { background: var(--soft); color: var(--ink); }
+.ac-split__swap .ac-icon { color: var(--accent); }
 
-.ac-stage .ac-auth__msg { border-radius: 12px; }
-.ac-stage .ac-link { color: var(--cc-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.ac-split__body {
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+.ac-split__intro { display: grid; gap: 8px; }
+.ac-split__eyebrow { margin: 0; font-size: 13px; font-weight: 600; color: var(--accent); }
+.ac-split .ac-auth__title { margin: 0; font-size: 36px; line-height: 1.1; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.ac-split .ac-auth__lead { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+
+.ac-split .ac-auth__form { gap: 14px; }
+.ac-split .ac-auth__field small { font-weight: 400; color: var(--muted); }
+.ac-split .ac-auth__field input {
+  width: 100%;
+  height: 50px;
+  padding: 0 20px;
+  font-size: 16px; /* 16px evita o zoom automático do iPhone */
+  border-radius: var(--radius-full);
+  border-color: var(--colors-gray-200);
+  background: var(--colors-gray-25);
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+.ac-split .ac-auth__field input:focus { background: #fff; }
+.ac-auth__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ac-auth__pw { position: relative; display: block; }
+.ac-split .ac-auth__pw input { padding-right: 52px; }
+.ac-auth__eye {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--colors-gray-400);
+  cursor: pointer;
+}
+.ac-auth__eye:hover, .ac-auth__eye.is-on { color: var(--accent); background: var(--accent-soft); }
+.ac-auth__eye:focus-visible { outline: none; box-shadow: var(--ring-brand); }
+
+.ac-split .ac-auth__submit {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 4px;
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  font-weight: 600;
+}
+.ac-split .ac-auth__msg { border-radius: var(--radius-xl); }
+.ac-split .ac-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+.ac-split .ac-link:hover { color: var(--accent-strong); text-decoration: underline; text-underline-offset: 3px; }
 
 .ac-auth__alt {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  margin-top: -4px;
+  padding: 0 4px;
   font-size: 13px;
-  color: var(--cc-muted);
+  color: var(--muted);
 }
 
-/* Rodapé fora do cartão: não empurra o layout. */
-.ac-stage .ac-auth__foot {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: max(14px, env(safe-area-inset-bottom));
-  margin: 0;
+.ac-split__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--colors-gray-400);
 }
+.ac-split__foot a { color: var(--ink-2); font-weight: 500; text-decoration: none; }
+.ac-split__foot a:hover { color: var(--accent); }
 
 /* ---------- Tela de carregamento (3 s) ---------- */
 
@@ -222,31 +338,41 @@
 
 .ac-splash__tip { font-size: 13px; opacity: .6; min-height: 1.4em; }
 
-/* ---------- Mobile: tela cheia, sem rolagem ---------- */
+/* ---------- Celular: só o formulário, centralizado, sem painel nem imagem ---------- */
 
-@media (max-width: 640px) {
-  .ac-stage { align-items: end; justify-items: stretch; }
-  .ac-stage .ac-auth {
-    max-width: none;
-    height: auto;
-    max-height: 100dvh;
-    border-radius: 26px 26px 0 0;
-    padding: 26px 22px calc(max(22px, env(safe-area-inset-bottom)) + 26px);
-    gap: 14px;
-    box-shadow: 0 -20px 60px rgba(0, 0, 0, .35);
+@media (max-width: 768px) {
+  .ac-split {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    grid-template-columns: minmax(0, 1fr);
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--surface);
   }
-  .ac-stage .ac-auth__title { font-size: 24px; }
-  .ac-stage .ac-auth__foot { display: none; }
-  .ac-stage .ac-auth__lead { font-size: 14px; }
-  .ac-stage__ring--1 { left: -22vmax; bottom: 30vh; }
-  .ac-stage__ring--2 { right: -18vmax; top: 4vh; }
+  .ac-split__aside { display: none; }
+  .ac-split .ac-split__main {
+    border-radius: 0;
+    padding: max(20px, env(safe-area-inset-top)) 22px max(18px, env(safe-area-inset-bottom));
+  }
+  .ac-split__body { max-width: 420px; padding: 24px 0; gap: 18px; }
+  .ac-split .ac-auth__title { font-size: 30px; }
+  .ac-split .ac-auth__lead { font-size: 14px; }
+  .ac-split__foot { justify-content: center; flex-wrap: wrap; }
+  .ac-auth__row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
 }
 
-@media (max-height: 640px) and (max-width: 640px) {
-  .ac-auth { gap: 10px; padding-top: 18px; }
-  .ac-stage .ac-auth__field input { height: 44px; }
-  .ac-stage .ac-auth__submit { height: 46px; min-height: 46px; }
-  .ac-auth__head { display: none; }
+@media (max-height: 640px) and (max-width: 768px) {
+  .ac-split__body { gap: 14px; padding: 12px 0; }
+  .ac-split .ac-auth__field input { height: 46px; }
+  .ac-split .ac-auth__submit { min-height: 46px; }
+  .ac-split__eyebrow { display: none; }
+}
+
+/* Telas largas e baixas (notebook com zoom): o cartão rola por dentro, o painel não aperta a tagline. */
+@media (max-height: 620px) and (min-width: 769px) {
+  .ac-split__slide figcaption { top: 64px; font-size: 30px; }
+  .ac-split__kicker { top: 22px; }
 }
 
 /* ---------- Modo app (instalado ou tela cheia) ---------- */
@@ -263,10 +389,11 @@
   .ac-stage__blob,
   .ac-stage__ring,
   .ac-splash__mark { animation: none; }
-  .ac-auth { animation: none; }
+  .ac-split { animation: none; }
+  .ac-split__slide, .ac-split__slide img, .ac-split__slide figcaption, .ac-split__dots span { transition: none; }
   .ac-splash { animation-duration: .01s; animation-delay: 0s; }
   .ac-splash__fill { animation-duration: .01s; }
 }
 
 /* Sem tela de carregamento (erro de login ou validação): o cartão aparece na hora. */
-.ac-no-splash .ac-auth { animation-delay: 0s; }
+.ac-no-splash .ac-split { animation-delay: 0s; }

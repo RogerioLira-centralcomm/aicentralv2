@@ -41,22 +41,36 @@
     <span class="ac-stage__ring ac-stage__ring--2"></span>
   </div>
 
-  <main class="ac-auth" id="conteudo">
-    <div class="ac-auth__head">
-      <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="44" height="31">
-      <span><b>Centralcomm</b><small>{{ HUB_ROTULO }}</small></span>
-    </div>
-    {% with mensagens = get_flashed_messages(with_categories=true) %}
-    {% for categoria, texto in mensagens if categoria != 'success' or 'Bem-vindo' not in texto %}
-    <p class="ac-auth__msg ac-auth__msg--{{ 'erro' if categoria == 'error' else ('ok' if categoria == 'success' else 'info') }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ texto }}</p>
-    {% endfor %}
-    {% endwith %}
-    {% block content %}{% endblock %}
-  </main>
+  <div class="ac-split">
+    {% block aside %}{% endblock %}
 
-  <p class="ac-auth__foot">Centralcomm · <a href="https://centralcomm.media" rel="noopener">centralcomm.media</a></p>
+    <main class="ac-auth ac-split__main" id="conteudo">
+      <header class="ac-split__top">
+        <a class="ac-split__brand" href="/login" aria-label="Centralcomm · {{ HUB_ROTULO }}">
+          <img src="{{ url_for('static', filename='images/cc_logo.png') }}" alt="" width="40" height="28">
+          <span><b>Centralcomm</b><small>{{ HUB_ROTULO }}</small></span>
+        </a>
+        {% block troca %}{% endblock %}
+      </header>
+
+      <div class="ac-split__body">
+        {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% for categoria, texto in mensagens if categoria != 'success' or 'Bem-vindo' not in texto %}
+        <p class="ac-auth__msg ac-auth__msg--{{ 'erro' if categoria == 'error' else ('ok' if categoria == 'success' else 'info') }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ texto }}</p>
+        {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+
+      <footer class="ac-split__foot">
+        <span>© Centralcomm</span>
+        <a href="https://centralcomm.media" rel="noopener">Fale com a Centralcomm</a>
+      </footer>
+    </main>
+  </div>
 </div>
 
 {% if com_splash %}<script src="{{ url_for('static', filename='js/area_cliente_splash.js') }}?v={{ static_fingerprint('js/area_cliente_splash.js') }}"></script>{% endif %}
+<script src="{{ url_for('static', filename='js/area_cliente_acesso.js') }}?v={{ static_fingerprint('js/area_cliente_acesso.js') }}" defer></script>
 </body>
 </html>

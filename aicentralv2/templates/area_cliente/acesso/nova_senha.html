@@ -1,10 +1,21 @@
 {% extends 'area_cliente/acesso/_base.html' %}
+{% from 'area_cliente/acesso/_aside.html' import aside %}
+{% from 'area_cliente/_macros.html' import icon %}
 {% block title %}Nova senha{% endblock %}
+{% block aside %}{{ aside('Quase lá', [
+  ('funil-essencial-busca-social', 'Uma senha nova e o hub volta a ser seu.', 'volta a ser seu'),
+  ('branded-content-amplificado', 'Campanhas, PIs e relatórios no mesmo lugar.', 'no mesmo lugar'),
+  ('ecommerce-performance-catalogo', 'Acompanhe tudo de qualquer tela.', 'qualquer tela'),
+]) }}{% endblock %}
+{% block troca %}<a class="ac-split__swap" href="/login">{{ icon('lock', 18) }}Entrar</a>{% endblock %}
 {% block content %}
-<h1 class="ac-auth__title">Crie sua senha</h1>
-<p class="ac-auth__lead">{% if user and user.nome_completo %}{{ user.nome_completo.split()[0] }}, use{% else %}Use{% endif %} pelo menos 8 caracteres.</p>
+<div class="ac-split__intro">
+  <p class="ac-split__eyebrow">Recuperar senha</p>
+  <h1 class="ac-auth__title">Nova senha</h1>
+  <p class="ac-auth__lead">{% if user and user.nome_completo %}{{ user.nome_completo.split()[0] }}, use{% else %}Use{% endif %} pelo menos 8 caracteres.</p>
+</div>
 <form class="ac-auth__form" method="post" novalidate>
-  <label class="ac-auth__field"><span>Nova senha</span><input type="password" name="password" autocomplete="new-password" minlength="8" required autofocus></label>
+  <label class="ac-auth__field"><span>Nova senha</span><span class="ac-auth__pw"><input type="password" name="password" autocomplete="new-password" minlength="8" required autofocus><button type="button" class="ac-auth__eye" data-ac-eye aria-label="Mostrar senha" aria-pressed="false">{{ icon('eye', 18) }}</button></span></label>
   <label class="ac-auth__field"><span>Repita a senha</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required></label>
   <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Salvar senha</button>
 </form>

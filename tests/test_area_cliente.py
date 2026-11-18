@@ -687,7 +687,7 @@ def test_login_no_host_de_clientes_usa_tela_centralcomm(app):
     html = app.test_client().get("/login?next=/", base_url=HOST).get_data(as_text=True)
     assert "Bem-vindo de volta" in html and "Hub de mídia" in html
     html = app.test_client().get("/forgot-password", base_url=HOST).get_data(as_text=True)
-    assert "Criar nova senha" in html
+    assert "Recuperar senha" in html and "ac-split__aside" in html
 
 
 

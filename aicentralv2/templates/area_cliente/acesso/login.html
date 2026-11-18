@@ -1,12 +1,24 @@
 {% extends 'area_cliente/acesso/_base.html' %}
+{% from 'area_cliente/acesso/_aside.html' import aside %}
+{% from 'area_cliente/_macros.html' import icon %}
 {% block title %}Entrar{% endblock %}
+{% block aside %}{{ aside('Seu hub de mídia na Centralcomm', [
+  ('dooh-geofence-mobile', 'Toda a sua mídia em um só lugar.', 'um só lugar'),
+  ('ctv-halo-busca', 'Acompanhe cada PI do pedido à entrega.', 'cada PI'),
+  ('varejo-visita-loja', 'Campanhas no ar, com o ritmo à vista.', 'ritmo à vista'),
+  ('leads-b2b-decisores', 'Relatórios que mostram o que funcionou.', 'o que funcionou'),
+]) }}{% endblock %}
+{% block troca %}<a class="ac-split__swap" href="/signup">{{ icon('user-plus', 18) }}Criar conta</a>{% endblock %}
 {% block content %}
-<h1 class="ac-auth__title">Bem-vindo de volta</h1>
-<p class="ac-auth__lead">Entre para acompanhar suas campanhas e entregas.</p>
+<div class="ac-split__intro">
+  <p class="ac-split__eyebrow">Bem-vindo de volta</p>
+  <h1 class="ac-auth__title">Entrar</h1>
+  <p class="ac-auth__lead">Acompanhe os PIs, as campanhas e os relatórios da sua empresa.</p>
+</div>
 <form class="ac-auth__form" method="post" action="/login" novalidate>
   <input type="hidden" name="next" value="{{ next_target }}">
   <label class="ac-auth__field"><span>E-mail</span><input type="email" name="email" inputmode="email" autocomplete="username" autocapitalize="none" required autofocus value="{{ request.form.get('email', '') }}"></label>
-  <label class="ac-auth__field"><span>Senha</span><input type="password" name="password" autocomplete="current-password" required></label>
+  <label class="ac-auth__field"><span>Senha</span><span class="ac-auth__pw"><input type="password" name="password" autocomplete="current-password" required><button type="button" class="ac-auth__eye" data-ac-eye aria-label="Mostrar senha" aria-pressed="false">{{ icon('eye', 18) }}</button></span></label>
   <div class="ac-auth__alt"><span></span><a class="ac-link" href="/forgot-password">Esqueci minha senha</a></div>
   <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Entrar</button>
 </form>

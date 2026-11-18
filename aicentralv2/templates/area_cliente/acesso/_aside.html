@@ -1,0 +1,19 @@
+{# Painel escuro das telas de acesso: linha de apoio e imagens das estratégias do Descobrir,
+   trocadas a cada 3 s (area_cliente_acesso.js). Cada item: (pasta da estratégia, tagline, destaque).
+   O destaque é o trecho da tagline pintado na cor da marca. Some no celular. #}
+{% macro aside(apoio, slides) -%}
+<aside class="ac-split__aside" aria-hidden="true">
+  <p class="ac-split__kicker">{{ apoio }}</p>
+  <div class="ac-split__slides" data-ac-slides>
+    {% for pasta, frase, destaque in slides %}
+    <figure class="ac-split__slide{% if loop.first %} is-on{% endif %}">
+      <img src="{{ url_for('static', filename='images/estrategias/' ~ pasta ~ '/conceito.webp') }}" alt="" width="1200" height="800" loading="lazy" decoding="async">
+      <figcaption>{{ frase|replace(destaque, '<em>' ~ destaque ~ '</em>')|safe if destaque else frase }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% if slides|length > 1 %}
+  <div class="ac-split__dots">{% for _ in slides %}<span{% if loop.first %} class="is-on"{% endif %}></span>{% endfor %}</div>
+  {% endif %}
+</aside>
+{%- endmacro %}

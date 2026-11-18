@@ -1,16 +1,30 @@
 {% extends 'area_cliente/acesso/_base.html' %}
+{% from 'area_cliente/acesso/_aside.html' import aside %}
+{% from 'area_cliente/_macros.html' import icon %}
 {% block title %}Criar conta{% endblock %}
+{% block aside %}{{ aside('Comece pelo Descobrir', [
+  ('audio-social-jovens', 'Descubra os canais que falam com o seu público.', 'Descubra os canais'),
+  ('esporte-grandes-eventos', 'Estratégias prontas para cada objetivo.', 'para cada objetivo'),
+  ('lancamento-360-portais', 'Do briefing ao plano, sem planilha no meio.', 'sem planilha'),
+  ('premium-interativos', 'Seu time e a Centralcomm na mesma tela.', 'na mesma tela'),
+]) }}{% endblock %}
+{% block troca %}<a class="ac-split__swap" href="/login">{{ icon('lock', 18) }}Entrar</a>{% endblock %}
 {% block content %}
-<h1 class="ac-auth__title">Crie sua conta</h1>
-<p class="ac-auth__lead">Isto cria uma conta do Cadu. O acesso ao hub de mídia da sua empresa é liberado pelo seu executivo na Centralcomm.</p>
+<div class="ac-split__intro">
+  <p class="ac-split__eyebrow">Primeiro acesso</p>
+  <h1 class="ac-auth__title">Criar conta</h1>
+  <p class="ac-auth__lead">Isto cria uma conta do Cadu. O acesso ao hub de mídia da sua empresa é liberado pelo seu executivo na Centralcomm.</p>
+</div>
 {% if signup_errors %}
   {% for erro in signup_errors %}<p class="ac-auth__msg ac-auth__msg--erro" role="alert">{{ erro }}</p>{% endfor %}
 {% endif %}
 <form class="ac-auth__form" method="post" action="/signup{% if next_target %}?next={{ next_target|urlencode }}{% endif %}" novalidate>
   <label class="ac-auth__field"><span>Nome completo</span><input type="text" name="name" autocomplete="name" required autofocus value="{{ signup_name or '' }}"></label>
   <label class="ac-auth__field"><span>E-mail</span><input type="email" name="email" inputmode="email" autocomplete="email" autocapitalize="none" required value="{{ signup_email or '' }}"></label>
-  <label class="ac-auth__field"><span>Senha <small>mínimo 8 caracteres</small></span><input type="password" name="password" autocomplete="new-password" minlength="8" required></label>
-  <label class="ac-auth__field"><span>Repita a senha</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required></label>
+  <div class="ac-auth__row">
+    <label class="ac-auth__field"><span>Senha <small>mín. 8 caracteres</small></span><span class="ac-auth__pw"><input type="password" name="password" autocomplete="new-password" minlength="8" required><button type="button" class="ac-auth__eye" data-ac-eye aria-label="Mostrar senha" aria-pressed="false">{{ icon('eye', 18) }}</button></span></label>
+    <label class="ac-auth__field"><span>Repita a senha</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="8" required></label>
+  </div>
   <button type="submit" class="ac-btn ac-btn--primary ac-auth__submit">Criar conta</button>
 </form>
 <p class="ac-auth__hint">Já tem conta? <a class="ac-link" href="/login">Entrar</a></p>

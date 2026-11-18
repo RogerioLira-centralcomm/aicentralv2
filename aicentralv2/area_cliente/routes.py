@@ -470,8 +470,8 @@ def view_briefing_form(usuario, modo="planejamento"):
     if erros and request.method == "POST":
         valores["anexo"] = request.form.get("anexo", "")                # o arquivo já lido continua valendo depois de um erro
     canais_descobrir = descobrir.canais_da_selecao(descobrir.selecao(session))
-    if request.method == "GET" and not valores.get("canais") and canais_descobrir:
-        valores["canais"] = list(canais_descobrir)                      # o que foi separado no Descobrir já vem marcado
+    if request.method == "GET" and canais_descobrir:                    # o que foi separado no Descobrir já vem marcado,
+        valores["canais"] = list(dict.fromkeys(list(valores.get("canais") or []) + list(canais_descobrir)))   # somado aos do PI antigo
     anunciantes, anunciante_padrao = briefing.anunciantes(usuario["cliente_id"], usuario.get("cliente_nome") or "")
     if request.method == "GET" and not valores.get("anunciante"):
         valores["anunciante"] = anunciante_padrao

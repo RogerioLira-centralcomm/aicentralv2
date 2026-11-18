@@ -469,6 +469,9 @@ def view_briefing_form(usuario, modo="planejamento"):
     status = 422 if erros else 200
     if erros and request.method == "POST":
         valores["anexo"] = request.form.get("anexo", "")                # o arquivo já lido continua valendo depois de um erro
+    canais_descobrir = descobrir.canais_da_selecao(descobrir.selecao(session))
+    if request.method == "GET" and not valores.get("canais") and canais_descobrir:
+        valores["canais"] = list(canais_descobrir)                      # o que foi separado no Descobrir já vem marcado
     anunciantes, anunciante_padrao = briefing.anunciantes(usuario["cliente_id"], usuario.get("cliente_nome") or "")
     if request.method == "GET" and not valores.get("anunciante"):
         valores["anunciante"] = anunciante_padrao
@@ -485,7 +488,7 @@ def view_briefing_form(usuario, modo="planejamento"):
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
-        b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido, anunciantes=anunciantes,
+        b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido, anunciantes=anunciantes, canais_descobrir=canais_descobrir,
         atalho_datas=_atalho_datas(origem_item), falta=briefing.qualidade(valores)["pendencias"] if origem_item else [],
         itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),

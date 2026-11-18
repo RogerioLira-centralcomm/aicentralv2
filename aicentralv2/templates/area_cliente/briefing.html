@@ -133,7 +133,7 @@
         <div class="ac-field">
           <label for="b-kpi">KPI principal {{ selo('kpi') }}</label>
           <div class="bw-kpi__linha">
-            <div class="bw-kpi__opcoes" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
+            <div class="bw-escolha" id="bw-kpi-sel" data-vazio="Escolha o KPI" aria-label="KPI principal"></div>
             {% set ns = namespace(sugeridos=[]) %}{% for o in b.OBJETIVOS if o[0] == v.objetivo_tipo %}{% set ns.sugeridos = o[2] %}{% endfor %}
             <input type="hidden" id="b-kpi" name="kpi" value="{{ v.kpi if v.kpi in ns.sugeridos else '' }}">
             <input id="b-kpi-outro" name="kpi_outro" type="text" maxlength="80" list="bw-kpis" value="{{ '' if v.kpi in ns.sugeridos else (v.kpi or '') }}" placeholder="Outro KPI" aria-label="Outro KPI" class="bw-kpi__outro">
@@ -302,13 +302,25 @@
     {# ---------- 5. Canais e materiais ---------- #}
     <section class="bw-step" data-step="canais" data-label="Canais e materiais">
       {{ passo_head(6 if historico else 5, 'Canais, peças e detalhes', 'Se não souber os canais, peça sugestão: é para isso que estamos aqui. Os campos abaixo são opcionais.') }}
-      <fieldset class="ac-field ac-chips">
-        <legend>Canais de interesse {{ selo('canais') }}</legend>
-        <div class="ac-chips__list">{% for valor, rotulo in canais %}{{ chip('canais', valor, rotulo, valor in (v.canais or [])) }}{% endfor %}</div>
+      {% set CANAL_UI = {'tv_ctv': ('tv', 'TV e CTV'), 'programatica': ('layout', 'Programática'), 'social': ('share', 'Redes sociais'),
+                         'busca': ('search', 'Busca'), 'audio': ('headphones', 'Áudio e rádio'), 'ooh': ('billboard', 'OOH e DOOH'),
+                         'influencia': ('star', 'Influenciadores'), 'sugestao': ('sparkles', 'Sugestão da Centralcomm')} %}
+      <fieldset class="ac-field">
+        <legend>Canais de interesse {{ selo('canais') }}{% if canais_descobrir %} <span class="bw-selo bw-selo--desc">{{ icon('target', 12) }}marcados pelo Descobrir</span>{% endif %}</legend>
+        <div class="bw-cards bw-cards--icon bw-cards--canal">
+          {% for valor, rotulo in canais %}
+          {% set ui = CANAL_UI.get(valor, ('broadcast', rotulo)) %}
+          <label class="bw-card" title="{{ rotulo }}"><input type="checkbox" name="canais" value="{{ valor }}"{% if valor in (v.canais or []) %} checked{% endif %}>
+            <span>{{ icon(ui[0], 22) }}<b>{{ ui[1] }}</b>{% if canais_descobrir.get(valor) %}<small class="bw-card__desc">{{ canais_descobrir[valor][:2]|join(', ') }}{% if canais_descobrir[valor]|length > 2 %} +{{ canais_descobrir[valor]|length - 2 }}{% endif %}</small>{% endif %}</span></label>
+          {% endfor %}
+        </div>
       </fieldset>
-      <fieldset class="ac-field ac-chips">
-        <legend>Peças da campanha</legend>
-        <div class="ac-chips__list">{% for m, r in b.MATERIAIS %}{{ chip('materiais', m, r, v.materiais == m, 'radio') }}{% endfor %}</div>
+      {% set PECA_UI = {'prontas': 'check', 'adaptar': 'scissors', 'produzir': 'film', 'indefinido': 'help'} %}
+      <fieldset class="ac-field bw-escolha-campo">
+        <legend id="bw-pecas-rotulo">Peças da campanha</legend>
+        <div class="bw-escolha" data-bw-escolha="materiais" data-vazio="Como estão as peças?" aria-labelledby="bw-pecas-rotulo">
+          <div class="ac-chips__list">{% for m, r in b.MATERIAIS %}<label class="ac-chip"><input type="radio" name="materiais" value="{{ m }}"{% if v.materiais == m %} checked{% endif %}><span>{{ icon(PECA_UI.get(m, 'file'), 18) }}{{ r }}</span></label>{% endfor %}</div>
+        </div>
       </fieldset>
       <div class="ac-field" data-show-when="materiais:prontas,adaptar">
         <label for="b-mat">Quais formatos você já tem?</label>
@@ -324,10 +336,6 @@
           <legend>O que já está instalado</legend>
           <div class="ac-chips__list">{% for m in b.MENSURACAO %}{{ chip('mensuracao', m, m, m in (v.mensuracao or [])) }}{% endfor %}</div>
         </fieldset>
-      </div>
-      <div class="ac-field">
-        <label for="b-conc">Concorrentes e referências</label>
-        <input id="b-conc" name="concorrentes" type="text" maxlength="600" value="{{ v.concorrentes or '' }}" placeholder="Marcas que disputam o mesmo cliente, campanhas que você gostou">
       </div>
       <div class="ac-field">
         <label for="b-descricao">Mais detalhes</label>

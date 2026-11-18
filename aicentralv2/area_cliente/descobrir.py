@@ -316,3 +316,42 @@ def texto_selecao(itens) -> str:
     if not itens:
         return ""
     return "Itens escolhidos no Descobrir:\n" + "\n".join(f"- {i['tipo']}: {i['nome']}" for i in itens)
+
+
+# Categoria do canal no catálogo -> canal do briefing (briefing.CANAIS).
+_CATEGORIA_CANAL = {"sociais": "social", "streaming": "tv_ctv", "dooh": "ooh", "programatica": "programatica",
+                    "dados": "programatica", "interativos": "programatica", "mobilidade": "programatica"}
+
+
+def canais_da_selecao(itens) -> dict[str, list[str]]:
+    """O que foi separado no Descobrir, por canal do briefing: {"social": ["Meta Ads", ...]}.
+
+    Canal: pela categoria do catálogo (Netflix -> TV e CTV). Formato: pela plataforma (Meta Ads -> Redes sociais,
+    portais e IAB -> programática). Portal: programática. Audiência e estratégia não indicam canal. Falha vira {}."""
+    from .briefing import _canal_da_plataforma, _sem_acento
+    if not itens:
+        return {}
+    saida: dict[str, list[str]] = {}
+
+    def marca(canal, nome):
+        if canal and nome not in saida.setdefault(canal, []):
+            saida[canal].append(nome)
+    try:
+        repo = _repo()
+        catalogo = {s: {int(r["id"]): r for r in repo.catalog(s, "")} for s in {i["secao"] for i in itens} & {"canais", "formatos", "interativos"}}
+    except Exception:
+        catalogo = {}
+    for i in itens:
+        linha = catalogo.get(i["secao"], {}).get(int(i["id"])) or {}
+        if i["secao"] == "canais":
+            cat = _sem_acento(str(linha.get("category") or "")).replace(" ", "")
+            canal = _CATEGORIA_CANAL.get(cat) or _canal_da_plataforma(i["nome"])
+            if cat == "streaming" and any(k in _sem_acento(i["nome"]) for k in ("spotify", "deezer", "audio", "podcast")):
+                canal = "audio"
+            marca(canal, i["nome"])
+        elif i["secao"] in ("formatos", "interativos"):
+            plataforma = str(linha.get("platform") or "")
+            marca(_canal_da_plataforma(plataforma) or "programatica", plataforma or i["nome"])
+        elif i["secao"] == "portais":
+            marca("programatica", i["nome"])
+    return saida

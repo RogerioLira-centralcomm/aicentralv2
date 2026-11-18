@@ -57,3 +57,18 @@ def test_brasil_todo_nao_manda_pracas_a_conferir():
     v, _ = briefing.validar(MultiDict([("anunciante", "M"), ("titulo", "Verão"), ("objetivo", "Vender mais no verão"),
                                        ("abrangencia", "nacional"), ("pracas", "praça da estação")]))
     assert v["pracas"] == [] and v["pracas_conferir"] == [] and "A conferir" not in dict(briefing.resumo(v)).get("Praças", "")
+
+
+def test_descobrir_marca_os_canais_do_briefing(monkeypatch):
+    from aicentralv2.area_cliente import descobrir
+
+    class Repo:
+        def catalog(self, secao, busca):
+            return {"canais": [{"id": 1, "category": "Streaming"}, {"id": 2, "category": "Mobilidade"}, {"id": 3, "category": "Sociais"}],
+                    "formatos": [{"id": 9, "platform": "Meta Ads"}, {"id": 8, "platform": "Programática (IAB)"}]}[secao]
+    monkeypatch.setattr(descobrir, "_repo", lambda: Repo())
+    itens = [{"secao": "canais", "id": 1, "nome": "Netflix"}, {"secao": "canais", "id": 2, "nome": "99"},
+             {"secao": "formatos", "id": 9, "nome": "Stories"}, {"secao": "formatos", "id": 8, "nome": "Leaderboard"},
+             {"secao": "portais", "id": 5, "nome": "G1"}, {"secao": "audiencias", "id": 4, "nome": "Mães"}]
+    assert descobrir.canais_da_selecao(itens) == {"tv_ctv": ["Netflix"], "programatica": ["99", "Programática (IAB)", "G1"], "social": ["Meta Ads"]}
+    assert descobrir.canais_da_selecao([]) == {}

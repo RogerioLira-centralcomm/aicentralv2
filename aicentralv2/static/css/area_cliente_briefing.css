@@ -322,3 +322,38 @@ form:not(.is-wizard) .bw-step__eyebrow { display: none; }
 
 /* Campos condicionais (data-show-when): o atributo hidden sempre vence o display das regras de layout. */
 .bw [hidden] { display: none !important; }
+
+/* ---------- Seletor personalizado (KPI, peças): um botão e uma lista, em vez de fileiras de botões ---------- */
+.bw-escolha { position: relative; min-width: 0; }
+.bw-escolha.is-js > .ac-chips__list { display: none; }
+.bw-sel__btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(100%, 340px); min-height: 42px; padding: 8px 12px;
+  border: 1px solid var(--colors-gray-300); border-radius: var(--radius-md); background: #fff; font: inherit; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; }
+.bw-sel__btn:hover { border-color: var(--colors-gray-400, #98a2b3); }
+.bw-sel__btn:focus-visible, .bw-sel__btn[aria-expanded="true"] { outline: none; border-color: var(--colors-brand-300); box-shadow: var(--ring-brand); }
+.bw-sel__valor { display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bw-sel__valor.is-vazio { color: var(--muted); }
+.bw-sel__valor .ac-icon, .bw-sel__lista .ac-icon { color: var(--colors-gray-500); flex: none; }
+.bw-sel__seta { color: var(--muted); flex: none; transition: transform .15s; }
+.bw-sel__btn[aria-expanded="true"] .bw-sel__seta { transform: rotate(180deg); }
+.bw-sel__lista { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(100%, 360px); max-height: 280px; overflow-y: auto; margin: 0; padding: 4px;
+  list-style: none; background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: 0 12px 32px rgba(16, 24, 40, .14); }
+.bw-sel__lista li { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: var(--radius-md); font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.bw-sel__lista li:hover, .bw-sel__lista li.is-ativo { background: var(--soft); }
+.bw-sel__lista li.is-sel { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
+.bw-sel__lista li.is-sel .ac-icon { color: var(--accent-strong); }
+.bw-sel__outro { color: var(--muted); font-style: italic; }
+.bw-kpi__linha .bw-escolha { flex: 0 1 340px; }
+.bw-escolha-campo .bw-sel__btn { width: min(100%, 420px); }
+.bw-escolha-campo .bw-sel__lista { width: min(100%, 420px); }
+
+/* ---------- Canais: cartões com ícone; o que veio do Descobrir aparece no cartão ---------- */
+.bw-cards--canal .bw-card span { min-height: 84px; }
+.bw-card__desc { display: block; font-size: 11px; font-weight: 500; color: var(--accent-strong); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.bw-selo--desc { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- Praças: ícone por tipo e "já usadas" dentro do menu ---------- */
+.bw-combo__list li { display: flex; align-items: center; gap: 8px; }
+.bw-combo__list li > span { flex: 1; min-width: 0; }
+.bw-combo__list li .ac-icon { color: var(--colors-gray-500); flex: none; }
+.bw-combo__titulo { padding: 8px 10px 4px !important; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--colors-gray-500); cursor: default !important; background: none !important; }
+@media (max-width: 900px) { .bw-cards--canal .bw-card span { min-height: 52px; flex-wrap: wrap; } .bw-card__desc { flex-basis: 100%; padding-left: 32px; margin-top: -6px; } }

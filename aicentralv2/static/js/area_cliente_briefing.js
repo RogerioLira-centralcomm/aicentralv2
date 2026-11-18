@@ -88,19 +88,97 @@
     });
   }
 
-  /* ---------- KPIs conforme o objetivo ---------- */
-  var kpiChips = document.getElementById('bw-kpi-chips');
+  /* ---------- Seletor personalizado (botão + lista), usado no KPI e nas peças ----------
+   * cfg.opcoes(): [{valor, html}], cfg.valor(): valor atual, cfg.escolher(valor). Teclado: setas, Enter, Esc. */
+  var CHEVRON = '<svg class="ac-icon bw-sel__seta" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  var seletores = [];
+  function montarEscolha(raiz, cfg) {
+    raiz.classList.add('is-js');
+    var btn = document.createElement('button'), lista = document.createElement('ul'), id = 'bw-sel-' + seletores.length, foco = -1;
+    btn.type = 'button'; btn.className = 'bw-sel__btn'; btn.setAttribute('aria-haspopup', 'listbox'); btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', id);
+    if (raiz.getAttribute('aria-labelledby')) btn.setAttribute('aria-labelledby', raiz.getAttribute('aria-labelledby'));
+    else if (raiz.getAttribute('aria-label')) btn.setAttribute('aria-label', raiz.getAttribute('aria-label'));
+    lista.className = 'bw-sel__lista'; lista.id = id; lista.setAttribute('role', 'listbox'); lista.hidden = true;
+    raiz.appendChild(btn); raiz.appendChild(lista);
+    function itens() { return Array.prototype.slice.call(lista.children); }
+    function fechar(volta) { lista.hidden = true; btn.setAttribute('aria-expanded', 'false'); if (volta) btn.focus(); }
+    function marcarFoco(i) {
+      var li = itens(); if (!li.length) return;
+      foco = (i + li.length) % li.length;
+      li.forEach(function (x, n) { x.classList.toggle('is-ativo', n === foco); });
+      li[foco].scrollIntoView({ block: 'nearest' });
+    }
+    function desenhar() {
+      var ops = cfg.opcoes(), atual = cfg.valor(), sel = ops.filter(function (o) { return o.valor === atual; })[0];
+      btn.innerHTML = '<span class="bw-sel__valor' + (sel ? '' : ' is-vazio') + '">' + (sel ? sel.html : esc(raiz.dataset.vazio || 'Escolha')) + '</span>' + CHEVRON;
+      lista.innerHTML = ops.map(function (o, n) {
+        return '<li role="option" data-i="' + n + '" aria-selected="' + (o.valor === atual) + '"' + (o.valor === atual ? ' class="is-sel"' : '') + '>' + o.html + '</li>';
+      }).join('');
+    }
+    function escolher(n) { var o = cfg.opcoes()[n]; if (!o) return; fechar(true); cfg.escolher(o.valor); desenhar(); }
+    btn.addEventListener('click', function () {
+      if (!lista.hidden) return fechar();
+      seletores.forEach(function (x) { if (x.lista !== lista) x.fechar(); });
+      lista.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      marcarFoco(Math.max(0, itens().findIndex(function (x) { return x.classList.contains('is-sel'); })));
+    });
+    btn.addEventListener('keydown', function (ev) {
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        if (lista.hidden) btn.click(); else marcarFoco(foco + (ev.key === 'ArrowDown' ? 1 : -1));
+      } else if ((ev.key === 'Enter' || ev.key === ' ') && !lista.hidden && foco >= 0) { ev.preventDefault(); escolher(foco); }
+      else if (ev.key === 'Escape' && !lista.hidden) { ev.preventDefault(); fechar(true); }
+    });
+    lista.addEventListener('mousedown', function (ev) { ev.preventDefault(); });
+    lista.addEventListener('click', function (ev) { var li = ev.target.closest('li'); if (li) escolher(+li.dataset.i); });
+    var api = { lista: lista, fechar: function () { fechar(false); }, desenhar: desenhar };
+    seletores.push(api);
+    desenhar();
+    return api;
+  }
+  document.addEventListener('click', function (ev) { if (!ev.target.closest('.bw-escolha')) seletores.forEach(function (x) { x.fechar(); }); });
+
+  /* Rádios comuns (peças) viram seletor; sem JS continuam como botões. */
+  $$('[data-bw-escolha]').forEach(function (raiz) {
+    var radios = $$('input[type="radio"]', raiz);
+    montarEscolha(raiz, {
+      opcoes: function () { return radios.map(function (r) { return { valor: r.value, html: r.nextElementSibling.innerHTML }; }); },
+      valor: function () { var c = radios.filter(function (r) { return r.checked; })[0]; return c ? c.value : ''; },
+      escolher: function (v) { radios.forEach(function (r) { r.checked = r.value === v; }); radios[0].dispatchEvent(new Event('change', { bubbles: true })); }
+    });
+  });
+
+  /* ---------- KPI: seletor com os KPIs do objetivo e "Outro KPI…" ---------- */
+  var OUTRO = '__outro', kpiOutroAberto = false;
+  var TODOS_KPIS = [];
+  D.opcoes.objetivos.forEach(function (o) { o.kpis.forEach(function (k) { if (TODOS_KPIS.indexOf(k) < 0) TODOS_KPIS.push(k); }); });
+  var kpiSel = montarEscolha(document.getElementById('bw-kpi-sel'), {
+    opcoes: function () {
+      var o = OBJ[val('objetivo_tipo')];
+      return (o ? o.kpis : TODOS_KPIS).map(function (k) { return { valor: k, html: esc(k) }; })
+        .concat([{ valor: OUTRO, html: '<span class="bw-sel__outro">Outro KPI…</span>' }]);
+    },
+    valor: function () { return $('#b-kpi').value || (kpiOutroAberto || $('#b-kpi-outro').value.trim() ? OUTRO : ''); },
+    escolher: function (v) {
+      var outro = $('#b-kpi-outro');
+      kpiOutroAberto = v === OUTRO;
+      $('#b-kpi').value = kpiOutroAberto ? '' : v;
+      if (!kpiOutroAberto) outro.value = '';
+      atualizar();
+      if (kpiOutroAberto) outro.focus();
+    }
+  });
   function desenharKpis(e) {
     var o = OBJ[e.objetivo_tipo];
     var escolhido = $('#b-kpi'), outro = $('#b-kpi-outro');
-    if (escolhido.value && (!o || o.kpis.indexOf(escolhido.value) < 0)) {   /* KPI que não é sugestão deste objetivo: fica visível em "Outro" */
+    if (escolhido.value && (o ? o.kpis : TODOS_KPIS).indexOf(escolhido.value) < 0) {   /* KPI fora da lista deste objetivo: fica em "Outro" */
       if (!outro.value.trim()) outro.value = escolhido.value;
       escolhido.value = '';
     }
-    kpiChips.innerHTML = o ? o.kpis.map(function (k) {
-      return '<button type="button" class="bw-pill' + (k === e.kpi ? ' is-on' : '') + '" data-fill="b-kpi" data-value="' + esc(k) + '">' + esc(k) + '</button>';
-    }).join('') : '';
-    $('#b-kpi-outro').placeholder = o ? 'Outro KPI' : 'Ex.: Impressões';
+    outro.hidden = !(kpiOutroAberto || outro.value.trim());
+    outro.placeholder = 'Qual KPI?';
+    kpiSel.desenhar();
   }
 
   /* ---------- Metas comuns conforme o KPI (números como a equipe costuma receber) ---------- */
@@ -263,7 +341,7 @@
     if (!bpr) return;
     var ja = pracas().map(semAcento);
     var livres = PRACAS_USADAS.filter(function (p) { return ja.indexOf(semAcento(p)) < 0; });  /* o que já está escolhido não se repete aqui */
-    bpr.hidden = !livres.length;
+    bpr.hidden = true;                                    /* as já usadas aparecem no menu do campo, ao clicar nele */
     var mostrar = usadasAbertas ? livres : livres.slice(0, 5);
     document.getElementById('bw-reuse-pracas').innerHTML = mostrar.map(function (p) {
       return '<button type="button" class="bw-pill" data-add-praca="' + esc(p) + '">+ ' + esc(p) + '</button>';
@@ -303,10 +381,31 @@
   }
   var ativo = -1, opcoesCombo = [];
   function fecharCombo() { combo.hidden = true; busca.setAttribute('aria-expanded', 'false'); ativo = -1; busca.removeAttribute('aria-activedescendant'); }
+  /* Ícone por tipo de praça no menu (o mesmo traço dos ícones do hub). */
+  var ICONE_TIPO = {
+    cidade: '<path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.4"/>',
+    estado: '<path d="m3 6.5 6-2.5 6 2.5 6-2.5v13.5l-6 2.5-6-2.5-6 2.5Z"/><path d="M9 4v13.5M15 6.5V20"/>',
+    regiao: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    pais: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    usada: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  ICONE_TIPO.atalho = ICONE_TIPO.cidade;
+  function iconeTipo(t) { return '<svg class="ac-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONE_TIPO[t] || ICONE_TIPO.cidade) + '</svg>'; }
   function abrirCombo() {
     var q = semAcento(busca.value);
-    if (q.length < 2) return fecharCombo();
     var ja = pracas().map(semAcento);
+    var tipos = { cidade: 'Cidade', estado: 'Estado', regiao: 'Região', pais: 'País', atalho: 'Atalho', usada: 'Já usada' };
+    if (q.length < 2) {                                   /* campo vazio: as praças já usadas aparecem no próprio menu */
+      opcoesCombo = PRACAS_USADAS.filter(function (p) { return ja.indexOf(semAcento(p)) < 0; }).slice(0, 8).map(function (p) { return { nome: p, tipo: 'usada' }; });
+      if (!opcoesCombo.length) return fecharCombo();
+      combo.innerHTML = '<li class="bw-combo__titulo" role="presentation">Já usadas em PIs anteriores</li>' + opcoesCombo.map(function (p, i) {
+        return '<li role="option" id="bw-op-' + i + '" data-i="' + i + '">' + iconeTipo('usada') + '<span>' + esc(p.nome) + '</span><small>' + tipos.usada + '</small></li>';
+      }).join('');
+      combo.hidden = false;
+      busca.setAttribute('aria-expanded', 'true');
+      ativo = -1;
+      return;
+    }
     opcoesCombo = [];
     if (ALIAS[q.replace(/\s+/g, '_')]) opcoesCombo.push({ nome: ALIAS[q.replace(/\s+/g, '_')], tipo: 'atalho' });
     BASE.forEach(function (p) {
@@ -315,25 +414,26 @@
       if (pos === 0 || (pos > 0 && /[\s(-]/.test(p.chave[pos - 1]))) opcoesCombo.push(p);
     });
     opcoesCombo = opcoesCombo.slice(0, 8);
-    var tipos = { cidade: 'Cidade', estado: 'Estado', regiao: 'Região', pais: 'País', atalho: 'Atalho' };
     combo.innerHTML = opcoesCombo.map(function (p, i) {
-      return '<li role="option" id="bw-op-' + i + '" data-i="' + i + '"><span>' + esc(p.nome) + '</span><small>' + (tipos[p.tipo] || '') + '</small></li>';
+      return '<li role="option" id="bw-op-' + i + '" data-i="' + i + '">' + iconeTipo(p.tipo) + '<span>' + esc(p.nome) + '</span><small>' + (tipos[p.tipo] || '') + '</small></li>';
     }).join('') + '<li role="option" id="bw-op-ia" data-ia="1" class="bw-combo__ia"><span>Organizar "' + esc(busca.value.trim()) + '" com IA</span><small>IA</small></li>';
     combo.hidden = false;
     busca.setAttribute('aria-expanded', 'true');
     ativo = -1;
   }
   function marcar(i) {
-    var itens = $$('li', combo);
+    var itens = $$('li[role="option"]', combo);
     if (!itens.length) return;
     ativo = (i + itens.length) % itens.length;
     itens.forEach(function (li, n) { li.classList.toggle('is-ativo', n === ativo); li.setAttribute('aria-selected', n === ativo ? 'true' : 'false'); });
     busca.setAttribute('aria-activedescendant', itens[ativo].id);
   }
   function escolher(li) {
-    if (!li) return;
+    if (!li || li.getAttribute('role') !== 'option') return;           /* o título "Já usadas" não é opção */
     if (li.dataset.ia) { fecharCombo(); return pedirIA(); }
-    addToken(opcoesCombo[+li.dataset.i].nome);
+    var op = opcoesCombo[+li.dataset.i];
+    addToken(op.nome);
+    if (op.tipo === 'usada') organizar('', true);       /* praça de PI antigo pode vir sem UF: o organizador acerta */
     busca.value = '';
     fecharCombo();
     busca.focus();
@@ -570,19 +670,19 @@
   btVoltar.addEventListener('click', function () { irPara(atual - 1, true); });
   btIA.addEventListener('click', pedirIA);
   btOrganizar.addEventListener('click', function () { organizar(busca.value.trim()); });
-  busca.addEventListener('focus', carregarMunicipios);
+  busca.addEventListener('focus', function () { carregarMunicipios(); if (!busca.value.trim()) abrirCombo(); });
 
   busca.addEventListener('input', abrirCombo);
   busca.addEventListener('keydown', function (ev) {
     if (ev.key === 'ArrowDown') { ev.preventDefault(); if (combo.hidden) abrirCombo(); marcar(ativo + 1); }
     else if (ev.key === 'ArrowUp') { ev.preventDefault(); marcar(ativo - 1); }
-    else if (ev.key === 'Enter') { ev.preventDefault(); if (ativo >= 0) escolher($$('li', combo)[ativo]); else adicionarTextoLivre(); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); if (ativo >= 0) escolher($$('li[role="option"]', combo)[ativo]); else adicionarTextoLivre(); }
     else if (ev.key === 'Escape') fecharCombo();
     else if (ev.key === 'Backspace' && !busca.value && tokens.lastElementChild) { tokens.lastElementChild.remove(); atualizar(); }
     else if (ev.key === ',' || ev.key === ';') { ev.preventDefault(); adicionarTextoLivre(); }
   });
   combo.addEventListener('mousedown', function (ev) { ev.preventDefault(); escolher(ev.target.closest('li')); });
-  busca.addEventListener('blur', function () { setTimeout(fecharCombo, 120); });
+  busca.addEventListener('blur', function () { setTimeout(function () { if (document.activeElement !== busca) fecharCombo(); }, 120); });
 
   form.addEventListener('keydown', function (ev) {
     if (ev.key === 'Enter' && ev.target.tagName === 'INPUT' && ev.target !== busca && form.classList.contains('is-wizard') && !btSeguir.hidden) {

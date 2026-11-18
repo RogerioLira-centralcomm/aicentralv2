@@ -381,7 +381,7 @@ def concluir_briefing(usuario, valores: dict, novo_id: int, arquivos=None, *, si
     recebe briefing de exemplo. Sem a chave, a demonstração não manda e-mail."""
     session[CHAVE_FESTA] = {"id": novo_id, "titulo": (valores.get("titulo") or "")[:160], "modo": valores.get("modo") or "planejamento",
                             "prazo": valores.get("prazo_texto") or "", "arquivos": len(arquivos or valores.get("anexos") or []),
-                            "origem": (valores.get("origem_rotulo") or "")[:160]}
+                            "origem": (valores.get("origem_rotulo") or "")[:160], "emails": False}
     destino = usuario
     if simulado:
         if not current_app.config.get("HUB_DEMO_EMAILS") or not usuario.get("email"):
@@ -390,7 +390,7 @@ def concluir_briefing(usuario, valores: dict, novo_id: int, arquivos=None, *, si
         destino = {**usuario, "executivo": {**executivo, "email": usuario["email"], "nome": executivo.get("nome") or "Executivo"}}
     try:
         emails.briefing_novo(destino, valores, 0 if simulado else novo_id, anexos=emails.anexos_arquivos(arquivos))
-        emails.briefing_recebido(usuario, valores)
+        session[CHAVE_FESTA] = {**session[CHAVE_FESTA], "emails": bool(emails.briefing_recebido(usuario, valores))}
     except Exception:
         current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
 

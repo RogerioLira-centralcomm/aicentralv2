@@ -113,7 +113,13 @@ def normalizar(texto: str) -> dict:
         return _item("Brasil (nacional)", "pais")
     if k in APELIDOS:
         nome = APELIDOS[k]
-        return _item(nome, "rm" if nome.startswith("RM de") else ("cidade" if nome in _base()[1].values() else "recorte"))
+        nome_c, _, uf_c = nome.rpartition(" - ")
+        cidade = f"{sem_acento(nome_c)}|{uf_c}" in _base()[1]
+        return _item(nome, "rm" if nome.startswith("RM de") else ("cidade" if cidade else "recorte"))
+
+    exata = _cidade(t)                    # nome de município vence as palavras de exceção ("Juiz de Fora - MG", "Sem-Peixe - MG")
+    if exata and exata["ok"] and re.search(r"[-–/(]|\b[A-Za-z]{2}$", t):
+        return exata
 
     m = _EXCECAO.match(t)
     if m:

@@ -59,7 +59,15 @@ def montar(usuario: dict) -> dict:
     try:
         parceiros = dados._fetch(_PARCEIROS_SQL, {"eu": eu, "anos": str(ANOS_PARCEIROS), "limite": MAX_PARCEIROS})
         ids = [eu] + [p["empresa_id"] for p in parceiros]
-        linhas = dados._fetch(_PESSOAS_SQL, {"empresas": ids})
+        try:
+            linhas = dados._fetch(_PESSOAS_SQL, {"empresas": ids})
+        except Exception as exc:
+            if "area_cliente_bloquead" not in str(exc):
+                raise
+            # banco sem add_area_cliente_bloqueio.sql: ninguém está bloqueado (mesma regra de acesso.py)
+            sem_bloqueio = _PESSOAS_SQL.replace("NOT COALESCE(cli.area_cliente_bloqueada, FALSE)", "TRUE") \
+                                       .replace("NOT COALESCE(c.area_cliente_bloqueado, FALSE)", "TRUE")
+            linhas = dados._fetch(sem_bloqueio, {"empresas": ids})
     except Exception:
         logger.warning("Equipe do hub indisponível.", exc_info=True)
         return {"empresa": usuario.get("cliente_nome"), "pessoas": [], "parceiros": [], "erro": True}

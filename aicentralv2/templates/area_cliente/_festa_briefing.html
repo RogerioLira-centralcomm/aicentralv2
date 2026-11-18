@@ -21,7 +21,7 @@
       {%- else -%}
       {{ quem }} recebeu o briefing e prepara o planejamento de mídia.
       {%- endif %}
-      {% if usuario.email %} A confirmação foi enviada para <b>{{ usuario.email }}</b> e o executivo foi notificado por e-mail.{% endif %}
+      {% if f.emails and usuario.email %} A confirmação foi enviada para <b>{{ usuario.email }}</b> e o executivo foi notificado por e-mail.{% else %} O briefing já está com a equipe no CentralX.{% endif %}
     </p>
     <p class="pe-festa__etapas">{% if cotacao %}<span>Cotação</span>{% else %}<span>Planejamento</span>{% endif %}<i aria-hidden="true"></i><span>PI</span><i aria-hidden="true"></i><span>Campanhas no ar</span></p>
     {% if exec %}

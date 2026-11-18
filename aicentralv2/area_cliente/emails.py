@@ -228,7 +228,7 @@ def _resumo_briefing(valores: dict) -> dict:
             "objetivo_completo": dict(resumo(valores)).get("Objetivo", valores.get("objetivo")) if "objetivo_tipo" in valores else valores.get("objetivo"),
             "estruturado": "objetivo_tipo" in valores,
             "qualidade": (valores.get("qualidade") or qualidade(valores)) if "objetivo_tipo" in valores else None,
-            "prazo": valores.get("prazo_texto") or "", "anexos": ", ".join(valores.get("anexos") or []), "cotacao": bool(valores.get("prazo_texto")),
+            "prazo": valores.get("prazo_texto") or "", "anexos": ", ".join(valores.get("anexos") or []), "n_arquivos": len(valores.get("anexos") or []), "cotacao": bool(valores.get("prazo_texto")),
             "modo": valores.get("modo") or "", "anunciante": anunciante_texto(valores), "tipo_pedido": TIPOS_BRIEFING.get(valores.get("modo") or "", "")}
 
 

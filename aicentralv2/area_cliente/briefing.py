@@ -133,7 +133,7 @@ def validar(form) -> tuple[dict, dict]:
     dados["pracas"] = [p["nome"][:160] for p in organizadas]
     dados["pracas_conferir"] = [p["nome"] + (f" ({p['obs']})" if p["obs"] else "") for p in organizadas if not p["ok"]]
     if dados["abrangencia"] == "nacional":
-        dados["pracas"] = []
+        dados["pracas"], dados["pracas_conferir"] = [], []
 
     # Cliente (anunciante): o executivo precisa saber para quem é a campanha. Agência que não pode dizer marca "confidencial".
     dados["confidencial"] = form.get("confidencial") == "1"

@@ -45,3 +45,15 @@ def test_recorte_ja_organizado_nao_se_parte_ao_organizar_de_novo():
     uma = P.organizar(["MG - Exceto BH"])[0]["nome"]
     assert P.organizar([uma]) == P.organizar(["MG - Exceto BH"]) and P.organizar(["MG, exceto BH e Contagem"])[0]["nome"] == \
         "Minas Gerais (estado) exceto Belo Horizonte - MG e Contagem - MG"
+
+
+def test_todo_municipio_do_ibge_volta_igual_ao_organizar_de_novo():
+    import json
+    nomes = json.loads((P.Path(P.__file__).resolve().parent.parent / "static" / "data" / "municipios_br.json").read_text(encoding="utf-8"))
+    assert [n for n in nomes if P.normalizar(n)["nome"] != n] == []          # "Juiz de Fora - MG" não vira "exceto"
+
+
+def test_brasil_todo_nao_manda_pracas_a_conferir():
+    v, _ = briefing.validar(MultiDict([("anunciante", "M"), ("titulo", "Verão"), ("objetivo", "Vender mais no verão"),
+                                       ("abrangencia", "nacional"), ("pracas", "praça da estação")]))
+    assert v["pracas"] == [] and v["pracas_conferir"] == [] and "A conferir" not in dict(briefing.resumo(v)).get("Praças", "")

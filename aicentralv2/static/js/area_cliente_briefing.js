@@ -360,8 +360,10 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var lista = j.pracas || [];
+        var depois = pracas().filter(function (p) { return antes.indexOf(p) < 0; });   /* incluídas enquanto organizava */
         tokens.innerHTML = '';
         lista.forEach(function (p) { if (p.tipo === 'pais') setRadio('abrangencia', 'nacional'); else addToken(p.nome, p.ok ? '' : (p.obs || 'Não reconhecemos como praça. A equipe confere com você.')); });
+        depois.forEach(function (p) { addToken(p); });
         if (texto) busca.value = '';
         var conferir = lista.filter(function (p) { return !p.ok; }).length;
         var juntas = antes.length + (texto ? 1 : 0) - lista.length;

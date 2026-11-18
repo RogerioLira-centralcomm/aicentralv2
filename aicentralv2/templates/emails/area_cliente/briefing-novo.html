@@ -1,7 +1,7 @@
 {% extends 'emails/area_cliente/base.html' %}
 {% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, hero_texto with context %}
 {% set eyebrow = 'Pedido de cotação' if modo == 'cotacao' else 'Novo briefing' %}
-{% set arquivos_txt = (anexos ~ (' · anexados a este e-mail' if anexados|length == (anexos.split(', ')|length) else (' · ' ~ anexados|length ~ ' anexados a este e-mail, os demais no CentralX' if anexados else ' · no CentralX'))) if anexos else '' %}
+{% set arquivos_txt = (anexos ~ (' · anexados a este e-mail' if anexados|length >= n_arquivos else (' · ' ~ anexados|length ~ ' anexados a este e-mail, os demais no CentralX' if anexados else ' · no CentralX'))) if anexos else '' %}
 {% block title %}{{ 'Cotação pedida por ' if modo == 'cotacao' else 'Novo briefing de ' }}{{ cliente }}: {{ titulo }}{% endblock %}
 {% block preheader %}{{ nome }} enviou {{ 'arquivos para cotação' if modo == 'cotacao' else 'um briefing' }} pelo hub de mídia.{% if prazo %} Responder até {{ prazo }}.{% endif %}{% endblock %}
 {% block icone %}{{ badge('file-text') }}{% endblock %}

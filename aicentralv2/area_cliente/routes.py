@@ -135,11 +135,19 @@ def _render(template, usuario, ativo, **ctx):
          "ativo": ativo == "descobrir" and ctx.get("secao") == s}
         for s, (t, i, _texto) in descobrir.SECOES.items()
     ]
+    # Busca do topo: nas páginas do Descobrir ela busca na seção aberta (substitui a busca da página);
+    # no resto do hub, busca PIs.
+    secao_busca = ctx.get("secao") if ativo == "descobrir" and ctx.get("secao") in descobrir.SECOES else ""
+    busca_topo = {
+        "url": area_url("descobrir_secao", secao=secao_busca),
+        "rotulo": f"Buscar em {descobrir.SECOES[secao_busca][0].lower()}",
+    } if secao_busca else {"url": area_url("pis"), "rotulo": "Buscar PIs por código ou título"}
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
         usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
         menu=_estado_menu(ativo), demo_ativo=demo.ativo(usuario["cliente_id"]),
-        pagina_ativa=ativo, busca=request.args.get("q", "") if ativo == "pis" else "",
+        pagina_ativa=ativo, busca_topo=busca_topo,
+        busca=request.args.get("q", "") if ativo == "pis" or (secao_busca and ("lista" in ctx or "vitrine" in ctx)) else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),
         ver_como_opcoes=_opcoes_ver_como() if usuario.get("pode_ver_como") else [],

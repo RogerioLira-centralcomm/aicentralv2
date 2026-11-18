@@ -1,30 +1,27 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, vazio %}
 {% block title %}{{ titulo }} · Descobrir{% endblock %}
+{% set titulo_topo = titulo %}
 {% block content %}
 {% set voltar = request.full_path.rstrip('?') %}
-<div class="ac-page-head ac-enter">
-  <div>
-    <h1 class="ac-h1">{{ titulo }}</h1>
-  </div>
-</div>
+{% set base_secao = area_url('descobrir_secao', secao=secao) %}
+{% macro url_cat(categoria, q=None) -%}
+{%- set pares = [] -%}
+{%- for k, val in [('q', lista.busca if q is none else q), ('categoria', categoria)] if val -%}{%- set _ = pares.append((k, val)) -%}{%- endfor -%}
+{{ base_secao }}{% if pares %}?{{ pares|urlencode }}{% endif %}
+{%- endmacro %}
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">{{ titulo }}</h1></div>
 
-<form class="ac-filters ac-enter" method="get" action="{{ area_url('descobrir_secao', secao=secao) }}" role="search">
-  <div class="ac-search ac-search--inline">
-    {{ icon('search', 18) }}
-    <label class="ac-sr" for="d-busca">Buscar em {{ titulo }}</label>
-    <input id="d-busca" name="q" type="search" value="{{ lista.busca }}" placeholder="Buscar em {{ titulo|lower }}">
-  </div>
-  {% if lista.categorias %}
-  <label class="ac-sr" for="d-cat">Filtrar</label>
-  <select id="d-cat" name="categoria" class="ac-select" onchange="this.form.submit()">
-    <option value="">{{ 'Todas as plataformas' if secao in ('formatos', 'interativos') else 'Todas as categorias' }}</option>
-    {% for c in lista.categorias %}<option value="{{ c }}"{% if c == lista.categoria %} selected{% endif %}>{{ c }}</option>{% endfor %}
-  </select>
-  {% endif %}
-  <button type="submit" class="ac-btn ac-btn--secondary">Buscar</button>
-  <p class="ac-filters__count">{{ '{:,}'.format(lista.total).replace(',', '.') }} {{ 'resultado' if lista.total == 1 else 'resultados' }}</p>
-</form>
+{% if lista.categorias %}
+<nav class="ac-bchips ac-bchips--rola" aria-label="Filtrar por {{ 'plataforma' if secao in ('formatos', 'interativos') else 'categoria' }}">
+  <a class="ac-bchip{% if not lista.categoria %} is-on{% endif %}" href="{{ url_cat('') }}"{% if not lista.categoria %} aria-current="true"{% endif %}>Todas</a>
+  {% for c in lista.categorias %}
+  <a class="ac-bchip{% if c == lista.categoria %} is-on{% endif %}" href="{{ url_cat('' if c == lista.categoria else c) }}"{% if c == lista.categoria %} aria-current="true"{% endif %}>{{ c }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
+{% with busca=lista.busca, total=lista.total, singular='resultado', plural='resultados', limpar=url_cat(lista.categoria, q='') %}{% include 'area_cliente/_descobrir_busca.html' %}{% endwith %}
 
 {% if lista.cartoes %}
 <div class="ac-catalog ac-enter">
@@ -35,7 +32,7 @@
 
 {% if lista.paginas > 1 %}
 <nav class="ac-pager" aria-label="Páginas">
-  {% set base = area_url('descobrir_secao', secao=secao) ~ '?q=' ~ (lista.busca|urlencode) ~ '&categoria=' ~ (lista.categoria|urlencode) %}
+  {% set base = base_secao ~ '?q=' ~ (lista.busca|urlencode) ~ '&categoria=' ~ (lista.categoria|urlencode) %}
   {% if lista.pagina > 1 %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ base }}&pagina={{ lista.pagina - 1 }}">{{ icon('arrow-left', 16) }}Anterior</a>{% endif %}
   <span>Página {{ lista.pagina }} de {{ lista.paginas }}</span>
   {% if lista.pagina < lista.paginas %}<a class="ac-btn ac-btn--secondary ac-btn--sm" href="{{ base }}&pagina={{ lista.pagina + 1 }}">Próxima{{ icon('chevron-right', 16) }}</a>{% endif %}
@@ -43,7 +40,7 @@
 {% endif %}
 {% else %}
 <div class="ac-card ac-enter">
-  {{ vazio('search', 'Nada encontrado', 'Tente outra palavra ou tire o filtro.') }}
+  {{ vazio('search', 'Nada encontrado', 'Tente outra palavra na busca do topo ou tire o filtro.') }}
 </div>
 {% endif %}
 {% endblock %}

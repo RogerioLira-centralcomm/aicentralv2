@@ -1,0 +1,4 @@
+{# Resultado da busca do topo nas vitrines do Descobrir. Precisa de: busca, total, singular, plural, limpar. #}
+{% if busca %}
+<p class="ac-dbusca" role="status">{{ '{:,}'.format(total).replace(',', '.') }} {{ singular if total == 1 else plural }} para <b>“{{ busca }}”</b><a class="ac-link" href="{{ limpar }}">Limpar busca</a></p>
+{% endif %}

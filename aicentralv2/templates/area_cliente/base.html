@@ -88,13 +88,14 @@
   <div class="ac-scrim" data-ac-close hidden></div>
 
   <div class="ac-main">
-    <header class="ac-top">
+    <header class="ac-top{% if pagina_ativa == 'descobrir' %} ac-top--busca{% endif %}">
       <button type="button" class="ac-icon-btn ac-top__menu" data-ac-toggle aria-controls="ac-side" aria-expanded="false" aria-label="Abrir ou recolher o menu">{{ icon('sidebar') }}</button>
       {% if titulo_topo %}<h1 class="ac-top__titulo">{{ titulo_topo }}</h1>{% endif %}
-      <form class="ac-search" action="{{ area_url('pis') }}" method="get" role="search">
-        <label class="ac-sr" for="ac-busca">Buscar PIs</label>
+      <form class="ac-search" action="{{ busca_topo.url }}" method="get" role="search">
+        <label class="ac-sr" for="ac-busca">{{ busca_topo.rotulo }}</label>
         {{ icon('search', 18) }}
-        <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="Buscar PIs por código ou título" autocomplete="off">
+        <input id="ac-busca" name="q" type="search" value="{{ busca }}" placeholder="{{ busca_topo.rotulo }}" autocomplete="off" enterkeyhint="search">
+        <kbd class="ac-search__kbd" aria-hidden="true">⌘K</kbd>
       </form>
       <div class="ac-top__actions">
         {% if demo_ativo %}<span class="ac-modo-demo" role="img" aria-label="Conta de demonstração" title="Conta de demonstração: dados fictícios, nada é gravado nem enviado">{{ icon('sparkles', 14) }}</span>{% endif %}
@@ -287,6 +288,20 @@
       Array.prototype.forEach.call(lista.options, function (o) { o.hidden = termo && o.text.toLowerCase().indexOf(termo) === -1; });
     });
   }
+  /* ⌘K / Ctrl+K (ou "/" fora de campos) leva à busca do topo, como um Spotlight. */
+  var buscaTopo = document.getElementById('ac-busca');
+  /* No celular o título fica logo abaixo: o campo diz só "Buscar" para não cortar o texto. */
+  var celular = window.matchMedia('(max-width: 600px)');
+  function textoBusca() { if (buscaTopo) buscaTopo.placeholder = celular.matches ? 'Buscar' : {{ busca_topo.rotulo|tojson }}; }
+  textoBusca();
+  if (celular.addEventListener) celular.addEventListener('change', textoBusca);
+  document.addEventListener('keydown', function (ev) {
+    if (!buscaTopo) return;
+    var emCampo = /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName) || ev.target.isContentEditable;
+    if (((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') || (ev.key === '/' && !emCampo)) {
+      ev.preventDefault(); buscaTopo.focus(); buscaTopo.select();
+    }
+  });
   document.addEventListener('keydown', function (ev) {
     if (ev.key !== 'Escape') return;
     if (document.body.classList.contains('ac-side-open')) setDrawer(false);

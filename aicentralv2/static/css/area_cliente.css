@@ -2216,3 +2216,23 @@ a.ac-op__kpi:hover b { color: var(--accent-strong); }
   /* PIs: o cabeçalho some no desktop; no celular o botão fica no cabeçalho */
 }
 @media (max-width: 900px) { .ac-page-head--so-titulo .ac-page-title--topo { display: block; } }
+
+/* Descobrir: a busca do topo busca na seção aberta (atalho ⌘K), o título fica ao lado dela
+   e cada vitrine tem um único filtro em chips. */
+.ac-search__kbd { flex: none; padding: 1px 6px; border: 1px solid var(--line); border-radius: 6px; font-family: inherit; font-size: 11px; line-height: 16px; font-weight: 500; color: var(--muted); background: var(--surface); }
+.ac-search:focus-within .ac-search__kbd, .ac-search:has(input:not(:placeholder-shown)) .ac-search__kbd { display: none; }
+@media (hover: none), (max-width: 900px) { .ac-search__kbd { display: none; } }
+.ac-top--busca .ac-search { flex: 1 1 auto; max-width: 520px; }
+.ac-bchips--rola { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent); }
+.ac-bchips--rola::-webkit-scrollbar { display: none; }
+.ac-bchips--rola .ac-bchip { flex: none; }
+.ac-dbusca { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 14px; font-size: 14px; color: var(--muted); }
+.ac-dbusca b { color: var(--ink); font-weight: 600; }
+@media (max-width: 600px) {
+  /* No celular a busca continua visível no topo do Descobrir (é a única busca da página) */
+  .ac-top--busca .ac-search { display: flex; height: 32px; padding: 0 10px; min-width: 0; }
+  .ac-top--busca .ac-search input { font-size: 16px; } /* 16 px evita o zoom automático do iOS */
+  .ac-top--busca .ac-menu:has(.ac-menu__panel--notes) { display: none; }
+  .ac-dbusca { font-size: 13px; margin-bottom: 10px; }
+}

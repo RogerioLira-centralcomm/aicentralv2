@@ -1,47 +1,29 @@
 {% extends 'area_cliente/base.html' %}
 {% from 'area_cliente/_macros.html' import icon, marca, vazio %}
 {% block title %}Estratégias · Descobrir{% endblock %}
+{% set titulo_topo = 'Estratégias' %}
 {% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_estrategias.css') }}?v={{ static_fingerprint('css/area_cliente_estrategias.css') }}">{% endblock %}
 {% block content %}
 {% set voltar = request.full_path.rstrip('?') %}
 {% set v = vitrine %}
-{% macro url_para(objetivo=None, verba=None) -%}
+{% macro url_para(objetivo=None, verba=None, q=None) -%}
 {%- set pares = [] -%}
-{%- for k, val in [('q', v.busca), ('objetivo', v.objetivo if objetivo is none else objetivo), ('verba', v.verba if verba is none else verba)] if val -%}{%- set _ = pares.append((k, val)) -%}{%- endfor -%}
+{%- for k, val in [('q', v.busca if q is none else q), ('objetivo', v.objetivo if objetivo is none else objetivo), ('verba', v.verba if verba is none else verba)] if val -%}{%- set _ = pares.append((k, val)) -%}{%- endfor -%}
 {{ area_url('descobrir_secao', secao=secao) }}{% if pares %}?{{ pares|urlencode }}{% endif %}
 {%- endmacro %}
 
-<div class="ac-page-head ac-enter">
-  <div>
-    <h1 class="ac-h1">Estratégias</h1>
-    <p class="es-lead">Combinações de canais prontas para cada objetivo: o caminho do público, quanto vai para cada canal em cada verba, as peças necessárias e o que vamos medir.</p>
-  </div>
-</div>
-
-<form class="ac-filters" method="get" action="{{ area_url('descobrir_secao', secao=secao) }}" role="search">
-  <div class="ac-search ac-search--inline">
-    {{ icon('search', 18) }}
-    <label class="ac-sr" for="d-busca">Buscar estratégia ou canal</label>
-    <input id="d-busca" name="q" type="search" value="{{ v.busca }}" placeholder="Buscar estratégia ou canal">
-  </div>
-  {% if v.objetivo %}<input type="hidden" name="objetivo" value="{{ v.objetivo }}">{% endif %}
-  <label class="ac-sr" for="d-verba">Verba disponível</label>
-  <select id="d-verba" name="verba" class="ac-select" onchange="this.form.submit()">
-    <option value="">Qualquer verba</option>
-    {% for f, rotulo in v.faixas %}<option value="{{ f }}"{% if v.verba == f %} selected{% endif %}>Tenho até {{ rotulo }}</option>{% endfor %}
-  </select>
-  <button type="submit" class="ac-btn ac-btn--secondary">Buscar</button>
-  <p class="ac-filters__count">{{ v.total }} {{ 'estratégia' if v.total == 1 else 'estratégias' }}</p>
-</form>
+<div class="ac-page-head ac-page-head--so-titulo"><h1 class="ac-h1 ac-page-title ac-page-title--topo">Estratégias</h1></div>
 
 {% if v.objetivos %}
-<nav class="ac-bchips" aria-label="Filtrar por objetivo">
-  <a class="ac-bchip es-bchip{% if not v.objetivo %} is-on{% endif %}" href="{{ url_para(objetivo='') }}">Todos os objetivos</a>
+<nav class="ac-bchips ac-bchips--rola" aria-label="Filtrar por objetivo">
+  <a class="ac-bchip es-bchip{% if not v.objetivo %} is-on{% endif %}" href="{{ url_para(objetivo='') }}"{% if not v.objetivo %} aria-current="true"{% endif %}>Todos os objetivos</a>
   {% for k, rotulo in v.objetivos %}
   <a class="ac-bchip es-bchip{% if v.objetivo == k %} is-on{% endif %}" href="{{ url_para(objetivo='' if v.objetivo == k else k) }}"{% if v.objetivo == k %} aria-current="true"{% endif %}>{{ rotulo }}</a>
   {% endfor %}
 </nav>
 {% endif %}
+
+{% with busca=v.busca, total=v.total, singular='estratégia', plural='estratégias', limpar=url_para(q='') %}{% include 'area_cliente/_descobrir_busca.html' %}{% endwith %}
 
 {% if v.cartoes %}
 <div class="es-cards ac-enter">
@@ -72,7 +54,7 @@
 </div>
 {% else %}
 <div class="ac-card ac-enter">
-  {{ vazio('search', 'Nenhuma estratégia', 'Tente outra palavra, outro objetivo ou uma verba maior.') }}
+  {{ vazio('search', 'Nenhuma estratégia', 'Tente outra palavra na busca do topo ou outro objetivo.') }}
 </div>
 {% endif %}
 {% endblock %}

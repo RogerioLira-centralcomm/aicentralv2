@@ -51,8 +51,12 @@ def _quando(valor) -> str:
 
 
 def _whatsapp(usuario, numero_pi="") -> str:
-    from . import emails
     motivo = f"Enviei o PI {numero_pi} pelo hub de mídia." if numero_pi else "Quero falar sobre um PI que enviei pelo hub de mídia."
+    return _whatsapp_motivo(usuario, motivo)
+
+
+def _whatsapp_motivo(usuario, motivo: str) -> str:
+    from . import emails
     contato = emails._contato_executivo(usuario.get("executivo"), usuario.get("nome"), usuario.get("cliente_nome"), motivo)
     return (contato or {}).get("whatsapp") or ""
 

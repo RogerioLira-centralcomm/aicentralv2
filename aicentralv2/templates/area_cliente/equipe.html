@@ -1,0 +1,75 @@
+{% extends 'area_cliente/base.html' %}
+{% from 'area_cliente/_macros.html' import icon %}
+{% block title %}Equipe{% endblock %}
+{% macro pessoa(p, empresa=False) -%}
+<li class="eq-pessoa{% if not p.acesso_hub %} is-sem{% endif %}">
+  {% if p.foto_url %}<img class="eq-av" src="{{ p.foto_url }}" alt="" width="40" height="40" loading="lazy">{% else %}<span class="eq-av eq-av--ini" aria-hidden="true">{{ p.iniciais }}</span>{% endif %}
+  <div class="eq-pessoa__txt">
+    <b>{{ p.nome }}{% if p.voce %} <span class="eq-voce">você</span>{% endif %}</b>
+    <small>{{ p.cargo or 'Cargo não informado' }}{% if p.email %} · <span class="eq-email">{{ p.email }}</span>{% endif %}</small>
+  </div>
+  {% if p.acesso_hub %}<span class="ac-badge ac-badge--success">{{ icon('check', 14) }}Acessa o hub</span>{% else %}<span class="ac-badge eq-badge-sem">Sem acesso ao hub</span>{% endif %}
+</li>
+{%- endmacro %}
+{% block content %}
+{% set exec = usuario.executivo %}
+<div class="ac-page-head ac-enter">
+  <div>
+    <h1 class="ac-h1 ac-page-title--topo">Equipe</h1>
+    <p class="ac-page-sub">Quem está cadastrado na plataforma e pode entrar neste hub. O login é o mesmo do Cadu, mas o acesso ao hub é liberado à parte.</p>
+  </div>
+</div>
+
+{% if time.erro %}
+<div class="ac-notice ac-enter" role="status"><span class="ac-notice__icon">{{ icon('info', 18) }}</span><div><p>Não foi possível carregar a equipe agora. Tente de novo em instantes.</p></div></div>
+{% endif %}
+
+<div class="eq-cols ac-enter">
+  <div class="eq-main">
+    <section class="ac-card" aria-labelledby="eq-empresa">
+      <header class="eq-head">
+        <h2 class="ac-h2" id="eq-empresa">{{ time.empresa }}</h2>
+        {% set com = time.pessoas|selectattr('acesso_hub')|list|length %}
+        <span class="eq-conta">{{ com }} de {{ time.pessoas|length }} com acesso ao hub</span>
+      </header>
+      {% if time.pessoas %}
+      <ul class="eq-lista">{% for p in time.pessoas %}{{ pessoa(p) }}{% endfor %}</ul>
+      {% else %}
+      <p class="eq-vazio">Nenhuma pessoa cadastrada nesta empresa.</p>
+      {% endif %}
+    </section>
+
+    {% for emp in time.parceiros %}
+    <section class="ac-card" aria-labelledby="eq-parc-{{ loop.index }}">
+      <header class="eq-head">
+        <h2 class="ac-h2" id="eq-parc-{{ loop.index }}">{{ emp.nome }}</h2>
+        <span class="ac-badge">{{ emp.tipo }} · PIs em comum</span>
+      </header>
+      <ul class="eq-lista">{% for p in emp.pessoas %}{{ pessoa(p) }}{% endfor %}</ul>
+    </section>
+    {% endfor %}
+  </div>
+
+  <aside class="eq-side">
+    <section class="ac-card" aria-labelledby="eq-cc">
+      <h2 class="ac-h2" id="eq-cc">Time Centralcomm</h2>
+      {% if exec %}
+      <div class="eq-exec">
+        {% if exec.foto_url %}<img class="eq-av eq-av--g" src="{{ exec.foto_url }}" alt="" width="56" height="56">{% else %}<span class="eq-av eq-av--g eq-av--ini" aria-hidden="true">{{ exec.nome[:1] }}</span>{% endif %}
+        <div><b>{{ exec.nome }}</b><small>Executivo responsável pela conta</small></div>
+      </div>
+      <ul class="eq-contatos">
+        {% if exec.email %}<li>{{ icon('mail', 16) }}<a class="ac-link" href="mailto:{{ exec.email }}">{{ exec.email }}</a></li>{% endif %}
+      </ul>
+      {% if whatsapp %}<a class="ac-btn ac-btn--secondary eq-zap" href="{{ whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 18) }}Falar no WhatsApp</a>{% endif %}
+      {% else %}
+      <p class="eq-vazio">A conta ainda não tem executivo definido. A equipe Centralcomm atende pelo hub.</p>
+      {% endif %}
+    </section>
+    <section class="ac-card eq-ajuda">
+      <h2 class="ac-h2">Incluir ou tirar alguém</h2>
+      <p>O acesso é liberado pela Centralcomm. Para incluir uma pessoa, tirar o acesso de alguém ou corrigir um cadastro, fale com {{ exec.nome if exec else 'a equipe Centralcomm' }}.</p>
+    </section>
+  </aside>
+</div>
+{% endblock %}

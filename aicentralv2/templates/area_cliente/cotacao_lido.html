@@ -43,6 +43,12 @@
     <section class="ac-card pe-entendi">
       <h2 class="ac-h2">O que entendi</h2>
       {% if leitura.resumo %}<p class="pe-nota">{{ icon('info', 16) }} {{ leitura.resumo }}</p>{% endif %}
+      <div class="ac-field-row pe-cliente">
+        <div class="ac-field"><label for="c-anunciante">{{ icon('building', 16) }} Cliente (anunciante) <span class="ac-req" aria-hidden="true">*</span></label>
+          <input id="c-anunciante" name="anunciante" type="text" maxlength="160" list="c-anunciantes" autocomplete="off" value="{{ v.anunciante or '' }}" placeholder="Para qual marca é a campanha?"{% if v.confidencial %} disabled{% endif %}{% if erros.anunciante %} aria-invalid="true"{% endif %}>
+          <datalist id="c-anunciantes">{% for n in anunciantes %}<option value="{{ n }}">{% endfor %}</datalist>{{ erro('anunciante') }}</div>
+        <label class="ac-chip pe-conf"><input type="checkbox" name="confidencial" value="1"{% if v.confidencial %} checked{% endif %} data-pe-confidencial><span>{{ icon('lock', 14) }} Confidencial</span></label>
+      </div>
       <div class="ac-field"><label for="c-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span></label>
         <input id="c-titulo" name="titulo" type="text" maxlength="160" value="{{ v.titulo or '' }}"{% if erros.titulo %} aria-invalid="true"{% endif %}>{{ erro('titulo') }}</div>
       <div class="ac-field"><label for="c-objetivo">Objetivo <span class="ac-req" aria-hidden="true">*</span></label>

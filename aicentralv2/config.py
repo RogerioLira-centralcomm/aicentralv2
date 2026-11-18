@@ -241,7 +241,7 @@ class Config:
 	AREA_CLIENTE_EMAIL_EQUIPE = os.getenv('AREA_CLIENTE_EMAIL_EQUIPE', 'contato@centralcomm.media')
 	# Sequência de ativação do hub (4 e-mails). Fica desligada até as telas que ela cita estarem no ar; ligue com HUB_ATIVACAO_LIBERADA=1.
 	HUB_ATIVACAO_LIBERADA = os.getenv('HUB_ATIVACAO_LIBERADA', '').strip().lower() in ('1', 'true', 'sim', 'yes')
-	# Conta de demonstração do hub (cliente 174): HUB_DEMO_CLIENTE_ID=0 desliga; HUB_DEMO_EMAILS=1 manda os e-mails do PI enviado só para o próprio usuário.
+	# Conta de demonstração do hub (cliente 174): HUB_DEMO_CLIENTE_ID=0 desliga; HUB_DEMO_EMAILS=1 manda os e-mails do PI e do briefing enviados só para o próprio usuário.
 	HUB_DEMO_EMAILS = os.getenv('HUB_DEMO_EMAILS', '').strip().lower() in ('1', 'true', 'sim', 'yes')
 	# Comercial: endereço real que recebe as respostas aos contatos de onboarding.
 	DEMETRIUS_EMAIL = os.getenv('DEMETRIUS_EMAIL', '')

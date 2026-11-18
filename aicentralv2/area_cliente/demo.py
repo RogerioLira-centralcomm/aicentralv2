@@ -232,13 +232,28 @@ def historico_briefing() -> list[dict]:
     for p in pis():
         proj = next(x for x in projetos() if x["id"] == p["id"])
         saida.append({
-            "id": f"pi:{p['id']}", "fonte": "PI", "titulo": p["titulo"], "quando": p["periodo"]["inicio"][5:7] + "/" + p["periodo"]["inicio"][:4],
+            "id": f"pi:{p['id']}", "fonte": "PI", "titulo": p["titulo"], "anunciante": "CLIENTE EXEMPLO S.A.", "quando": p["periodo"]["inicio"][5:7] + "/" + p["periodo"]["inicio"][:4],
             "objetivo": "Aumentar a presença da marca e gerar vendas no período.", "objetivo_tipo": "marca", "kpi": "Alcance",
             "plataformas": proj["plataformas"], "canais": ["social", "busca"], "pracas": ["Belo Horizonte", "Contagem", "Betim"],
             "publico": "Mulheres 25-44, classes B e C, interesse em moda e compras online", "dias": 30,
             "inicio_iso": p["periodo"]["inicio"], "fim_iso": p["periodo"]["fim"],
         })
     return saida[:5]
+
+
+def equipe(usuario: dict) -> dict:
+    """Página Equipe da demonstração: o usuário logado mais pessoas fictícias (nada vem do banco)."""
+    def p(i, nome, cargo, email, acesso, voce=False):
+        partes = nome.split()
+        return {"id": BASE_ID + i, "nome": nome, "cargo": cargo, "email": email, "foto_url": "", "acesso_hub": acesso, "voce": voce,
+                "iniciais": (partes[0][:1] + partes[-1][:1]).upper()}
+    eu = {**p(0, usuario.get("nome") or "Você", "Marketing", usuario.get("email") or "", True, True), "foto_url": usuario.get("foto_url") or ""}
+    return {"empresa": usuario.get("cliente_nome"), "erro": False, "pessoas": [
+        eu, p(1, "Marina Couto", "Gerente de marketing", "marina.couto@exemplo.com.br", True),
+        p(2, "Rafael Antunes", "Analista de mídia", "rafael.antunes@exemplo.com.br", True),
+        p(3, "Beatriz Lemos", "Financeiro", "beatriz.lemos@exemplo.com.br", False)],
+        "parceiros": [{"nome": "AGÊNCIA EXEMPLO", "tipo": "Agência", "pessoas": [
+            {**p(4, "Tiago Moreira", "Atendimento", "", True)}, {**p(5, "Luana Reis", "Planejamento", "", False)}]}]}
 
 
 def registrar_briefing(valores: dict) -> int:
@@ -258,7 +273,7 @@ LEITURA_PI = {
 }
 
 LEITURA_COTACAO = {
-    "titulo": "Campanha de verão 2027", "objetivo": "Vender a nova coleção de verão pelo site e nas lojas de Belo Horizonte.",
+    "anunciante": "CLIENTE EXEMPLO S.A.", "titulo": "Campanha de verão 2027", "objetivo": "Vender a nova coleção de verão pelo site e nas lojas de Belo Horizonte.",
     "publico": "Mulheres 25-44, classes B e C, interessadas em moda e viagens.", "pracas": ["Belo Horizonte", "Contagem", "Betim"],
     "inicio": (date.today() + timedelta(days=20)).isoformat(), "fim": (date.today() + timedelta(days=50)).isoformat(), "verba": "", "canais": ["social", "busca"],
     "formatos": ["Carrossel", "Story"], "pecas": "", "resumo": "Material pede uma campanha de verão com foco em BH e região.",
@@ -293,7 +308,7 @@ def marcar_enviado(tipo: str, uuid, mensagem: str = "") -> bool:
     registro = envio(tipo, uuid)
     if not registro or registro.get("enviado_em"):
         return False
-    if (estado_pi(registro) != "pronto") if tipo == "pi" else lendo(registro):
+    if (estado_pi(registro) != "pronto") if tipo == "pi" else estado_cotacao(registro) == "lendo":
         return False
     registro["enviado_em"], registro["mensagem"] = time.time(), (mensagem or "")[:1000]
     session.modified = True
@@ -383,6 +398,68 @@ def pre_pis() -> list[dict]:
                                             "cliente": {"razao_social": r.get("cliente")}, "periodo_texto": r.get("periodo"),
                                             "totais": {"bruto": r.get("total_bruto")}, "linhas": [{"plataforma": p} for p in r.get("plataformas") or []]}})
     return saida
+
+
+# ---------- cotação de demonstração: os arquivos são lidos de verdade pelo modelo, só que fora do banco ----------
+
+def guardar_arquivos_cotacao(uuid_envio: str, lidos: list[tuple[str, bytes, str]]) -> list[dict]:
+    """Grava os arquivos em instance/hub_demo e anota no envio (o caminho serve à leitura e aos anexos do e-mail)."""
+    _limpar_antigos()
+    arquivos = []
+    for i, (nome, conteudo, tipo) in enumerate(lidos):
+        caminho = _pasta() / f"{_arquivo(uuid_envio, 'x').stem}-{i}{Path(nome).suffix.lower()}"
+        caminho.write_bytes(conteudo)
+        arquivos.append({"nome": Path(nome).name[:160], "caminho": str(caminho), "tipo": tipo})
+    registro = envio("cotacao", uuid_envio)
+    if registro is not None:
+        registro["arquivos"] = arquivos
+        session.modified = True
+    return arquivos
+
+
+def _ler_cotacao_agora(uuid_envio: str, arquivos: list[dict]) -> None:
+    from ..pi_entrada import leitor
+    from . import cotacao
+    try:
+        resultado = cotacao.ler(arquivos)
+        saida = {"leitura": {**resultado["leitura"], "avisos": resultado["avisos"]}}
+    except (cotacao.CotacaoErro, leitor.LeituraErro) as exc:          # mensagens escritas para o cliente
+        saida = {"erro": str(exc)}
+    except Exception:
+        current_app.logger.warning("Leitura da cotação de demonstração falhou.", exc_info=True)
+        saida = {"erro": "Não consegui ler os arquivos. Você pode enviar do mesmo jeito: a equipe vê os anexos."}
+    _arquivo(uuid_envio, "json").write_text(json.dumps(saida, ensure_ascii=False), encoding="utf-8")
+
+
+def iniciar_leitura_cotacao(uuid_envio: str, arquivos: list[dict]) -> None:
+    if not EXECUTAR_EM_SEGUNDO_PLANO:
+        return _ler_cotacao_agora(uuid_envio, arquivos)
+    app = current_app._get_current_object()
+
+    def tarefa():
+        with app.app_context():
+            _ler_cotacao_agora(uuid_envio, arquivos)
+    threading.Thread(target=tarefa, name=f"demo-cot-{uuid_envio[-6:]}", daemon=True).start()
+
+
+def estado_cotacao(registro: dict) -> str:
+    """lendo, erro, pronto ou enviado. Envio antigo, sem arquivos gravados, usa a leitura de exemplo (4 segundos)."""
+    if registro.get("enviado_em"):
+        return "enviado"
+    if not registro.get("arquivos"):
+        return "lendo" if lendo(registro) else "pronto"
+    res = resultado_pi(registro["uuid"])
+    if res is None:
+        return "erro" if time.time() - registro["em"] > LIMITE_LEITURA_PI else "lendo"
+    return "erro" if res.get("erro") else "pronto"
+
+
+def leitura_cotacao(registro: dict) -> tuple[dict | None, str | None]:
+    """(leitura, erro) do envio de cotação de demonstração."""
+    if not registro.get("arquivos"):
+        return LEITURA_COTACAO, None
+    res = resultado_pi(registro["uuid"]) or {}
+    return res.get("leitura"), res.get("erro")
 
 
 def estado_pi(registro: dict) -> str:

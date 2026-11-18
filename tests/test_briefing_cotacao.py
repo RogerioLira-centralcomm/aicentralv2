@@ -138,7 +138,7 @@ def hub(monkeypatch, tmp_path):
     monkeypatch.setattr(cotacao, "mudar_status", lambda i, st, erro=None: next(r for r in m.rascunhos.values() if r["id"] == i).update(status=st))
     monkeypatch.setattr(cotacao, "marcar_enviado", enviado)
     monkeypatch.setattr(briefing, "enviar", lambda u, d, extra=None: m.briefings.append((d, extra)) or 55)
-    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i: m.emails.append(("novo", v)) or True)
+    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i, **k: m.emails.append(("novo", v)) or True)
     monkeypatch.setattr(emails, "briefing_recebido", lambda u, v: m.emails.append(("recebido", v)) or True)
     c = app.test_client()
     with c.session_transaction(base_url=HOST) as s:
@@ -200,7 +200,7 @@ def test_estados_lendo_erro_e_isolamento(hub):
 
 
 def form(**extra):
-    return {"csrf": "tok", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", "pracas": "BH, Contagem", "inicio": "2026-12-01",
+    return {"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", "pracas": "BH, Contagem", "inicio": "2026-12-01",
             "fim": "2027-01-15", "verba": "até R$ 50 mil", "canais": ["social"], **extra}
 
 
@@ -222,7 +222,7 @@ def test_enviar_invalido_volta_com_erros_sem_gravar_e_nao_envia_se_ainda_le(hub)
     pronto(hub)
     r = hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form(titulo="", objetivo="curto"))
     assert r.status_code == 422 and not hub.mem.briefings
-    assert "Dê um nome" in r.get_data(as_text=True) and 'value="BH, Contagem"' in r.get_data(as_text=True)
+    assert "Dê um nome" in r.get_data(as_text=True) and 'value="Belo Horizonte - MG, Contagem - MG"' in r.get_data(as_text=True)
     hub.mem.rascunhos["u1"]["status"] = "lendo"
     r = hub.post("/briefing/cotacao/u1/enviar", base_url=HOST, data=form())
     assert r.status_code == 303 and not hub.mem.briefings
@@ -278,7 +278,7 @@ def test_rascunho_e_envio_contra_postgres(monkeypatch):
     assert cotacao.contar_recentes(1) == 1 and cotacao.contar_recentes(2) == 0
 
     valores, erros = briefing.validar(__import__("werkzeug.datastructures", fromlist=["MultiDict"]).MultiDict(
-        {"titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", "canais": "social"}))
+        {"anunciante": "Marca Teste", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", "canais": "social"}))
     assert not erros
     prazo = cotacao.prazo_resposta()
     novo = briefing.enviar({"cliente_id": 1, "user_id": 501, "nome": "Ana"}, valores,
@@ -378,7 +378,7 @@ def test_pdf_com_senha_mostra_a_mensagem_do_leitor(tmp_path, monkeypatch):
 # ---------- anexo opcional do planejamento ----------
 
 def planejamento(**extra):
-    return {"csrf": "tok", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", **extra}
+    return {"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Verão 2027", "objetivo": "Vender a coleção de verão", **extra}
 
 
 def test_planejamento_nao_reaproveita_pi_e_mostra_apoio_e_ajuda(hub, monkeypatch):
@@ -386,9 +386,9 @@ def test_planejamento_nao_reaproveita_pi_e_mostra_apoio_e_ajuda(hub, monkeypatch
     monkeypatch.setattr(briefing, "listar", lambda c: [])
     html = hub.get("/briefing/planejamento", base_url=HOST).get_data(as_text=True)
     assert "Quer aproveitar algo que já fizemos juntos" not in html and "Públicos que você já usou" not in html
-    assert "Itens do Descobrir" in html and "Anexo" in html and 'id="bw-anexo-btn"' in html and 'name="anexo"' in html
-    assert "Sobre a campanha" in html and "Quando e quanto" in html and html.count('class="bw-ajuda"') >= 8
-    assert "Tenho arquivos para cotar" in html                              # o anexo só ajuda; para cotar, outro caminho
+    assert "Do Descobrir" in html and "b-anunciante" in html and "Confidencial" in html and "Anexo" in html and 'id="bw-anexo-btn"' in html and 'name="anexo"' in html
+    assert "Sobre a campanha" in html and "Quando e quanto" in html and html.count('class="bw-ajuda"') >= 5
+    assert html.index("Sobre a campanha") < html.index("Do Descobrir") < html.index('data-step="publico"')   # apoio logo depois da campanha
 
 
 def test_anexo_do_planejamento_le_devolve_os_dados_e_vai_com_o_briefing(hub):

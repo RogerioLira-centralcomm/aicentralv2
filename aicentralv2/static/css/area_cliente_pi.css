@@ -124,3 +124,11 @@ html.pe-festa-aberta { overflow: hidden; }
 .pe-proc__nota { margin: 8px 0 4px; max-width: 440px; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
 @keyframes pe-gira { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pe-proc__arco { animation: none; } }
+
+/* Cotação: cliente (anunciante) com a opção confidencial ao lado */
+.pe-cliente { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+.pe-cliente .ac-field label { display: inline-flex; align-items: center; gap: 6px; }
+.pe-cliente input:disabled { background: var(--soft); color: var(--muted); }
+.pe-conf { margin-bottom: 4px; }
+.pe-conf span { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) { .pe-cliente { grid-template-columns: minmax(0, 1fr); } }

@@ -38,6 +38,7 @@ MIME_IMAGEM = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
 PROMPT = (
     "Você lê materiais que um cliente de mídia anexou para pedir uma cotação (briefing, mídia kit, planilha de mídia, PI antigo). "
     "Extraia só o que está escrito nos arquivos e devolva SOMENTE um objeto JSON com estas chaves: "
+    "anunciante (nome do cliente ou da marca que vai anunciar, como aparece no material, ou null), "
     "titulo (nome da campanha ou ação, string), objetivo (o que a campanha precisa alcançar, 1 a 3 frases), publico (string), "
     "pracas (lista de cidades, estados ou regiões), inicio e fim (AAAA-MM-DD ou null), verba (texto como no material, ou null; "
     "nunca invente), canais (lista com valores de: tv_ctv, programatica, social, busca, audio, ooh, influencia), "
@@ -175,7 +176,7 @@ def _normalizar(bruto: dict) -> dict:
 
     canais = [c for c in lista(bruto.get("canais"), 30, 8) if c in dict(briefing.CANAIS)]
     return {
-        "titulo": txt(bruto.get("titulo"), 160), "objetivo": txt(bruto.get("objetivo"), 2000), "publico": txt(bruto.get("publico"), 1000),
+        "anunciante": txt(bruto.get("anunciante"), 160), "titulo": txt(bruto.get("titulo"), 160), "objetivo": txt(bruto.get("objetivo"), 2000), "publico": txt(bruto.get("publico"), 1000),
         "pracas": lista(bruto.get("pracas"), 80, briefing.MAX_PRACAS), "inicio": data(bruto.get("inicio")), "fim": data(bruto.get("fim")),
         "verba": txt(bruto.get("verba"), 120), "canais": canais, "formatos": lista(bruto.get("formatos"), 80, 10),
         "pecas": txt(bruto.get("pecas"), 300), "resumo": txt(bruto.get("resumo"), 600), "faltou": lista(bruto.get("faltou"), 120, 8),

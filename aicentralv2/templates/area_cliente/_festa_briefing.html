@@ -1,0 +1,40 @@
+{# Tela cheia de "briefing enviado", no mesmo padrão do PI encaminhado: fogos, selo, próximos passos e o executivo.
+   Aparece uma vez, logo depois do envio (a sessão guarda e a primeira página de briefing tira). #}
+{% from 'area_cliente/_macros.html' import icon %}
+{% set f = festa_briefing %}
+{% set exec = usuario.executivo %}
+{% set quem = exec.nome if exec else 'A equipe Centralcomm' %}
+{% set cotacao = f.modo == 'cotacao' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/area_cliente_pi.css') }}?v={{ static_fingerprint('css/area_cliente_pi.css') }}">
+<section class="pe-festa" data-pe-festa data-saida="{{ area_url('briefing') }}" aria-labelledby="festa-titulo" role="dialog" aria-modal="true">
+  <canvas class="pe-festa__fogos" aria-hidden="true"></canvas>
+  <a class="pe-festa__fechar" href="{{ area_url('briefing') }}" aria-label="Fechar e voltar aos briefings">{{ icon('close', 22) }}</a>
+  <div class="pe-festa__conteudo">
+    <span class="pe-festa__selo">{{ icon('check', 44) }}</span>
+    <p class="pe-festa__eyebrow">{{ 'Pedido de cotação enviado' if cotacao else 'Briefing enviado' }}</p>
+    <h1 class="pe-festa__titulo" id="festa-titulo">{% if f.titulo %}“{{ f.titulo }}”{% else %}Briefing{% endif %} enviado com sucesso</h1>
+    <p class="pe-festa__lead">
+      {%- if cotacao -%}
+      {{ quem }} recebeu {{ 'os ' ~ f.arquivos ~ ' arquivos' if f.arquivos > 1 else 'o arquivo' }} e a leitura feita pelo hub e prepara a cotação.{% if f.prazo %} Retorno até <b>{{ f.prazo }}</b>.{% endif %}
+      {%- elif f.modo == 'pi_antigo' -%}
+      {{ quem }} recebeu o briefing{% if f.origem %}, com base em {{ f.origem }},{% endif %} e prepara o novo planejamento de mídia.
+      {%- else -%}
+      {{ quem }} recebeu o briefing e prepara o planejamento de mídia.
+      {%- endif %}
+      {% if usuario.email %} A confirmação foi enviada para <b>{{ usuario.email }}</b> e o executivo foi notificado por e-mail.{% endif %}
+    </p>
+    <p class="pe-festa__etapas">{% if cotacao %}<span>Cotação</span>{% else %}<span>Planejamento</span>{% endif %}<i aria-hidden="true"></i><span>PI</span><i aria-hidden="true"></i><span>Campanhas no ar</span></p>
+    {% if exec %}
+    <p class="pe-festa__exec">
+      {% if exec.foto_url %}<img src="{{ exec.foto_url }}" alt="" width="40" height="40">{% else %}<span class="pe-exec__ini">{{ exec.nome[:1] }}</span>{% endif %}
+      <span><strong>{{ exec.nome }}</strong>Executivo responsável</span>
+      {% if f.whatsapp %}<a class="pe-festa__zap" href="{{ f.whatsapp }}" target="_blank" rel="noopener">{{ icon('whatsapp', 16) }}WhatsApp</a>{% endif %}
+    </p>
+    {% endif %}
+    <div class="pe-festa__acoes">
+      <a class="ac-btn ac-btn--primary" href="{{ area_url('briefing_todos') }}">Acompanhar briefings</a>
+      <a class="ac-btn ac-btn--secondary" href="{{ area_url('inicio') }}">Ir para o início</a>
+    </div>
+  </div>
+</section>
+<script src="{{ url_for('static', filename='js/area_cliente_festa.js') }}?v={{ static_fingerprint('js/area_cliente_festa.js') }}" defer></script>

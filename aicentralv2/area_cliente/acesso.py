@@ -333,12 +333,13 @@ def _executivo(row) -> dict | None:
 
 _VER_COMO_SQL = """
     SELECT cli.id_cliente, cli.nome_fantasia,
-           BOOL_OR(x.papel = 'agencia') AS agencia, COUNT(DISTINCT x.id_pi) AS n_pis
+           BOOL_OR(x.papel = 'agencia') AS agencia, COUNT(DISTINCT x.id_pi) AS n_pis,
+           COUNT(DISTINCT x.id_pi) FILTER (WHERE x.sub IN (2, 3)) AS n_andamento
       FROM (
-            SELECT pi.id_cliente AS id_cliente, pi.id_pi, 'cliente' AS papel FROM cadu_pi pi
+            SELECT pi.id_cliente AS id_cliente, pi.id_pi, 'cliente' AS papel, pi.id_sub_status_pi AS sub FROM cadu_pi pi
              WHERE {filtro}
             UNION ALL
-            SELECT pi.id_agencia, pi.id_pi, 'agencia' FROM cadu_pi pi
+            SELECT pi.id_agencia, pi.id_pi, 'agencia', pi.id_sub_status_pi FROM cadu_pi pi
              WHERE pi.id_agencia IS NOT NULL AND {filtro}
            ) x
       JOIN tbl_cliente cli ON cli.id_cliente = x.id_cliente
@@ -362,7 +363,8 @@ def clientes_para_ver_como(ano: int) -> list[dict]:
         conn.rollback()
         raise
     return [{"id": int(r["id_cliente"]), "nome": r["nome_fantasia"] or f"Cliente {r['id_cliente']}",
-             "tipo": "Agência" if r["agencia"] else "Cliente", "n_pis": int(r["n_pis"])} for r in rows]
+             "tipo": "Agência" if r["agencia"] else "Cliente", "n_pis": int(r["n_pis"]),
+             "n_andamento": int(r.get("n_andamento") or 0)} for r in rows]
 
 
 def aplicar_ver_como(usuario: dict, cliente_id, ano: int, opcoes=None) -> dict | None:

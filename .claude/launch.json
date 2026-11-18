@@ -64,6 +64,7 @@
       "runtimeExecutable": "/usr/bin/env",
       "runtimeArgs": [
         "CLIENTES_URL=http://clientes.localhost:5052",
+        "HUB_DEMO_EMAILS=1",
         ".venv/bin/flask",
         "--app",
         "run:app",

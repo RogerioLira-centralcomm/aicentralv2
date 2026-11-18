@@ -1,17 +1,19 @@
 {% extends 'emails/area_cliente/base.html' %}
 {% from 'emails/area_cliente/_ui.html' import botao, fatos, nota, badge, hero_texto with context %}
-{% set eyebrow = 'Novo briefing' %}
-{% block title %}Novo briefing de {{ cliente }}: {{ titulo }}{% endblock %}
-{% block preheader %}{{ nome }} enviou um briefing pelo hub de mídia.{% endblock %}
+{% set eyebrow = 'Pedido de cotação' if modo == 'cotacao' else 'Novo briefing' %}
+{% set arquivos_txt = (anexos ~ (' · anexados a este e-mail' if anexados|length == (anexos.split(', ')|length) else (' · ' ~ anexados|length ~ ' anexados a este e-mail, os demais no CentralX' if anexados else ' · no CentralX'))) if anexos else '' %}
+{% block title %}{{ 'Cotação pedida por ' if modo == 'cotacao' else 'Novo briefing de ' }}{{ cliente }}: {{ titulo }}{% endblock %}
+{% block preheader %}{{ nome }} enviou {{ 'arquivos para cotação' if modo == 'cotacao' else 'um briefing' }} pelo hub de mídia.{% if prazo %} Responder até {{ prazo }}.{% endif %}{% endblock %}
 {% block icone %}{{ badge('file-text') }}{% endblock %}
-{% block headline %}Briefing novo da {{ cliente }}{% endblock %}
-{% block hero_sub %}{{ hero_texto(primeiro_nome_executivo ~ ', ' ~ nome ~ ' mandou um briefing pelo hub de mídia. Dá para começar o planejamento.') }}{% endblock %}
+{% block headline %}{{ 'Pedido de cotação da ' if modo == 'cotacao' else 'Briefing novo da ' }}{{ cliente }}{% endblock %}
+{% block hero_sub %}{% if modo == 'cotacao' %}{{ hero_texto(primeiro_nome_executivo ~ ', ' ~ nome ~ ' mandou arquivos para cotar pelo hub de mídia.' ~ (' O cliente espera a cotação até ' ~ prazo ~ '.' if prazo else '')) }}{% elif modo == 'pi_antigo' %}{{ hero_texto(primeiro_nome_executivo ~ ', ' ~ nome ~ ' quer repetir um PI antigo e revisou o briefing pelo hub de mídia. Dá para começar o planejamento.') }}{% else %}{{ hero_texto(primeiro_nome_executivo ~ ', ' ~ nome ~ ' mandou um briefing pelo hub de mídia. Dá para começar o planejamento.') }}{% endif %}{% endblock %}
 {% block content %}
-  {% if secoes %}
+  {% if prazo %}{{ nota('Prazo combinado com o cliente: responder até ' ~ prazo ~ '.', 'alerta') }}{% endif %}
+  {% if estruturado %}
   {% if qualidade %}{{ nota('Nota do briefing: ' ~ qualidade.nota ~ '/100.' ~ ((' Perguntar ao cliente: ' ~ (qualidade.pendencias + qualidade.avisos)|join(' ')) if (qualidade.pendencias or qualidade.avisos) else ' Completo para cotar.'), 'alerta' if qualidade.pendencias else 'info') }}{% endif %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Arquivos anexados', anexos), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
+  {{ fatos([('Tipo de pedido', tipo_pedido), ('Cliente (anunciante)', anunciante), ('Campanha ou ação', titulo), ('Objetivo', objetivo_completo)] + secoes + [('Do Descobrir', itens_descobrir), ('Reaproveitou dados de', origem), ('Arquivos', arquivos_txt), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% else %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Arquivos anexados', anexos), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
+  {{ fatos([('Tipo de pedido', tipo_pedido), ('Cliente (anunciante)', anunciante), ('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Público e praças', publico), ('Período desejado', periodo), ('Verba prevista', verba), ('Canais de interesse', canais), ('Do Descobrir', itens_descobrir), ('Arquivos', arquivos_txt), ('Responder até', prazo), ('Enviado por', nome ~ ' · ' ~ email)]) }}
   {% endif %}
   {% if descricao %}<p style="margin:22px 0 6px;color:#0c2e24;font-weight:bold">Mais detalhes</p><p style="margin:0;white-space:pre-line">{{ descricao }}</p>{% endif %}
   {{ botao(link_briefings, 'Abrir em Briefings no CentralX') }}

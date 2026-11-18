@@ -219,15 +219,35 @@ def _resumo_briefing(valores: dict) -> dict:
     if ini or fim:
         periodo = f"{ini.strftime('%d/%m/%Y') if ini else 'a definir'} a {fim.strftime('%d/%m/%Y') if fim else 'a definir'}"
     itens = (valores.get("descobrir") or "").split("\n", 1)[1].replace("- ", "") if valores.get("descobrir") else ""
-    from .briefing import qualidade, resumo
-    secoes = [(r, t) for r, t in resumo(valores) if r not in ("Objetivo", "Mais detalhes")] if "objetivo_tipo" in valores else []
+    from .briefing import anunciante_texto, qualidade, resumo
+    secoes = [(r, t) for r, t in resumo(valores) if r not in ("Objetivo", "Mais detalhes", "Cliente (anunciante)")] if "objetivo_tipo" in valores else []
     return {"titulo": valores.get("titulo"), "objetivo": valores.get("objetivo"), "publico": valores.get("publico"),
             "periodo": periodo, "verba": valores.get("verba"), "descricao": valores.get("descricao"),
             "canais": ", ".join(rotulos[c] for c in valores.get("canais") or [] if c in rotulos),
             "itens_descobrir": itens, "secoes": secoes, "origem": valores.get("origem_rotulo") or "",
-            "objetivo_completo": dict(resumo(valores)).get("Objetivo", valores.get("objetivo")) if secoes else valores.get("objetivo"),
-            "qualidade": (valores.get("qualidade") or qualidade(valores)) if secoes else None,
-            "prazo": valores.get("prazo_texto") or "", "anexos": ", ".join(valores.get("anexos") or []), "cotacao": bool(valores.get("prazo_texto"))}
+            "objetivo_completo": dict(resumo(valores)).get("Objetivo", valores.get("objetivo")) if "objetivo_tipo" in valores else valores.get("objetivo"),
+            "estruturado": "objetivo_tipo" in valores,
+            "qualidade": (valores.get("qualidade") or qualidade(valores)) if "objetivo_tipo" in valores else None,
+            "prazo": valores.get("prazo_texto") or "", "anexos": ", ".join(valores.get("anexos") or []), "cotacao": bool(valores.get("prazo_texto")),
+            "modo": valores.get("modo") or "", "anunciante": anunciante_texto(valores), "tipo_pedido": TIPOS_BRIEFING.get(valores.get("modo") or "", "")}
+
+
+TIPOS_BRIEFING = {"cotacao": "Cotação a partir de arquivos", "pi_antigo": "Repetir um PI antigo", "planejamento": "Planejamento novo"}
+
+
+def anexos_arquivos(arquivos) -> list | None:
+    """Arquivos do briefing como anexos da Brevo, enquanto couberem no limite do e-mail. Os que não couberem ficam só no CentralX."""
+    saida, total = [], 0
+    for a in arquivos or []:
+        um = anexo_pdf(a.get("caminho") or "", a.get("nome") or "arquivo")
+        if not um:
+            continue
+        tamanho = len(um[0]["content"]) * 3 // 4
+        if total + tamanho > LIMITE_ANEXO:
+            continue
+        saida += um
+        total += tamanho
+    return saida or None
 
 
 def briefing_recebido(usuario: dict, valores: dict) -> bool:
@@ -326,15 +346,21 @@ def _destino_equipe(executivo) -> tuple[str, str]:
     return current_app.config.get("AREA_CLIENTE_EMAIL_EQUIPE", ""), "Equipe Centralcomm"
 
 
-def briefing_novo(usuario: dict, valores: dict, briefing_id: int) -> bool:
+def briefing_novo(usuario: dict, valores: dict, briefing_id: int, anexos=None) -> bool:
+    """Aviso ao executivo responsável. Na cotação, os arquivos do cliente seguem anexados (até o limite da Brevo)."""
     from ..product_domains import product_url
     executivo = usuario.get("executivo") or {}
     para, nome = _destino_equipe(executivo)
     ctx = {**_resumo_briefing(valores), "nome": usuario.get("nome"), "email": usuario.get("email"),
            "cliente": usuario.get("cliente_nome"), "primeiro_nome_executivo": _primeiro(nome),
-           "link_briefings": product_url("centralx", f"/briefings?busca={briefing_id}"), "executivo": None}
+           "link_briefings": product_url("centralx", f"/briefings?busca={briefing_id}" if briefing_id else "/briefings"), "executivo": None,
+           "anexados": [a["name"] for a in anexos or []]}
     reply = {"name": usuario.get("nome"), "email": usuario.get("email")} if usuario.get("email") else None
-    return _enviar("briefing-novo", para, nome, f"Novo briefing de {usuario.get('cliente_nome')}: {valores.get('titulo')}", ctx, reply)
+    if valores.get("modo") == "cotacao":
+        assunto = f"Cotação pedida por {usuario.get('cliente_nome')}: {valores.get('titulo')}" + (f" (responder até {valores['prazo_texto']})" if valores.get("prazo_texto") else "")
+    else:
+        assunto = f"Novo briefing de {usuario.get('cliente_nome')}: {valores.get('titulo')}"
+    return _enviar("briefing-novo", para, nome, assunto, ctx, reply, anexos=anexos)
 
 
 def pi_recebido(usuario: dict, resumo: dict, entrada_id: int, mensagem: str = "", anexos=None) -> bool:

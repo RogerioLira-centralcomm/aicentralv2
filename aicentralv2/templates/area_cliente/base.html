@@ -123,18 +123,12 @@
           <div class="ac-menu__panel" role="menu" hidden>
             <div class="ac-menu__who"><b>{{ usuario.nome }}</b><small>{{ usuario.email }}</small><small>{{ usuario.cliente_nome }}</small></div>
             {% if ver_como_opcoes %}
-            <form class="ac-viewas-pick" method="post" action="{{ area_url('ver_como') }}">
-              <input type="hidden" name="csrf" value="{{ csrf_global }}">
-              <label for="ac-ver-como">Ver como cliente <small>com PI validado em {{ ver_como_ano }}</small></label>
-              <input type="search" class="ac-viewas-pick__filter" placeholder="Filtrar {{ ver_como_opcoes|length }} clientes e agências" aria-label="Filtrar clientes" data-ac-filter>
-              <select id="ac-ver-como" name="cliente_id" size="7" class="ac-viewas-pick__list" required>
-                {% for c in ver_como_opcoes %}<option value="{{ c.id }}"{% if c.id == usuario.cliente_id %} selected{% endif %}>{{ c.nome }} · {{ c.tipo }} · {{ c.n_pis }} {{ 'PI' if c.n_pis == 1 else 'PIs' }}</option>{% endfor %}
-              </select>
-              <button type="submit" class="ac-btn ac-btn--primary ac-btn--sm">{{ icon('users', 16) }}Ver como este cliente</button>
-            </form>
+            <button type="button" class="ac-menu__item ac-viewas-open" role="menuitem" data-ac-viewas-open aria-haspopup="dialog">
+              {{ icon('users', 18) }}<span>Ver como cliente{% if usuario.ver_como %}<small>Vendo {{ usuario.cliente_nome }}</small>{% endif %}</span>
+            </button>
             {% endif %}
             <a class="ac-menu__item" role="menuitem" href="{{ area_url('equipe') }}">{{ icon('users', 18) }}Equipe</a>
-            <p class="ac-menu__label">Cadu</p>
+            {% if cadu %}<p class="ac-menu__label">Cadu</p>{% endif %}
             {% for item in cadu %}
             {% if item.em_breve %}
             <span class="ac-menu__item is-disabled" aria-disabled="true">{{ icon(item.icone, 18) }}{{ item.rotulo }}<em class="ac-nav__soon">Em breve</em></span>
@@ -155,6 +149,42 @@
   </div>
 </div>
 {% include 'area_cliente/_painel.html' %}
+{% if festa_briefing %}{% include 'area_cliente/_festa_briefing.html' %}{% endif %}
+{% if ver_como_opcoes %}
+{% set andamento = ver_como_opcoes|selectattr('n_andamento')|list %}
+{% set outros = ver_como_opcoes|rejectattr('n_andamento')|list %}
+<dialog class="ac-viewas-modal" data-ac-viewas aria-labelledby="ac-viewas-titulo">
+  <form class="ac-viewas-modal__box" method="post" action="{{ area_url('ver_como') }}">
+    <input type="hidden" name="csrf" value="{{ csrf_global }}">
+    <header class="ac-viewas-modal__head">
+      <div>
+        <h2 id="ac-viewas-titulo">Ver como cliente</h2>
+        <p>{{ ver_como_opcoes|length }} clientes e agências com PI validado em {{ ver_como_ano }}.</p>
+      </div>
+      <button type="button" class="ac-viewas-modal__fechar" data-ac-viewas-fechar aria-label="Fechar">{{ icon('close', 20) }}</button>
+    </header>
+    <input type="search" class="ac-viewas-pick__filter" placeholder="Buscar cliente ou agência" aria-label="Buscar cliente ou agência" data-ac-filter autocomplete="off">
+    <div class="ac-viewas-modal__lista">
+      {% for titulo, grupo in (('Com PI em andamento', andamento), ('Outros com PI em ' ~ ver_como_ano, outros)) if grupo %}
+      <section data-ac-viewas-grupo>
+        <h3>{{ titulo }} <span>{{ grupo|length }}</span></h3>
+        <ul>
+          {% for c in grupo %}
+          {% set atual = usuario.ver_como and c.id == usuario.cliente_id %}
+          <li><button type="submit" name="cliente_id" value="{{ c.id }}" class="ac-viewas-modal__item{% if atual %} is-atual{% endif %}" data-nome="{{ c.nome|lower }}"{% if atual %} aria-current="true"{% endif %}>
+            <b>{{ c.nome }}</b>
+            <small>{{ c.tipo }} · {% if c.n_andamento %}{{ c.n_andamento }} em andamento · {% endif %}{{ c.n_pis }} {{ 'PI' if c.n_pis == 1 else 'PIs' }} em {{ ver_como_ano }}</small>
+            {% if atual %}<span class="ac-viewas-modal__check">{{ icon('check', 16) }}Mostrando</span>{% endif %}
+          </button></li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+      <p class="ac-viewas-modal__vazio" data-ac-viewas-vazio hidden>Nenhum cliente encontrado.</p>
+    </div>
+  </form>
+</dialog>
+{% endif %}
 <script>
 (function () {
   var root = document.documentElement;
@@ -280,12 +310,37 @@
   document.addEventListener('click', function (ev) {
     if (!ev.target.closest('[data-ac-menu]')) closeMenus(null);
   });
-  var filtro = document.querySelector('[data-ac-filter]');
-  if (filtro) {
-    var lista = document.getElementById('ac-ver-como');
+  /* "Ver como cliente": o menu só abre o modal; a lista, em dois grupos, filtra enquanto digita. */
+  var viewas = document.querySelector('[data-ac-viewas]');
+  var abrirViewas = document.querySelector('[data-ac-viewas-open]');
+  if (viewas && abrirViewas && viewas.showModal) {
+    var filtro = viewas.querySelector('[data-ac-filter]');
+    abrirViewas.addEventListener('click', function () {
+      closeMenus(null);
+      viewas.showModal();
+      var atual = viewas.querySelector('.is-atual');
+      if (atual) atual.scrollIntoView({ block: 'center' });
+      filtro.focus();
+    });
+    viewas.querySelector('[data-ac-viewas-fechar]').addEventListener('click', function () { viewas.close(); });
+    viewas.addEventListener('click', function (ev) { if (ev.target === viewas) viewas.close(); });
     filtro.addEventListener('input', function () {
-      var termo = filtro.value.trim().toLowerCase();
-      Array.prototype.forEach.call(lista.options, function (o) { o.hidden = termo && o.text.toLowerCase().indexOf(termo) === -1; });
+      var termo = filtro.value.trim().toLowerCase(), algum = false;
+      viewas.querySelectorAll('[data-ac-viewas-grupo]').forEach(function (g) {
+        var visiveis = 0;
+        g.querySelectorAll('[data-nome]').forEach(function (b) {
+          var ok = !termo || b.dataset.nome.indexOf(termo) !== -1;
+          b.parentNode.hidden = !ok; if (ok) visiveis++;
+        });
+        g.hidden = !visiveis; if (visiveis) algum = true;
+      });
+      viewas.querySelector('[data-ac-viewas-vazio]').hidden = algum;
+    });
+    filtro.addEventListener('keydown', function (ev) {               /* Enter com um único resultado abre esse cliente */
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      var vis = Array.prototype.filter.call(viewas.querySelectorAll('[data-nome]'), function (b) { return !b.parentNode.hidden; });
+      if (vis.length === 1) vis[0].click();
     });
   }
   /* ⌘K / Ctrl+K (ou "/" fora de campos) leva à busca do topo, como um Spotlight. */

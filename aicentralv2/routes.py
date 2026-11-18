@@ -1404,16 +1404,27 @@ def init_routes(app):
         """Página de login"""
         from aicentralv2.product_domains import is_centralx_request, product_url, safe_product_target
 
+        from urllib.parse import urlparse
+
         centralx_host = is_centralx_request()
         # CentralX owns its entry point. Do not let a Cadu `next` parameter
         # turn its login into the platform-wide Cadu/Workspace access screen.
-        next_target = (
-            product_url('centralx') if centralx_host else safe_product_target(
+        if centralx_host:
+            next_target = product_url('centralx')
+        elif _area_cliente():
+            # Hub de mídia: o login sempre termina em clientes.centralcomm.media.
+            # Um `next` para outro produto (ex.: Workspace) volta para o hub; o
+            # Workspace fica só como link no menu do usuário.
+            hub = product_url('clientes')
+            next_target = safe_product_target(request.values.get('next'), hub)
+            destino_host = (urlparse(next_target).hostname or '').lower()
+            if destino_host and destino_host != (urlparse(hub).hostname or '').lower():
+                next_target = hub
+        else:
+            next_target = safe_product_target(
                 request.values.get('next'),
                 product_url('workspace' if app.config.get('CADU_GOOGLE_NATIVE_ENABLED', False) else 'cadu'),
             )
-        )
-        from urllib.parse import urlparse
         is_centralx_access = centralx_host or (
             (urlparse(next_target).hostname or '').lower()
             == (urlparse(product_url('centralx')).hostname or '').lower()

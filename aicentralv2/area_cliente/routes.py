@@ -85,7 +85,6 @@ NAV_PRINCIPAL = (
 )
 
 EM_PREPARACAO = {
-    "equipe": ("Equipe", "users", "Quem da sua empresa tem acesso a esta área e o time Centralcomm que cuida da sua conta."),
 }
 
 
@@ -102,9 +101,15 @@ def area_url(endpoint: str, **values) -> str:
     return ROTAS.bind("clientes").build(endpoint, values)
 
 
-def _cadu_links():
+CADU_MENU_CLIENTES = {174}        # o Cadu novo ainda está em teste: o grupo "Cadu" do menu do usuário só aparece para a Centralcomm
+
+
+def _cadu_links(cliente_id=None):
+    if cliente_id not in CADU_MENU_CLIENTES:
+        return ()
     from ..product_domains import product_url
     return (
+        {"rotulo": "Workspace", "icone": "folder", "url": product_url("workspace", "/app")},
         {"rotulo": "Studio", "icone": "sparkles", "url": product_url("studio", "/")},
         {"rotulo": "MediaSafe", "icone": "shield", "url": "", "em_breve": True},
         {"rotulo": "Flow", "icone": "flow", "url": product_url("connect", "/connect/app/flows")},
@@ -144,14 +149,14 @@ def _render(template, usuario, ativo, **ctx):
     } if secao_busca else {"url": area_url("pis"), "rotulo": "Buscar PIs por código ou título"}
     resp = current_app.make_response(render_template(
         f"area_cliente/{template}",
-        usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(), area_url=area_url,
+        usuario=usuario, nav=nav, nav_inicio=inicio, nav_descobrir=nav_descobrir, cadu=_cadu_links(usuario.get("cliente_id")), area_url=area_url,
         menu=_estado_menu(ativo), demo_ativo=demo.ativo(usuario["cliente_id"]),
         pagina_ativa=ativo, busca_topo=busca_topo,
         busca=request.args.get("q", "") if ativo == "pis" or (secao_busca and ("lista" in ctx or "vitrine" in ctx)) else "",
         n_selecao=len(descobrir.selecao(session)), csrf_global=_csrf_token(),
         n_campanhas_no_ar=dados.campanhas_em_andamento(usuario["cliente_id"]),
         ver_como_opcoes=_opcoes_ver_como() if usuario.get("pode_ver_como") else [],
-        ver_como_ano=date.today().year, **ctx,
+        ver_como_ano=date.today().year, festa_briefing=_festa_briefing(usuario) if ativo == "briefing" else None, **ctx,
     ))
     resp.headers["Cache-Control"] = "no-store"
     resp.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -365,6 +370,41 @@ def view_briefing_pi_antigo(usuario):
     return view_briefing_form(usuario, "pi_antigo")
 
 
+CHAVE_FESTA = "area_cliente_festa_briefing"
+
+
+def concluir_briefing(usuario, valores: dict, novo_id: int, arquivos=None, *, simulado=False) -> None:
+    """Fim comum dos três briefings: guarda a tela cheia de sucesso (aparece uma vez, na próxima página) e manda os dois e-mails,
+    ao cliente e ao executivo responsável (com os arquivos da cotação anexados).
+
+    Na demonstração, com HUB_DEMO_EMAILS=1, os dois e-mails vão para o próprio usuário logado, como no PI: ninguém de verdade
+    recebe briefing de exemplo. Sem a chave, a demonstração não manda e-mail."""
+    session[CHAVE_FESTA] = {"id": novo_id, "titulo": (valores.get("titulo") or "")[:160], "modo": valores.get("modo") or "planejamento",
+                            "prazo": valores.get("prazo_texto") or "", "arquivos": len(arquivos or valores.get("anexos") or []),
+                            "origem": (valores.get("origem_rotulo") or "")[:160]}
+    destino = usuario
+    if simulado:
+        if not current_app.config.get("HUB_DEMO_EMAILS") or not usuario.get("email"):
+            return
+        executivo = usuario.get("executivo") or {}
+        destino = {**usuario, "executivo": {**executivo, "email": usuario["email"], "nome": executivo.get("nome") or "Executivo"}}
+    try:
+        emails.briefing_novo(destino, valores, 0 if simulado else novo_id, anexos=emails.anexos_arquivos(arquivos))
+        emails.briefing_recebido(usuario, valores)
+    except Exception:
+        current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
+
+
+def _festa_briefing(usuario):
+    """Tela cheia de "briefing enviado": sai da sessão na primeira página que a mostra (recarregar não repete os fogos)."""
+    festa = session.pop(CHAVE_FESTA, None)
+    if not isinstance(festa, dict):
+        return None
+    from .pi_envio import _whatsapp_motivo
+    festa["whatsapp"] = _whatsapp_motivo(usuario, f"Enviei o briefing \"{festa.get('titulo')}\" pelo hub de mídia.")
+    return festa
+
+
 def view_briefing_form(usuario, modo="planejamento"):
     valores, erros = {}, {}
     origem_item, trazido = None, []
@@ -389,12 +429,18 @@ def view_briefing_form(usuario, modo="planejamento"):
                 origem = None
             if origem:
                 valores["origem_rotulo"] = f"{origem['fonte']} {origem['titulo']}" + (f" ({origem['quando']})" if origem["quando"] else "")
+            valores["modo"] = modo
             if demo.ativo(usuario["cliente_id"]):
-                # Conta de demonstração: o briefing "vai" só na sessão, sem banco e sem e-mail.
-                novo_id = demo.registrar_briefing(valores)
+                # Conta de demonstração: o briefing "vai" só na sessão, sem banco. E-mails só para o próprio usuário (HUB_DEMO_EMAILS).
+                arquivos_demo = []
                 if str(request.form.get("anexo", "")).startswith("demo-"):
+                    reg = demo.envio("cotacao", request.form["anexo"]) or {}
+                    arquivos_demo = reg.get("arquivos") or []
+                    valores["anexos"] = reg.get("nomes") or []
                     demo.marcar_enviado("cotacao", request.form["anexo"])
+                novo_id = demo.registrar_briefing(valores)
                 session.pop("area_cliente_descobrir", None)
+                concluir_briefing(usuario, valores, novo_id, arquivos_demo, simulado=True)
                 return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
             extra, reservado = None, None
             anexo = cotacao_envio.rascunho_anexo(usuario, request.form.get("anexo"))
@@ -418,15 +464,14 @@ def view_briefing_form(usuario, modo="planejamento"):
             if reservado:
                 cotacao.marcar_enviado(reservado["id"], novo_id, None)
             session.pop("area_cliente_descobrir", None)
-            try:
-                emails.briefing_novo(usuario, valores, novo_id)
-                emails.briefing_recebido(usuario, valores)
-            except Exception:
-                current_app.logger.warning("E-mails do briefing %s não enviados.", novo_id, exc_info=True)
+            concluir_briefing(usuario, valores, novo_id, (reservado or {}).get("arquivos"))
             return redirect(f"{area_url('briefing')}?enviado={novo_id}", code=303)
     status = 422 if erros else 200
     if erros and request.method == "POST":
         valores["anexo"] = request.form.get("anexo", "")                # o arquivo já lido continua valendo depois de um erro
+    anunciantes, anunciante_padrao = briefing.anunciantes(usuario["cliente_id"], usuario.get("cliente_nome") or "")
+    if request.method == "GET" and not valores.get("anunciante"):
+        valores["anunciante"] = anunciante_padrao
     historico = []
     if modo != "planejamento":                                          # planejamento não reaproveita PI: parte do que o cliente escreve e do Descobrir
         try:
@@ -440,7 +485,7 @@ def view_briefing_form(usuario, modo="planejamento"):
     resp = _render(
         "briefing.html", usuario, "briefing",
         canais=briefing.CANAIS, valores=valores, erros=erros, csrf=_csrf_token(),
-        b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido,
+        b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido, anunciantes=anunciantes,
         atalho_datas=_atalho_datas(origem_item), falta=briefing.qualidade(valores)["pendencias"] if origem_item else [],
         itens_descobrir=descobrir.selecao(session),
         enviados=briefing.listar(usuario["cliente_id"]),
@@ -831,6 +876,15 @@ def view_pi(usuario, id_pi):
     return _render("pi.html", usuario, "pis", pi=pi, campanhas=campanhas, plats=plataformas.resumo(campanhas), comp=comp)
 
 
+def view_equipe(usuario):
+    """Equipe (só consulta): pessoas da empresa e das agências parceiras cadastradas, com o acesso ao hub, e o time Centralcomm."""
+    from . import equipe
+    time_ = demo.equipe(usuario) if demo.ativo(usuario["cliente_id"]) else equipe.montar(usuario)
+    from .pi_envio import _whatsapp_motivo
+    return _render("equipe.html", usuario, "equipe", time=time_,
+                   whatsapp=_whatsapp_motivo(usuario, "Quero incluir ou tirar uma pessoa do hub de mídia."))
+
+
 def view_em_preparacao(usuario, endpoint):
     titulo, icone, texto = EM_PREPARACAO[endpoint]
     return _render("em_preparacao.html", usuario, endpoint, titulo=titulo, icone=icone, texto=texto)
@@ -840,14 +894,19 @@ LIMITE_IA_PRACAS = (20, 600)  # chamadas por janela de segundos, por sessão
 
 
 def view_briefing_pracas():
-    """Autocompletar de praças com IA: normaliza o texto e sugere praças próximas."""
+    """Praças do briefing. ``modo=organizar`` (padrão do botão, sem IA, instantâneo): devolve a lista inteira corrigida, no
+    formato único e sem repetidas, a partir das escolhidas e do texto digitado. ``modo=sugerir``: a IA lê só o que o
+    organizador não reconheceu e sugere praças próximas."""
     _checar_csrf()
+    from . import pracas as org
+    texto = (request.form.get("texto") or "").strip()[:600]
+    escolhidas = [e[:400] for e in request.form.getlist("escolhidas")][:briefing.MAX_PRACAS]
+    if request.form.get("modo", "organizar") == "organizar":
+        return jsonify(pracas=org.organizar(escolhidas + ([texto] if texto else []))[:briefing.MAX_PRACAS])
     agora = time.time()
     janela = [t for t in session.get("area_cliente_ia_pracas", []) if agora - t < LIMITE_IA_PRACAS[1]]
     if len(janela) >= LIMITE_IA_PRACAS[0]:
         return jsonify(erro="Muitas consultas seguidas. Tente de novo em alguns minutos."), 429
-    texto = (request.form.get("texto") or "").strip()
-    escolhidas = request.form.getlist("escolhidas")
     if len(texto) < 2 and not escolhidas:
         return jsonify(pracas=[], sugestoes=[], observacao="")
     session["area_cliente_ia_pracas"] = janela + [agora]
@@ -962,6 +1021,8 @@ def despachar():
         return redirect(destino, code=301)
     if endpoint == "projeto":
         return view_projeto(usuario, **args)
+    if endpoint == "equipe":
+        return view_equipe(usuario)
     return view_em_preparacao(usuario, endpoint)
 
 

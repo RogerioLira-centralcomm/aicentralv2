@@ -140,12 +140,18 @@ def test_emails_da_demonstracao_so_vao_para_o_proprio_usuario(conta174, monkeypa
     assert enviados == [("exec", "ana@cliente.test"), ("cliente", "ana@cliente.test")]        # os dois e-mails, os dois para quem está testando
 
 
-def test_cotacao_e_planejamento_na_demonstracao(conta174):
+def test_cotacao_e_planejamento_na_demonstracao(conta174, monkeypatch, tmp_path):
+    # Na demonstração os arquivos são lidos de verdade (fora do banco): aqui o modelo é simulado e a leitura roda na hora.
+    conta174.app.config["HUB_DEMO_DIR"] = str(tmp_path)
+    monkeypatch.setattr(demo, "EXECUTAR_EM_SEGUNDO_PLANO", False)
+    lidos = []
+    monkeypatch.setattr(cotacao, "ler", lambda arquivos: lidos.append([a["nome"] for a in arquivos]) or
+                        {"leitura": {k: v for k, v in demo.LEITURA_COTACAO.items() if k != "avisos"}, "avisos": []})
     r = conta174.post("/briefing/cotacao", base_url=HOST, data={"csrf": "tok", "arquivos": (io.BytesIO(b"a;b"), "plano.csv")}, content_type="multipart/form-data")
     url = r.get_json()["entradas"][0]["url"]
     html = pagina(conta174, url)
     assert "Li os seus arquivos" in html and "Campanha de verão 2027" in html and "Não achei nos arquivos" in html
-    corpo = {"csrf": "tok", "titulo": "Campanha de verão 2027", "objetivo": "Vender a nova coleção de verão"}
+    corpo = {"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Campanha de verão 2027", "objetivo": "Vender a nova coleção de verão"}
     assert conta174.post(url + "/enviar", base_url=HOST, data=corpo).status_code == 303
     assert "seguiu para João" in pagina(conta174, url + "?enviado=1")
     # planejamento com anexo
@@ -155,6 +161,26 @@ def test_cotacao_e_planejamento_na_demonstracao(conta174):
     assert env.status_code == 303 and env.headers["Location"].startswith("/briefing?enviado=")
     todos = pagina(conta174, "/briefing/todos")
     assert "Do planejamento" in todos and "Campanha de verão 2027" in todos
+    assert lidos == [["plano.csv"], ["b.pdf"]] and len(list(tmp_path.glob("demo-*.json"))) == 2     # leitura real, resultado em arquivo temporário, fora do banco
+    conta174.app.config.pop("HUB_DEMO_DIR", None)
+
+
+def test_briefing_enviado_abre_tela_cheia_uma_vez_e_manda_emails_so_ao_usuario_na_demo(conta174, monkeypatch):
+    conta174.app.config["HUB_DEMO_EMAILS"] = True
+    enviados = []
+    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i, anexos=None: enviados.append(("novo", u["executivo"]["email"], v["modo"])))
+    monkeypatch.setattr(emails, "briefing_recebido", lambda u, v: enviados.append(("recebido", u["email"], v["modo"])))
+    try:
+        corpo = {"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Lançamento Linha Verão", "objetivo": "Vender a nova linha nas lojas de BH"}
+        env = conta174.post("/briefing/planejamento", base_url=HOST, data=corpo)
+        assert env.status_code == 303
+        html = pagina(conta174, env.headers["Location"])
+        assert "data-pe-festa" in html and "“Lançamento Linha Verão” enviado com sucesso" in html and "area_cliente_festa.js" in html
+        assert "data-pe-festa" not in pagina(conta174, env.headers["Location"])                     # recarregar não repete os fogos
+        email = conta174.usuario["u"]["email"]
+        assert enviados == [("novo", email, "planejamento"), ("recebido", email, "planejamento")]   # executivo trocado pelo próprio usuário
+    finally:
+        conta174.app.config.pop("HUB_DEMO_EMAILS", None)
 
 
 def test_conta_demo_desligada_volta_ao_banco(conta174, monkeypatch):
@@ -191,3 +217,30 @@ def test_todos_os_briefings_em_tabela_com_modal_e_titulo_no_topo(conta174):
 def test_pis_com_botao_na_linha_das_abas(conta174):
     html = pagina(conta174, "/pis")
     assert 'class="ac-top__titulo"' in html and "ac-utabs-row__tools" in html and html.count("Enviar um PI") >= 2
+
+
+def test_equipe_na_demonstracao_so_consulta(conta174):
+    html = pagina(conta174, "/equipe")
+    assert "Em preparação" not in html and "Marina Couto" in html and "AGÊNCIA EXEMPLO" in html and "Agência · PIs em comum" in html
+    assert "Sem acesso ao hub" in html and "Acessa o hub" in html and "Time Centralcomm" in html and "<form" not in html.split('id="conteudo"', 1)[1].split("</main>", 1)[0]
+    assert conta174.consultas == []                                                     # nada lido do banco
+
+
+def test_equipe_monta_empresa_e_parceiros(monkeypatch):
+    from aicentralv2.area_cliente import equipe
+
+    def fetch(sql, params):
+        if "cadu_pi" in sql:
+            return [{"empresa_id": 80, "sou_cliente": True, "ultimo": None}, {"empresa_id": 81, "sou_cliente": True, "ultimo": None}]
+        assert params["empresas"] == [7, 80, 81]
+        return [{"id": 2, "nome": "Zé Silva", "email": "ze@x.com", "foto_url": "", "empresa_id": 7, "cargo": None, "empresa": "CLIENTE", "acesso_hub": False},
+                {"id": 1, "nome": "Ana Lima", "email": "ana@x.com", "foto_url": "", "empresa_id": 7, "cargo": "Mkt", "empresa": "CLIENTE", "acesso_hub": True},
+                {"id": 9, "nome": "Eu Mesmo", "email": "eu@x.com", "foto_url": "", "empresa_id": 7, "cargo": "", "empresa": "CLIENTE", "acesso_hub": True},
+                {"id": 5, "nome": "Rui Agência", "email": "rui@ag.com", "foto_url": "", "empresa_id": 80, "cargo": "Mídia", "empresa": "AGÊNCIA", "acesso_hub": True}]
+    monkeypatch.setattr(dados, "_fetch", fetch)
+    t = equipe.montar({"cliente_id": 7, "user_id": 9, "cliente_nome": "CLIENTE"})
+    assert [p["nome"] for p in t["pessoas"]] == ["Eu Mesmo", "Ana Lima", "Zé Silva"] and t["pessoas"][0]["voce"]
+    assert t["parceiros"] == [{"nome": "AGÊNCIA", "tipo": "Agência", "pessoas": [t["parceiros"][0]["pessoas"][0]]}]   # 81 sem pessoas não aparece
+    assert t["parceiros"][0]["pessoas"][0]["email"] == ""                                # e-mail de parceiro não aparece
+    monkeypatch.setattr(dados, "_fetch", lambda s, p: (_ for _ in ()).throw(RuntimeError("banco fora")))
+    assert equipe.montar({"cliente_id": 7, "user_id": 9, "cliente_nome": "CLIENTE"})["erro"] is True

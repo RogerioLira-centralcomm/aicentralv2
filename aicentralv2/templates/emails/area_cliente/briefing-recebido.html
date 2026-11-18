@@ -1,19 +1,28 @@
 {% extends 'emails/area_cliente/base.html' %}
 {% from 'emails/area_cliente/_ui.html' import botao, fatos, badge, passos, titulo_secao, hero_texto, link_texto with context %}
-{% set eyebrow = 'Briefing' %}
-{% block title %}{{ primeiro_nome }}, recebemos o seu briefing: {{ titulo }}{% endblock %}
-{% block preheader %}Seu briefing chegou e já está com {{ executivo.nome if executivo and executivo.nome else 'a equipe' }}.{% endblock %}
+{% set eyebrow = 'Pedido de cotação' if modo == 'cotacao' else 'Briefing' %}
+{% set quem = executivo.nome if executivo and executivo.nome else 'a equipe' %}
+{% block title %}{{ primeiro_nome }}, recebemos o seu {{ 'pedido de cotação' if modo == 'cotacao' else 'briefing' }}: {{ titulo }}{% endblock %}
+{% block preheader %}{{ 'Seus arquivos chegaram' if modo == 'cotacao' else 'Seu briefing chegou' }} e já {{ 'estão' if modo == 'cotacao' else 'está' }} com {{ quem }}.{% endblock %}
 {% block icone %}{{ badge('check-circle') }}{% endblock %}
-{% block headline %}Recebemos seu briefing, {{ primeiro_nome }}. Obrigado!{% endblock %}
-{% block hero_sub %}{{ hero_texto(('Ele já está com ' ~ (executivo.nome if executivo and executivo.nome else 'a equipe') ~ '.') ~ (' A cotação volta até ' ~ prazo ~ '.' if prazo else '')) }}{% endblock %}
+{% block headline %}Recebemos seu {{ 'pedido de cotação' if modo == 'cotacao' else 'briefing' }}, {{ primeiro_nome }}. Obrigado!{% endblock %}
+{% block hero_sub %}{{ hero_texto(('Ele já está com ' ~ quem ~ '.') ~ (' A cotação volta até ' ~ prazo ~ '.' if prazo else '')) }}{% endblock %}
 {% block content %}
-  {{ fatos([('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Arquivos enviados', anexos), ('Retorno da equipe até', prazo), ('Enviado em', quando)]) }}
+  {{ fatos([('Tipo de pedido', tipo_pedido), ('Cliente (anunciante)', anunciante), ('Campanha ou ação', titulo), ('Objetivo', objetivo), ('Período', periodo), ('Canais', canais), ('Reaproveitou dados de', origem), ('Arquivos enviados', anexos), ('Retorno da equipe até', prazo), ('Enviado em', quando)]) }}
   {{ titulo_secao('O que acontece agora') }}
+  {% if modo == 'cotacao' %}
+  {{ passos([
+    ('file-text', 'Conferência', quem ~ ' confere os arquivos e a leitura do hub e tira as dúvidas com você, se precisar.'),
+    ('layers', 'Cotação', 'Você recebe a cotação com canais, formatos e valores' ~ (' até ' ~ prazo if prazo else '') ~ '.'),
+    ('megaphone', 'PI e campanhas', 'Com o PI aprovado, as campanhas aparecem no seu hub.'),
+  ]) }}
+  {% else %}
   {{ passos([
     ('file-text', 'Análise', 'A equipe lê o briefing e tira as dúvidas com você, se precisar.'),
     ('layers', 'Planejamento', 'Montamos o planejamento de mídia, com canais, formatos e verba.'),
     ('megaphone', 'Proposta e PI', 'Você recebe a proposta. Com o PI aprovado, as campanhas aparecem no seu hub.'),
   ]) }}
+  {% endif %}
   {{ botao(area_url, HUB_BOTAO) }}
   {{ link_texto(link_briefing, 'Ver o briefing enviado', 'Quer rever o que mandou?') }}
 {% endblock %}

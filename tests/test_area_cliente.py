@@ -90,6 +90,14 @@ def test_contato_sem_liberacao_ve_aviso_com_executivo(app, monkeypatch):
     assert "wa.me/5531999990000" in html
 
 
+def test_grupo_cadu_do_menu_so_para_a_centralcomm():
+    from aicentralv2.area_cliente import routes
+    assert routes._cadu_links(55) == () and routes._cadu_links(None) == ()
+    app = get_app()
+    with app.test_request_context(base_url=HOST):
+        assert [l["rotulo"] for l in routes._cadu_links(174)][:2] == ["Workspace", "Studio"]
+
+
 def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     _logado(monkeypatch, _usuario())
     from aicentralv2.area_cliente import dados
@@ -98,7 +106,8 @@ def test_inicio_liberado_sem_projetos_mostra_estado_vazio(app, monkeypatch):
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
     assert "Olá" not in html and "Cliente Teste" in html
-    assert 'class="ac-nav ac-nav--cadu"' not in html and "Studio" in html  # Cadu só no menu do usuário
+    assert 'class="ac-nav ac-nav--cadu"' not in html                   # Cadu nunca na barra lateral
+    assert 'ac-menu__label">Cadu<' not in html and "Workspace" not in html   # Cadu novo em teste: o grupo só aparece para a Centralcomm (174)
     # conta vazia: boas-vindas com os 3 passos e a prévia "Exemplo", sem indicadores zerados
     assert "Bem-vindo ao seu hub de mídia" in html and "Como vai ficar" in html and ">Exemplo<" in html
     assert "Envie um briefing" in html and 'class="ac-hk"' not in html and "Solicitar otimização" not in html
@@ -164,11 +173,14 @@ def test_projeto_360_sem_custos(app, monkeypatch):
     assert "R$" not in html
 
 
-def test_pagina_em_preparacao(app, monkeypatch):
+def test_pagina_equipe_e_link_antigo(app, monkeypatch):
     _logado(monkeypatch, _usuario())
+    from aicentralv2.area_cliente import equipe
+    monkeypatch.setattr(equipe, "montar", lambda u: {"empresa": "Cliente Teste", "pessoas": [], "parceiros": [], "erro": False})
     client = _client(app, {"user_id": 501})
     resp = client.get("/equipe", base_url=HOST)
-    assert resp.status_code == 200 and "Em preparação" in resp.get_data(as_text=True)
+    html = resp.get_data(as_text=True)
+    assert resp.status_code == 200 and "Em preparação" not in html and "Nenhuma pessoa cadastrada" in html and "Incluir ou tirar alguém" in html
     antigo = client.get("/planejamento", base_url=HOST)
     assert antigo.status_code == 301 and antigo.headers["Location"] == "/descobrir/canais"
 
@@ -241,7 +253,7 @@ def test_briefing_invalido_volta_com_erros(app, monkeypatch):
     from aicentralv2.area_cliente import briefing
     monkeypatch.setattr(briefing, "enviar", lambda *a: pytest.fail("não deveria gravar"))
     resp = client.post("/briefing", base_url=HOST, data={
-        "csrf": "tok", "titulo": "V", "objetivo": "curto", "inicio": "2026-12-10", "fim": "2026-12-01",
+        "csrf": "tok", "anunciante": "Marca Teste", "titulo": "V", "objetivo": "curto", "inicio": "2026-12-10", "fim": "2026-12-01",
     })
     assert resp.status_code == 422
     html = resp.get_data(as_text=True)
@@ -255,7 +267,7 @@ def test_briefing_valido_grava_e_redireciona(app, monkeypatch):
     gravados = []
     monkeypatch.setattr(briefing, "enviar", lambda usuario, d: gravados.append((usuario["cliente_id"], d)) or 77)
     resp = client.post("/briefing", base_url=HOST, data={
-        "csrf": "tok", "titulo": "Coleção de verão", "objetivo": "Gerar visitas às lojas de BH",
+        "csrf": "tok", "anunciante": "Marca Teste", "titulo": "Coleção de verão", "objetivo": "Gerar visitas às lojas de BH",
         "canais": ["social", "inexistente"], "inicio": "2026-12-01", "fim": "2027-01-15", "verba": "até 50 mil",
     })
     assert resp.status_code == 303
@@ -299,7 +311,7 @@ def test_descobrir_secao_lista_e_inclui_no_briefing(app, monkeypatch):
 
     gravados = []
     monkeypatch.setattr(briefing, "enviar", lambda usuario, d: gravados.append(d) or 9)
-    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Verão", "objetivo": "Gerar visitas às lojas"})
+    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Verão", "objetivo": "Gerar visitas às lojas"})
     assert gravados[0]["descobrir"] == "Itens escolhidos no Descobrir:\n- Canal: Uber Ads"
     with client.session_transaction(base_url=HOST) as sess:
         assert "area_cliente_descobrir" not in sess
@@ -523,12 +535,14 @@ def test_admin_cc_ve_seletor_e_troca_de_cliente(app, monkeypatch):
     monkeypatch.setattr(audit, "registrar_acao_admin", lambda **k: None)
     client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok"})
     html = client.get("/", base_url=HOST).get_data(as_text=True)
-    assert "Ver como cliente" in html and "AGÊNCIA X · Agência · 12 PIs" in html
+    assert "Ver como cliente" in html and "data-ac-viewas-open" in html and "<b>AGÊNCIA X</b>" in html and "Agência · 12 PIs em" in html
+    assert "Mostrando" not in html                                             # nada marcado enquanto não há cliente aberto
     assert client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "999"}).status_code == 403
     resp = client.post("/ver-como", base_url=HOST, data={"csrf": "tok", "cliente_id": "80"})
     assert resp.status_code == 303
     html = client.get("/", base_url=HOST).get_data(as_text=True)
     assert "Vendo como <b>AGÊNCIA X</b>" in html and "voltar para CENTRALCOMM" in html
+    assert "<small>Vendo AGÊNCIA X</small>" in html and html.count("Mostrando") == 1 and 'aria-current="true"' in html
     client.post("/ver-como/sair", base_url=HOST, data={"csrf": "tok"})
     with client.session_transaction(base_url=HOST) as sess:
         assert "area_cliente_ver_como" not in sess
@@ -541,7 +555,7 @@ def test_ver_como_envia_briefing(app, monkeypatch):
     gravados = []
     monkeypatch.setattr(briefing, "enviar", lambda u, d, extra=None: gravados.append(u["cliente_id"]) or 91)
     client = _client(app, {"user_id": 501, "area_cliente_csrf": "tok", "area_cliente_ver_como": 80})
-    resp = client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Teste", "objetivo": "Objetivo de teste"})
+    resp = client.post("/briefing", base_url=HOST, data={"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Teste", "objetivo": "Objetivo de teste"})
     assert resp.status_code == 303 and gravados == [80]                 # o briefing vai para o cliente que a equipe está vendo
     assert "envio fica desativado" not in client.get("/briefing/planejamento", base_url=HOST).get_data(as_text=True)
 
@@ -661,9 +675,9 @@ def test_briefing_dispara_os_dois_emails(app, monkeypatch):
     from aicentralv2.area_cliente import briefing, emails
     monkeypatch.setattr(briefing, "enviar", lambda usuario, d: 41)
     chamados = []
-    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i: chamados.append(("novo", i)))
+    monkeypatch.setattr(emails, "briefing_novo", lambda u, v, i, **k: chamados.append(("novo", i)))
     monkeypatch.setattr(emails, "briefing_recebido", lambda u, v: chamados.append(("recebido", v["titulo"])))
-    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "titulo": "Coleção", "objetivo": "Gerar visitas às lojas"})
+    client.post("/briefing", base_url=HOST, data={"csrf": "tok", "anunciante": "Marca Teste", "titulo": "Coleção", "objetivo": "Gerar visitas às lojas"})
     assert chamados == [("novo", 41), ("recebido", "Coleção")]
 
 
@@ -1206,7 +1220,7 @@ def test_briefing_pi_antigo_envio_guarda_a_origem(app, monkeypatch):
     monkeypatch.setattr(briefing_mod(), "historico", lambda c, limite=8: HIST)
     gravados = []
     monkeypatch.setattr(briefing_mod(), "enviar", lambda u, d, extra=None: gravados.append(d) or 31)
-    r = client.post("/briefing/pi-antigo", base_url=HOST, data={"csrf": "tok", "origem": "pi:7", "titulo": "Leilão 2", "objetivo": "Divulgar o leilão de novo"})
+    r = client.post("/briefing/pi-antigo", base_url=HOST, data={"csrf": "tok", "anunciante": "Leiloeira", "origem": "pi:7", "titulo": "Leilão 2", "objetivo": "Divulgar o leilão de novo"})
     assert r.status_code == 303 and gravados[0]["origem"] == "pi:7" and gravados[0]["origem_rotulo"].startswith("PI Leilão de imóveis")
 
 

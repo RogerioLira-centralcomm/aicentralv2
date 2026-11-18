@@ -59,35 +59,6 @@
       <div class="bw-nav__bar" aria-hidden="true"><span id="bw-nav-bar"></span></div>
     </nav>
 
-    {# ---------- Material de apoio: o que veio do Descobrir e o anexo opcional ---------- #}
-    <section class="bw-apoio" aria-label="Material de apoio">
-      <div class="bw-apoio__col">
-        <h2 class="bw-apoio__titulo">{{ icon('target', 16) }}Itens do Descobrir{% if itens_descobrir %} <span class="bw-apoio__n">{{ itens_descobrir|length }}</span>{% endif %}</h2>
-        {% if itens_descobrir %}
-        <ul class="ac-tags">
-          {% for i in itens_descobrir %}
-          <li class="ac-tag"><small>{{ i.tipo }}</small>{{ i.nome }}
-            <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
-          </li>
-          {% endfor %}
-        </ul>
-        {{ ajuda('O que você marcou no Descobrir vai junto com o briefing: a equipe já sabe o que te interessou. Tire o que não quiser.') }}
-        {% else %}
-        {{ ajuda('Nada separado ainda. Explore o Descobrir e marque canais, formatos, audiências ou portais: eles entram aqui e seguem com o briefing.') }}
-        <a class="ac-link" href="{{ area_url('descobrir_secao', secao='estrategias') }}">Explorar o Descobrir</a>
-        {% endif %}
-      </div>
-      {% if modo != 'pi_antigo' %}
-      <div class="bw-apoio__col" id="bw-anexo" data-upload-url="{{ area_url('briefing_anexo') }}" data-csrf="{{ csrf }}">
-        <h2 class="bw-apoio__titulo">{{ icon('file', 16) }}Anexo <small>(opcional)</small></h2>
-        {{ ajuda('Tem um arquivo com informações do briefing? Anexe para preencher mais rápido. Ele só ajuda: quase nunca traz tudo, então confira e complete os campos. Para pedir cotação só com arquivos, use “Tenho arquivos para cotar”.') }}
-        <input type="file" id="bw-anexo-arquivo" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv" multiple hidden>
-        <input type="hidden" name="anexo" id="bw-anexo-id" value="{{ v.anexo or '' }}">
-        <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-anexo-btn">{{ icon('plus', 16) }}Anexar arquivo</button>
-        <p class="bw-ajuda" id="bw-anexo-status" role="status" aria-live="polite"></p>
-      </div>
-      {% endif %}
-    </section>
 
     {# ---------- 0. Ponto de partida (só com histórico) ---------- #}
     {% if origem_item %}
@@ -130,33 +101,51 @@
     {# ---------- 1. Objetivo ---------- #}
     <section class="bw-step" data-step="objetivo" data-label="Objetivo">
       {{ passo_head(2 if historico else 1, 'Sobre a campanha', 'Comece pelo nome e pelo resultado que você espera. O tipo de objetivo define como a mídia é comprada.') }}
+      <div class="ac-field-row bw-row-cliente">
+        <div class="ac-field">
+          <label for="b-anunciante">{{ icon('building', 16) }}Cliente (anunciante) <span class="ac-req" aria-hidden="true">*</span> {{ selo('anunciante') }}</label>
+          <input id="b-anunciante" name="anunciante" type="text" maxlength="160" list="bw-anunciantes" value="{{ v.anunciante or '' }}"
+                 placeholder="Para qual marca é a campanha?" autocomplete="off" data-req-unless="confidencial"{% if v.confidencial %} disabled{% endif %}{% if erros.anunciante %} aria-invalid="true" aria-describedby="erro-anunciante"{% endif %}>
+          <datalist id="bw-anunciantes">{% for n in anunciantes %}<option value="{{ n }}">{% endfor %}</datalist>
+          {{ erro('anunciante') }}
+        </div>
+        <label class="bw-switch bw-switch--conf"><input type="checkbox" name="confidencial" value="1" id="b-confidencial"{% if v.confidencial %} checked{% endif %}><span>{{ icon('lock', 15) }}Confidencial</span></label>
+      </div>
       <div class="ac-field">
         <label for="b-titulo">Nome da campanha ou ação <span class="ac-req" aria-hidden="true">*</span> {{ selo('titulo') }}</label>
         <input id="b-titulo" name="titulo" type="text" maxlength="160" required value="{{ v.titulo or '' }}"
                placeholder="Ex.: Lançamento da coleção de verão"{% if erros.titulo %} aria-invalid="true" aria-describedby="erro-titulo"{% endif %}>
         {{ erro('titulo') }}
-        {{ ajuda('Um nome que você reconheça depois, na lista de briefings.') }}
       </div>
+      {% set OBJ_UI = {'marca': ('megaphone', 'Marca conhecida'), 'video': ('play', 'Vídeo visto'), 'trafego': ('cursor', 'Visitas ao site'),
+                       'leads': ('user-plus', 'Leads'), 'vendas': ('cart', 'Vendas online'), 'app': ('phone', 'Instalações de app'),
+                       'loja': ('store', 'Visitas à loja'), 'lancamento': ('rocket', 'Lançamento ou data')} %}
       <fieldset class="ac-field">
-        <legend>Tipo de objetivo {{ selo('objetivo_tipo') }}</legend>
-        <div class="bw-cards">
+        <legend>Objetivo {{ selo('objetivo_tipo') }}</legend>
+        <div class="bw-cards bw-cards--icon">
           {% for o in b.OBJETIVOS %}
-          <label class="bw-card"><input type="radio" name="objetivo_tipo" value="{{ o[0] }}"{% if v.objetivo_tipo == o[0] %} checked{% endif %}><span>{{ o[1] }}</span></label>
+          {% set ui = OBJ_UI.get(o[0], ('target', o[1])) %}
+          <label class="bw-card" title="{{ o[1] }}"><input type="radio" name="objetivo_tipo" value="{{ o[0] }}"{% if v.objetivo_tipo == o[0] %} checked{% endif %}><span>{{ icon(ui[0], 22) }}<b>{{ ui[1] }}</b></span></label>
           {% endfor %}
         </div>
       </fieldset>
-      <div class="ac-field-row bw-row-2">
+      <div class="bw-kpi">
         <div class="ac-field">
           <label for="b-kpi">KPI principal {{ selo('kpi') }}</label>
-          <input id="b-kpi" name="kpi" type="text" maxlength="80" list="bw-kpis" value="{{ v.kpi or '' }}" placeholder="Ex.: Leads">
-          {{ ajuda('O número que diz se deu certo. Sugerimos pelo tipo de objetivo.') }}
+          <div class="bw-kpi__linha">
+            <div class="bw-kpi__opcoes" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
+            {% set ns = namespace(sugeridos=[]) %}{% for o in b.OBJETIVOS if o[0] == v.objetivo_tipo %}{% set ns.sugeridos = o[2] %}{% endfor %}
+            <input type="hidden" id="b-kpi" name="kpi" value="{{ v.kpi if v.kpi in ns.sugeridos else '' }}">
+            <input id="b-kpi-outro" name="kpi_outro" type="text" maxlength="80" list="bw-kpis" value="{{ '' if v.kpi in ns.sugeridos else (v.kpi or '') }}" placeholder="Outro KPI" aria-label="Outro KPI" class="bw-kpi__outro">
+          </div>
           <datalist id="bw-kpis">{% for o in b.OBJETIVOS %}{% for k in o[2] %}<option value="{{ k }}">{% endfor %}{% endfor %}</datalist>
-          <div class="ac-chips__list" id="bw-kpi-chips" aria-label="Sugestões de KPI"></div>
         </div>
         <div class="ac-field">
-          <label for="b-kpi-meta">Meta, se já tiver</label>
-          <input id="b-kpi-meta" name="kpi_meta" type="text" maxlength="160" value="{{ v.kpi_meta or '' }}" placeholder="Ex.: 500 leads no mês">
-          {{ ajuda('Se ainda não tem meta, deixe em branco: a equipe sugere.') }}
+          <label for="b-kpi-meta">Meta <small class="bw-opcional">se já tiver</small></label>
+          <div class="bw-kpi__linha">
+            <input id="b-kpi-meta" name="kpi_meta" type="text" maxlength="160" value="{{ v.kpi_meta or '' }}" placeholder="Ex.: 15 milhões de impressões" class="bw-kpi__meta" inputmode="text">
+            <div class="bw-kpi__opcoes" id="bw-meta-chips" aria-label="Metas comuns"></div>
+          </div>
         </div>
       </div>
       <div class="ac-field">
@@ -164,8 +153,42 @@
         <textarea id="b-objetivo" name="objetivo" rows="3" maxlength="2000" required
                   placeholder="O que você quer alcançar e por quê agora? Ex.: abrir a temporada de verão e vender a nova coleção pelo site."{% if erros.objetivo %} aria-invalid="true" aria-describedby="erro-objetivo"{% endif %}>{{ v.objetivo or '' }}</textarea>
         {{ erro('objetivo') }}
-        {{ ajuda('Uma ou duas frases: o que você quer alcançar e por que agora.') }}
       </div>
+    </section>
+
+    {# ---------- Material de apoio: o que veio do Descobrir e o anexo opcional (depois da campanha) ---------- #}
+    <section class="bw-apoio" aria-label="Material de apoio">
+      <div class="bw-apoio__col">
+        <h3 class="bw-apoio__titulo">{{ icon('target', 18) }}Do Descobrir{% if itens_descobrir %} <span class="bw-apoio__n">{{ itens_descobrir|length }}</span>{% endif %}</h3>
+        {% if itens_descobrir %}
+        {% for tipo, grupo in itens_descobrir|groupby('tipo') %}
+        <div class="bw-apoio__grupo">
+          <p class="bw-apoio__tipo">{{ tipo }}</p>
+          <ul class="bw-apoio__itens">
+            {% for i in grupo %}
+            <li>{{ i.nome }}
+              <button type="submit" form="ac-remover-item" name="remover_item" value="{{ i.secao }}:{{ i.id }}" class="ac-tag__remove" data-secao="{{ i.secao }}" data-id="{{ i.id }}" aria-label="Tirar {{ i.nome }} do briefing">{{ icon('close', 14) }}</button>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+        {{ ajuda('Vai junto com o briefing. Tire o que não quiser.') }}
+        {% else %}
+        {{ ajuda('Canais, formatos, audiências ou portais marcados no Descobrir entram aqui.') }}
+        <a class="ac-link" href="{{ area_url('descobrir_secao', secao='estrategias') }}">Explorar o Descobrir</a>
+        {% endif %}
+      </div>
+      {% if modo != 'pi_antigo' %}
+      <div class="bw-apoio__col" id="bw-anexo" data-upload-url="{{ area_url('briefing_anexo') }}" data-csrf="{{ csrf }}">
+        <h3 class="bw-apoio__titulo">{{ icon('file', 18) }}Anexo <small>opcional</small></h3>
+        {{ ajuda('Um PDF ou planilha ajuda a preencher; confira os campos depois.') }}
+        <input type="file" id="bw-anexo-arquivo" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv" multiple hidden>
+        <input type="hidden" name="anexo" id="bw-anexo-id" value="{{ v.anexo or '' }}">
+        <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-anexo-btn">{{ icon('plus', 16) }}Anexar arquivo</button>
+        <p class="bw-ajuda" id="bw-anexo-status" role="status" aria-live="polite"></p>
+      </div>
+      {% endif %}
     </section>
 
     {# ---------- 2. Público ---------- #}
@@ -205,36 +228,37 @@
 
     {# ---------- 3. Praças ---------- #}
     <section class="bw-step" data-step="pracas" data-label="Praças">
-      {{ passo_head(4 if historico else 3, 'Onde vai rodar', 'Digite do seu jeito ("BH e região", "capitais do Sul"). A IA organiza em cidades e estados e sugere praças próximas.') }}
+      {{ passo_head(4 if historico else 3, 'Onde vai rodar', 'Digite do seu jeito, nós organizamos.') }}
       <fieldset class="ac-field ac-chips">
         <legend>Abrangência</legend>
         <div class="ac-chips__list">{% for a, r in b.ABRANGENCIAS %}{{ chip('abrangencia', a, r, v.abrangencia == a, 'radio') }}{% endfor %}</div>
       </fieldset>
       <div class="bw-pracas" data-show-unless="abrangencia:nacional">
-        {% if modo == 'pi_antigo' %}
-        <div class="bw-reuse" data-reuse="pracas" hidden>
-          <p class="ac-field__label">{{ icon('sparkles', 14) }}Praças que você já usou</p>
-          <div class="ac-chips__list" id="bw-reuse-pracas"></div>
-        </div>
-        {% endif %}
         <div class="ac-field">
-          <label for="b-praca-busca">Praças {{ selo('pracas') }}</label>
+          <label for="b-praca-busca">Praças {{ selo('pracas') }} <small class="bw-opcional" id="bw-pracas-n"></small></label>
           <div class="bw-tokens" id="bw-tokens">
             <ul class="bw-tokens__list" id="bw-tokens-list">
               {% for p in v.pracas or [] %}<li class="ac-tag">{{ p }}<input type="hidden" name="pracas" value="{{ p }}"><button type="button" class="ac-tag__remove" aria-label="Tirar {{ p }}">{{ icon('close', 14) }}</button></li>{% endfor %}
             </ul>
             <div class="bw-combo">
               <input id="b-praca-busca" name="pracas" type="text" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="bw-sugestoes-locais"
-                     aria-autocomplete="list" placeholder="Cidade, estado ou região. Enter adiciona.">
+                     aria-autocomplete="list" placeholder="Ex.: BH e região, interior de SP, Juiz de Fora">
               <ul class="bw-combo__list" id="bw-sugestoes-locais" role="listbox" hidden></ul>
             </div>
           </div>
+          {% if modo == 'pi_antigo' %}
+          <div class="bw-reuse bw-reuse--pracas" data-reuse="pracas" hidden>
+            <span class="bw-reuse__rotulo">Já usadas:</span>
+            <span class="bw-reuse__lista" id="bw-reuse-pracas"></span>
+          </div>
+          {% endif %}
           <div class="bw-ia">
-            <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-ia-pracas" hidden>{{ icon('sparkles', 16) }}<span>Organizar e sugerir com IA</span></button>
+            <button type="button" class="ac-btn ac-btn--secondary ac-btn--sm" id="bw-organizar" hidden>{{ icon('check', 16) }}<span>Organizar praças</span></button>
+            <button type="button" class="ac-btn ac-btn--ghost ac-btn--sm" id="bw-ia-pracas" hidden>{{ icon('sparkles', 16) }}<span>Sugerir próximas</span></button>
             <p class="ac-form__hint" id="bw-ia-status" role="status"></p>
           </div>
           <div class="bw-ia__sugestoes" id="bw-ia-sugestoes" hidden>
-            <p class="ac-field__label">Praças próximas sugeridas</p>
+            <p class="ac-field__label">Sugeridas pela IA</p>
             <div class="ac-chips__list" id="bw-ia-sugestoes-lista"></div>
           </div>
         </div>
@@ -375,7 +399,8 @@
   </aside>
 </div>
 <script type="application/json" id="bw-dados">{{ {
-  'opcoes': opcoes, 'csrf': csrf, 'urlPracas': area_url('briefing_pracas'), 'urlSelecao': area_url('descobrir_selecao'),
+  'opcoes': opcoes, 'csrf': csrf, 'urlPracas': area_url('briefing_pracas'),
+  'urlMunicipios': url_for('static', filename='data/municipios_br.json') ~ '?v=' ~ static_fingerprint('data/municipios_br.json'), 'urlSelecao': area_url('descobrir_selecao'),
   'canais': canais|map('first')|list, 'canaisRotulo': dict(canais), 'abrangencias': dict(b.ABRANGENCIAS),
   'materiais': dict(b.MATERIAIS), 'generos': dict(b.GENEROS), 'comErros': erros|length > 0
 }|tojson }}</script>

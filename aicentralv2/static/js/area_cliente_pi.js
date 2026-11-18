@@ -59,3 +59,10 @@
     }, 2500);
   }
 })();
+
+/* Cotação: "Confidencial" desliga o nome do cliente (o servidor também descarta o nome). */
+(function () {
+  'use strict';
+  var conf = document.querySelector('[data-pe-confidencial]'), nome = document.getElementById('c-anunciante');
+  if (conf && nome) conf.addEventListener('change', function () { nome.disabled = conf.checked; if (!conf.checked) nome.focus(); });
+})();

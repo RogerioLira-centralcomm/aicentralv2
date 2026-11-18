@@ -61,14 +61,19 @@ def view_cotacao(usuario):
 
 
 def _demo_upload(arquivos, modelo_url, dados_modelo):
-    """Demonstração: confere só o tipo do arquivo e simula a leitura na sessão (nada vai ao banco, ao disco ou ao modelo)."""
-    nomes = []
+    """Demonstração: os arquivos são lidos de verdade pelo modelo, mas ficam numa pasta temporária (instance/hub_demo, apagada
+    em 24 h) e no cookie da sessão. Nenhuma linha vai ao banco."""
+    lidos = []
     for a in arquivos:
         nome = a.filename.rsplit("/", 1)[-1]
-        if "." + nome.rsplit(".", 1)[-1].lower() not in cotacao.TIPOS:
-            return jsonify(ok=False, erro="Envie PDF, imagem (PNG, JPG) ou planilha (XLSX, CSV)."), 400
-        nomes.append(nome)
+        conteudo = a.read(cotacao.MAX_BYTES + 1)
+        try:
+            lidos.append((nome, conteudo, cotacao.validar_arquivo(nome, conteudo)))
+        except cotacao.CotacaoErro as exc:
+            return jsonify(ok=False, erro=str(exc)), 400
+    nomes = [n for n, _c, _t in lidos]
     novo = demo.novo_envio("cotacao", nomes)
+    demo.iniciar_leitura_cotacao(novo, demo.guardar_arquivos_cotacao(novo, lidos))
     r = _rotas()
     if dados_modelo:
         return jsonify(ok=True, uuid=novo, dados_url=r.area_url("briefing_anexo_dados", uuid=novo), nomes=nomes)
@@ -80,9 +85,11 @@ def _demo_rascunho(usuario, uuid):
     reg = demo.envio("cotacao", uuid)
     if not reg:
         abort(404)
-    status = "enviado" if reg.get("enviado_em") else ("lendo" if demo.lendo(reg) else "lido")
+    estado = demo.estado_cotacao(reg)
+    status = {"pronto": "lido"}.get(estado, estado)
+    leitura, erro = demo.leitura_cotacao(reg) if estado != "lendo" else (None, None)
     return {"id": 0, "uuid": uuid, "id_cliente": usuario["cliente_id"], "status": status, "arquivos": [{"nome": n} for n in reg["nomes"]],
-            "leitura": None if status == "lendo" else demo.LEITURA_COTACAO, "erro": None,
+            "leitura": leitura, "erro": erro,
             "atualizado_em": demo.quando(reg["em"]), "prazo_resposta_em": cotacao.prazo_resposta(demo.quando(reg["enviado_em"])) if reg.get("enviado_em") else None}
 
 
@@ -90,9 +97,13 @@ def _render_rascunho(usuario, rascunho, *, valores=None, erros=None, status=200)
     r = _rotas()
     estado = cotacao.situacao(rascunho)
     leitura = rascunho.get("leitura") or {}
+    anunciantes, padrao = briefing.anunciantes(usuario["cliente_id"], usuario.get("cliente_nome") or "")
+    if valores is None:
+        valores = _valores_da_leitura(leitura)
+        valores["anunciante"] = valores.get("anunciante") or padrao       # a leitura acha a marca no material; sem ela, a conta
     resposta = r._render(
-        "cotacao_lido.html", usuario, "briefing", rascunho=rascunho, estado=estado, leitura=leitura,
-        v=valores if valores is not None else _valores_da_leitura(leitura), erros=erros or {}, csrf=r._csrf_token(),
+        "cotacao_lido.html", usuario, "briefing", rascunho=rascunho, estado=estado, leitura=leitura, anunciantes=anunciantes,
+        v=valores, erros=erros or {}, csrf=r._csrf_token(),
         canais=briefing.CANAIS, status_url=r.area_url("briefing_cotacao_status", uuid=rascunho["uuid"]),
         enviar_url=r.area_url("briefing_cotacao_enviar", uuid=rascunho["uuid"]), prazo_horas=cotacao.HORAS_PRAZO,
         prazo=cotacao.prazo_texto(rascunho.get("prazo_resposta_em")), enviado=request.args.get("enviado") == "1",
@@ -131,10 +142,17 @@ def view_cotacao_enviar(usuario, uuid):
         return _render_rascunho(usuario, rascunho, valores={**valores, "pracas_texto": ", ".join(valores.get("pracas") or []),
                                                           "inicio": valores["inicio"].isoformat() if valores.get("inicio") else "",
                                                           "fim": valores["fim"].isoformat() if valores.get("fim") else ""}, erros=erros, status=422)
+    valores["modo"] = "cotacao"
     if simulado:
-        # Demonstração: o briefing "vai" só na sessão; nenhuma linha no banco e nenhum e-mail.
-        demo.registrar_briefing(valores)
-        demo.marcar_enviado("cotacao", uuid)
+        # Demonstração: o briefing "vai" só na sessão; nenhuma linha no banco. E-mails só para o próprio usuário (HUB_DEMO_EMAILS).
+        if not demo.marcar_enviado("cotacao", uuid):
+            return redirect(destino, code=303)                     # duplo clique ou outra aba: o primeiro envio já valeu
+        reg = demo.envio("cotacao", uuid) or {}
+        valores["prazo_texto"], valores["anexos"] = cotacao.prazo_texto(rascunho.get("prazo_resposta_em") or cotacao.prazo_resposta()), reg.get("nomes") or []
+        leitura = rascunho.get("leitura") or {}
+        valores["descricao"] = "\n\n".join(p for p in [valores.get("descricao"), ("Leitura automática dos arquivos: " + leitura["resumo"]) if leitura.get("resumo") else ""] if p)[:6000]
+        novo_id = demo.registrar_briefing(valores)
+        r.concluir_briefing(usuario, valores, novo_id, reg.get("arquivos"), simulado=True)
         return redirect(destino + "?enviado=1", code=303)
     arquivos = rascunho.get("arquivos") or []
     leitura = rascunho.get("leitura") or {}
@@ -159,11 +177,7 @@ def view_cotacao_enviar(usuario, uuid):
         raise
     cotacao.marcar_enviado(rascunho["id"], novo_id, prazo)
     valores["prazo_texto"], valores["anexos"] = cotacao.prazo_texto(prazo), nomes
-    try:
-        emails.briefing_novo(usuario, valores, novo_id)
-        emails.briefing_recebido(usuario, valores)
-    except Exception:
-        current_app.logger.warning("E-mails do briefing de cotação %s não enviados.", novo_id, exc_info=True)
+    r.concluir_briefing(usuario, valores, novo_id, arquivos)
     return redirect(destino + "?enviado=1", code=303)
 
 

@@ -78,7 +78,7 @@ STATUS_CLIENTE = {
 }
 
 LIMITES = {
-    "titulo": 160, "objetivo": 2000, "publico": 1000, "verba": 120, "descricao": 6000,
+    "anunciante": 160, "titulo": 160, "objetivo": 2000, "publico": 1000, "verba": 120, "descricao": 6000,
     "kpi": 80, "kpi_meta": 160, "publico_b2b": 400, "raio_detalhe": 1000, "datas_chave": 400,
     "materiais_detalhe": 600, "site": 300, "concorrentes": 600, "origem": 40,
 }
@@ -108,6 +108,9 @@ def _escolhas(form, campo, validos) -> list[str]:
 def validar(form) -> tuple[dict, dict]:
     """Normaliza o formulário. Devolve (dados, erros por campo)."""
     dados = {chave: (form.get(chave) or "").strip()[:limite] for chave, limite in LIMITES.items()}
+    outro_kpi = (form.get("kpi_outro") or "").strip()[:LIMITES["kpi"]]
+    if outro_kpi:                                                        # "Outro KPI" digitado vale mais que a sugestão
+        dados["kpi"] = outro_kpi
     dados["canais"] = _escolhas(form, "canais", _CANAIS_ROTULO)
     dados["inicio"] = _data(form.get("inicio"))
     dados["fim"] = _data(form.get("fim"))
@@ -123,18 +126,23 @@ def validar(form) -> tuple[dict, dict]:
     mat = form.get("materiais") or ""
     dados["materiais"] = mat if mat in _MAT else ""
     dados["mensuracao"] = _escolhas(form, "mensuracao", MENSURACAO)
-    pracas = []
-    for bruto in form.getlist("pracas"):
-        # Sem JS o campo de busca chega como texto livre: "BH, Contagem; Betim".
-        for p in re.split(r"[;,\n]+", bruto or ""):
-            p = re.sub(r"\s+", " ", p).strip()[:80]
-            if p and p.lower() not in {x.lower() for x in pracas}:
-                pracas.append(p)
-    dados["pracas"] = pracas[:MAX_PRACAS]
+    # Sem JS o campo chega como texto livre ("BH, Contagem; Betim"). Tudo passa pelo organizador: nomes do IBGE, sem
+    # repetidas. O que não é praça reconhecida segue no briefing, marcado "a conferir", sem travar o envio.
+    from . import pracas as org
+    organizadas = org.organizar([b[:400] for b in form.getlist("pracas") if b])[:MAX_PRACAS]
+    dados["pracas"] = [p["nome"][:160] for p in organizadas]
+    dados["pracas_conferir"] = [p["nome"] + (f" ({p['obs']})" if p["obs"] else "") for p in organizadas if not p["ok"]]
     if dados["abrangencia"] == "nacional":
         dados["pracas"] = []
 
+    # Cliente (anunciante): o executivo precisa saber para quem é a campanha. Agência que não pode dizer marca "confidencial".
+    dados["confidencial"] = form.get("confidencial") == "1"
+    if dados["confidencial"]:
+        dados["anunciante"] = ""
+
     erros = {}
+    if not dados["anunciante"] and not dados["confidencial"]:
+        erros["anunciante"] = "Diga para qual cliente é a campanha, ou marque como confidencial."
     if len(dados["titulo"]) < 3:
         erros["titulo"] = "Dê um nome para a campanha ou ação."
     if len(dados["objetivo"]) < 10:
@@ -213,6 +221,8 @@ def resumo(d: dict) -> list[tuple[str, str]]:
         pracas.append(f"Abrangência: {_ABR[d['abrangencia']]}")
     if d.get("pracas"):
         pracas.append("; ".join(d["pracas"]))
+    if d.get("pracas_conferir"):
+        pracas.append("A conferir com o cliente: " + "; ".join(d["pracas_conferir"]))
     if d.get("abrangencia") == "raio" and d.get("raio_detalhe"):
         pracas.append(f"Lojas e raio: {d['raio_detalhe']}")
 
@@ -233,6 +243,7 @@ def resumo(d: dict) -> list[tuple[str, str]]:
         mat.append("Mensuração: " + ", ".join(d["mensuracao"]))
 
     secoes = [
+        ("Cliente (anunciante)", anunciante_texto(d)),
         ("Objetivo", "\n".join(x for x in linhas_obj if x)),
         ("Público", "\n".join(pub)),
         ("Praças", "\n".join(pracas)),
@@ -244,6 +255,42 @@ def resumo(d: dict) -> list[tuple[str, str]]:
         ("Mais detalhes", d.get("descricao") or ""),
     ]
     return [(r, t) for r, t in secoes if t]
+
+
+def anunciante_texto(d: dict) -> str:
+    """Nome do cliente da campanha, ou o aviso de confidencial. Vazio quando o formulário não pediu (briefings antigos)."""
+    if d.get("confidencial"):
+        return "Confidencial (o nome do cliente não foi informado)"
+    return d.get("anunciante") or ""
+
+
+def anunciantes(cliente_id, nome_conta: str = "") -> tuple[list[str], str]:
+    """Sugestões para o campo "Cliente (anunciante)" e o valor inicial.
+
+    Agência: os clientes dos PIs em que ela é a agência (sem valor inicial: ela escolhe). Anunciante direto: o próprio nome."""
+    from . import demo
+    if demo.ativo(cliente_id):
+        return ["CLIENTE EXEMPLO S.A.", nome_conta], nome_conta
+    from .dados import SUB_STATUS_CANCELADO, _fetch
+    try:
+        rows = _fetch(
+            """
+            SELECT cli.nome_fantasia AS nome, MAX(pi.periodo_fim) AS ultimo
+              FROM cadu_pi pi
+              JOIN tbl_cliente cli ON cli.id_cliente = pi.id_cliente
+             WHERE pi.id_agencia = %s AND pi.id_cliente <> %s AND COALESCE(pi.id_sub_status_pi, 0) <> %s
+             GROUP BY cli.nome_fantasia
+             ORDER BY ultimo DESC NULLS LAST
+             LIMIT 40
+            """,
+            (cliente_id, cliente_id, SUB_STATUS_CANCELADO),
+        )
+    except Exception:
+        rows = []
+    nomes = [r["nome"] for r in rows if r["nome"]]
+    if nomes:
+        return nomes, ""
+    return [nome_conta] if nome_conta else [], nome_conta or ""
 
 
 def _texto_briefing(d: dict) -> str:
@@ -387,10 +434,13 @@ def _limpa_segmentacao(texto: str) -> str:
 
 
 def _quebra_pracas(texto: str) -> list[str]:
+    """Praças de uma linha de PI, já organizadas ("MG - Exceto BH" e "MG (Excluindo BH)" viram a mesma praça)."""
     if not texto or _sem_acento(texto) in {"a definir", "", "-"}:
         return []
-    partes = (re.sub(r"\s+", " ", p.rsplit(":", 1)[-1]).strip(" .*") for p in re.split(r"[\n;,]+", texto))
-    return [p for p in partes if p and _sem_acento(p) not in {"nacional", "brasil", "a definir"}][:20]
+    from . import pracas as org
+    partes = (re.sub(r"\s+", " ", p.rsplit(":", 1)[-1]).strip(" .*") for p in re.split(r"[\n;]+", texto))
+    partes = [p for p in partes if p and _sem_acento(p) not in {"nacional", "brasil", "a definir"}]
+    return [p["nome"] for p in org.organizar(partes)][:20]
 
 
 def historico(cliente_id, limite: int = 8) -> list[dict]:
@@ -403,9 +453,10 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
     pis = _fetch(
         """
         SELECT pi.id_pi, pi.titulo_pi, pi.codigo_pi_cc, pi.periodo_inicio, pi.periodo_fim,
-               cot.objetivo_campanha
+               cot.objetivo_campanha, cli.nome_fantasia AS anunciante
           FROM cadu_pi pi
           LEFT JOIN cadu_cotacoes cot ON cot.id = pi.cotacao_id
+          LEFT JOIN tbl_cliente cli ON cli.id_cliente = pi.id_cliente
          WHERE (pi.id_cliente = %s OR pi.id_agencia = %s)
            AND COALESCE(pi.id_sub_status_pi, 0) <> %s
          ORDER BY COALESCE(pi.periodo_inicio, pi.created_at::date) DESC NULLS LAST, pi.id_pi DESC
@@ -445,7 +496,7 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
         pracas, publicos = [], []
         for ln in (x for x in linhas if x["id_pi"] == r["id_pi"]):
             for p in _quebra_pracas(ln["praca"]):
-                if p.lower() not in {x.lower() for x in pracas}:
+                if _sem_acento(p) not in {_sem_acento(x) for x in pracas}:
                     pracas.append(p)
             seg = _limpa_segmentacao(ln["segmentacao"])
             if seg and seg not in publicos:
@@ -457,7 +508,7 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
         canais = sorted({c for c in (_canal_da_plataforma(p) for p in plataformas) if c})
         titulo = (r["titulo_pi"] or "").strip() or (f"PI {r['codigo_pi_cc']}" if r["codigo_pi_cc"] else f"PI {r['id_pi']}")
         saida.append({
-            "id": f"pi:{r['id_pi']}", "fonte": "PI", "titulo": titulo,
+            "id": f"pi:{r['id_pi']}", "fonte": "PI", "titulo": titulo, "anunciante": r.get("anunciante") or "",
             "quando": r["periodo_inicio"].strftime("%m/%Y") if r["periodo_inicio"] else "",
             "objetivo": objetivo, "objetivo_tipo": _MODELO_OBJETIVO.get(modelo or "", ""),
             "kpi": _KPI_MODELO.get(modelo or "", ""), "plataformas": plataformas, "canais": canais,
@@ -480,7 +531,7 @@ def historico(cliente_id, limite: int = 8) -> list[dict]:
         texto = b["briefing_original"] or ""
         publico = _secao(texto, "Público") or _linha(texto, "Público e praças")
         pracas_txt = _secao(texto, "Praças")
-        linhas_pr = [ln for ln in pracas_txt.split("\n") if ln and not ln.startswith(("Abrangência:", "Lojas e raio:"))]
+        linhas_pr = [ln for ln in pracas_txt.split("\n") if ln and not ln.startswith(("Abrangência:", "Lojas e raio:", "A conferir"))]
         pracas = [p for p in re.split(r";\s*", linhas_pr[0]) if p] if linhas_pr else []
         saida.append({
             "id": f"briefing:{b['id']}", "fonte": "Briefing", "titulo": b["titulo"] or "Briefing",
@@ -511,7 +562,7 @@ def valores_do_historico(item: dict) -> tuple[dict, list[str]]:
     if item.get("titulo"):
         v["titulo"] = f"{item['titulo']} (nova edição)"[:160]
         trazido.append("titulo")
-    for campo, rotulo in (("objetivo", "objetivo"), ("objetivo_tipo", "objetivo_tipo"), ("kpi", "kpi"), ("publico", "publico")):
+    for campo, rotulo in (("anunciante", "anunciante"), ("objetivo", "objetivo"), ("objetivo_tipo", "objetivo_tipo"), ("kpi", "kpi"), ("publico", "publico")):
         if item.get(campo):
             v[campo] = item[campo]
             trazido.append(rotulo)
@@ -545,41 +596,12 @@ UFS = {
     "SE": "Sergipe", "TO": "Tocantins",
 }
 REGIOES = ("Norte", "Nordeste", "Centro-Oeste", "Sudeste", "Sul")
-# Capitais e cidades com mais de ~250 mil habitantes (IBGE, Censo 2022), para responder sem esperar a IA.
-CIDADES = (
-    "São Paulo-SP Guarulhos-SP Campinas-SP São Bernardo do Campo-SP Santo André-SP Osasco-SP Ribeirão Preto-SP "
-    "Sorocaba-SP São José dos Campos-SP Mauá-SP São José do Rio Preto-SP Mogi das Cruzes-SP Santos-SP Diadema-SP "
-    "Jundiaí-SP Piracicaba-SP Carapicuíba-SP Bauru-SP Itaquaquecetuba-SP Franca-SP São Vicente-SP Praia Grande-SP "
-    "Guarujá-SP Taubaté-SP Limeira-SP Suzano-SP Taboão da Serra-SP Barueri-SP Sumaré-SP Indaiatuba-SP "
-    "Rio de Janeiro-RJ São Gonçalo-RJ Duque de Caxias-RJ Nova Iguaçu-RJ Niterói-RJ Campos dos Goytacazes-RJ "
-    "Belford Roxo-RJ São João de Meriti-RJ Petrópolis-RJ Volta Redonda-RJ Macaé-RJ Magé-RJ "
-    "Belo Horizonte-MG Uberlândia-MG Contagem-MG Juiz de Fora-MG Betim-MG Montes Claros-MG Uberaba-MG "
-    "Ribeirão das Neves-MG Governador Valadares-MG Ipatinga-MG Sete Lagoas-MG Divinópolis-MG Santa Luzia-MG "
-    "Nova Lima-MG Poços de Caldas-MG "
-    "Vitória-ES Vila Velha-ES Serra-ES Cariacica-ES "
-    "Curitiba-PR Londrina-PR Maringá-PR Ponta Grossa-PR Cascavel-PR São José dos Pinhais-PR Foz do Iguaçu-PR "
-    "Porto Alegre-RS Caxias do Sul-RS Canoas-RS Pelotas-RS Santa Maria-RS Gravataí-RS Novo Hamburgo-RS "
-    "Florianópolis-SC Joinville-SC Blumenau-SC São José-SC Itajaí-SC Chapecó-SC Balneário Camboriú-SC "
-    "Brasília-DF Goiânia-GO Aparecida de Goiânia-GO Anápolis-GO Campo Grande-MS Dourados-MS Cuiabá-MT "
-    "Várzea Grande-MT Rondonópolis-MT "
-    "Salvador-BA Feira de Santana-BA Vitória da Conquista-BA Camaçari-BA Juazeiro-BA Lauro de Freitas-BA "
-    "Fortaleza-CE Caucaia-CE Juazeiro do Norte-CE Maracanaú-CE Sobral-CE "
-    "Recife-PE Jaboatão dos Guararapes-PE Olinda-PE Caruaru-PE Petrolina-PE Paulista-PE "
-    "São Luís-MA Imperatriz-MA Teresina-PI Natal-RN Mossoró-RN Parnamirim-RN João Pessoa-PB Campina Grande-PB "
-    "Maceió-AL Arapiraca-AL Aracaju-SE "
-    "Manaus-AM Belém-PA Ananindeua-PA Santarém-PA Marabá-PA Porto Velho-RO Macapá-AP Rio Branco-AC Boa Vista-RR "
-    "Palmas-TO Araguaína-TO"
-)
-
-
 def base_pracas() -> list[dict]:
-    """Lista curta para o autocompletar local (sem rede)."""
+    """País, regiões e estados para o autocompletar. Os 5.571 municípios (IBGE) vêm de static/data/municipios_br.json,
+    carregado pelo navegador só quando o campo de praças é usado (a página não fica mais pesada)."""
     itens = [{"nome": "Brasil (nacional)", "tipo": "pais"}]
     itens += [{"nome": f"Região {r}", "tipo": "regiao"} for r in REGIOES]
     itens += [{"nome": f"{nome} (estado)", "uf": uf, "tipo": "estado"} for uf, nome in UFS.items()]
-    for token in re.findall(r"([^\s][^-]*?)-([A-Z]{2})(?=\s|$)", CIDADES):
-        nome, uf = token[0].strip(), token[1]
-        itens.append({"nome": f"{nome} - {uf}", "uf": uf, "tipo": "cidade"})
     return itens
 
 
@@ -648,10 +670,18 @@ def pracas_ia(texto: str, escolhidas: list[str]) -> dict:
             saida.append(item)
         return saida
 
-    pracas = _itens(bruto.get("pracas"))[:30]
-    ja = {_sem_acento(p["nome"]) for p in pracas}
-    sugestoes = [s for s in _itens(bruto.get("sugestoes"), com_motivo=True) if _sem_acento(s["nome"]) not in ja][:6]
-    resultado = {"pracas": pracas, "sugestoes": sugestoes, "observacao": str(bruto.get("observacao") or "")[:200]}
+    # O que a IA devolve passa pelo mesmo organizador: nomes do IBGE e o mesmo formato do resto do formulário.
+    from . import pracas as org
+    pracas = [{**it, **{k: v for k, v in org.normalizar(it["nome"]).items() if k in ("nome", "tipo", "ok", "obs")}} for it in _itens(bruto.get("pracas"))][:30]
+    ja = {_sem_acento(p["nome"]) for p in pracas} | {_sem_acento(e) for e in escolhidas}
+    sugestoes = []
+    for s in _itens(bruto.get("sugestoes"), com_motivo=True):
+        n = org.normalizar(s["nome"])
+        if n["ok"] and _sem_acento(n["nome"]) not in ja:                     # sugestão só se for praça reconhecida
+            ja.add(_sem_acento(n["nome"]))
+            sugestoes.append({**s, "nome": n["nome"], "tipo": n["tipo"]})
+    sugestoes = sugestoes[:6]
+    resultado = {"pracas": pracas, "sugestoes": sugestoes, "observacao": str(bruto.get("observacao") or "")[:400]}
     if len(_CACHE_IA) > 500:
         _CACHE_IA.clear()
     _CACHE_IA[chave] = (agora, resultado)

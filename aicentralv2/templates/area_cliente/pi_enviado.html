@@ -85,7 +85,7 @@
         {% if resumo.plataformas %}<dt>Plataformas</dt><dd>{{ resumo.plataformas|join(', ') }}{% if resumo.plataformas_mais %} e mais {{ resumo.plataformas_mais }}{% endif %}</dd>{% endif %}
         {% if resumo.pracas %}<dt>Praças</dt><dd>{{ resumo.pracas|join(', ') }}{% if resumo.pracas_mais %} e mais {{ resumo.pracas_mais }}{% endif %}</dd>{% endif %}
         {% if resumo.formatos %}<dt>Formatos</dt><dd>{{ resumo.formatos|join(', ') }}</dd>{% endif %}
-        {% if resumo.total_bruto %}<dt>Valor bruto do PI</dt><dd>{{ resumo.total_bruto }}</dd>{% endif %}
+        {% if resumo.total_liquido %}<dt>Valor líquido do PI</dt><dd>{{ resumo.total_liquido }}</dd>{% endif %}
         <dt>Itens de mídia</dt><dd>{{ resumo.n_linhas }}</dd>
       </dl>
       {% if resumo.linhas %}

@@ -36,10 +36,11 @@ def test_resumo_do_cliente_nao_vaza_dados_da_visao_completa():
     resumo = hub.resumo_para_cliente(pi_completo())
     assert set(resumo) == hub.CAMPOS_PERMITIDOS                                  # só a lista permitida, nada a mais
     texto = json.dumps(resumo, ensure_ascii=False)
-    for proibido in ("2000.00", "2.000,00", "8.000,00", "8000.00", CNPJ_CLIENTE, CNPJ_AGENCIA, "12.315.950", "CONTORNO", "623221310098",
+    for proibido in ("2000.00", "2.000,00", CNPJ_CLIENTE, CNPJ_AGENCIA, "12.315.950", "CONTORNO", "623221310098",
                      "ODE-26-001841", "MARIANA", "faturamento@", "valor líquido", "comissao", "3195-6342", "2500"):
         assert proibido not in texto, proibido
     assert resumo["numero_pi"] == "86761" and resumo["total_bruto"] == "R$ 10.000,00" and resumo["n_linhas"] == 11
+    assert resumo["total_liquido"] == "R$ 8.000,00"                              # a tela mostra só o líquido; o bruto fica para o e-mail
 
 
 def test_resumo_limita_listas_e_nao_mostra_total_que_o_pdf_nao_traz():
@@ -166,9 +167,10 @@ def test_limite_por_hora_bloqueia_e_ver_como_envia_normalmente(hub_http, mem):
 
 def test_pagina_do_pi_lido_mostra_resumo_sem_vazar_e_o_formulario_de_envio(hub_http, mem):
     html = hub_http.get(f"/pis/enviados/{UUID}", base_url=HOST).get_data(as_text=True)
-    assert "Dados identificados" in html and "86761" in html and "R$ 10.000,00" in html and "Encaminhar ao executivo" in html
+    assert "Dados identificados" in html and "86761" in html and "R$ 8.000,00" in html and "Encaminhar ao executivo" in html
+    assert "10.000,00" not in html and "Valor bruto" not in html             # só o valor líquido na tela
     assert "wa.me/5531999990000" in html and 'name="csrf" value="tok"' in html
-    for proibido in ("8.000,00", "2.000,00", CNPJ_CLIENTE, CNPJ_AGENCIA, "ODE-26-001841", "MARIANA", "623221310098", "Nota fiscal pelo valor líquido"):
+    for proibido in ("2.000,00", CNPJ_CLIENTE, CNPJ_AGENCIA, "ODE-26-001841", "MARIANA", "623221310098", "Nota fiscal pelo valor líquido"):
         assert proibido not in html, proibido
 
 

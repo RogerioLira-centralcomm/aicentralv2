@@ -35,7 +35,6 @@
 
 {% set falta = (pi.liquido or 0) - (pi.faturado or 0) %}
 <section class="ac-pi-vals" aria-label="Valores do PI">
-  <div class="ac-pi-val"><span>Valor bruto</span><b>{{ pi.bruto|format_brl if pi.bruto is not none else '—' }}</b></div>
   <div class="ac-pi-val"><span>Valor líquido</span><b>{{ pi.liquido|format_brl if pi.liquido is not none else '—' }}</b></div>
   <div class="ac-pi-val"><span>Faturado</span><b>{{ pi.faturado|format_brl if pi.faturado else '—' }}</b><small>{{ pi.notas|length }} {{ 'nota fiscal' if pi.notas|length == 1 else 'notas fiscais' }}{% if pi.faturado and falta > 0.5 %} · falta {{ falta|format_brl }}{% endif %}</small></div>
   <div class="ac-pi-val"><span>Pago</span><b>{{ pi.pago|format_brl if pi.pago else '—' }}</b><small>{% if pi.pago and pi.faturado and pi.pago >= pi.faturado - 0.5 %}tudo pago{% elif pi.faturado %}{{ ((pi.faturado - (pi.pago or 0)))|format_brl }} a receber{% else %}sem faturamento{% endif %}</small></div>
@@ -78,7 +77,7 @@
         {% for n in pi.notas %}
         <li class="ac-pi-nf">
           <div class="ac-pi-nf__main"><b>NF {{ n.numero }}</b><small>Emitida {{ data_br(n.emissao) }}{% if n.competencia %} · comp. {{ n.competencia }}{% endif %}</small></div>
-          <div class="ac-pi-nf__val"><b>{{ n.valor|format_brl if n.valor is not none else '—' }}</b><small>líquido {{ n.liquido|format_brl if n.liquido is not none else '—' }}</small></div>
+          <div class="ac-pi-nf__val"><b>{{ n.liquido|format_brl if n.liquido is not none else '—' }}</b><small>líquido</small></div>
           <div class="ac-pi-nf__st">{% if n.pago_em %}<span class="ac-badge ac-badge--success">Pago {{ data_br(n.pago_em)[:5] }}</span>{% else %}<span class="ac-badge ac-badge--warning">{% if n.prevista %}Previsto {{ data_br(n.prevista)[:5] }}{% else %}{{ n.status }}{% endif %}</span>{% endif %}</div>
         </li>
         {% endfor %}

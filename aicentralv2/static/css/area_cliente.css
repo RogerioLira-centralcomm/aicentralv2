@@ -1762,7 +1762,7 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-pi-track__step.is-current .ac-pi-track__txt b { color: var(--accent-strong); }
 .ac-pi-track__txt small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-.ac-pi-vals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.ac-pi-vals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .ac-pi-val { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-xl); box-shadow: var(--shadow-xs); }
 .ac-pi-val span { font-size: 12.5px; color: var(--muted); }
 .ac-pi-val b { font-size: 20px; line-height: 28px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -1801,10 +1801,11 @@ span.ac-fmark--duo > img + img { border-left: 1px solid var(--line); }
 .ac-pi-docs a span { flex: 1; min-width: 0; }
 .ac-pi-docs a .ac-icon:first-child { color: var(--accent); }
 
-/* Tablet: uma coluna; valores 2x2 */
+/* Tablet: uma coluna; valores em 2 colunas, o líquido ocupa a linha toda */
 @media (max-width: 1100px) {
   .ac-pi-grid { grid-template-columns: minmax(0, 1fr); }
   .ac-pi-vals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ac-pi-val:first-child { grid-column: 1 / -1; }
 }
 /* Celular: trilho vertical, NF em duas linhas */
 @media (max-width: 640px) {

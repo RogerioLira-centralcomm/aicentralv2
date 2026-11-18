@@ -29,13 +29,14 @@ def _unicos(valores, limite):
 
 
 def resumo_para_cliente(pi: dict) -> dict:
-    """Resumo permitido ao cliente. ``total_bruto`` só aparece se o próprio documento traz o valor."""
+    """Resumo permitido ao cliente. ``total_bruto``/``total_liquido`` só aparecem se o próprio documento traz o valor."""
     pi = pi or {}
     linhas = pi.get("linhas") or []
     plataformas, mais_plat = _unicos([l.get("plataforma") or l.get("meio") for l in linhas], MAX_PLATAFORMAS)
     pracas, mais_pracas = _unicos([l.get("praca") for l in linhas], MAX_PRACAS)
     formatos, _ = _unicos([l.get("formato") for l in linhas], 4)
     bruto = n.dinheiro((pi.get("totais") or {}).get("bruto"))
+    liquido = n.dinheiro((pi.get("totais") or {}).get("liquido"))
     cliente, agencia = pi.get("cliente") or {}, pi.get("agencia") or {}
     return {
         "numero_pi": n.limpo(pi.get("numero_pi")),
@@ -45,6 +46,7 @@ def resumo_para_cliente(pi: dict) -> dict:
         "produto": n.limpo(pi.get("produto")),
         "periodo": n.limpo(pi.get("periodo_texto")),
         "total_bruto": n.formatar_brl(bruto) if bruto is not None else "",
+        "total_liquido": n.formatar_brl(liquido) if liquido is not None else "",
         "plataformas": plataformas, "plataformas_mais": mais_plat,
         "pracas": pracas, "pracas_mais": mais_pracas,
         "formatos": formatos,
@@ -62,7 +64,7 @@ def linha_pre_pi(entrada: dict) -> dict:
     """Pré-PI como linha da lista de PIs do hub (etapa "Pré-aprovação"), só com o que o resumo permitido mostra."""
     r = resumo_para_cliente(entrada.get("json_revisado") or {})
     return {"uuid": entrada.get("uuid"), "pi": r["numero_pi"] or entrada.get("numero_pi") or "—", "titulo": r["campanha"] or entrada.get("titulo") or "",
-            "agencia": r["agencia"], "plataformas": r["plataformas"], "periodo": r["periodo"], "bruto": r["total_bruto"],
+            "agencia": r["agencia"], "plataformas": r["plataformas"], "periodo": r["periodo"], "liquido": r["total_liquido"],
             "origem": entrada.get("origem") or "hub", "status": entrada.get("status")}
 
 

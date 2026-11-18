@@ -18,7 +18,7 @@
 <div class="ac-camp-wrap ac-camp-wrap--rolar ac-enter">
   <table class="ac-lista">
     <thead>
-      <tr><th scope="col">PI</th><th scope="col">{{ rotulo_contraparte(pis) }}</th><th scope="col">Plataformas</th><th scope="col">Etapa</th><th scope="col">Período</th><th scope="col" class="ac-num">Valor bruto</th><th scope="col" class="ac-num">Valor líquido</th><th scope="col">Notas fiscais</th><th scope="col"><span class="ac-sr">Detalhes</span></th></tr>
+      <tr><th scope="col">PI</th><th scope="col">{{ rotulo_contraparte(pis) }}</th><th scope="col">Plataformas</th><th scope="col">Etapa</th><th scope="col">Período</th><th scope="col" class="ac-num">Valor líquido</th><th scope="col">Notas fiscais</th><th scope="col"><span class="ac-sr">Detalhes</span></th></tr>
     </thead>
     <tbody>
       {% for p in pis %}
@@ -28,7 +28,6 @@
         <td data-label="Plataformas" data-c="plat"><span class="ac-platstack">{% for pl in p.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if p.plataformas|length > 5 %}<span class="ac-platstack__more">+{{ p.plataformas|length - 5 }}</span>{% endif %}{% if not p.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
         <td data-label="Etapa" data-c="situacao">{{ status_badge(p.status) }}</td>
         <td data-label="Período" data-c="sub">{{ periodo(p.periodo) }}</td>
-        <td data-label="Valor bruto" class="ac-num" data-c="bruto">{{ p.bruto|format_brl if p.bruto is not none else '—' }}</td>
         <td data-label="Valor líquido" class="ac-num" data-c="valor"><b>{{ p.liquido|format_brl if p.liquido is not none else '—' }}</b></td>
         <td data-label="Notas fiscais" data-c="nf">{% if p.n_notas %}{{ p.n_notas }} {{ 'emitida' if p.n_notas == 1 else 'emitidas' }}<small>{{ p.n_pagas }} {{ 'paga' if p.n_pagas == 1 else 'pagas' }}</small>{% else %}<small>Nenhuma ainda</small>{% endif %}</td>
         <td class="ac-camp__acts" data-c="acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi', id_pi=p.id) }}" data-painel="{{ loop.index0 }}" title="Detalhes" aria-label="Detalhes do PI {{ p.pi }}">{{ icon('chevron-right', 16) }}</a></td>
@@ -41,8 +40,7 @@
         <td data-label="Plataformas" data-c="plat"><span class="ac-platstack">{% for pl in q.plataformas[:5] %}{{ plat(pl.nome, pl.logo, pl.iniciais, 22) }}{% endfor %}{% if not q.plataformas %}<span class="ac-muted">—</span>{% endif %}</span></td>
         <td data-label="Etapa" data-c="situacao"><span class="ac-badge ac-badge--gray" title="O PI está em verificação pela Centralcomm">Pré-aprovação</span></td>
         <td data-label="Período" data-c="sub">{{ q.periodo or '—' }}</td>
-        <td data-label="Valor bruto" class="ac-num" data-c="bruto">{{ q.bruto or '—' }}</td>
-        <td data-label="Valor líquido" class="ac-num" data-c="valor">—</td>
+        <td data-label="Valor líquido" class="ac-num" data-c="valor">{{ q.liquido or '—' }}</td>
         <td data-label="Notas fiscais" data-c="nf"><small>Nenhuma ainda</small></td>
         <td class="ac-camp__acts" data-c="acts"><a class="ac-icon-btn ac-icon-btn--xs" href="{{ area_url('pi_enviado', uuid=q.uuid) }}" title="Ver dados identificados" aria-label="Ver o pré-PI {{ q.pi }}">{{ icon('chevron-right', 16) }}</a></td>
       </tr>

@@ -8,7 +8,8 @@
     {% for pasta, frase, destaque in slides %}
     <figure class="ac-split__slide{% if loop.first %} is-on{% endif %}">
       <img src="{{ url_for('static', filename='images/estrategias/' ~ pasta ~ '/conceito.webp') }}" alt="" width="1200" height="800" loading="lazy" decoding="async">
-      <figcaption>{{ frase|replace(destaque, '<em>' ~ destaque ~ '</em>')|safe if destaque else frase }}</figcaption>
+      {% set partes = frase.split(destaque, 1) if destaque and destaque in frase else [frase] %}
+      <figcaption>{{ partes[0] }}{% if partes|length > 1 %}<em>{{ destaque }}</em>{{ partes[1] }}{% endif %}</figcaption>
     </figure>
     {% endfor %}
   </div>

@@ -20,7 +20,11 @@
       return slides.length > 1 && !(mq && mq.matches) && !document.hidden && box.offsetParent !== null;
     };
     var passo = function () { if (podeTrocar()) mostrar((atual + 1) % slides.length); };
-    var iniciar = function () { if (!timer && slides.length > 1) timer = setInterval(passo, 3000); };
+    /* Com movimento reduzido ou painel oculto (celular) o timer nem começa. */
+    var iniciar = function () {
+      if (timer || slides.length < 2 || (mq && mq.matches) || box.offsetParent === null) return;
+      timer = setInterval(passo, 3000);
+    };
     /* A tela de carregamento dura ~3 s: a primeira troca vem depois que o cartão aparece. */
     setTimeout(iniciar, document.getElementById('ac-splash') ? 3200 : 0);
   }

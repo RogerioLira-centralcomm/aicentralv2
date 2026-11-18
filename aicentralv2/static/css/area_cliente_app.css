@@ -238,7 +238,7 @@
 }
 .ac-split .ac-auth__field input:focus { background: #fff; }
 .ac-auth__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.ac-auth__pw { position: relative; display: block; }
+.ac-auth__field > .ac-auth__pw { position: relative; display: block; }
 .ac-split .ac-auth__pw input { padding-right: 52px; }
 .ac-auth__eye {
   position: absolute;

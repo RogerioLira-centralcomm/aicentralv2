@@ -379,31 +379,6 @@
       <ul class="bw-check" id="bw-check"></ul>
       <ul class="bw-avisos" id="bw-avisos"></ul>
     </section>
-
-    <section class="ac-card" aria-labelledby="enviados-titulo">
-      <header class="ac-card__head">
-        <div>
-          <h2 class="ac-h2" id="enviados-titulo">Briefings enviados</h2>
-          <p class="ac-card__sub"><a class="ac-link" href="{{ area_url('briefing_todos') }}">Ver todos os briefings</a></p>
-        </div>
-      </header>
-      {% if enviados %}
-      <ul class="ac-briefs">
-        {% for e in enviados %}
-        <li class="ac-brief{% if e.id == enviado_id %} is-new{% endif %}">
-          <div class="ac-brief__top">
-            <b>{{ e.titulo }}</b>
-            <span class="ac-badge ac-badge--{{ e.tom }}">{{ e.status }}</span>
-          </div>
-          {% if e.objetivo %}<p class="ac-brief__text">{{ e.objetivo|truncate(140) }}</p>{% endif %}
-          <p class="ac-brief__meta">Enviado em {{ e.em }}{% if e.autor %} por {{ e.autor }}{% endif %}</p>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      {{ vazio('send', 'Nenhum briefing ainda', 'Os briefings que você enviar aparecem aqui, com o andamento de cada um.') }}
-      {% endif %}
-    </section>
   </aside>
 </div>
 <script type="application/json" id="bw-dados">{{ {

@@ -491,7 +491,6 @@ def view_briefing_form(usuario, modo="planejamento"):
         b=briefing, opcoes=opcoes, historico=historico, modo=modo, origem_item=origem_item, trazido=trazido, anunciantes=anunciantes, canais_descobrir=canais_descobrir,
         atalho_datas=_atalho_datas(origem_item), falta=briefing.qualidade(valores)["pendencias"] if origem_item else [],
         itens_descobrir=descobrir.selecao(session),
-        enviados=briefing.listar(usuario["cliente_id"]),
         enviado_id=request.args.get("enviado", type=int),
     )
     resp.status_code = status

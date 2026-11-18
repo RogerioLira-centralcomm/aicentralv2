@@ -338,6 +338,37 @@
 
 .ac-splash__tip { font-size: 13px; opacity: .6; min-height: 1.4em; }
 
+/* Depois do login: verde das telas de envio (.pe-festa em area_cliente_pi.css), sem fogos nem título.
+   Um anel girando em volta do logo e uma linha pequena de texto. */
+.ac-splash--hub {
+  gap: 20px;
+  background: radial-gradient(1100px 700px at 50% 0%, #0e3b30 0%, #082a22 55%, #061d18 100%);
+}
+.ac-splash__orb {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .06);
+  box-shadow: 0 0 0 10px rgba(18, 183, 106, .12), 0 0 60px rgba(18, 183, 106, .35);
+}
+.ac-splash__orb img { width: 42px; height: auto; }
+.ac-splash__orb::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: #7ddcb0;
+  border-right-color: rgba(125, 220, 176, .35);
+  animation: ac-spin 1.1s linear infinite;
+}
+.ac-splash__msg { margin: 0; font-size: 14px; font-weight: 500; color: rgba(255, 255, 255, .82); }
+.ac-splash--hub .ac-splash__bar { width: min(160px, 50vw); height: 3px; }
+.ac-splash--hub .ac-splash__fill { background: linear-gradient(90deg, #12b76a, #7ddcb0); }
+
 /* ---------- Celular: só o formulário, centralizado, sem painel nem imagem ---------- */
 
 @media (max-width: 768px) {
@@ -388,7 +419,8 @@
 @media (prefers-reduced-motion: reduce) {
   .ac-stage__blob,
   .ac-stage__ring,
-  .ac-splash__mark { animation: none; }
+  .ac-splash__mark,
+  .ac-splash__orb::after { animation: none; }
   .ac-split { animation: none; }
   .ac-split__slide, .ac-split__slide img, .ac-split__slide figcaption, .ac-split__dots span { transition: none; }
   .ac-splash { animation-duration: .01s; animation-delay: 0s; }

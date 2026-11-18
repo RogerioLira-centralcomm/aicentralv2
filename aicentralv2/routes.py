@@ -6958,6 +6958,78 @@ def init_routes(app):
         args = {k: v for k, v in request.args.items() if k not in ('fases', 'fase')}
         return redirect(url_for('campanha_acompanhamento_publica', token=token, **args), code=301)
 
+    def _pi_acesso_publico_por_token(token):
+        """Valida token do PI e devolve o registro ou resposta de erro HTTP."""
+        from datetime import datetime
+
+        row = db.obter_pi_por_link_publico(token)
+        if not row:
+            return None, (render_template('erro_publico.html', mensagem='Link inválido ou inativo.'), 404)
+        expires_at = row.get('link_publico_expires_at')
+        if expires_at:
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at < datetime.now():
+                return None, (render_template('erro_publico.html', mensagem='Este link expirou.'), 410)
+        pi = db.obter_cadu_pi_por_id(row['id_pi'])
+        if not pi:
+            return None, (render_template('erro_publico.html', mensagem='PI não encontrado.'), 404)
+        return pi, None
+
+    @app.route('/campanha/p/<string:token>/arquivos/<secao>', methods=['GET'])
+    def campanha_publica_arquivos_secao(token, secao):
+        """Lista e download de arquivos do PI sem login (token da página pública)."""
+        from aicentralv2.services.pi_local_storage import (
+            PiLocalStorageError,
+            listar_arquivos_secao,
+        )
+
+        secao = str(secao or '').strip().lower()
+        if secao not in _PI_SECAO_LABELS:
+            return render_template('erro_publico.html', mensagem='Seção inválida.'), 404
+
+        pi, err = _pi_acesso_publico_por_token(token)
+        if err:
+            body, status = err
+            return body, status
+        try:
+            arquivos = listar_arquivos_secao(pi, secao)
+        except PiLocalStorageError as exc:
+            return render_template('erro_publico.html', mensagem=str(exc)), 400
+
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify({'success': True, 'secao': secao, 'arquivos': arquivos})
+
+        return render_template(
+            'campanha_publica/arquivos_secao.html',
+            pi=pi,
+            token=token,
+            secao=secao,
+            secao_label=_PI_SECAO_LABELS[secao],
+            arquivos=arquivos,
+            pagina_acompanhamento=url_for('campanha_acompanhamento_publica', token=token, pagina='documentos'),
+        )
+
+    @app.route('/campanha/p/<string:token>/arquivos/<secao>/<path:filename>', methods=['GET'])
+    def campanha_publica_arquivo_download(token, secao, filename):
+        from flask import send_file
+
+        from aicentralv2.services.pi_local_storage import PiLocalStorageError, resolve_arquivo
+
+        secao = str(secao or '').strip().lower()
+        if secao not in _PI_SECAO_LABELS:
+            return 'Seção inválida', 404
+
+        pi, err = _pi_acesso_publico_por_token(token)
+        if err:
+            body, status = err
+            return body, status
+        try:
+            path = resolve_arquivo(pi, secao, filename)
+        except PiLocalStorageError as exc:
+            return str(exc), 404
+        return send_file(path, as_attachment=True, download_name=path.name)
+
     @app.route('/campanha/p/<string:token>', defaults={'pagina': 'geral'})
     @app.route('/campanha/p/<string:token>/<string:pagina>')
     def campanha_acompanhamento_publica(token, pagina):
@@ -11785,7 +11857,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
     @app.route('/api/cadu_pi/<int:id_pi>/gerar-pastas', methods=['POST'])
     @login_required
     def cadu_pi_gerar_pastas(id_pi):
-        """Chama webhook Make.com para criar pastas no Google Drive e salva os links"""
+        """Cria pastas do PI (servidor ou Make/Google Drive) e salva os links."""
         try:
             from aicentralv2.services.pi_make_webhooks import PiMakeWebhookError, gerar_pastas_drive_pi
 
@@ -11805,20 +11877,168 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             registrar_auditoria(
                 acao='UPDATE',
                 modulo='cadu_pi',
-                descricao=f'Pastas Google Drive geradas para PI {numero}',
+                descricao=f'Pastas do PI geradas para {numero}',
                 registro_id=id_pi,
                 registro_tipo='cadu_pi',
                 dados_novos=pastas,
             )
 
-            return jsonify({'success': True, **pastas})
+            from aicentralv2.services.pi_local_storage import diagnosticar_pastas_pi
+
+            pi_atual = db.obter_cadu_pi_por_id(id_pi) or pi
+            diag = diagnosticar_pastas_pi(pi_atual)
+            payload = {
+                'success': True,
+                **pastas,
+                'pastas_status': diag,
+                'storage_path': pastas.get('storage_path') or diag.get('storage_path'),
+            }
+            if app.config.get('DEBUG') and payload.get('storage_path'):
+                payload['dev_hint'] = (
+                    "Pastas prontas — acesse em /cadu_pi/{0}/arquivos/principal (logado).".format(
+                        id_pi
+                    )
+                )
+            return jsonify(payload)
         except PiMakeWebhookError as wh_err:
-            app.logger.error(f"Erro ao gerar pastas Google Drive: {wh_err}")
+            app.logger.error(f"Erro ao gerar pastas do PI: {wh_err}")
             status = 502 if 'webhook' in str(wh_err).lower() else 400
             return jsonify({'success': False, 'message': str(wh_err)}), status
         except Exception as e:
-            app.logger.error(f"Erro ao gerar pastas Google Drive: {e}", exc_info=True)
+            app.logger.error(f"Erro ao gerar pastas do PI: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
+
+    _PI_SECAO_LABELS = {
+        'principal': 'Principal',
+        'financeiro': 'Financeiro',
+        'pecas': 'Peças',
+        'assinados': 'Assinados',
+    }
+
+    @app.route('/api/cadu_pi/<int:id_pi>/pastas/status', methods=['GET'])
+    @login_required
+    def api_cadu_pi_pastas_status(id_pi):
+        """Diagnóstico: pastas existem e são graváveis, ou o motivo da falha."""
+        from aicentralv2.services.pi_local_storage import diagnosticar_pastas_pi, pi_upload_root
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+        diag = diagnosticar_pastas_pi(pi)
+        return jsonify({
+            'success': bool(diag.get('ok')),
+            'upload_root': str(pi_upload_root()),
+            **diag,
+        })
+
+    @app.route('/cadu_pi/<int:id_pi>/arquivos/<secao>', methods=['GET', 'POST'])
+    @login_required
+    def cadu_pi_arquivos_secao(id_pi, secao):
+        from aicentralv2.services.pi_local_storage import (
+            PiLocalStorageError,
+            listar_arquivos_secao,
+            pi_storage_dir,
+            salvar_upload,
+            secao_dir,
+        )
+
+        secao = str(secao or '').strip().lower()
+        if secao not in _PI_SECAO_LABELS:
+            return jsonify({'success': False, 'message': 'Seção inválida'}), 404
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return 'PI não encontrado', 404
+
+        if request.method == 'POST':
+            arquivo = request.files.get('arquivo')
+            try:
+                salvo = salvar_upload(pi, secao, arquivo)
+                return redirect(url_for('cadu_pi_arquivos_secao', id_pi=id_pi, secao=secao))
+            except PiLocalStorageError as exc:
+                return str(exc), 400
+
+        try:
+            arquivos = listar_arquivos_secao(pi, secao)
+            storage_path = str(secao_dir(pi, secao))
+            if app.config.get('DEBUG'):
+                storage_path = str(pi_storage_dir(pi))
+        except PiLocalStorageError as exc:
+            return str(exc), 400
+
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify({
+                'success': True,
+                'secao': secao,
+                'arquivos': arquivos,
+                'storage_path': storage_path if app.config.get('DEBUG') else None,
+                'pastas_ok': True,
+            })
+
+        return render_template(
+            'cadu_pi_arquivos_secao.html',
+            pi=pi,
+            secao=secao,
+            secao_label=_PI_SECAO_LABELS[secao],
+            arquivos=arquivos,
+            storage_path=storage_path if app.config.get('DEBUG') else None,
+        )
+
+    @app.route('/api/cadu_pi/<int:id_pi>/arquivos/<secao>', methods=['GET', 'POST'])
+    @login_required
+    def api_cadu_pi_arquivos_secao(id_pi, secao):
+        from aicentralv2.services.pi_local_storage import (
+            PiLocalStorageError,
+            listar_arquivos_secao,
+            pi_storage_dir,
+            salvar_upload,
+        )
+
+        secao = str(secao or '').strip().lower()
+        if secao not in _PI_SECAO_LABELS:
+            return jsonify({'success': False, 'message': 'Seção inválida'}), 404
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+        if request.method == 'POST':
+            try:
+                salvo = salvar_upload(pi, secao, request.files.get('arquivo'))
+                return jsonify({'success': True, **salvo})
+            except PiLocalStorageError as exc:
+                return jsonify({'success': False, 'message': str(exc)}), 400
+
+        try:
+            arquivos = listar_arquivos_secao(pi, secao)
+            payload = {'success': True, 'secao': secao, 'arquivos': arquivos}
+            if app.config.get('DEBUG'):
+                payload['storage_path'] = str(pi_storage_dir(pi))
+            return jsonify(payload)
+        except PiLocalStorageError as exc:
+            return jsonify({'success': False, 'message': str(exc)}), 400
+
+    @app.route('/cadu_pi/<int:id_pi>/arquivos/<secao>/<path:filename>', methods=['GET'])
+    @login_required
+    def cadu_pi_arquivo_download(id_pi, secao, filename):
+        from flask import send_file
+
+        from aicentralv2.services.pi_local_storage import PiLocalStorageError, resolve_arquivo
+
+        secao = str(secao or '').strip().lower()
+        if secao not in _PI_SECAO_LABELS:
+            return 'Seção inválida', 404
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return 'PI não encontrado', 404
+
+        try:
+            path = resolve_arquivo(pi, secao, filename)
+        except PiLocalStorageError as exc:
+            return str(exc), 404
+
+        return send_file(path, as_attachment=True, download_name=path.name)
 
     @app.route('/api/cadu_pi/<int:id_pi>/enviar-producao', methods=['POST'])
     @login_required
@@ -11832,7 +12052,15 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
 
             if not pi.get('googled_pi_princ'):
-                return jsonify({'success': False, 'message': 'Gere as pastas do Google Drive antes de enviar'}), 400
+                return jsonify({'success': False, 'message': 'Gere as pastas do PI antes de enviar'}), 400
+            try:
+                from aicentralv2.services.pi_local_storage import (
+                    PiLocalStorageError as PiStorageError,
+                    exigir_pastas_pi_acessiveis,
+                )
+                exigir_pastas_pi_acessiveis(pi)
+            except PiStorageError as storage_err:
+                return jsonify({'success': False, 'message': str(storage_err)}), 400
             if not pi.get('id_cliente'):
                 return jsonify({'success': False, 'message': 'Selecione um cliente antes de enviar'}), 400
             if not pi.get('codigo_pi_cc'):
@@ -11934,7 +12162,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             webhook_erros = []
 
             url_andamento = os.getenv('MAKE_WEBHOOK_PI_ANDAMENTO')
-            if url_andamento:
+            make_andamento = app.config.get('PI_MAKE_ANDAMENTO_ENABLED', False)
+            if url_andamento and make_andamento:
                 params_andamento = {
                     'testeparam': 'yes' if is_dev else 'no',
                     'codPI': numero,

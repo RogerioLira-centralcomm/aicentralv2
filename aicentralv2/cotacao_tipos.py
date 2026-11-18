@@ -56,10 +56,9 @@ COTACAO_MONTAGENS = {
         "item_label": "Segmento ou pacote de dados",
         "item_placeholder": "Ex.: Intenção de compra automotiva",
         "fields": (
-            ("fonte", "Fonte"),
-            ("cobertura", "Cobertura"),
-            ("licenca", "Modelo de licença"),
-            ("periodo_uso", "Período de uso"),
+            ("plataforma_campanha", "Plataforma de dados"),
+            ("data_inicio", "Data início"),
+            ("data_fim", "Data fim"),
         ),
     },
 }

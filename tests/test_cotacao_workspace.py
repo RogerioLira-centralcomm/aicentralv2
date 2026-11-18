@@ -83,6 +83,7 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
     def test_typed_workspace_has_editable_items_and_total(self):
         self.assertIn("data-typed-items", self.workspace)
         self.assertIn("data-item-dialog", self.workspace)
+        self.assertIn("data-item-dialog-close", self.workspace)
         self.assertIn("data-items-total", self.workspace)
         self.assertIn("api_itens_especificos_cotacao", self.routes)
         self.assertIn("api_reordenar_itens_especificos", self.routes)
@@ -93,6 +94,28 @@ class CotacaoWorkspaceContractTest(unittest.TestCase):
         self.assertIn("credentials: 'same-origin'", self.workspace_js)
         self.assertIn("const previousItems = items.slice()", self.workspace_js)
         self.assertIn("aria-busy", self.workspace_js)
+        self.assertIn("data-item-dialog-close", self.workspace_js)
+
+    def test_workspace_dados_plataforma_e_vigencia(self):
+        self.assertIn("Operação de dados", self.workspace)
+        self.assertIn("Plataforma de dados", self.workspace)
+        self.assertIn("Vigência da licença", self.workspace)
+        self.assertIn("_validar_precondicoes_aprovacao_cotacao", self.routes)
+        self.assertIn("validar_plataforma_cotacao_dados", self.routes)
+        self.assertIn("listar_plataformas_dados_ativas", self.db)
+        self.assertIn("sincronizar_cotacao_dados_a_partir_itens", self.db)
+        self.assertIn("_validar_metadata_item_dados", self.db)
+        self.assertIn("quantidade do pacote de dados deve ser um número inteiro", self.db)
+        self.assertIn('name="meta_plataforma_campanha"', self.workspace)
+        self.assertIn('name="meta_data_inicio"', self.workspace)
+        self.assertIn('name="meta_data_fim"', self.workspace)
+        self.assertIn('vigencia_proposta_inicio', self.workspace)
+        self.assertNotIn('meta_fonte', self.workspace)
+        self.assertNotIn("cot-plataforma-dados-wrap", self.form)
+        self.assertNotIn('name="plataforma_campanha"', self.workspace)
+        tipos = (ROOT / "aicentralv2/cotacao_tipos.py").read_text()
+        self.assertIn('"data_inicio"', tipos)
+        self.assertIn('"plataforma_campanha"', tipos)
 
     def test_specific_items_schema_is_deployed(self):
         self.assertIn("CREATE TABLE IF NOT EXISTS cadu_cotacao_itens_especificos", self.migration)

@@ -987,8 +987,100 @@ function aplicarKpiNoSelect(prefix, idKpi, descricao) {
   return selecionarKpiPorDescricao(p, descricao);
 }
 
+function ehRepresentacaoComercialCotacao() {
+  var root = document.getElementById('cotacao-operacao-app');
+  return !!(root && root.dataset.tipoContrato === 'representacao_comercial');
+}
+
+function _modalIdFromLinhaPrefix(prefix) {
+  if (prefix === 'edit_') return 'modal_editar_linha';
+  if (prefix === 'audiencia_') return 'modal_adicionar_audiencia';
+  return 'modal_nova_linha';
+}
+
+function _ocultarCampoPrecificacaoRep(fieldId, esconder) {
+  var el = document.getElementById(fieldId);
+  if (!el) return;
+  var wrap = el.closest('.cx-field');
+  if (wrap) wrap.classList.toggle('hidden', !!esconder);
+}
+
+function aplicarUIModoPrecificacaoRepresentacao(prefix) {
+  var p = prefix || '';
+  var rep = ehRepresentacaoComercialCotacao();
+  var ids = {
+    mcc: p + 'margem_cc_override',
+    vt: p + 'valor_unitario_tabela',
+    fd: p + 'fator_desconto',
+    vu: p + 'valor_unitario',
+    btn: p + 'btn_calcular_preco',
+    cm: p + 'custo_midia_field'
+  };
+  _ocultarCampoPrecificacaoRep(ids.mcc, rep);
+  _ocultarCampoPrecificacaoRep(ids.vt, rep);
+  _ocultarCampoPrecificacaoRep(ids.fd, rep);
+  _ocultarCampoPrecificacaoRep(ids.btn, rep);
+  if (ids.cm) _ocultarCampoPrecificacaoRep(ids.cm, rep);
+
+  var vu = document.getElementById(ids.vu);
+  if (vu) {
+    if (rep) {
+      vu.removeAttribute('readonly');
+      vu.classList.remove('bg-gray-100');
+      vu.classList.add('bg-white');
+      vu.oninput = function () {
+        aplicarMascaraDinheiro(vu);
+        derivarValorPendente(p);
+        atualizarBtnSalvarLinha(p);
+      };
+    } else {
+      vu.setAttribute('readonly', 'readonly');
+      vu.classList.add('bg-gray-100');
+      vu.classList.remove('bg-white');
+      vu.oninput = null;
+    }
+  }
+
+  var modal = document.getElementById(_modalIdFromLinhaPrefix(p));
+  if (modal) {
+    modal.querySelectorAll('[data-tab-trigger="resultado"]').forEach(function (tab) {
+      tab.classList.toggle('hidden', rep);
+    });
+    var pricing = vu && vu.closest('.cot-media-form-section--pricing');
+    if (pricing) {
+      var subtitle = pricing.querySelector('.flex .text-gray-500');
+      if (subtitle) subtitle.classList.toggle('hidden', rep);
+      var hint = pricing.querySelector('[data-rep-pricing-hint]');
+      if (rep && !hint) {
+        var pHint = document.createElement('p');
+        pHint.setAttribute('data-rep-pricing-hint', '1');
+        pHint.className = 'text-[10px] text-sky-800 mb-2';
+        pHint.textContent = 'Representação: informe valor unitário de venda, volume ou valor líquido. Comissão do parceiro vem da cotação — não use Calcular.';
+        var grid = pricing.querySelector('.grid');
+        if (grid) pricing.insertBefore(pHint, grid);
+      } else if (!rep && hint) hint.remove();
+    }
+  }
+  atualizarBtnSalvarLinha(p);
+  atualizarBtnCalcularPreco(p);
+}
+
+function precificacaoRepLinhaPronta(prefix) {
+  var p = prefix || '';
+  var platEl = document.getElementById(p + 'plataforma');
+  var kpiEl = document.getElementById(p + 'objetivo_kpi');
+  var vu = parseMoeda((document.getElementById(p + 'valor_unitario') || {}).value);
+  var inv = lerValorLiquidoPi(p);
+  var volEl = document.getElementById(p + 'volume_contratado');
+  var vol = volEl ? (parseInt(String(volEl.value || '').replace(/\D/g, ''), 10) || 0) : 0;
+  var plat = platEl && platEl.value && String(platEl.value).trim();
+  var kpi = kpiEl && kpiEl.value && String(kpiEl.value).trim();
+  return !!(plat && kpi && vu > 0 && (inv > 0 || vol > 0));
+}
+
 function precificacaoTesteSatisfeita(prefix) {
   var p = prefix || '';
+  if (ehRepresentacaoComercialCotacao()) return precificacaoRepLinhaPronta(p);
   if (!getCotacaoId()) return false;
   var platEl = document.getElementById(p + 'plataforma');
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
@@ -1007,6 +1099,11 @@ function precificacaoTesteSatisfeita(prefix) {
 
 function atualizarBtnCalcularPreco(prefix) {
   var p = prefix || '';
+  if (ehRepresentacaoComercialCotacao()) {
+    atualizarBtnSalvarLinha(p);
+    atualizarIndicadorBudget(p);
+    return;
+  }
   var btn = document.getElementById(p + 'btn_calcular_preco');
   if (btn) btn.disabled = !precificacaoTesteSatisfeita(p);
   if (_ultimoCalculoLinha[p] && !calculoSincronizado(p)) {
@@ -1247,13 +1344,23 @@ function atualizarBtnSalvarLinha(prefix) {
   else { btnId = 'btn_salvar_linha'; modalId = 'modal_nova_linha'; }
   var btn = document.getElementById(btnId);
   if (!btn) return;
-  var ok = (p === 'audiencia_') ? audienciaCatalogoPronta() : calculoSincronizado(p);
+  var ok;
+  if (p === 'audiencia_') {
+    ok = audienciaCatalogoPronta();
+  } else if (ehRepresentacaoComercialCotacao()) {
+    ok = precificacaoRepLinhaPronta(p);
+  } else {
+    ok = calculoSincronizado(p);
+  }
   btn.disabled = !ok;
   if (ok) {
     btn.removeAttribute('title');
     btn.style.cursor = '';
   } else if (p === 'audiencia_') {
     btn.setAttribute('title', 'Selecione uma audiência do catálogo.');
+    btn.style.cursor = 'not-allowed';
+  } else if (ehRepresentacaoComercialCotacao()) {
+    btn.setAttribute('title', 'Preencha plataforma, KPI, valor unitário de venda e volume ou valor líquido.');
     btn.style.cursor = 'not-allowed';
   } else {
     btn.setAttribute('title', 'Clique em Calcular antes de salvar.');
@@ -2043,13 +2150,15 @@ function reconstruirResumoPrecoSalvo(prefix, linha) {
 
 function valorUnitarioEfetivoLinha(prefix) {
   var p = prefix || '';
+  var vuEl = document.getElementById(p + 'valor_unitario');
+  var vu = vuEl ? parseMoeda(vuEl.value) : 0;
+  if (vu > 0) return vu;
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
   var platEl = document.getElementById(p + 'plataforma');
   var kpiEl = document.getElementById(p + 'objetivo_kpi');
   var temKpi = kpiEl && kpiEl.value && String(kpiEl.value).trim();
   if (platEl && platEl.value && String(platEl.value).trim() && valTab > 0 && temKpi) {
-    var vu = parseMoeda(document.getElementById(p + 'valor_unitario').value);
-    if (vu > 0) return vu;
+    return valTab;
   }
   return valTab;
 }
@@ -2113,6 +2222,11 @@ function scheduleCalcValorNegociado(pref) {
 
 async function aplicarFormulaPrecoUnitarioTeste(pref) {
   var p = _calcPrefix(pref);
+  if (ehRepresentacaoComercialCotacao()) {
+    derivarValorPendente(p);
+    atualizarBtnSalvarLinha(p);
+    return false;
+  }
   var platEl = document.getElementById(p + 'plataforma');
   var plat = platEl ? String(platEl.value).trim() : '';
   var valTab = parseMoeda(document.getElementById(p + 'valor_unitario_tabela').value);
@@ -2170,6 +2284,14 @@ async function aplicarFormulaPrecoUnitarioTeste(pref) {
 
 async function calcularValorNegociadoAsync(pref) {
   var p = _calcPrefix(pref);
+  if (ehRepresentacaoComercialCotacao()) {
+    derivarValorPendente(p);
+    atualizarBtnSalvarLinha(p);
+    if (!precificacaoRepLinhaPronta(p)) {
+      showToast('Preencha plataforma, KPI, valor unitário de venda e volume ou valor líquido.', 'warning');
+    }
+    return;
+  }
   if (precificacaoTesteSatisfeita(p)) {
     await aplicarFormulaPrecoUnitarioTeste(p);
     return;
@@ -6305,6 +6427,7 @@ function abrirModalNovaLinha() {
 
   calcularDiasLinha();
   inicializarAbasModal('modal_nova_linha', { aba: 'inicio' });
+  aplicarUIModoPrecificacaoRepresentacao('');
   document.getElementById('modal_nova_linha').showModal();
 }
 
@@ -6832,8 +6955,14 @@ async function salvarNovaLinha() {
     mostrarBloqueioEdicao();
     return;
   }
-  if (!_ultimoCalculoLinha[''] || !calculoSincronizado('')) {
-    showToast('Clique em Calcular antes de salvar.', 'warning');
+  if (!ehRepresentacaoComercialCotacao()) {
+    if (!_ultimoCalculoLinha[''] || !calculoSincronizado('')) {
+      showToast('Clique em Calcular antes de salvar.', 'warning');
+      atualizarBtnSalvarLinha('');
+      return;
+    }
+  } else if (!precificacaoRepLinhaPronta('')) {
+    showToast('Preencha plataforma, KPI, valor unitário de venda e volume ou valor líquido.', 'warning');
     atualizarBtnSalvarLinha('');
     return;
   }
@@ -7181,8 +7310,9 @@ async function visualizarOuEditarLinha(linhaId) {
 
     preencherResumoDerivacaoCliente('edit_');
 
-    var temCalculoSalvo = (linha.perc_tech_fee != null
-                          && Number(linha.valor_unitario_negociado || 0) > 0);
+    var temCalculoSalvo = !ehRepresentacaoComercialCotacao()
+      && linha.perc_tech_fee != null
+      && Number(linha.valor_unitario_negociado || 0) > 0;
     if (temCalculoSalvo) {
       var sourceEdit = _inferirSourceCalculo({
         investimento_liquido: linha.investimento_liquido,
@@ -7208,6 +7338,7 @@ async function visualizarOuEditarLinha(linhaId) {
     var badgeEditId = document.getElementById('modal_editar_linha_id_badge');
     if (badgeEditId) badgeEditId.textContent = '#' + linhaId;
     inicializarAbasModal('modal_editar_linha', { aba: 'inicio' });
+    aplicarUIModoPrecificacaoRepresentacao('edit_');
     document.getElementById('modal_editar_linha').showModal();
   } catch (error) {
     console.error('Erro:', error);
@@ -7265,8 +7396,14 @@ async function salvarEdicaoLinha() {
     mostrarBloqueioEdicao();
     return;
   }
-  if (!_ultimoCalculoLinha['edit_'] || !calculoSincronizado('edit_')) {
-    showToast('Clique em Calcular antes de salvar.', 'warning');
+  if (!ehRepresentacaoComercialCotacao()) {
+    if (!_ultimoCalculoLinha['edit_'] || !calculoSincronizado('edit_')) {
+      showToast('Clique em Calcular antes de salvar.', 'warning');
+      atualizarBtnSalvarLinha('edit_');
+      return;
+    }
+  } else if (!precificacaoRepLinhaPronta('edit_')) {
+    showToast('Preencha plataforma, KPI, valor unitário de venda e volume ou valor líquido.', 'warning');
     atualizarBtnSalvarLinha('edit_');
     return;
   }

@@ -20,6 +20,26 @@ class PiMakeWebhookError(Exception):
     """Falha ao comunicar com webhook Make do PI."""
 
 
+def _make_flag(env_name: str, config_name: str, *, default: bool = False) -> bool:
+    try:
+        cfg = current_app.config.get(config_name)
+        if cfg is not None:
+            return bool(cfg)
+    except RuntimeError:
+        pass
+    default_text = "true" if default else "false"
+    return os.getenv(env_name, default_text).lower() in ("true", "1", "yes", "on")
+
+
+def make_invites_enabled() -> bool:
+    """Convites de calendário via Make (desligado por padrão)."""
+    return _make_flag("PI_MAKE_INVITES_ENABLED", "PI_MAKE_INVITES_ENABLED", default=False)
+
+
+def make_configuracao_enabled() -> bool:
+    return _make_flag("PI_MAKE_CONFIGURACAO_ENABLED", "PI_MAKE_CONFIGURACAO_ENABLED", default=False)
+
+
 def _is_dev() -> bool:
     try:
         return bool(current_app.config.get('DEBUG', False))
@@ -116,10 +136,18 @@ def _montar_nomeagencia(pi: dict) -> str:
 
 def gerar_pastas_drive_pi(pi: dict, *, strict: bool = False) -> dict[str, str]:
     """
-    Cria pastas no Google Drive via Make e persiste links no PI.
+    Cria pastas do PI (servidor por padrão, ou Google Drive via Make).
 
     Returns dict com googled_pi_princ, googled_pi_financ, googled_pi_pecas, googled_pi_arq_ass.
     """
+    from .pi_local_storage import PiLocalStorageError, gerar_pastas_local_pi, use_local_pastas
+
+    if use_local_pastas():
+        try:
+            return gerar_pastas_local_pi(pi, strict=strict)
+        except PiLocalStorageError as exc:
+            raise PiMakeWebhookError(str(exc)) from exc
+
     id_pi = pi.get('id_pi')
     if not id_pi:
         raise PiMakeWebhookError('PI sem id_pi')
@@ -223,7 +251,7 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
         pi = pi_atual
 
     url_config = os.getenv('MAKE_WEBHOOK_PI_CONFIGURACAO')
-    if url_config:
+    if url_config and make_configuracao_enabled():
         params_config = {
             'testeparam': 'yes' if is_dev else 'no',
             'codPI': numero,
@@ -252,11 +280,11 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
             if strict:
                 raise PiMakeWebhookError(f'Erro webhook PI_CONFIGURACAO: {exc}') from exc
             webhook_erros.append(str(exc))
-    elif strict:
+    elif strict and make_configuracao_enabled():
         raise PiMakeWebhookError('Webhook não configurado (MAKE_WEBHOOK_PI_CONFIGURACAO)')
 
     url_invites = os.getenv('MAKE_WEBHOOK_PI_INVITES')
-    if url_invites:
+    if url_invites and make_invites_enabled():
         params_invites = {
             'testeparam': 'yes' if is_dev else 'no',
             'dteveinicio': _fmt_data_invite(periodo_inicio),
@@ -275,7 +303,7 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
             if strict:
                 raise PiMakeWebhookError(f'Erro webhook PI_INVITES: {exc}') from exc
             webhook_erros.append(str(exc))
-    elif strict:
+    elif strict and make_invites_enabled():
         raise PiMakeWebhookError('Webhook não configurado (MAKE_WEBHOOK_PI_INVITES)')
 
     return webhook_erros
@@ -299,6 +327,19 @@ def executar_fluxo_producao_completo(id_pi: int) -> None:
         gerar_pastas_drive_pi(pi, strict=True)
         pi = db.obter_cadu_pi_por_id(id_pi)
         if not pi or not pi.get('googled_pi_princ'):
-            raise PiMakeWebhookError('Pastas do Google Drive não foram persistidas')
+            raise PiMakeWebhookError('Pastas do PI não foram persistidas')
+
+    from aicentralv2.services.pi_local_storage import use_local_pastas
+
+    if use_local_pastas():
+        from aicentralv2.services.pi_local_storage import (
+            PiLocalStorageError,
+            exigir_pastas_pi_acessiveis,
+        )
+
+        try:
+            exigir_pastas_pi_acessiveis(pi)
+        except PiLocalStorageError as exc:
+            raise PiMakeWebhookError(str(exc)) from exc
 
     disparar_webhooks_producao_pi(pi, strict=True)

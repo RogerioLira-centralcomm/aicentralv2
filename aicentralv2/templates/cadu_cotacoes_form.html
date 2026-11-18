@@ -552,7 +552,7 @@
           </div>
           {{ cot_contato_slot('agencia', 'agencia_user_id', 'agencia_user_id') }}
         </div>
-        <div>
+        <div id="cot-parceiro-regional-wrap">
           <label class="block font-medium text-gray-500 mb-0.5">Parceiro</label>
           <div class="flex gap-0.5 items-center mb-1">
             <button type="button" class="cot-nova-name-btn" onclick="abrirModalParceiro()" title="Buscar parceiro">
@@ -577,17 +577,17 @@
     <div class="bg-white rounded border border-gray-200 p-2">
       <div class="flex items-center gap-1.5 mb-2">
         <span class="secao-num flex items-center justify-center rounded-full bg-green-500 text-white font-semibold flex-shrink-0">3</span>
-        <h2 class="secao-titulo font-semibold text-gray-800">Período e investimento</h2>
+        <h2 id="cot-secao-periodo-titulo" class="secao-titulo font-semibold text-gray-800">Período e investimento</h2>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div>
-          <label class="block font-medium text-gray-500 mb-0.5">Data de início <span class="text-red-500">*</span></label>
+          <label id="cot-label-periodo-inicio" class="block font-medium text-gray-500 mb-0.5">Data de início <span class="text-red-500">*</span></label>
           <input type="date" id="periodo_inicio" name="periodo_inicio"
                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
                  onclick="this.showPicker()" onchange="calcularDuracao()" required>
         </div>
         <div>
-          <label class="block font-medium text-gray-500 mb-0.5">Data de término <span class="text-red-500">*</span></label>
+          <label id="cot-label-periodo-fim" class="block font-medium text-gray-500 mb-0.5">Data de término <span class="text-red-500">*</span></label>
           <input type="date" id="periodo_fim" name="periodo_fim"
                  class="w-full text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white focus:border-green-400 focus:outline-none cursor-pointer"
                  onclick="this.showPicker()" onchange="calcularDuracao()">
@@ -1597,11 +1597,40 @@ function atualizarCardsMetricas() {
   }
 }
 
+function atualizarUiTipoComercialNovo() {
+  const form = document.getElementById('cotacao_form');
+  if (!form || form.dataset.modo === 'editar') return;
+  const tipo = form.querySelector('input[name="tipo_comercial"]:checked')?.value || 'midia';
+  const parceiroWrap = document.getElementById('cot-parceiro-regional-wrap');
+  const secaoPeriodo = document.getElementById('cot-secao-periodo-titulo');
+  const labelInicio = document.getElementById('cot-label-periodo-inicio');
+  const labelFim = document.getElementById('cot-label-periodo-fim');
+  const repContrato = form.querySelector('input[name="tipo_de_contrato"][value="representacao_comercial"]');
+  if (tipo === 'dados') {
+    parceiroWrap?.classList.add('hidden');
+    if (secaoPeriodo) secaoPeriodo.textContent = 'Vigência da licença e investimento';
+    if (labelInicio) labelInicio.innerHTML = 'Início da vigência <span class="text-red-500">*</span>';
+    if (labelFim) labelFim.innerHTML = 'Fim da vigência <span class="text-red-500">*</span>';
+    if (repContrato && !form.querySelector('input[name="tipo_de_contrato"]:checked')) {
+      repContrato.checked = true;
+    }
+  } else {
+    parceiroWrap?.classList.remove('hidden');
+    if (secaoPeriodo) secaoPeriodo.textContent = 'Período e investimento';
+    if (labelInicio) labelInicio.innerHTML = 'Data de início <span class="text-red-500">*</span>';
+    if (labelFim) labelFim.innerHTML = 'Data de término <span class="text-red-500">*</span>';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   ['periodo_inicio', 'periodo_fim'].forEach(function(id) {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', atualizarCardsMetricas);
   });
+  document.querySelectorAll('input[name="tipo_comercial"]').forEach(function(radio) {
+    radio.addEventListener('change', atualizarUiTipoComercialNovo);
+  });
+  atualizarUiTipoComercialNovo();
 });
 
 document.getElementById('cotacao_form').addEventListener('submit', function(e) {

@@ -16,7 +16,7 @@
       <div class="card-head"><h2 id="dc">Arquivos</h2></div>
       {% if docs %}
       <ul class="list">{% for r in docs %}
-        <li><span class="ic">{{ icon('documentos') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>Google Drive</span></span><span class="go">{{ icon('ext') }}</span></li>
+        <li><span class="ic">{{ icon('documentos') }}</span><span class="tx"><a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.titulo }}</a><span>{% if '/campanha/p/' in r.url and '/arquivos/' in r.url %}CentralComm{% elif 'drive.google.com' in r.url %}Google Drive{% else %}Online{% endif %}</span></span><span class="go">{{ icon('ext') }}</span></li>
       {% endfor %}</ul>
       {% else %}<p class="empty">Os arquivos aparecem aqui assim que forem anexados ao PI.</p>{% endif %}
     </section>

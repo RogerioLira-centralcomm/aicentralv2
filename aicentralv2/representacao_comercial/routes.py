@@ -124,8 +124,17 @@ def api_metricas_gestao():
 
 
 def sincronizar_trilha_apos_salvar_cotacao(cotacao_id: int) -> None:
+    from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+
     cotacao = db.obter_cotacao_por_id(cotacao_id)
-    if not cotacao or not eh_representacao_comercial(cotacao):
+    if not cotacao:
+        return
+    tipo = normalizar_tipo_comercial(cotacao.get("tipo_comercial"), estrito=False)
+    if tipo == "dados" and (cotacao.get("plataforma_campanha") or "").strip():
+        patch = sincronizar_trilha_cotacao(cotacao)
+        db.atualizar_cotacao(cotacao_id, **patch)
+        return
+    if not eh_representacao_comercial(cotacao):
         return
     patch = sincronizar_trilha_cotacao(cotacao)
     db.atualizar_cotacao(cotacao_id, **patch)

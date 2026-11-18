@@ -10012,6 +10012,56 @@ def _tipo_cotacao_montagem(cur, cotacao_id):
     return tipo
 
 
+def _normalizar_data_metadata_item(val, rotulo):
+    """Metadata de item: exige YYYY-MM-DD."""
+    if val is None or str(val).strip() == '':
+        raise ValueError(f"Informe {rotulo}.")
+    d = _normalizar_data_campo_cotacao_para_pi(val)
+    if not d:
+        raise ValueError(f"{rotulo} inválida. Use o formato AAAA-MM-DD.")
+    return d.isoformat()
+
+
+def _validar_metadata_item_dados(metadata):
+    from aicentralv2.representacao_comercial.parceiros import validar_plataforma_dados_valor
+
+    plat = validar_plataforma_dados_valor((metadata or {}).get('plataforma_campanha'))
+    inicio = _normalizar_data_metadata_item(
+        (metadata or {}).get('data_inicio'), 'a data de início'
+    )
+    fim = _normalizar_data_metadata_item(
+        (metadata or {}).get('data_fim'), 'a data de término'
+    )
+    if date.fromisoformat(fim) < date.fromisoformat(inicio):
+        raise ValueError('A data de término deve ser igual ou posterior à data de início.')
+    return {
+        'plataforma_campanha': plat,
+        'data_inicio': inicio,
+        'data_fim': fim,
+    }
+
+
+def sincronizar_cotacao_dados_a_partir_itens(cotacao_id):
+    """Espelha plataforma do 1º segmento no cabeçalho e atualiza trilha operacional."""
+    from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+
+    cotacao = obter_cotacao_por_id(cotacao_id)
+    if not cotacao:
+        return
+    if normalizar_tipo_comercial(cotacao.get('tipo_comercial'), estrito=False) != 'dados':
+        return
+    itens = listar_itens_especificos_cotacao(cotacao_id) or []
+    plataforma = None
+    if itens:
+        meta = itens[0].get('metadata') or {}
+        if isinstance(meta, str):
+            meta = json.loads(meta) if meta else {}
+        plataforma = (meta.get('plataforma_campanha') or '').strip() or None
+    atualizar_cotacao(cotacao_id, plataforma_campanha=plataforma)
+    from aicentralv2.representacao_comercial.routes import sincronizar_trilha_apos_salvar_cotacao
+    sincronizar_trilha_apos_salvar_cotacao(cotacao_id)
+
+
 def listar_itens_especificos_cotacao(cotacao_id):
     conn = get_db()
     with conn.cursor() as cur:
@@ -10042,12 +10092,16 @@ def salvar_item_especifico_cotacao(cotacao_id, dados, item_id=None):
             valor_unitario = Decimal(str(dados.get("valor_unitario") or 0))
             if quantidade <= 0 or valor_unitario < 0:
                 raise ValueError("Quantidade e valor precisam ser válidos.")
+            if tipo == "dados" and quantidade != quantidade.to_integral_value():
+                raise ValueError("A quantidade do pacote de dados deve ser um número inteiro.")
             permitidos = set(campos_item_tipo_comercial(tipo))
             metadata = {
                 key: str(value or "").strip()[:1000]
                 for key, value in (dados.get("metadata") or {}).items()
                 if key in permitidos
             }
+            if tipo == "dados":
+                metadata = _validar_metadata_item_dados(metadata)
             if item_id:
                 cur.execute(
                     """
@@ -10090,6 +10144,8 @@ def salvar_item_especifico_cotacao(cotacao_id, dados, item_id=None):
                 raise ValueError("Item da cotação não encontrado.")
             _recalcular_total_itens_especificos(cur, cotacao_id)
         conn.commit()
+        if tipo == "dados":
+            sincronizar_cotacao_dados_a_partir_itens(cotacao_id)
         return row
     except Exception:
         conn.rollback()
@@ -10100,7 +10156,7 @@ def reordenar_itens_especificos_cotacao(cotacao_id, item_ids):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            _tipo_cotacao_montagem(cur, cotacao_id)
+            tipo = _tipo_cotacao_montagem(cur, cotacao_id)
             cur.execute(
                 "SELECT id FROM cadu_cotacao_itens_especificos "
                 "WHERE cotacao_id = %s ORDER BY ordem, id",
@@ -10118,6 +10174,8 @@ def reordenar_itens_especificos_cotacao(cotacao_id, item_ids):
                     (ordem, item_id, cotacao_id),
                 )
         conn.commit()
+        if tipo == "dados":
+            sincronizar_cotacao_dados_a_partir_itens(cotacao_id)
         return True
     except Exception:
         conn.rollback()
@@ -10128,7 +10186,7 @@ def excluir_item_especifico_cotacao(cotacao_id, item_id):
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            _tipo_cotacao_montagem(cur, cotacao_id)
+            tipo = _tipo_cotacao_montagem(cur, cotacao_id)
             cur.execute(
                 "DELETE FROM cadu_cotacao_itens_especificos "
                 "WHERE id = %s AND cotacao_id = %s RETURNING id",
@@ -10138,6 +10196,8 @@ def excluir_item_especifico_cotacao(cotacao_id, item_id):
             if row:
                 _recalcular_total_itens_especificos(cur, cotacao_id)
         conn.commit()
+        if row and tipo == "dados":
+            sincronizar_cotacao_dados_a_partir_itens(cotacao_id)
         return row
     except Exception:
         conn.rollback()
@@ -15622,6 +15682,16 @@ def listar_plataformas_campanha_ativas_ordenadas():
     return plataformas
 
 
+def listar_plataformas_dados_ativas():
+    """Plataformas de campanha PI com categoria Dados (produto de representação)."""
+    from aicentralv2.contrato_tipos import categoria_plataforma_eh_dados
+
+    return [
+        p for p in listar_plataformas_campanha_ativas_ordenadas()
+        if categoria_plataforma_eh_dados(p.get("categoria"))
+    ]
+
+
 def obter_id_plataforma_dv360():
     """
     ID em cadu_pi_camp_plataforma para campanhas DV360.
@@ -16458,9 +16528,15 @@ def calcular_breakdown_linha_cotacao(cotacao, data, imposto_percentual=None):
     if eh_representacao_comercial(cotacao):
         if not isinstance(data, dict):
             raise ValueError('Dados da linha inválidos')
+        payload = dict(data)
+        id_kpi = payload.get('id_objetivo_kpi') or payload.get('id_audiencia_calculo_kpi')
+        if id_kpi not in (None, '', 0, '0'):
+            desc_resolvida = obter_descricao_objetivo_campanha(id_kpi)
+            if desc_resolvida:
+                payload['objetivo_kpi'] = desc_resolvida
         return calcular_breakdown_representacao_linha(
             cotacao,
-            data,
+            payload,
             parse_valor=parse_valor_monetario_para_float,
             derivar_investimento_de_liquido_informado=derivar_investimento_de_liquido_informado,
             derivar_investimento_de_preco=derivar_investimento_de_preco,

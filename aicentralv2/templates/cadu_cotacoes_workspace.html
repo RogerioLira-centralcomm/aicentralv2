@@ -5,7 +5,7 @@
 {% block page_subtitle %}{{ cotacao.tipo_comercial_label }}{% endblock %}
 
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_workspace.css') }}?v=3">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_plano.css') }}?v=2">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=25">
 {% endblock %}
@@ -13,7 +13,7 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/comunicacao_sidebar.js') }}?v=2" defer></script>
 <script src="{{ url_for('static', filename='js/cotacao_comunicacao.js') }}?v=2" defer></script>
-<script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/cotacao_workspace.js') }}?v=9" defer></script>
 <script src="{{ url_for('static', filename='js/cotacao_plano.js') }}?v=2" defer></script>
 {% endblock %}
 
@@ -43,13 +43,31 @@
         </div>
         <h1>{{ cotacao.nome_campanha or workspace.titulo }}</h1>
         <p>{{ cotacao.cliente_nome or 'Cliente não informado' }}{% if cotacao.agencia_nome %} via {{ cotacao.agencia_nome }}{% endif %}</p>
+        {% if cotacao.tipo_comercial == 'dados' %}
+        {% set plats_hdr = plataformas_por_item|default([], true) %}
+        <p class="cot-dados-trilha-badge{% if not plats_hdr and not cotacao.plataforma_campanha %} is-missing{% endif %}"
+           data-dados-plataforma-badge
+           data-trilha-rotulo="{{ trilha_dados_meta.rotulo if trilha_dados_meta and trilha_dados_meta.trilha != 'generico' else '' }}">
+          {% if plats_hdr|length == 1 %}
+          <strong>Plataforma:</strong> {{ plats_hdr[0] }}
+          {% if trilha_dados_meta and trilha_dados_meta.rotulo and trilha_dados_meta.trilha != 'generico' %}
+          <span>· Trilha {{ trilha_dados_meta.rotulo }}</span>
+          {% endif %}
+          {% elif plats_hdr|length > 1 %}
+          <strong>Plataformas nos segmentos:</strong> {{ plats_hdr|join(', ') }}
+          {% elif cotacao.plataforma_campanha %}
+          <strong>Plataforma:</strong> {{ cotacao.plataforma_campanha }}
+          {% if trilha_dados_meta and trilha_dados_meta.rotulo and trilha_dados_meta.trilha != 'generico' %}
+          <span>· Trilha {{ trilha_dados_meta.rotulo }}</span>
+          {% endif %}
+          {% else %}
+          Defina a <strong>plataforma de dados</strong> em cada segmento na montagem.
+          {% endif %}
+        </p>
+        {% endif %}
       </div>
     </div>
     <div class="cot-workspace-head-actions">
-      <button type="button" class="cx-btn cx-btn-primary" data-add-item>
-        <i class="fa-solid fa-plus" aria-hidden="true"></i>
-        Adicionar {{ workspace.item_label|lower }}
-      </button>
       <a href="{{ url_for('cotacoes.cotacao_workspace', cotacao_id=cotacao.id) if modo_edicao else url_for('cotacoes.cotacao_editar', cotacao_id=cotacao.id) }}"
          class="cx-btn cx-btn-secondary">
         <i class="fa-solid fa-pen" aria-hidden="true"></i>
@@ -74,7 +92,14 @@
           <div><dt>Responsável</dt><dd>{{ cotacao.responsavel_nome or 'Não definido' }}</dd></div>
           <div><dt>Budget</dt><dd>{{ dinheiro(cotacao.budget_estimado) }}</dd></div>
           <div><dt>Proposta</dt><dd data-items-total>{{ dinheiro(cotacao.valor_total_proposta) }}</dd></div>
-          <div><dt>Período</dt><dd>{{ data_br(cotacao.periodo_inicio) }}<br>{{ data_br(cotacao.periodo_fim) }}</dd></div>
+          <div><dt>{% if cotacao.tipo_comercial == 'dados' %}Vigência da proposta{% else %}Período{% endif %}</dt><dd>{{ data_br(cotacao.periodo_inicio) }}<br>{{ data_br(cotacao.periodo_fim) }}</dd></div>
+          {% if cotacao.tipo_comercial == 'dados' %}
+          {% set plats_side = plataformas_por_item|default([], true) %}
+          <div data-dados-sidebar-plataformas-row{% if not plats_side and not cotacao.plataforma_campanha %} hidden{% endif %}>
+            <dt>Plataformas</dt>
+            <dd data-dados-sidebar-plataformas>{{ plats_side|join(', ') if plats_side else (cotacao.plataforma_campanha or '') }}</dd>
+          </div>
+          {% endif %}
         </dl>
         {% if modo_edicao %}
         <button type="submit" form="cot-workspace-editor" class="cx-btn cx-btn-primary">Salvar alterações</button>
@@ -150,10 +175,29 @@
           </div>
         </section>
 
+        {% if cotacao.tipo_comercial == 'dados' %}
+        <section class="cot-editor-section" id="operacao-dados">
+          <div class="cot-editor-section-head">
+            <h2>Operação de dados</h2>
+            <p>Tipo de contrato da proposta. A plataforma é definida em cada segmento na montagem.</p>
+          </div>
+          <div class="cot-editor-grid">
+            <label class="cot-editor-field">
+              <span>Tipo de contrato</span>
+              {% set contrato_ws = cotacao.tipo_de_contrato or 'representacao_comercial' %}
+              <select name="tipo_de_contrato" required>
+                <option value="representacao_comercial" {% if contrato_ws == 'representacao_comercial' %}selected{% endif %}>Representação comercial</option>
+                <option value="operacao_propria" {% if contrato_ws == 'operacao_propria' %}selected{% endif %}>Operação própria</option>
+              </select>
+            </label>
+          </div>
+        </section>
+        {% endif %}
+
         <section class="cot-editor-section">
           <div class="cot-editor-section-head">
             <h2>Controle comercial</h2>
-            <p>Prazo, owner e referência financeira para conduzir a negociação.</p>
+            <p>{% if cotacao.tipo_comercial == 'dados' %}Vigência da licença, responsável e referência financeira.{% else %}Prazo, owner e referência financeira para conduzir a negociação.{% endif %}</p>
           </div>
           <div class="cot-editor-grid cot-editor-grid-3">
             <label class="cot-editor-field">
@@ -166,11 +210,11 @@
               </select>
             </label>
             <label class="cot-editor-field">
-              <span>Início</span>
+              <span>{% if cotacao.tipo_comercial == 'dados' %}Início da vigência{% else %}Início{% endif %}</span>
               <input type="date" name="periodo_inicio" value="{{ cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio and cotacao.periodo_inicio.strftime is defined else (cotacao.periodo_inicio or '') }}" required>
             </label>
             <label class="cot-editor-field">
-              <span>Término</span>
+              <span>{% if cotacao.tipo_comercial == 'dados' %}Fim da vigência{% else %}Término{% endif %}</span>
               <input type="date" name="periodo_fim" value="{{ cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim and cotacao.periodo_fim.strftime is defined else (cotacao.periodo_fim or '') }}">
             </label>
             <label class="cot-editor-field">
@@ -223,10 +267,17 @@
 
       <section id="montagem" class="cot-workspace-section"
                data-typed-items
-               data-api-base="{{ url_for('cotacoes.api_itens_especificos_cotacao', cotacao_id=cotacao.id) }}">
-        <div class="cot-workspace-section-head">
-          <h2>Montagem de {{ cotacao.tipo_comercial_label|lower }}</h2>
-          <p>Inclua e ordene as entregas. O valor da proposta é recalculado automaticamente.</p>
+               data-api-base="{{ url_for('cotacoes.api_itens_especificos_cotacao', cotacao_id=cotacao.id) }}"
+               {% if cotacao.tipo_comercial == 'dados' %}data-legacy-plataforma="{{ cotacao.plataforma_campanha or '' }}"{% endif %}>
+        <div class="cot-workspace-section-head cot-workspace-section-head-actions">
+          <div>
+            <h2>Montagem de {{ cotacao.tipo_comercial_label|lower }}</h2>
+            <p>Inclua e ordene os segmentos.{% if cotacao.tipo_comercial == 'dados' %} Cada um leva plataforma e vigência próprias.{% endif %} O valor da proposta é recalculado automaticamente.</p>
+          </div>
+          <button type="button" class="cx-btn cx-btn-primary" data-add-item>
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+            Adicionar {{ workspace.item_label|lower }}
+          </button>
         </div>
         <div class="cot-items-summary">
           <span><strong data-item-count>{{ itens|length }}</strong> entregas</span>
@@ -246,7 +297,13 @@
             <tbody>
               <tr><th>Cliente final</th><td>{{ cotacao.cliente_nome or '—' }}</td><th>Agência</th><td>{{ cotacao.agencia_nome or '—' }}</td></tr>
               <tr><th>Responsável</th><td>{{ cotacao.responsavel_nome or 'Sem responsável' }}</td><th>Status</th><td>{{ cotacao.status or 'Rascunho' }}</td></tr>
-              <tr><th>Período</th><td>{{ data_br(cotacao.periodo_inicio) }} a {{ data_br(cotacao.periodo_fim) }}</td><th>Tipo</th><td>{{ cotacao.tipo_comercial_label }}</td></tr>
+              <tr><th>{% if cotacao.tipo_comercial == 'dados' %}Vigência da licença{% else %}Período{% endif %}</th><td>{{ data_br(cotacao.periodo_inicio) }} a {{ data_br(cotacao.periodo_fim) }}</td><th>Tipo</th><td>{{ cotacao.tipo_comercial_label }}</td></tr>
+              {% if cotacao.tipo_comercial == 'dados' %}
+              <tr><th>Contrato</th><td colspan="3">{{ cotacao.tipo_de_contrato|replace('_', ' ')|title if cotacao.tipo_de_contrato else '—' }}</td></tr>
+              {% if plataformas_por_item %}
+              <tr><th>Plataformas nos segmentos</th><td colspan="3">{{ plataformas_por_item|join(', ') }}</td></tr>
+              {% endif %}
+              {% endif %}
               <tr><th>Budget estimado</th><td>{{ dinheiro(cotacao.budget_estimado) }}</td><th>Valor da proposta</th><td>{{ dinheiro(cotacao.valor_total_proposta) }}</td></tr>
             </tbody>
           </table>
@@ -273,6 +330,44 @@
           </div>
         </dl>
       </section>
+
+      {% if cotacao.tipo_comercial == 'dados' and trilha_dados_meta and not trilha_dados_mista %}
+      <section id="trilha-dados" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Trilha {{ trilha_dados_meta.rotulo }}</h2>
+          <p>Regras operacionais do fornecedor (plataforma única entre os segmentos).</p>
+        </div>
+        <dl class="cot-workspace-copy">
+          <div>
+            <dt>Documento esperado</dt>
+            <dd>{% if trilha_dados_meta.anexo_esperado == 'proposta_pdf_parceiro' %}Proposta em PDF do parceiro{% else %}Planilha comercial do parceiro{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Vencimento NF (referência)</dt>
+            <dd>{% if trilha_dados_meta.vencimento_nf == 'd_plus_2' %}D+2{% else %}Dia 20{% endif %}</dd>
+          </div>
+        </dl>
+      </section>
+      {% elif cotacao.tipo_comercial == 'dados' and trilha_dados_mista %}
+      <section id="trilha-dados" class="cot-workspace-section">
+        <div class="cot-workspace-section-head">
+          <h2>Trilhas por plataforma</h2>
+          <p>Os segmentos usam plataformas distintas; as regras operacionais variam por fornecedor.</p>
+        </div>
+        <dl class="cot-workspace-copy">
+          {% for bloco in trilhas_segmentos_dados %}
+          <div>
+            <dt>{{ bloco.plataforma }}</dt>
+            <dd>
+              Trilha {{ bloco.meta.rotulo }} —
+              {% if bloco.meta.anexo_esperado == 'proposta_pdf_parceiro' %}PDF do parceiro{% else %}Planilha do parceiro{% endif %},
+              NF {% if bloco.meta.vencimento_nf == 'd_plus_2' %}D+2{% else %}dia 20{% endif %}
+            </dd>
+          </div>
+          {% endfor %}
+        </dl>
+      </section>
+      {% endif %}
 
       <section id="condicoes" class="cot-workspace-section">
         <div class="cot-workspace-section-head">
@@ -320,12 +415,17 @@
 
 <script type="application/json" id="cotacao-itens-iniciais">{{ itens|tojson }}</script>
 <script type="application/json" id="cotacao-campos-item">{{ campos_item|tojson }}</script>
+<script type="application/json" id="cotacao-workspace-meta">{{ {
+  'item_label': workspace.item_label,
+  'vigencia_proposta_inicio': cotacao.periodo_inicio.strftime('%Y-%m-%d') if cotacao.periodo_inicio and cotacao.periodo_inicio.strftime is defined else (cotacao.periodo_inicio or ''),
+  'vigencia_proposta_fim': cotacao.periodo_fim.strftime('%Y-%m-%d') if cotacao.periodo_fim and cotacao.periodo_fim.strftime is defined else (cotacao.periodo_fim or ''),
+}|tojson }}</script>
 
 <dialog class="cot-item-dialog" data-item-dialog>
   <form method="dialog" class="cot-item-dialog-panel" data-item-form>
     <header>
-      <div><span>{{ cotacao.tipo_comercial_label }}</span><h2 data-dialog-title>Nova entrega</h2></div>
-      <button value="cancel" aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
+      <div><span>{{ cotacao.tipo_comercial_label }}</span><h2 data-dialog-title>{{ workspace.item_label }}</h2></div>
+      <button type="button" data-item-dialog-close aria-label="Fechar"><i class="fa-solid fa-xmark"></i></button>
     </header>
     <div class="cot-item-dialog-body">
       <input type="hidden" name="item_id">
@@ -337,18 +437,51 @@
         <span>Descrição e escopo</span>
         <textarea name="descricao" rows="3" placeholder="Detalhe o que está incluído nesta entrega"></textarea>
       </label>
-      <label class="cot-item-field"><span>Quantidade</span><input name="quantidade" type="number" min="0.01" step="0.01" value="1" required></label>
-      <label class="cot-item-field"><span>Valor unitário</span><input name="valor_unitario" type="number" min="0" step="0.01" value="0" required></label>
+      {% if cotacao.tipo_comercial == 'dados' %}
+      <label class="cot-item-field cot-item-field-wide">
+        <span>Plataforma de dados <span class="cot-required">*</span></span>
+        <select name="meta_plataforma_campanha" required>
+          <option value="">Selecione a plataforma</option>
+          {% for p in plataformas_dados or [] %}
+          <option value="{{ p.descricao }}">{{ p.descricao }}</option>
+          {% endfor %}
+        </select>
+        {% if not plataformas_dados %}
+        <small class="cot-editor-hint">Cadastre plataformas ativas com categoria <strong>Dados</strong> em Parâmetros.</small>
+        {% endif %}
+      </label>
+      <label class="cot-item-field">
+        <span>Data início <span class="cot-required">*</span></span>
+        <input type="date" name="meta_data_inicio" required>
+      </label>
+      <label class="cot-item-field">
+        <span>Data fim <span class="cot-required">*</span></span>
+        <input type="date" name="meta_data_fim" required>
+      </label>
+      {% endif %}
+      <label class="cot-item-field"><span>Quantidade</span><input name="quantidade" type="number" {% if cotacao.tipo_comercial == 'dados' %}min="1" step="1" inputmode="numeric"{% else %}min="0.01" step="0.01"{% endif %} value="1" required></label>
+      <label class="cot-item-field cot-item-field-money">
+        <span>Valor unitário</span>
+        <div class="cot-item-money-wrap">
+          <span class="cot-item-money-prefix" aria-hidden="true">R$</span>
+          <input type="text" name="valor_unitario_display" inputmode="decimal" autocomplete="off"
+                 placeholder="0,00" value="0,00" data-valor-unitario-mask required>
+          <input type="hidden" name="valor_unitario" value="0">
+        </div>
+      </label>
       {% for nome, rotulo in campos_item %}
+      {% if cotacao.tipo_comercial == 'dados' and nome in ['plataforma_campanha', 'data_inicio', 'data_fim'] %}
+      {% else %}
       <label class="cot-item-field{% if loop.index > 2 %} cot-item-field-wide{% endif %}">
         <span>{{ rotulo }}</span>
         <input name="meta_{{ nome }}" maxlength="1000">
       </label>
+      {% endif %}
       {% endfor %}
     </div>
     <footer>
-      <button value="cancel" class="cx-btn cx-btn-secondary">Cancelar</button>
-      <button value="default" type="submit" class="cx-btn cx-btn-primary" data-save-item>Salvar entrega</button>
+      <button type="button" data-item-dialog-close class="cx-btn cx-btn-secondary">Cancelar</button>
+      <button type="submit" class="cx-btn cx-btn-primary" data-save-item>Salvar</button>
     </footer>
   </form>
 </dialog>

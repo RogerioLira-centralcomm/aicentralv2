@@ -1,0 +1,30 @@
+{% extends 'campanha_publica/base.html' %}
+{% block cabecalho %}
+<div class="page-head">
+  <div class="ph-id">
+    <h1>Arquivos — {{ secao_label }}</h1>
+    <div class="ph-meta"><span>{{ pi.codigo_pi_cc or ('PI ' ~ pi.id_pi) }}</span></div>
+  </div>
+</div>
+{% endblock %}
+{% block main %}
+<section class="card" data-in style="--i:0" aria-labelledby="lista-arq">
+  <div class="card-head"><h2 id="lista-arq">Documentos disponíveis</h2></div>
+  {% if arquivos %}
+  <ul class="list">
+    {% for item in arquivos %}
+    <li>
+      <span class="tx">
+        <a href="{{ url_for('campanha_publica_arquivo_download', token=token, secao=secao, filename=item.name) }}" rel="noopener">{{ item.name }}</a>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">Nenhum arquivo nesta pasta ainda.</p>
+  {% endif %}
+  <p style="margin-top:1.5rem;font-size:14px;">
+    <a href="{{ pagina_acompanhamento }}">← Voltar ao acompanhamento da campanha</a>
+  </p>
+</section>
+{% endblock %}

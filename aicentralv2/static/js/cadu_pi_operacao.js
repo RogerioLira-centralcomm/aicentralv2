@@ -1203,6 +1203,11 @@
       } catch (_) { return null; }
     }
 
+    function isLocalPiStorage(url) {
+      var s = String(url || '');
+      return /\/cadu_pi\/\d+\/arquivos\//i.test(s) || /\/campanha\/p\/[^/]+\/arquivos\//i.test(s);
+    }
+
     function validDrive(url) {
       return Boolean(folderIdFromUrl(url));
     }
@@ -1221,11 +1226,17 @@
       var raw = button.dataset.driveUrl || '';
       var folderId = folderIdFromUrl(raw);
       var hasDriveLink = Boolean(folderId);
-      external.hidden = !hasDriveLink;
-      external.href = hasDriveLink ? raw : '#';
+      var localStorage = isLocalPiStorage(raw);
+      external.hidden = !(hasDriveLink || localStorage);
+      external.href = (hasDriveLink || localStorage) ? raw : '#';
       var embedded = embedUrl(raw);
       if (!raw) {
         content.innerHTML = '<div class="pi-op-state">Esta pasta ainda não foi gerada.</div>';
+      } else if (localStorage) {
+        content.innerHTML = '<div class="pi-op-state">Arquivos no servidor. ' +
+          '<a href="' + esc(raw) + '" target="_blank" rel="noopener noreferrer">Abrir pasta</a>' +
+          (/\/campanha\/p\//i.test(raw) ? ' (acesso público pelo link).' : ' (login necessário).') +
+          '</div>';
       } else if (!embedded) {
         content.innerHTML = errorHtml('O endereço informado não é uma pasta permitida do Google Drive.');
       } else {

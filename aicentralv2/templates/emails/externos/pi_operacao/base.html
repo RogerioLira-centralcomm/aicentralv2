@@ -55,7 +55,7 @@
                                         {% endfor %}
                                         {% endif %}
                                         {% if link_drive %}
-                                        <p style="margin:{% if ns.dashboards %}12px{% else %}0{% endif %} 0 0;"><a href="{{ link_drive }}" style="color:#1e4d4f;font-weight:700;text-decoration:underline;">Pasta do Google Drive</a></p>
+                                        <p style="margin:{% if ns.dashboards %}12px{% else %}0{% endif %} 0 0;"><a href="{{ link_drive }}" style="color:#1e4d4f;font-weight:700;text-decoration:underline;">{% if 'drive.google.com' in (link_drive or '') %}Pasta do Google Drive{% else %}Arquivos do PI{% endif %}</a></p>
                                         {% endif %}
                                     </td>
                                 </tr>

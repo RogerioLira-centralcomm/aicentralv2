@@ -92,12 +92,63 @@ from aicentralv2.representacao_comercial.parceiros import (  # noqa: E402
     FLUXO_PDF_REPASSA,
     metadados_trilha,
     resolver_trilha_parceiro,
+    validar_plataforma_cotacao_dados,
 )
 from aicentralv2.representacao_comercial.routes import (  # noqa: E402
     sincronizar_trilha_apos_salvar_cotacao,
 )
 BRIEFING_EXTENSOES_PERMITIDAS = {'.pdf', '.doc', '.docx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png'}
 BRIEFING_MAX_BYTES = 10 * 1024 * 1024
+
+
+def _contexto_cotacao_dados(cotacao, itens=None):
+    """Plataformas por segmento e trilha operacional para o workspace Dados."""
+    if normalizar_tipo_comercial(cotacao.get('tipo_comercial'), estrito=False) != 'dados':
+        return {}
+    cotacao_id = cotacao.get('id')
+    itens = itens if itens is not None else (
+        db.listar_itens_especificos_cotacao(cotacao_id) if cotacao_id else []
+    )
+    plataformas_por_item = []
+    for item in itens or []:
+        meta = item.get('metadata') or {}
+        if isinstance(meta, str):
+            try:
+                import json as _json
+                meta = _json.loads(meta) if meta else {}
+            except (TypeError, ValueError):
+                meta = {}
+        nome = (meta.get('plataforma_campanha') or '').strip()
+        if nome and nome not in plataformas_por_item:
+            plataformas_por_item.append(nome)
+    nome_trilha = (
+        plataformas_por_item[0]
+        if len(plataformas_por_item) == 1
+        else (cotacao.get('plataforma_campanha') or '').strip() or None
+    )
+    trilha_dados_meta = None
+    trilhas_segmentos_dados = []
+    trilha_dados_mista = len(plataformas_por_item) > 1
+    if len(plataformas_por_item) == 1:
+        trilha = resolver_trilha_parceiro(cotacao.get('id_parceiro'), plataformas_por_item[0])
+        trilha_dados_meta = metadados_trilha(trilha)
+    elif plataformas_por_item:
+        for nome in plataformas_por_item:
+            trilhas_segmentos_dados.append({
+                'plataforma': nome,
+                'meta': metadados_trilha(resolver_trilha_parceiro(cotacao.get('id_parceiro'), nome)),
+            })
+    elif nome_trilha:
+        trilha_dados_meta = metadados_trilha(
+            resolver_trilha_parceiro(cotacao.get('id_parceiro'), nome_trilha)
+        )
+    return {
+        'plataformas_dados': db.listar_plataformas_dados_ativas(),
+        'plataformas_por_item': plataformas_por_item,
+        'trilha_dados_meta': trilha_dados_meta,
+        'trilhas_segmentos_dados': trilhas_segmentos_dados,
+        'trilha_dados_mista': trilha_dados_mista,
+    }
 
 
 def _upload_dir_cotacoes():
@@ -504,6 +555,33 @@ def montar_estado_comercial_cotacao(cotacao, linhas=None, audiencias=None, anexo
             'percentual': round((concluidos / total) * 100) if total else 100,
         },
     }
+
+
+def _validar_precondicoes_aprovacao_cotacao(cotacao_id, cotacao):
+    """Regras financeiras antes de Aprovada → gerar PI (por tipo_comercial)."""
+    tipo = normalizar_tipo_comercial(cotacao.get('tipo_comercial'), estrito=False)
+    if tipo == 'dados':
+        itens = db.listar_itens_especificos_cotacao(cotacao_id) or []
+        if not itens:
+            raise ValueError(
+                'A cotação de dados precisa de pelo menos um segmento na montagem para ser aprovada.'
+            )
+        valor = _to_float(cotacao.get('valor_total_proposta'))
+        if valor <= 0:
+            raise ValueError(
+                'A cotação de dados precisa de valor na proposta (soma dos segmentos) para ser aprovada.'
+            )
+        return
+    linhas = db.obter_linhas_cotacao(cotacao_id)
+    linhas_com_valor = [
+        linha for linha in (linhas or [])
+        if not linha.get('is_subtotal') and not linha.get('is_header')
+        and _to_float(linha.get('investimento_bruto')) > 0
+    ]
+    if not linhas_com_valor:
+        raise ValueError(
+            'A cotação precisa de pelo menos um item de proposta com valor para ser aprovada.'
+        )
 
 
 def _guard_cotacao_teste(cotacao_id: int):
@@ -1073,8 +1151,32 @@ def cotacao_nova():
                 'parceiro_user_id': request.form.get('parceiro_user_id', type=int)
                 if request.form.get('parceiro_user_id')
                 else None,
+                'plataforma_campanha': request.form.get('plataforma_campanha', '').strip() or None,
             }
             kwargs = {k: v for k, v in kwargs.items() if v is not None and v != ''}
+
+            try:
+                validar_plataforma_cotacao_dados(
+                    kwargs['tipo_comercial'],
+                    kwargs.get('plataforma_campanha'),
+                    exigir=False,
+                )
+            except ValueError as exc:
+                flash(str(exc), 'error')
+                clientes = db.obter_clientes_simples()
+                vendedores = db.obter_vendedores_centralcomm()
+                return render_template(
+                    'cadu_cotacoes_form.html',
+                    clientes=clientes,
+                    vendedores=vendedores,
+                    modo='novo',
+                    tipos_cliente=db.obter_tipos_cliente(),
+                    agencias_opts=db.obter_aux_agencia(),
+                    vendedores_cc=db.obter_vendedores_centralcomm(),
+                    estados=db.obter_estados(),
+                    setores=db.obter_setores(),
+                    plataformas_dados=db.listar_plataformas_dados_ativas(),
+                )
 
             resultado = db.criar_cotacao(
                 client_id=client_id,
@@ -1169,6 +1271,7 @@ def cotacao_nova():
         vendedores_cc=db.obter_vendedores_centralcomm(),
         estados=db.obter_estados(),
         setores=db.obter_setores(),
+        plataformas_dados=db.listar_plataformas_dados_ativas(),
     )
 
 
@@ -1328,9 +1431,39 @@ def cotacao_editar(cotacao_id):
                     if workspace_editor
                     else request.form.get('link_publico_expires_at', '').strip() or None
                 ),
+                'plataforma_campanha': request.form.get('plataforma_campanha', '').strip() or None,
             }
+            tipo_save = update_kwargs.get('tipo_comercial') or cotacao.get('tipo_comercial')
+            if (
+                workspace_editor
+                and normalizar_tipo_comercial(tipo_save, estrito=False) == 'dados'
+            ):
+                update_kwargs.pop('id_parceiro', None)
+                update_kwargs.pop('plataforma_campanha', None)
             update_kwargs = _filtrar_update_cotacao_form(update_kwargs)
             update_kwargs = _aplicar_exclusividade_agencia_parceiro(update_kwargs)
+
+            try:
+                validar_plataforma_cotacao_dados(
+                    update_kwargs.get('tipo_comercial')
+                    or cotacao.get('tipo_comercial'),
+                    update_kwargs.get('plataforma_campanha')
+                    or cotacao.get('plataforma_campanha'),
+                    exigir=False,
+                )
+            except ValueError as exc:
+                flash(str(exc), 'error')
+                if workspace_editor:
+                    return redirect(
+                        url_for(
+                            'cotacoes.cotacao_workspace',
+                            cotacao_id=cotacao_id,
+                            editar=1,
+                        )
+                    )
+                return redirect(
+                    url_for('cotacoes.cotacao_editar', cotacao_id=cotacao_id)
+                )
 
             intermediario_mudou = _intermediario_cotacao_alterado(update_kwargs)
 
@@ -1439,6 +1572,7 @@ def cotacao_workspace(cotacao_id):
         cotacao['tipo_comercial'] = tipo
         cotacao['tipo_comercial_label'] = rotulo_tipo_comercial(tipo)
         itens = db.listar_itens_especificos_cotacao(cotacao_id)
+        ctx_dados = _contexto_cotacao_dados(cotacao, itens)
         return render_template(
             'cadu_cotacoes_workspace.html',
             cotacao=cotacao,
@@ -1449,6 +1583,7 @@ def cotacao_workspace(cotacao_id):
             anexos=db.obter_anexos_cotacao(cotacao_id) or [],
             vendedores=db.obter_vendedores_centralcomm() or [],
             modo_edicao=request.args.get('editar') == '1',
+            **ctx_dados,
         )
     except Exception as e:
         current_app.logger.error(f"cotacao_workspace: {e}", exc_info=True)
@@ -1823,6 +1958,16 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         if not plat:
             return jsonify({'success': False, 'message': 'Informe a plataforma.'}), 400
 
+        cotacao = db.obter_cotacao_por_id(cotacao_id)
+        if not cotacao:
+            return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
+
+        if eh_representacao_comercial(cotacao):
+            return jsonify({
+                'success': False,
+                'message': 'Precificação automática não se aplica a representação comercial.',
+            }), 400
+
         val_tab = _parse_float_br(request.args.get('valor_unitario_tabela'))
         if val_tab is None or val_tab <= 0:
             return jsonify({'success': False, 'message': 'Valor unitário tabela inválido.'}), 400
@@ -1830,25 +1975,6 @@ def api_preco_calculo_cotacao_teste(cotacao_id):
         vol = _parse_float_br(request.args.get('volume_contratado'))
         if vol is None:
             vol = 0.0
-
-        cotacao = db.obter_cotacao_por_id(cotacao_id)
-        if not cotacao:
-            return jsonify({'success': False, 'message': 'Cotação não encontrada'}), 404
-
-        if eh_representacao_comercial(cotacao):
-            kpi = (request.args.get('objetivo_kpi') or request.args.get('audiencia_calculo_kpi') or '').strip()
-            payload = {
-                'plataforma': plat,
-                'objetivo_kpi': kpi,
-                'valor_unitario_tabela': val_tab,
-                'volume_contratado': vol,
-                'investimento_bruto': _parse_float_br(request.args.get('investimento_bruto')),
-                'investimento_liquido': _parse_float_br(request.args.get('investimento_liquido')),
-                'fator_desconto': _parse_float_br(request.args.get('fator_desconto')) or 1.0,
-            }
-            breakdown = db.calcular_breakdown_linha_cotacao(cotacao, payload)
-            body = {'success': True, 'representacao_comercial': True, **_serializar(breakdown)}
-            return jsonify(body)
 
         imp = db.resolver_imposto_percentual_cotacao(cotacao)
 
@@ -1989,18 +2115,11 @@ def api_atualizar_cotacao_teste(cotacao_id):
                     'success': False,
                     'message': 'Informe o código PI CC para aprovar e gerar o PI.',
                 }), 400
-
-            linhas = db.obter_linhas_cotacao(cotacao_id)
-            linhas_com_valor = [
-                l for l in (linhas or [])
-                if not l.get('is_subtotal') and not l.get('is_header')
-                and (l.get('investimento_bruto') or 0) > 0
-            ]
-            if not linhas_com_valor:
-                return jsonify({
-                    'success': False,
-                    'message': 'A cotação precisa de pelo menos um item de proposta com valor para ser aprovada.',
-                }), 400
+            try:
+                cotacao_pre_aprovacao = {**cotacao, **update_data}
+                _validar_precondicoes_aprovacao_cotacao(cotacao_id, cotacao_pre_aprovacao)
+            except ValueError as exc:
+                return jsonify({'success': False, 'message': str(exc)}), 400
 
         db.atualizar_cotacao(cotacao_id=cotacao_id, **update_data)
         sincronizar_trilha_apos_salvar_cotacao(cotacao_id)

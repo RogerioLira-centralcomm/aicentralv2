@@ -27,6 +27,31 @@
   border-bottom: 1px solid #dbe3e8;
   background: #fff;
 }
+.cot-dados-trilha-badge {
+  margin: .35rem 0 0;
+  font-size: .85rem;
+  color: #3d5a57;
+}
+.cot-dados-trilha-badge.is-missing {
+  color: #9a3412;
+}
+.cot-dados-trilha-badge span {
+  color: #5c6b7a;
+  font-weight: 400;
+}
+.cot-required {
+  color: #b42318;
+}
+.cot-editor-hint {
+  display: block;
+  margin-top: .35rem;
+  font-size: .78rem;
+  color: #5c6b7a;
+}
+.cot-item-metadata-legacy {
+  opacity: .75;
+  font-style: italic;
+}
 .cot-workspace-title {
   display: flex;
   align-items: flex-start;
@@ -363,6 +388,16 @@
   gap: 1rem;
   margin-bottom: .85rem;
 }
+.cot-workspace-section-head-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.cot-workspace-section-head-actions > div {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 1rem;
+}
 .cot-workspace-section-head h2 {
   margin: 0;
   color: #243043;
@@ -506,7 +541,38 @@
 .cot-item-dialog-body { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; max-height: 65vh; overflow-y: auto; padding: 1rem 1.15rem; }
 .cot-item-field { display: grid; gap: .3rem; color: #526171; font-size: .72rem; font-weight: 650; }
 .cot-item-field-wide { grid-column: 1 / -1; }
-.cot-item-field input, .cot-item-field textarea { width: 100%; border: 1px solid #cfd9df; border-radius: .3rem; padding: .55rem .6rem; color: #243043; font: inherit; font-weight: 500; }
+.cot-item-field input, .cot-item-field textarea, .cot-item-field select { width: 100%; border: 1px solid #cfd9df; border-radius: .3rem; padding: .55rem .6rem; color: #243043; font: inherit; font-weight: 500; background: #fff; }
+.cot-item-money-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #cfd9df;
+  border-radius: .3rem;
+  overflow: hidden;
+  background: #fff;
+}
+.cot-item-money-wrap:focus-within {
+  outline: 2px solid var(--cot-accent-soft);
+  border-color: var(--cot-accent);
+}
+.cot-item-money-prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 .55rem;
+  background: #f4f7f9;
+  color: #526171;
+  font-size: .72rem;
+  font-weight: 650;
+  border-right: 1px solid #cfd9df;
+}
+.cot-item-field-money .cot-item-money-wrap input {
+  border: 0;
+  border-radius: 0;
+  flex: 1;
+}
+.cot-item-field-money .cot-item-money-wrap input:focus {
+  outline: none;
+  border-color: transparent;
+}
 .cot-item-field input:focus, .cot-item-field textarea:focus { outline: 2px solid var(--cot-accent-soft); border-color: var(--cot-accent); }
 .cot-item-dialog footer { display: flex; justify-content: flex-end; gap: .5rem; padding: .8rem 1.15rem; border-top: 1px solid #dbe3e8; }
 .cot-item-confirm form { padding: 1.15rem; }
@@ -531,7 +597,9 @@
 @media (max-width: 640px) {
   .cot-workspace-title { display: grid; }
   .cot-workspace-section-head,
+  .cot-workspace-section-head-actions > div,
   .cot-workspace-copy > div { grid-template-columns: 1fr; }
+  .cot-workspace-section-head-actions { grid-template-columns: 1fr; }
   .cot-workspace-table th { width: auto; }
   .cot-item-row { grid-template-columns: 1.75rem minmax(0, 1fr) 3.8rem; }
   .cot-item-values { grid-column: 2; justify-items: start; }

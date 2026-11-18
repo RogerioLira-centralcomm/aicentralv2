@@ -5,6 +5,7 @@ Todas as configurações centralizadas neste arquivo, incluindo
 configurações de terceiros (ex.: Pinecone).
 """
 import os
+import platform
 from datetime import timedelta
 from pathlib import Path
 
@@ -254,6 +255,24 @@ class Config:
 	CAMADAS_V2_IMAGE_RESOLUTION = os.getenv('CAMADAS_V2_IMAGE_RESOLUTION', '1K')
 	BREVO_HANDOFF_INTERNO = os.getenv('BREVO_HANDOFF_INTERNO', 'true').lower() in ('true', '1', 'yes', 'on')
 	MAKE_HANDOFF_FALLBACK = os.getenv('MAKE_HANDOFF_FALLBACK', 'false').lower() in ('true', '1', 'yes', 'on')
+	# PI: pastas local (default), make (legado) ou auto
+	_pi_pastas_raw = os.getenv('PI_PASTAS_BACKEND', 'local').strip().lower()
+	PI_PASTAS_BACKEND = (
+		'local'
+		if _pi_pastas_raw in ('padrão', 'padrao', 'default', 'padrão')
+		else _pi_pastas_raw
+	)
+	PI_UPLOAD_ROOT = os.getenv('PI_UPLOAD_ROOT', '').strip()
+	_pi_files_server_only_raw = os.getenv('PI_FILES_SERVER_ONLY', '').strip().lower()
+	# Windows: pastas de PI só no Linux (servidor). Só grava no PC com PI_FILES_SERVER_ONLY=false.
+	if platform.system() == 'Windows':
+		PI_FILES_SERVER_ONLY = _pi_files_server_only_raw not in ('false', '0', 'no', 'off')
+	else:
+		PI_FILES_SERVER_ONLY = _pi_files_server_only_raw in ('true', '1', 'yes', 'on')
+	PI_UPLOAD_REMOTE_SSH = os.getenv('PI_UPLOAD_REMOTE_SSH', '').strip() or os.getenv('PI_VERIFY_SERVER_SSH', '').strip()
+	PI_MAKE_INVITES_ENABLED = os.getenv('PI_MAKE_INVITES_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')
+	PI_MAKE_CONFIGURACAO_ENABLED = os.getenv('PI_MAKE_CONFIGURACAO_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')
+	PI_MAKE_ANDAMENTO_ENABLED = os.getenv('PI_MAKE_ANDAMENTO_ENABLED', 'false').lower() in ('true', '1', 'yes', 'on')
 	PI_HANDOFF_BLOQUEIA_RISCO = os.getenv('PI_HANDOFF_BLOQUEIA_RISCO', 'false').lower() in ('true', '1', 'yes', 'on')
 	
 	# Cache (Redis ou SimpleCache)

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Arquivos do PI — {{ secao_label }}</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem; color: #1f2937; }
+    h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+    .meta { color: #6b7280; margin-bottom: 1rem; }
+    table { border-collapse: collapse; width: 100%; max-width: 720px; }
+    th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e5e7eb; }
+    .path { font-family: ui-monospace, monospace; font-size: 13px; background: #f3f4f6; padding: .75rem; border-radius: 6px; }
+    form { margin: 1.25rem 0; }
+  </style>
+</head>
+<body>
+  <h1>{{ pi.codigo_pi_cc or ('PI ' ~ pi.id_pi) }} — {{ secao_label }}</h1>
+  <p class="meta">Pasta no servidor (acesso autenticado).</p>
+  {% if storage_path %}
+  <p class="path" title="Caminho no disco">{{ storage_path }}</p>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    <label>Enviar arquivo <input type="file" name="arquivo" required></label>
+    <button type="submit">Upload</button>
+  </form>
+
+  {% if arquivos %}
+  <table>
+    <thead><tr><th>Arquivo</th><th>Tamanho</th><th></th></tr></thead>
+    <tbody>
+      {% for item in arquivos %}
+      <tr>
+        <td>{{ item.name }}</td>
+        <td>{{ item.size }} bytes</td>
+        <td><a href="{{ url_for('cadu_pi_arquivo_download', id_pi=pi.id_pi, secao=secao, filename=item.name) }}">Baixar</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>Nenhum arquivo nesta pasta ainda.</p>
+  {% endif %}
+</body>
+</html>

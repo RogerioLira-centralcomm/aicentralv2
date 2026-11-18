@@ -1941,14 +1941,20 @@
           link.href = data.googled_pi_princ;
           link.target = '_blank';
           link.className = 'px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600';
-          link.innerHTML = '<i class="fab fa-google-drive mr-1"></i>Abrir Pastas';
+          var pastasLabel = (data.storage_path || (data.googled_pi_princ && data.googled_pi_princ.indexOf('/arquivos/') !== -1))
+            ? '<i class="fas fa-folder-open mr-1"></i>Abrir pastas'
+            : '<i class="fab fa-google-drive mr-1"></i>Abrir Pastas';
+          link.innerHTML = pastasLabel;
           btn.parentNode.replaceChild(link, btn);
           var btnProd = document.getElementById('btn_enviar_producao');
           if (btnProd && els.clienteHidden().value && document.querySelector('[name="codigo_pi_cc"]').value) {
             btnProd.disabled = false;
             btnProd.title = 'Enviar PI para operação';
           }
-          if (typeof showToast === 'function') showToast('Pastas criadas com sucesso!', 'success');
+          if (typeof showToast === 'function') {
+            var msg = data.dev_hint || 'Pastas criadas com sucesso!';
+            showToast(msg, 'success');
+          }
         } else {
           btn.disabled = false;
           btn.innerHTML = originalHtml;

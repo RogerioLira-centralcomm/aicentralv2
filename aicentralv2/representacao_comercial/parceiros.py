@@ -89,12 +89,105 @@ def metadados_trilha(trilha: str) -> Dict[str, Any]:
 
 
 def sincronizar_trilha_cotacao(cotacao: Dict[str, Any]) -> Dict[str, str]:
+    nome_trilha = cotacao.get("plataforma_campanha") or cotacao.get("parceiro_nome")
     trilha = resolver_trilha_parceiro(
         cotacao.get("id_parceiro"),
-        cotacao.get("parceiro_nome"),
+        nome_trilha,
     )
     meta = metadados_trilha(trilha)
     return {
         "trilha_representacao": meta["trilha"],
         "fluxo_proposta_representacao": meta["fluxo_proposta"],
     }
+
+
+def ids_fornecedores_dados() -> set[int]:
+    """IDs de parceiro aceitos como fornecedor em cotações tipo Dados."""
+    return set(LOGAN_PARCEIRO_IDS) | set(SERASA_PARCEIRO_IDS)
+
+
+def parceiro_autorizado_fornecedor_dados(id_parceiro: Optional[int]) -> bool:
+    if id_parceiro is None:
+        return False
+    return int(id_parceiro) in ids_fornecedores_dados()
+
+
+def listar_opcoes_fornecedor_dados() -> list[Dict[str, Any]]:
+    """Opções para select de fornecedor (Serasa / Logan) no workspace e na criação."""
+    out: list[Dict[str, Any]] = []
+    grupos = (
+        (TRILHA_SERASA, SERASA_PARCEIRO_IDS, "Serasa"),
+        (TRILHA_LOGAN, LOGAN_PARCEIRO_IDS, "Logan"),
+    )
+    for trilha, ids, rotulo in grupos:
+        meta = metadados_trilha(trilha)
+        fluxo = (
+            "Planilha do parceiro"
+            if meta.get("fluxo_proposta") == FLUXO_PLANILHA
+            else "PDF do parceiro"
+        )
+        venc = meta.get("vencimento_nf") or ""
+        vencimento = "D+2" if venc == VENCIMENTO_D_PLUS_2 else "dia 20"
+        for pid in sorted(ids):
+            out.append(
+                {
+                    "id_parceiro": pid,
+                    "trilha": trilha,
+                    "rotulo": rotulo,
+                    "hint": f"{fluxo} · NF {vencimento}",
+                }
+            )
+    return out
+
+
+def validar_fornecedor_cotacao_dados(
+    tipo_comercial: str,
+    id_parceiro: Optional[int],
+) -> None:
+    """Legado — usar validar_plataforma_cotacao_dados."""
+
+    from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+
+    if normalizar_tipo_comercial(tipo_comercial, estrito=False) != "dados":
+        return
+    if not parceiro_autorizado_fornecedor_dados(id_parceiro):
+        raise ValueError(
+            "Informe o fornecedor de dados (Serasa ou Logan) na operação da cotação."
+        )
+
+
+def validar_plataforma_dados_valor(plataforma_campanha: Optional[str]) -> str:
+    """Valida e retorna a descrição canônica da plataforma (catálogo PI, categoria Dados)."""
+    from aicentralv2 import db
+
+    plat = str(plataforma_campanha or "").strip()
+    if not plat:
+        raise ValueError(
+            "Selecione a plataforma de dados cadastrada em Parâmetros (categoria Dados)."
+        )
+    ativas = db.listar_plataformas_dados_ativas() or []
+    por_nome = {
+        str(p.get("descricao") or "").strip().casefold(): str(p.get("descricao") or "").strip()
+        for p in ativas
+    }
+    canon = por_nome.get(plat.casefold())
+    if not canon:
+        raise ValueError(
+            "Plataforma de dados inválida ou inativa. Use o cadastro de plataformas (categoria Dados)."
+        )
+    return canon
+
+
+def validar_plataforma_cotacao_dados(
+    tipo_comercial: str,
+    plataforma_campanha: Optional[str],
+    *,
+    exigir: bool = True,
+) -> None:
+    from aicentralv2.cotacao_tipos import normalizar_tipo_comercial
+
+    if normalizar_tipo_comercial(tipo_comercial, estrito=False) != "dados":
+        return
+    if not exigir and not str(plataforma_campanha or "").strip():
+        return
+    validar_plataforma_dados_valor(plataforma_campanha)

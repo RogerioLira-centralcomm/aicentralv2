@@ -32,7 +32,6 @@ def calcular_breakdown_representacao_linha(
 ) -> Dict[str, Any]:
     plataforma = (data.get("plataforma") or "").strip()
     objetivo_kpi = (data.get("objetivo_kpi") or "").strip()
-    valor_tabela = parse_valor(data.get("valor_unitario_tabela"))
     investimento_bruto_in = parse_valor(data.get("investimento_bruto"))
     investimento_liquido_in = parse_valor(
         data.get("investimento_liquido") or data.get("investimento_sugerido")
@@ -48,12 +47,21 @@ def calcular_breakdown_representacao_linha(
         raise ValueError("Informe a plataforma para calcular.")
     if not objetivo_kpi:
         raise ValueError("Informe o KPI (Tipo de Compra) para calcular.")
-    if valor_tabela <= 0:
-        raise ValueError("Valor unitário tabela inválido.")
+
+    valor_tabela = parse_valor(data.get("valor_unitario_tabela"))
+    preco_informado = parse_valor(
+        data.get("valor_unitario_negociado") or data.get("valor_unitario")
+    )
+    if preco_informado > 0:
+        preco_unit = round(preco_informado, 6)
+        valor_tabela = valor_tabela if valor_tabela > 0 else preco_unit
+    elif valor_tabela > 0:
+        preco_unit = round(valor_tabela * fator_desconto, 6)
+    else:
+        raise ValueError("Informe o valor unitário de venda.")
+
     if investimento_bruto_in <= 0 and investimento_liquido_in <= 0 and volume_in <= 0:
         raise ValueError("Preencha Valor Líq. ou Vol. Contratado.")
-
-    preco_unit = round(valor_tabela * fator_desconto, 6)
     is_cpm = objetivo_kpi == "CPM"
     fee_ag_pct = parse_valor(cotacao.get("fee_ag") or cotacao.get("agencia_percentual"))
     fee_pr_pct = parse_valor(cotacao.get("fee_pr") or cotacao.get("parceiro_percentual"))

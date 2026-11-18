@@ -77,7 +77,7 @@
         {% for n in pi.notas %}
         <li class="ac-pi-nf">
           <div class="ac-pi-nf__main"><b>NF {{ n.numero }}</b><small>Emitida {{ data_br(n.emissao) }}{% if n.competencia %} · comp. {{ n.competencia }}{% endif %}</small></div>
-          <div class="ac-pi-nf__val"><b>{{ n.liquido|format_brl if n.liquido is not none else '—' }}</b><small>líquido</small></div>
+          <div class="ac-pi-nf__val"><b>{{ n.valor|format_brl if n.valor is not none else '—' }}</b></div>
           <div class="ac-pi-nf__st">{% if n.pago_em %}<span class="ac-badge ac-badge--success">Pago {{ data_br(n.pago_em)[:5] }}</span>{% else %}<span class="ac-badge ac-badge--warning">{% if n.prevista %}Previsto {{ data_br(n.prevista)[:5] }}{% else %}{{ n.status }}{% endif %}</span>{% endif %}</div>
         </li>
         {% endfor %}

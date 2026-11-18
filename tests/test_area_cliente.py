@@ -475,9 +475,10 @@ def test_pi_mostra_valores_de_venda_e_notas(app, monkeypatch):
     monkeypatch.setattr(dados, "campanhas_dos_pis", lambda ids: [])
     client = _client(app, {"user_id": 501})
     html = client.get("/pis/12", base_url=HOST).get_data(as_text=True)
-    for trecho in ("R$ 8.000,00", "R$ 7.500,00", "NF 123", "Previsto 03/12", "Em faturamento"):
+    for trecho in ("R$ 8.000,00", "NF 123", "Previsto 03/12", "Em faturamento"):
         assert trecho in html, trecho
     assert "R$ 10.000,00" not in html and "Valor bruto" not in html          # só o valor líquido
+    assert "R$ 7.500,00" not in html                                         # NF mostra o valor da nota (base do Faturado), sem o líquido de impostos
     assert "Comissão" not in html and "R$ 2.000,00" not in html            # comissão da agência não aparece
     assert "lucratividade" not in html.lower() and "Gasto" not in html
     assert client.get("/pis/99", base_url=HOST).status_code == 404

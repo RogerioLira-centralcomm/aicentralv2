@@ -50,6 +50,17 @@ for f in /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*; do
 done
 
 if [ "$patched" -eq 0 ]; then
+    if [ -d /etc/letsencrypt/live/centralcomm-products ] \
+       || grep -rq 'listen[[:space:]]*443' /etc/nginx/sites-enabled/ 2>/dev/null; then
+        echo "  > AVISO: nenhum vhost :8001 encontrado, mas há SSL/Let's Encrypt no servidor."
+        echo "  > Não copio nginx-aicentralv2.conf (evita apagar :443 / certbot). Rode:"
+        echo "  >   sudo bash deploy/restore_https_products.sh"
+        exit 1
+    fi
+    if ss -tlnp 2>/dev/null | grep ':443 ' | grep -qv nginx; then
+        echo "  > AVISO: porta 443 não é do nginx (ex.: Easypanel). Libere 80/443 antes do deploy."
+        echo "  >   RESTORE_HTTPS_STOP_DOCKER_80_443=1 sudo bash deploy/restore_https_products.sh"
+    fi
     echo "  > Nenhum site :8001 encontrado; instalando deploy/nginx-aicentralv2.conf..."
     sudo cp "$SITE_SRC" /etc/nginx/sites-available/aicentralv2
     sudo ln -sf /etc/nginx/sites-available/aicentralv2 /etc/nginx/sites-enabled/aicentralv2

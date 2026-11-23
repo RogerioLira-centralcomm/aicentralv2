@@ -7,6 +7,12 @@
 - [ ] Código testado localmente
 - [ ] Commit e push para repositório
 
+## 🔒 HTTPS (VPS 72.60.141.141)
+
+- Não instalar **Easypanel** (ou outro proxy) nas portas **80/443** da mesma VPS do Gunicorn.
+- Certificado SAN: `centralcomm-products` — ver [`deploy/configure_letsencrypt_products.sh`](deploy/configure_letsencrypt_products.sh).
+- Se o site mostrar certificado **Easypanel** ou **502** em HTTPS: [`deploy/HTTPS_RECOVERY.md`](deploy/HTTPS_RECOVERY.md).
+
 ## 🚀 Deploy (Servidor)
 
 ### 1. Fazer backup (opcional, por segurança)

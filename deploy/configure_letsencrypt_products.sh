@@ -9,7 +9,6 @@ CERT_NAME="centralcomm-products"
 DOMAINS=(
   ai.centralcomm.media
   aicentral.centralcomm.media
-  cadu.centralcomm.media
   studio.centralcomm.media
   skills.centralcomm.media
   planner.centralcomm.media

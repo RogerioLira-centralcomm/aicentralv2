@@ -122,8 +122,11 @@ class PiMobileUiContractTest(unittest.TestCase):
         self.assertIn('id="details_contatos"', pi_detail)
         self.assertIn("Cliente e contatos", pi_detail)
         self.assertIn("Vínculos definidos pela cotação de origem", pi_detail)
-        self.assertIn("user_is_executivo or vinculos_cotacao_bloqueados", pi_detail)
-        self.assertIn("if not vinculos_cotacao_bloqueados", pi_detail)
+        self.assertIn("vinculos_cotacao_bloqueados or somente_leitura", pi_detail)
+        self.assertIn("pi_modal_escolher_cliente", pi_detail)
+        self.assertIn("abrirModalClientePI", pi_detail)
+        self.assertIn("btn_buscar_cliente_pi", pi_detail)
+        self.assertIn("{% if party_cliente_locked %}", pi_detail)
         for field in ("id_cliente", "id_agencia", "id_parceiro"):
             self.assertIn(f'type="hidden" name="{field}"', pi_detail)
         self.assertIn("if (PI_VINCULOS_COTACAO) return;", pi_detail)

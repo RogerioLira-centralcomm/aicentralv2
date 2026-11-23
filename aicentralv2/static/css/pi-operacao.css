@@ -235,6 +235,8 @@ body:has(.pi-operation) dialog :is(input, select, textarea, button, a, label, p,
 .pi-account .pi-inline__display strong { font-size: 13px; }
 .pi-account-search { display: flex; gap: 6px; }
 .pi-account-search input { flex: 1 1 auto; min-width: 0; }
+.pi-account .cot-nova-name-btn { flex: 1 1 auto; min-width: 0; width: auto; max-width: 100%; }
+.pi-participant-pick--error { border-color: #e57373 !important; background: #fef2f2 !important; }
 .pi-party-add {
   display: inline-flex;
   width: 35px;

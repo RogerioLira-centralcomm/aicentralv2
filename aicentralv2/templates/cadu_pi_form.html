@@ -4,8 +4,9 @@
 {% block page_label %}Operação: PI{% endblock %}
 {% block page_subtitle %}Visão detalhada do PI com foco na operação{% endblock %}
 {% block styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=26">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=27">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/clientes.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cotacao_nova.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
@@ -77,12 +78,14 @@
             <i class="fas fa-link" aria-hidden="true"></i>Links
           </button>
           {% if pi.googled_pi_princ %}
-            <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary">
-              <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
+            <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary"
+              title="Arquivos no servidor — acesso com seu login no Central">
+              <i class="fas fa-folder-open" aria-hidden="true"></i>Pastas
             </button>
           {% else %}
-            <button type="button" id="btn_gerar_pastas" class="pi-op-btn pi-op-btn--secondary">
-              <i class="fab fa-google-drive" aria-hidden="true"></i>Gerar Pastas
+            <button type="button" id="btn_gerar_pastas" class="pi-op-btn pi-op-btn--secondary"
+              title="Cria pastas no servidor de produção">
+              <i class="fas fa-folder-plus" aria-hidden="true"></i>Gerar Pastas
             </button>
           {% endif %}
           <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
@@ -114,8 +117,9 @@
           </a>
           {% endif %}
         {% elif modo == 'editar' and pi and somente_leitura and pi.googled_pi_princ %}
-          <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary">
-            <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
+          <button type="button" id="pi-open-drive" class="pi-op-btn pi-op-btn--secondary"
+            title="Arquivos no servidor — acesso com seu login no Central">
+            <i class="fas fa-folder-open" aria-hidden="true"></i>Pastas
           </button>
           <button type="button" id="pi-preview-emails" class="pi-op-btn pi-op-btn--secondary">
             <i class="fa-regular fa-envelope" aria-hidden="true"></i>Comunicações
@@ -214,8 +218,8 @@
       {% endfor %}
       {% set record_composer = modo == 'novo' or not pi %}
       {% set record_locked = somente_leitura %}
-      {% set party_cliente_locked = user_is_executivo or vinculos_cotacao_bloqueados or somente_leitura %}
-      {% set party_agencia_locked = user_is_executivo or vinculos_cotacao_bloqueados or somente_leitura %}
+      {% set party_cliente_locked = vinculos_cotacao_bloqueados or somente_leitura %}
+      {% set party_agencia_locked = vinculos_cotacao_bloqueados or somente_leitura %}
       {% set party_parceiro_locked = vinculos_cotacao_bloqueados or somente_leitura %}
 
       <section class="pi-edit-card pi-record" id="pi-edit-data">
@@ -293,7 +297,7 @@
               <select name="resp_comercial" id="sel_resp_comercial" onchange="onExecutivoChange()" required {% if record_locked %}disabled{% endif %}>
                 <option value="">Selecione...</option>
                 {% for v in vendedores %}
-                  <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% endif %}>{{ v.nome_completo }}</option>
+                  <option value="{{ v.id_contato_cliente }}" {% if pi and pi.id_resp_comercial == v.id_contato_cliente %}selected{% elif modo == 'novo' and user_is_executivo and v.id_contato_cliente == session.get('user_id') %}selected{% endif %}>{{ v.nome_completo }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -341,23 +345,21 @@
                 <span>Cliente <i>*</i></span>
                 {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
               </header>
-              <div class="pi-inline pi-inline--account{% if party_cliente_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar cliente">
-                {% if party_cliente_locked %}
-                <p class="pi-inline__static"><strong data-inline-text>{{ pi.cliente_nome if pi and pi.cliente_nome else '—' }}</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit relative">
-                  <div class="pi-account-search">
-                    <input type="text" id="input_cliente_busca" placeholder="Buscar cliente..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
-                    {% if not vinculos_cotacao_bloqueados %}
-                    <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="pi-party-add" title="Cadastrar cliente" aria-label="Cadastrar cliente">
-                      <i class="fas fa-plus"></i>
-                    </button>
-                    {% endif %}
-                  </div>
-                  <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
-                  <div id="dropdown_clientes" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-                </div>
+              {% if party_cliente_locked %}
+              <p class="pi-inline__static"><strong>{{ pi.cliente_nome if pi and pi.cliente_nome else '—' }}</strong></p>
+              <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
+              {% else %}
+              <div class="pi-account-search">
+                <button type="button" id="btn_buscar_cliente_pi" class="cot-nova-name-btn{% if pi and pi.cliente_nome %} has-value{% endif %}" onclick="abrirModalClientePI()" title="Buscar cliente"{% if user_is_executivo %} disabled{% endif %}>
+                  <span id="nome_cliente_pi_selecionado">{% if pi and pi.cliente_nome %}{{ pi.cliente_nome }}{% else %}Buscar cliente…{% endif %}</span>
+                  <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoClientePI('cliente')" class="pi-party-add" title="Cadastrar cliente" aria-label="Cadastrar cliente">
+                  <i class="fas fa-plus"></i>
+                </button>
               </div>
+              <input type="hidden" name="id_cliente" id="hidden_id_cliente" value="{{ pi.id_cliente if pi and pi.id_cliente else '' }}">
+              {% endif %}
               {% if not record_locked %}
               <div class="pi-contatos-party-toolbar">
                 <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="cliente">
@@ -374,23 +376,21 @@
                 <span>Agência</span>
                 {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
               </header>
-              <div class="pi-inline pi-inline--account{% if party_agencia_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar agência">
-                {% if party_agencia_locked %}
-                <p class="pi-inline__static"><strong data-inline-text>{{ pi.agencia_nome if pi and pi.agencia_nome else 'Não informado' }}</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit relative">
-                  <div class="pi-account-search">
-                    <input type="text" id="input_agencia_busca" placeholder="Buscar agência..." autocomplete="off" {% if user_is_executivo or vinculos_cotacao_bloqueados %}disabled{% endif %}>
-                    {% if not vinculos_cotacao_bloqueados %}
-                    <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="pi-party-add" title="Cadastrar agência" aria-label="Cadastrar agência">
-                      <i class="fas fa-plus"></i>
-                    </button>
-                    {% endif %}
-                  </div>
-                  <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
-                  <div id="dropdown_agencias" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-                </div>
+              {% if party_agencia_locked %}
+              <p class="pi-inline__static"><strong>{{ pi.agencia_nome if pi and pi.agencia_nome else 'Não informado' }}</strong></p>
+              <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
+              {% else %}
+              <div class="pi-account-search">
+                <button type="button" id="btn_buscar_agencia_pi" class="cot-nova-name-btn{% if pi and pi.agencia_nome %} has-value{% endif %}" onclick="abrirModalAgenciaPI()" title="Buscar agência"{% if user_is_executivo %} disabled{% endif %}>
+                  <span id="nome_agencia_pi_selecionado">{% if pi and pi.agencia_nome %}{{ pi.agencia_nome }}{% else %}Buscar agência…{% endif %}</span>
+                  <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoClientePI('agencia')" class="pi-party-add" title="Cadastrar agência" aria-label="Cadastrar agência">
+                  <i class="fas fa-plus"></i>
+                </button>
               </div>
+              <input type="hidden" name="id_agencia" id="hidden_id_agencia" value="{{ pi.id_agencia if pi and pi.id_agencia else '' }}">
+              {% endif %}
               {% if not record_locked %}
               <div class="pi-contatos-party-toolbar">
                 <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="agencia">
@@ -407,23 +407,21 @@
                 <span>Parceiro regional</span>
                 {% if vinculos_cotacao_bloqueados %}<small>Da cotação</small>{% endif %}
               </header>
-              <div class="pi-inline pi-inline--account{% if party_parceiro_locked %} is-locked{% else %} is-composer{% endif %}" data-inline data-empty="Buscar parceiro">
-                {% if party_parceiro_locked %}
-                <p class="pi-inline__static"><strong data-inline-text>{{ pi.parceiro_nome if pi and pi.parceiro_nome else 'Não informado' }}</strong></p>
-                {% endif %}
-                <div class="pi-inline__edit relative">
-                  <div class="pi-account-search">
-                    <input type="text" id="input_parceiro_busca" placeholder="Buscar parceiro..." autocomplete="off" {% if vinculos_cotacao_bloqueados %}disabled{% endif %}>
-                    {% if not vinculos_cotacao_bloqueados %}
-                    <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="pi-party-add" title="Cadastrar parceiro regional" aria-label="Cadastrar parceiro regional">
-                      <i class="fas fa-plus"></i>
-                    </button>
-                    {% endif %}
-                  </div>
-                  <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
-                  <div id="dropdown_parceiros" class="absolute z-50 top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto hidden mt-1 text-[10px]"></div>
-                </div>
+              {% if party_parceiro_locked %}
+              <p class="pi-inline__static"><strong>{{ pi.parceiro_nome if pi and pi.parceiro_nome else 'Não informado' }}</strong></p>
+              <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
+              {% else %}
+              <div class="pi-account-search">
+                <button type="button" id="btn_buscar_parceiro_pi" class="cot-nova-name-btn{% if pi and pi.parceiro_nome %} has-value{% endif %}" onclick="abrirModalParceiroPI()" title="Buscar parceiro regional">
+                  <span id="nome_parceiro_pi_selecionado">{% if pi and pi.parceiro_nome %}{{ pi.parceiro_nome }}{% else %}Buscar parceiro…{% endif %}</span>
+                  <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                <button type="button" onclick="abrirModalNovoClientePI('parceiro')" class="pi-party-add" title="Cadastrar parceiro regional" aria-label="Cadastrar parceiro regional">
+                  <i class="fas fa-plus"></i>
+                </button>
               </div>
+              <input type="hidden" name="id_parceiro" id="hidden_id_parceiro" value="{{ pi.id_parceiro if pi and pi.id_parceiro else '' }}">
+              {% endif %}
               {% if not record_locked %}
               <div class="pi-contatos-party-toolbar">
                 <button type="button" class="pi-contatos-party-toolbar__btn" data-pi-action="contatos-lista-todos" data-pi-party="parceiro">
@@ -861,9 +859,6 @@
   const PI_MODO = {{ modo|tojson }};
   const PI_SOMENTE_LEITURA = {{ somente_leitura|tojson }};
   const USER_IS_EXECUTIVO = {{ user_is_executivo|tojson }};
-  let debounceCliente = null;
-  let debounceAgencia = null;
-  let debounceParceiro = null;
   let debouncePercentuais = null;
   // Em modo editar, se o pi já tem um perc_margem_cc gravado, considera como edição prévia
   // (não sobrescreve com cadastro do cliente sem permissão explícita).
@@ -922,12 +917,10 @@
 
   const els = {
     exec: () => document.getElementById('sel_resp_comercial'),
-    clienteBusca: () => document.getElementById('input_cliente_busca'),
     clienteHidden: () => document.getElementById('hidden_id_cliente'),
-    clienteDropdown: () => document.getElementById('dropdown_clientes'),
-    agenciaBusca: () => document.getElementById('input_agencia_busca'),
+    btnBuscarCliente: () => document.getElementById('btn_buscar_cliente_pi'),
     agenciaHidden: () => document.getElementById('hidden_id_agencia'),
-    agenciaDropdown: () => document.getElementById('dropdown_agencias'),
+    btnBuscarAgencia: () => document.getElementById('btn_buscar_agencia_pi'),
     contatoMidiaCliente: () => document.getElementById('sel_contato_midia_cliente'),
     contatoFinCliente: () => document.getElementById('sel_contato_fin_cliente'),
     contatoMidiaAgencia: () => document.getElementById('sel_contato_midia_agencia'),
@@ -937,9 +930,8 @@
     comissaoAg: () => document.getElementById('input_comissao_agencia'),
     valorLiquido: () => document.getElementById('input_valor_liquido'),
     valorLiquidoPR: () => document.getElementById('input_valor_liquido_pr'),
-    parceiroBusca: () => document.getElementById('input_parceiro_busca'),
     parceiroHidden: () => document.getElementById('hidden_id_parceiro'),
-    parceiroDropdown: () => document.getElementById('dropdown_parceiros'),
+    btnBuscarParceiro: () => document.getElementById('btn_buscar_parceiro_pi'),
     contatoMidiaParceiro: () => document.getElementById('sel_contato_midia_parceiro'),
     contatoFinParceiro: () => document.getElementById('sel_contato_fin_parceiro'),
     percComissaoParc: () => document.getElementById('input_perc_comissao_parceiro'),
@@ -1594,20 +1586,34 @@
     });
   }
 
+  function marcarNomePickerPi(spanId, preenchido) {
+    var span = document.getElementById(spanId);
+    var btn = span && span.closest('.cot-nova-name-btn');
+    if (btn) btn.classList.toggle('has-value', !!preenchido);
+  }
+
+  function setPiParticipantLabel(spanId, text, hasValue) {
+    var span = document.getElementById(spanId);
+    if (span) span.textContent = text;
+    marcarNomePickerPi(spanId, hasValue);
+  }
+
   window.onExecutivoChange = function() {
     if (PI_VINCULOS_COTACAO) return;
     const execId = getExecutivoId();
     var shouldDisable = USER_IS_EXECUTIVO && !execId;
-    els.clienteBusca().disabled = shouldDisable;
-    els.agenciaBusca().disabled = shouldDisable;
-    els.clienteBusca().value = '';
-    els.clienteHidden().value = '';
-    els.agenciaBusca().value = '';
-    els.agenciaHidden().value = '';
-    els.clienteDropdown().classList.add('hidden');
-    els.agenciaDropdown().classList.add('hidden');
-    resetContactSelects('cliente');
-    resetContactSelects('agencia');
+    var btnCli = els.btnBuscarCliente();
+    var btnAg = els.btnBuscarAgencia();
+    if (btnCli) btnCli.disabled = shouldDisable;
+    if (btnAg) btnAg.disabled = shouldDisable;
+    if (shouldDisable) {
+      if (els.clienteHidden()) els.clienteHidden().value = '';
+      if (els.agenciaHidden()) els.agenciaHidden().value = '';
+      setPiParticipantLabel('nome_cliente_pi_selecionado', 'Buscar cliente…', false);
+      setPiParticipantLabel('nome_agencia_pi_selecionado', 'Buscar agência…', false);
+      resetContactSelects('cliente');
+      resetContactSelects('agencia');
+    }
     atualizarAsteriscosContatos();
   };
 
@@ -1616,46 +1622,149 @@
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  function renderDropdown(dropdownEl, items, tipo) {
-    if (!items || items.length === 0) {
-      dropdownEl.innerHTML = '<div class="px-4 py-2 text-sm text-gray-400">Nenhum resultado encontrado</div>';
-      dropdownEl.classList.remove('hidden');
+  function renderPiModalResults(containerId, items, tipo) {
+    var resultados = document.getElementById(containerId);
+    if (!resultados) return;
+  if (!items || items.length === 0) {
+      resultados.innerHTML = '<p class="cot-sheet-empty">Nenhum resultado encontrado</p>';
       return;
     }
-    dropdownEl.innerHTML = items.map(function(item) {
-      return '<div class="ac-item px-3 py-2 cursor-pointer hover:bg-gray-50 text-sm border-b border-gray-100 last:border-0" data-id="' + item.pk_id_tbl_cliente + '" data-nome="' + escapeHtml(item.nome_fantasia) + '" data-tipo="' + tipo + '" data-percentual="' + (item.percentual || '') + '">'
-        + '<div class="font-medium text-gray-800">' + escapeHtml(item.nome_fantasia) + '</div>'
-        + (item.razao_social ? '<div class="text-xs text-gray-400">' + escapeHtml(item.razao_social) + '</div>' : '')
-        + '</div>';
-    }).join('');
-    dropdownEl.classList.remove('hidden');
+    var html = '<div class="space-y-2">';
+    items.forEach(function(item) {
+      var id = item.pk_id_tbl_cliente;
+      var nome = item.nome_fantasia || '';
+      var perc = item.percentual != null ? item.percentual : '';
+      var doc = item.cnpj || '';
+      html += '<button type="button" class="w-full text-left border border-gray-200 rounded p-3 hover:bg-gray-50 transition" data-pi-pick="' + tipo + '" data-id="' + id + '" data-percentual="' + perc + '">';
+      html += '<p class="font-semibold text-sm text-gray-800 pi-pick-nome">' + escapeHtml(nome) + '</p>';
+      if (item.razao_social) html += '<p class="text-xs text-gray-500">' + escapeHtml(item.razao_social) + '</p>';
+      if (doc) html += '<p class="text-xs text-gray-400">' + escapeHtml(doc) + '</p>';
+      html += '</button>';
+    });
+    html += '</div>';
+    resultados.innerHTML = html;
   }
 
-  async function buscarClientes(termo) {
-    const body = { nome: termo, razao: termo, agencia: false };
+  async function piBuscarParticipantes(containerId, termo, bodyExtra) {
+    if (termo.length < 2) return;
+    var resultados = document.getElementById(containerId);
     try {
-      const resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await resp.json();
-      if (data.success) renderDropdown(els.clienteDropdown(), data.clientes, 'cliente');
-    } catch (err) { console.error('Erro ao buscar clientes:', err); }
+      var tipo = bodyExtra._tipo || 'cliente';
+      var payload = Object.assign({ nome: termo, razao: termo }, bodyExtra);
+      delete payload._tipo;
+      var resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      var data = await resp.json();
+      if (data.success) {
+        renderPiModalResults(containerId, data.clientes, tipo);
+      } else if (resultados) {
+        resultados.innerHTML = '<p class="cot-sheet-empty">Não foi possível buscar. Tente novamente.</p>';
+      }
+    } catch (err) {
+      console.error('Erro ao buscar participantes:', err);
+      if (resultados) resultados.innerHTML = '<p class="cot-sheet-empty">Erro ao buscar.</p>';
+    }
   }
 
-  async function buscarAgencias(termo) {
-    const body = { nome: termo, razao: termo, agencia: true };
-    try {
-      const resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await resp.json();
-      if (data.success) renderDropdown(els.agenciaDropdown(), data.clientes, 'agencia');
-    } catch (err) { console.error('Erro ao buscar agências:', err); }
-  }
+  window.abrirModalClientePI = function() {
+    var modal = document.getElementById('pi_modal_escolher_cliente');
+    if (!modal) return;
+    modal.showModal();
+    var input = document.getElementById('pi_busca_cliente_modal');
+    var res = document.getElementById('pi_resultados_cliente_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar clientes.</p>';
+    if (input) setTimeout(function() { input.focus(); }, 40);
+  };
 
-  async function buscarParceiros(termo) {
-    try {
-      const resp = await fetch('/api/clientes/buscar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: termo, razao: termo, tipo_cliente: 'Parceiro Regional' }) });
-      const data = await resp.json();
-      if (data.success) renderDropdown(els.parceiroDropdown(), data.clientes, 'parceiro');
-    } catch (err) { console.error('Erro ao buscar parceiros:', err); }
-  }
+  window.abrirModalAgenciaPI = function() {
+    var modal = document.getElementById('pi_modal_escolher_agencia');
+    if (!modal) return;
+    modal.showModal();
+    var input = document.getElementById('pi_busca_agencia_modal');
+    var res = document.getElementById('pi_resultados_agencia_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar agências.</p>';
+    if (input) setTimeout(function() { input.focus(); }, 40);
+  };
+
+  window.abrirModalParceiroPI = function() {
+    var modal = document.getElementById('pi_modal_escolher_parceiro');
+    if (!modal) return;
+    modal.showModal();
+    var input = document.getElementById('pi_busca_parceiro_modal');
+    var res = document.getElementById('pi_resultados_parceiro_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar parceiros regionais.</p>';
+    if (input) setTimeout(function() { input.focus(); }, 40);
+  };
+
+  window.buscarClientesModalPI = function() {
+    var termo = (document.getElementById('pi_busca_cliente_modal') || {}).value;
+    termo = (termo || '').trim();
+    var res = document.getElementById('pi_resultados_cliente_modal');
+    if (termo.length < 2) {
+      if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite pelo menos 2 caracteres.</p>';
+      return;
+    }
+    piBuscarParticipantes('pi_resultados_cliente_modal', termo, { agencia: false, _tipo: 'cliente' });
+  };
+
+  window.buscarAgenciasModalPI = function() {
+    var termo = (document.getElementById('pi_busca_agencia_modal') || {}).value;
+    termo = (termo || '').trim();
+    var res = document.getElementById('pi_resultados_agencia_modal');
+    if (termo.length < 2) {
+      if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite pelo menos 2 caracteres.</p>';
+      return;
+    }
+    piBuscarParticipantes('pi_resultados_agencia_modal', termo, { agencia: true, _tipo: 'agencia' });
+  };
+
+  window.buscarParceirosModalPI = function() {
+    var termo = (document.getElementById('pi_busca_parceiro_modal') || {}).value;
+    termo = (termo || '').trim();
+    var res = document.getElementById('pi_resultados_parceiro_modal');
+    if (termo.length < 2) {
+      if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite pelo menos 2 caracteres.</p>';
+      return;
+    }
+    piBuscarParticipantes('pi_resultados_parceiro_modal', termo, { tipo_cliente: 'Parceiro Regional', _tipo: 'parceiro' });
+  };
+
+  window.limparBuscaClienteModalPI = function() {
+    var input = document.getElementById('pi_busca_cliente_modal');
+    var res = document.getElementById('pi_resultados_cliente_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar clientes.</p>';
+  };
+
+  window.limparBuscaAgenciaModalPI = function() {
+    var input = document.getElementById('pi_busca_agencia_modal');
+    var res = document.getElementById('pi_resultados_agencia_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar agências.</p>';
+  };
+
+  window.limparBuscaParceiroModalPI = function() {
+    var input = document.getElementById('pi_busca_parceiro_modal');
+    var res = document.getElementById('pi_resultados_parceiro_modal');
+    if (input) input.value = '';
+    if (res) res.innerHTML = '<p class="cot-sheet-empty">Digite para buscar parceiros regionais.</p>';
+  };
+
+  document.addEventListener('click', function(e) {
+    var pick = e.target.closest('[data-pi-pick]');
+    if (!pick) return;
+    var id = parseInt(pick.getAttribute('data-id'), 10);
+    var nomeEl = pick.querySelector('.pi-pick-nome');
+    var nome = nomeEl ? nomeEl.textContent : '';
+    var percRaw = pick.getAttribute('data-percentual');
+    var perc = percRaw ? parseFloat(percRaw) : null;
+    var tipo = pick.getAttribute('data-pi-pick');
+    if (tipo === 'cliente') selecionarCliente(id, nome);
+    else if (tipo === 'agencia') selecionarAgencia(id, nome, perc);
+    else if (tipo === 'parceiro') selecionarParceiro(id, nome, perc);
+  });
 
   function selectedInlineLabel(control) {
     if (!control) return '';
@@ -1791,107 +1900,56 @@
   }
 
   function selecionarCliente(id, nome) {
-    els.clienteBusca().value = nome;
-    els.clienteHidden().value = id;
-    els.clienteDropdown().classList.add('hidden');
-    // Cliente trocou → permite que o pre-fill da Margem CC vinda do cadastro substitua o valor atual.
+    if (els.clienteHidden()) els.clienteHidden().value = id;
+    setPiParticipantLabel('nome_cliente_pi_selecionado', nome, true);
+    var modal = document.getElementById('pi_modal_escolher_cliente');
+    if (modal) modal.close();
+  // Cliente trocou → permite que o pre-fill da Margem CC vinda do cadastro substitua o valor atual.
     margemCcUserEdited = false;
     carregarContatos(id, 'cliente').then(function() { abrirContatosESinalizar('cliente'); });
     scheduleAtualizarPercentuais();
   }
 
   function selecionarAgencia(id, nome, percentual) {
-    els.agenciaBusca().value = nome;
-    els.agenciaHidden().value = id;
-    els.agenciaDropdown().classList.add('hidden');
+    if (els.agenciaHidden()) els.agenciaHidden().value = id;
+    setPiParticipantLabel('nome_agencia_pi_selecionado', nome, true);
+    var modal = document.getElementById('pi_modal_escolher_agencia');
+    if (modal) modal.close();
     atualizarAsteriscosContatos();
     carregarContatos(id, 'agencia').then(function() { abrirContatosESinalizar('agencia'); });
     if (percentual) {
       var percInput = els.percComissaoAg();
-      percInput.value = percentual.toString().replace('.', ',');
-      maskPercent(percInput);
-      percInput.readOnly = true;
-      percInput.classList.add('bg-gray-100');
-      percInput.classList.remove('bg-gray-50');
+      if (percInput) {
+        percInput.value = percentual.toString().replace('.', ',');
+        maskPercent(percInput);
+        percInput.readOnly = true;
+        percInput.classList.add('bg-gray-100');
+        percInput.classList.remove('bg-gray-50');
+      }
     }
     calcValores();
     scheduleAtualizarPercentuais();
   }
 
   function selecionarParceiro(id, nome, percentual) {
-    els.parceiroBusca().value = nome;
-    els.parceiroHidden().value = id;
-    els.parceiroDropdown().classList.add('hidden');
+    if (els.parceiroHidden()) els.parceiroHidden().value = id;
+    setPiParticipantLabel('nome_parceiro_pi_selecionado', nome, true);
+    var modal = document.getElementById('pi_modal_escolher_parceiro');
+    if (modal) modal.close();
     atualizarAsteriscosContatos();
     carregarContatos(id, 'parceiro').then(function() { abrirContatosESinalizar('parceiro'); });
     if (percentual) {
       var percInput = els.percComissaoParc();
-      percInput.value = percentual.toString().replace('.', ',');
-      maskPercent(percInput);
-      percInput.readOnly = true;
-      percInput.classList.add('bg-gray-100');
-      percInput.classList.remove('bg-gray-50');
+      if (percInput) {
+        percInput.value = percentual.toString().replace('.', ',');
+        maskPercent(percInput);
+        percInput.readOnly = true;
+        percInput.classList.add('bg-gray-100');
+        percInput.classList.remove('bg-gray-50');
+      }
     }
     calcValores();
   }
-
-  els.clienteBusca().addEventListener('input', function(e) {
-    clearTimeout(debounceCliente);
-    els.clienteHidden().value = '';
-    resetContactSelects('cliente');
-    var termo = e.target.value.trim();
-    if (termo.length < 2) { els.clienteDropdown().classList.add('hidden'); return; }
-    debounceCliente = setTimeout(function() { buscarClientes(termo); }, DEBOUNCE_MS);
-  });
-
-  els.agenciaBusca().addEventListener('input', function(e) {
-    clearTimeout(debounceAgencia);
-    els.agenciaHidden().value = '';
-    resetContactSelects('agencia');
-    atualizarAsteriscosContatos();
-    var percInput = els.percComissaoAg();
-    percInput.readOnly = false;
-    percInput.classList.remove('bg-gray-100');
-    percInput.classList.add('bg-gray-50');
-    percInput.value = '';
-    calcValores();
-    scheduleAtualizarPercentuais();
-    var termo = e.target.value.trim();
-    if (termo.length < 2) { els.agenciaDropdown().classList.add('hidden'); return; }
-    debounceAgencia = setTimeout(function() { buscarAgencias(termo); }, DEBOUNCE_MS);
-  });
-
-  els.parceiroBusca().addEventListener('input', function(e) {
-    clearTimeout(debounceParceiro);
-    els.parceiroHidden().value = '';
-    resetContactSelects('parceiro');
-    atualizarAsteriscosContatos();
-    var percInput = els.percComissaoParc();
-    percInput.readOnly = false;
-    percInput.classList.remove('bg-gray-100');
-    percInput.classList.add('bg-gray-50');
-    percInput.value = '';
-    calcValores();
-    var termo = e.target.value.trim();
-    if (termo.length < 2) { els.parceiroDropdown().classList.add('hidden'); return; }
-    debounceParceiro = setTimeout(function() { buscarParceiros(termo); }, DEBOUNCE_MS);
-  });
-
-  document.addEventListener('click', function(e) {
-    var acItem = e.target.closest('.ac-item');
-    if (acItem) {
-      var id = parseInt(acItem.dataset.id);
-      var nome = acItem.dataset.nome;
-      var perc = acItem.dataset.percentual ? parseFloat(acItem.dataset.percentual) : null;
-      if (acItem.dataset.tipo === 'cliente') selecionarCliente(id, nome);
-      else if (acItem.dataset.tipo === 'agencia') selecionarAgencia(id, nome, perc);
-      else if (acItem.dataset.tipo === 'parceiro') selecionarParceiro(id, nome, perc);
-      return;
-    }
-    if (!e.target.closest('#input_cliente_busca') && !e.target.closest('#dropdown_clientes')) els.clienteDropdown().classList.add('hidden');
-    if (!e.target.closest('#input_agencia_busca') && !e.target.closest('#dropdown_agencias')) els.agenciaDropdown().classList.add('hidden');
-    if (!e.target.closest('#input_parceiro_busca') && !e.target.closest('#dropdown_parceiros')) els.parceiroDropdown().classList.add('hidden');
-  });
 
   document.getElementById('pi_form').addEventListener('submit', function(e) {
     if (!(PI_MODO === 'editar' && PI_VALORES_EDITAVEIS)) {
@@ -1899,12 +1957,16 @@
         calcValores();
       }
     }
-    if (!els.clienteHidden().value) {
+    if (!els.clienteHidden() || !els.clienteHidden().value) {
       e.preventDefault();
-      els.clienteBusca().focus();
-      els.clienteBusca().classList.add('border-red-400');
-      els.clienteBusca().classList.add('bg-red-50');
-      setTimeout(function() { els.clienteBusca().classList.remove('border-red-400', 'bg-red-50'); }, 3000);
+      var details = document.getElementById('details_contatos');
+      if (details) details.open = true;
+      var btnCli = els.btnBuscarCliente();
+      if (btnCli) {
+        btnCli.focus();
+        btnCli.classList.add('pi-participant-pick--error');
+        setTimeout(function() { btnCli.classList.remove('pi-participant-pick--error'); }, 3000);
+      }
       if (typeof showToast === 'function') showToast('Selecione um cliente', 'error');
       return;
     }
@@ -1938,13 +2000,13 @@
 
         if (data.success) {
           var link = document.createElement('a');
-          link.href = data.googled_pi_princ;
+          var portalPastas = '/cadu_pi/' + piId + '/arquivos/principal';
+          link.href = (data.googled_pi_princ && data.googled_pi_princ.indexOf('drive.google.com') !== -1)
+            ? data.googled_pi_princ
+            : portalPastas;
           link.target = '_blank';
           link.className = 'px-3 py-1.5 text-sm border border-blue-400 rounded hover:bg-blue-50 text-blue-600';
-          var pastasLabel = (data.storage_path || (data.googled_pi_princ && data.googled_pi_princ.indexOf('/arquivos/') !== -1))
-            ? '<i class="fas fa-folder-open mr-1"></i>Abrir pastas'
-            : '<i class="fab fa-google-drive mr-1"></i>Abrir Pastas';
-          link.innerHTML = pastasLabel;
+          link.innerHTML = '<i class="fas fa-folder-open mr-1"></i>Abrir pastas';
           btn.parentNode.replaceChild(link, btn);
           var btnProd = document.getElementById('btn_enviar_producao');
           if (btnProd && els.clienteHidden().value && document.querySelector('[name="codigo_pi_cc"]').value) {
@@ -1958,7 +2020,10 @@
         } else {
           btn.disabled = false;
           btn.innerHTML = originalHtml;
-          if (typeof showToast === 'function') showToast(data.message || 'Erro ao gerar pastas', 'error');
+          var errMsg = data.message || data.error || data.title || 'Erro ao gerar pastas';
+          if (data.hint) errMsg += ' ' + data.hint;
+          if (data.support_id) errMsg += ' (suporte: ' + data.support_id + ')';
+          if (typeof showToast === 'function') showToast(errMsg, 'error');
         }
       } catch (err) {
         console.error('Erro ao gerar pastas:', err);
@@ -1982,11 +2047,7 @@
     }
 
     if (!PI_SOMENTE_LEITURA) {
-    var execId = getExecutivoId();
-    if (execId || !USER_IS_EXECUTIVO) {
-      els.clienteBusca().disabled = false;
-      els.agenciaBusca().disabled = false;
-      }
+      onExecutivoChange();
     }
 
     if (els.percComissaoAg() && els.percComissaoAg().value) maskPercent(els.percComissaoAg());
@@ -2041,18 +2102,18 @@
       }
     }
 
-    var clienteId = els.clienteHidden().value;
+    var clienteId = els.clienteHidden() && els.clienteHidden().value;
     if (clienteId) {
-      els.clienteBusca().value = {{ (pi.cliente_nome if pi and pi.cliente_nome else '')|tojson }};
+      setPiParticipantLabel('nome_cliente_pi_selecionado', {{ (pi.cliente_nome if pi and pi.cliente_nome else 'Buscar cliente…')|tojson }}, true);
       await carregarContatos(clienteId, 'cliente',
         {{ (pi.contato_midia_cliente if pi and pi.contato_midia_cliente else '')|tojson }},
         {{ (pi.contato_fin_cliente if pi and pi.contato_fin_cliente else '')|tojson }}
       );
     }
 
-    var agenciaId = els.agenciaHidden().value;
+    var agenciaId = els.agenciaHidden() && els.agenciaHidden().value;
     if (agenciaId) {
-      els.agenciaBusca().value = {{ (pi.agencia_nome if pi and pi.agencia_nome else '')|tojson }};
+      setPiParticipantLabel('nome_agencia_pi_selecionado', {{ (pi.agencia_nome if pi and pi.agencia_nome else 'Buscar agência…')|tojson }}, true);
       els.percComissaoAg().readOnly = true;
       els.percComissaoAg().classList.add('bg-gray-100');
       els.percComissaoAg().classList.remove('bg-gray-50');
@@ -2062,9 +2123,9 @@
       );
     }
 
-    var parceiroId = els.parceiroHidden().value;
+    var parceiroId = els.parceiroHidden() && els.parceiroHidden().value;
     if (parceiroId) {
-      els.parceiroBusca().value = {{ (pi.parceiro_nome if pi and pi.parceiro_nome else '')|tojson }};
+      setPiParticipantLabel('nome_parceiro_pi_selecionado', {{ (pi.parceiro_nome if pi and pi.parceiro_nome else 'Buscar parceiro…')|tojson }}, true);
       els.percComissaoParc().readOnly = true;
       els.percComissaoParc().classList.add('bg-gray-100');
       els.percComissaoParc().classList.remove('bg-gray-50');
@@ -2080,6 +2141,10 @@
 
   window.carregarContatos = carregarContatos;
   window.abrirContatosESinalizar = abrirContatosESinalizar;
+  window.selecionarClientePI = selecionarCliente;
+  window.selecionarAgenciaPI = selecionarAgencia;
+  window.selecionarParceiroPI = selecionarParceiro;
+  window.atualizarAsteriscosContatos = atualizarAsteriscosContatos;
 })();
 </script>
 
@@ -2680,6 +2745,82 @@
 </script>
 {% endif %}
 
+<!-- Busca: cliente / agência / parceiro (painel lateral, padrão cotação) -->
+<dialog id="pi_modal_escolher_cliente" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar cliente</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="pi_busca_cliente_modal" placeholder="Nome, CNPJ ou razão social" autocomplete="off" onkeyup="buscarClientesModalPI()">
+      <button type="button" onclick="limparBuscaClienteModalPI()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="pi_resultados_cliente_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar clientes.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('pi_modal_escolher_cliente').close(); abrirModalNovoClientePI('cliente')">Novo cliente</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="pi_modal_escolher_agencia" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar agência</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="pi_busca_agencia_modal" placeholder="Nome da agência" autocomplete="off" onkeyup="buscarAgenciasModalPI()">
+      <button type="button" onclick="limparBuscaAgenciaModalPI()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="pi_resultados_agencia_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar agências.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('pi_modal_escolher_agencia').close(); abrirModalNovoClientePI('agencia')">Nova agência</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="pi_modal_escolher_parceiro" class="cot-sheet" onclick="if (event.target === this) this.close()">
+  <div class="cot-sheet-panel" role="document">
+    <div class="cot-sheet-head">
+      <div>
+        <p class="cot-sheet-kicker">Participantes</p>
+        <h3>Buscar parceiro</h3>
+      </div>
+      <button type="button" class="cot-sheet-close" onclick="this.closest('dialog').close()" aria-label="Fechar">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+    <div class="cot-sheet-search">
+      <input type="text" id="pi_busca_parceiro_modal" placeholder="Nome do parceiro regional" autocomplete="off" onkeyup="buscarParceirosModalPI()">
+      <button type="button" onclick="limparBuscaParceiroModalPI()" aria-label="Limpar busca"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="pi_resultados_parceiro_modal" class="cot-sheet-body">
+      <p class="cot-sheet-empty">Digite para buscar parceiros regionais.</p>
+    </div>
+    <div class="cot-sheet-foot">
+      <button type="button" class="cot-sheet-btn" onclick="this.closest('dialog').close()">Fechar</button>
+      <button type="button" class="cot-sheet-btn is-primary" onclick="document.getElementById('pi_modal_escolher_parceiro').close(); abrirModalNovoClientePI('parceiro')">Novo parceiro</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- Modal Criar Novo Cliente (PI) -->
 <dialog id="modal_novo_cliente_pi" class="cx-modal-shell">
   <div class="cx-modal-panel cx-modal-panel-lg w-10/12 max-w-4xl bg-white p-0 rounded-lg max-h-none overflow-visible">
@@ -3028,20 +3169,12 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
     var novoId = data.id_cliente;
     var nome = data.nome_fantasia || data.razao_social || 'Novo cliente';
 
-    if (contexto === 'cliente') {
-      document.getElementById('input_cliente_busca').value = nome;
-      document.getElementById('hidden_id_cliente').value = novoId;
-      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'cliente').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('cliente'); });
-    } else if (contexto === 'agencia') {
-      document.getElementById('input_agencia_busca').value = nome;
-      document.getElementById('hidden_id_agencia').value = novoId;
-      if (typeof atualizarAsteriscosContatos === 'function') atualizarAsteriscosContatos();
-      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'agencia').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('agencia'); });
-    } else if (contexto === 'parceiro') {
-      document.getElementById('input_parceiro_busca').value = nome;
-      document.getElementById('hidden_id_parceiro').value = novoId;
-      if (typeof atualizarAsteriscosContatos === 'function') atualizarAsteriscosContatos();
-      if (typeof carregarContatos === 'function') carregarContatos(novoId, 'parceiro').then(function() { if (typeof abrirContatosESinalizar === 'function') abrirContatosESinalizar('parceiro'); });
+    if (contexto === 'cliente' && typeof window.selecionarClientePI === 'function') {
+      window.selecionarClientePI(novoId, nome);
+    } else if (contexto === 'agencia' && typeof window.selecionarAgenciaPI === 'function') {
+      window.selecionarAgenciaPI(novoId, nome, null);
+    } else if (contexto === 'parceiro' && typeof window.selecionarParceiroPI === 'function') {
+      window.selecionarParceiroPI(novoId, nome, null);
     }
 
     if (typeof showToast === 'function') showToast(nome + ' cadastrado com sucesso!', 'success');
@@ -3056,7 +3189,7 @@ document.getElementById('ncpi_form').addEventListener('submit', async function(e
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/comunicacao_sidebar.js') }}?v=2"></script>
-<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=21"></script>
+<script src="{{ url_for('static', filename='js/cadu_pi_operacao.js') }}?v=23"></script>
 {% if pi and pi.id_pi %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {

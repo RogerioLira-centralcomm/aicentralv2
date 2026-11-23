@@ -13,6 +13,19 @@
 - Certificado SAN: `centralcomm-products` — ver [`deploy/configure_letsencrypt_products.sh`](deploy/configure_letsencrypt_products.sh).
 - Se o site mostrar certificado **Easypanel** ou **502** em HTTPS: [`deploy/HTTPS_RECOVERY.md`](deploy/HTTPS_RECOVERY.md).
 
+## 🔑 Git no servidor (sem pedir usuário no pull)
+
+Se aparecer `Username for 'https://github.com'`, o **PAT expirou** ou o `credential.helper` sumiu. Solução estável: **SSH + deploy key** (uma vez):
+
+```bash
+cd /var/www/aicentralv2
+bash deploy/setup_git_pull_ssh.sh   # gera chave, cadastre o .pub no GitHub, rode de novo
+git pull origin main
+./deploy.sh
+```
+
+Alternativa rápida (HTTPS): `git config --global credential.helper store`, depois um `git pull` com **PAT** no lugar da senha.
+
 ## 🚀 Deploy (Servidor)
 
 ### 1. Fazer backup (opcional, por segurança)

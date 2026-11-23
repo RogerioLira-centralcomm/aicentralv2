@@ -207,6 +207,16 @@
     });
   }
 
+  function normalizePercentualCampanhaExibicao(value) {
+    var n = parseBrlMoeda(value);
+    if (!n || n <= 0) return '';
+    if (n <= 1) n *= 100;
+    if (n >= 100 && Math.abs(n - Math.round(n)) < 0.001) {
+      return String(Math.round(n));
+    }
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   global.CampanhasUI = {
     CAMP_FLAG_STORAGE_KEY: CAMP_FLAG_STORAGE_KEY,
     CAMP_FLAG_ORDER: CAMP_FLAG_ORDER,
@@ -217,6 +227,7 @@
     buildProgressHtml: buildProgressHtml,
     parseVolume: parseVolume,
     parseBrlMoeda: parseBrlMoeda,
+    normalizePercentualCampanhaExibicao: normalizePercentualCampanhaExibicao,
     formatVolumeIntPtBR: formatVolumeIntPtBR,
     formatBrlPtBR: formatBrlPtBR,
     loadCampFlags: loadCampFlags,

@@ -862,9 +862,16 @@ let currentSidebarCamp = null;
       document.getElementById('custo_midia_orcado').value = rawParaFormatado(c.custo_midia_orcado, 'real');
       document.getElementById('id_centralx').value = c.id_centralx || '';
 
+      var fmtPct = (typeof CampanhasUI !== 'undefined' && CampanhasUI.normalizePercentualCampanhaExibicao)
+        ? CampanhasUI.normalizePercentualCampanhaExibicao.bind(CampanhasUI)
+        : function (v) { return v || ''; };
       ['perc_margem_cc','perc_tech_fee','perc_com_vendas','perc_pl_incentivos','perc_impostos'].forEach(function(k) {
         var el = document.getElementById(k);
-        if (el) el.value = c[k] || '';
+        if (el) el.value = fmtPct(c[k]) || '';
+      });
+      ['val_margem_cc','val_tech_fee','val_com_vendas','val_pl_incentivos','val_impostos'].forEach(function(k) {
+        var el = document.getElementById(k);
+        if (el && c[k]) el.value = rawParaFormatado(c[k], 'real');
       });
       if (typeof recalcPercValCampanha === 'function') recalcPercValCampanha();
 

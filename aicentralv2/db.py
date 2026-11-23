@@ -14332,6 +14332,239 @@ def parse_valor_monetario_para_float(valor):
         return 0.0
 
 
+_CAMPANHA_COMPOSICAO_PERC_KEYS = (
+    'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
+    'perc_pl_incentivos', 'perc_impostos',
+)
+_CAMPANHA_COMPOSICAO_VAL_KEYS = (
+    'val_margem_cc', 'val_tech_fee', 'val_com_vendas',
+    'val_pl_incentivos', 'val_impostos',
+)
+
+
+def parse_percentual_campanha_raw(valor):
+    """Lê percentual de string/número (vírgula BR, fração ou pontos)."""
+    if valor is None or valor == '':
+        return None
+    if isinstance(valor, (int, float, Decimal)):
+        try:
+            v = float(valor)
+        except (TypeError, ValueError):
+            return None
+        return v if v >= 0 else None
+    s = str(valor).strip().replace('%', '').replace(' ', '')
+    if not s:
+        return None
+    if ',' in s:
+        s = s.replace('.', '').replace(',', '.')
+    try:
+        return float(s)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalizar_percentual_campanha_pi(valor):
+    """Fração da cotação (0,25) ou pontos do PI (25) → pontos para fórmula ÷ 100."""
+    v = parse_percentual_campanha_raw(valor)
+    if v is None or v <= 0:
+        return None
+    if v <= 1:
+        return round(v * 100, 6)
+    return round(v, 6)
+
+
+def consolidar_composicao_financeira_campanha(data, pi=None):
+    """Normaliza % (cotação→campanha) e recalcula R$ = valor_plataforma × (perc÷100)."""
+    if not data:
+        return data
+
+    for k in _CAMPANHA_COMPOSICAO_PERC_KEYS:
+        raw = data.get(k)
+        if raw is None or str(raw).strip() == '':
+            continue
+        if parse_percentual_campanha_raw(raw) == 0:
+            data[k] = 0
+            continue
+        norm = normalizar_percentual_campanha_pi(raw)
+        if norm is not None:
+            data[k] = norm
+
+    vp = parse_valor_monetario_para_float(data.get('valor_plataforma'))
+    if vp > 0:
+        for pk, vk in zip(_CAMPANHA_COMPOSICAO_PERC_KEYS, _CAMPANHA_COMPOSICAO_VAL_KEYS):
+            pct_pts = parse_percentual_campanha_raw(data.get(pk))
+            if pct_pts is None:
+                continue
+            if pct_pts <= 0:
+                data[vk] = formatar_real_br(0)
+                continue
+            if pct_pts <= 1:
+                pct_pts = pct_pts * 100
+            data[vk] = formatar_real_br(round(vp * pct_pts / 100, 2))
+    return data
+
+
+def _snapshot_composicao_campanha(campos):
+    keys = ('valor_plataforma',) + _CAMPANHA_COMPOSICAO_PERC_KEYS + _CAMPANHA_COMPOSICAO_VAL_KEYS
+
+    def _norm(v, monetario=False):
+        if monetario:
+            return round(parse_valor_monetario_para_float(v), 2)
+        p = parse_percentual_campanha_raw(v)
+        return round(p, 6) if p is not None else None
+
+    return {
+        k: _norm(campos.get(k), k.startswith('val_') or k == 'valor_plataforma')
+        for k in keys
+    }
+
+
+def composicao_financeira_campanha_alterada(antes, depois):
+    return _snapshot_composicao_campanha(antes) != _snapshot_composicao_campanha(depois)
+
+
+def atualizar_campanha_pi_composicao_financeira(id_campanha, data):
+    """Atualiza apenas campos de composição financeira."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                UPDATE cadu_pi_campanha
+                SET valor_plataforma = %s,
+                    perc_margem_cc = %s,
+                    perc_tech_fee = %s,
+                    perc_com_vendas = %s,
+                    perc_pl_incentivos = %s,
+                    perc_impostos = %s,
+                    val_margem_cc = %s,
+                    val_tech_fee = %s,
+                    val_com_vendas = %s,
+                    val_pl_incentivos = %s,
+                    val_impostos = %s,
+                    updated_at = DATE_TRUNC('second', CURRENT_TIMESTAMP)
+                WHERE id_campanha = %s
+                ''',
+                (
+                    data.get('valor_plataforma'),
+                    data.get('perc_margem_cc'),
+                    data.get('perc_tech_fee'),
+                    data.get('perc_com_vendas'),
+                    data.get('perc_pl_incentivos'),
+                    data.get('perc_impostos'),
+                    data.get('val_margem_cc'),
+                    data.get('val_tech_fee'),
+                    data.get('val_com_vendas'),
+                    data.get('val_pl_incentivos'),
+                    data.get('val_impostos'),
+                    id_campanha,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+
+def campanha_composicao_financeira_inconsistente(campanha, pi=None):
+    """Detecta se consolidar alteraria % ou R$ (sem gravar)."""
+    if not campanha:
+        return False
+    work = dict(campanha)
+    antes = dict(campanha)
+    consolidar_composicao_financeira_campanha(work, pi=pi)
+    return composicao_financeira_campanha_alterada(antes, work)
+
+
+def listar_pis_composicao_campanha_inconsistente():
+    """PIs com ao menos uma campanha fora da fórmula VP × (%÷100)."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                '''
+                SELECT
+                    pi.id_pi,
+                    pi.codigo_pi_cc,
+                    pi.titulo_pi,
+                    cli.nome_fantasia AS cliente_nome,
+                    ssp.display AS sub_status,
+                    pi.id_sub_status_pi,
+                    COUNT(c.id_campanha) AS qtd_campanhas
+                FROM cadu_pi_campanha c
+                JOIN cadu_pi pi ON c.id_pi = pi.id_pi
+                LEFT JOIN tbl_cliente cli ON pi.id_cliente = cli.id_cliente
+                LEFT JOIN cadu_pi_sub_status ssp ON ssp.key = pi.id_sub_status_pi
+                GROUP BY pi.id_pi, pi.codigo_pi_cc, pi.titulo_pi, cli.nome_fantasia,
+                         ssp.display, pi.id_sub_status_pi
+                ORDER BY pi.codigo_pi_cc NULLS LAST, pi.id_pi
+                '''
+            )
+            candidatos = cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        raise e
+
+    pi_cache = {}
+    rows = []
+    for pi_row in candidatos or []:
+        id_pi = int(pi_row['id_pi'])
+        campanhas = obter_campanhas_pi({'id_pi': id_pi}) or []
+        if id_pi not in pi_cache:
+            pi_cache[id_pi] = obter_cadu_pi_por_id(id_pi)
+        inconsistentes = sum(
+            1 for c in campanhas
+            if campanha_composicao_financeira_inconsistente(c, pi=pi_cache[id_pi])
+        )
+        if inconsistentes <= 0:
+            continue
+        row = dict(pi_row)
+        row['qtd_campanhas_inconsistentes'] = inconsistentes
+        rows.append(row)
+    return rows
+
+
+def reparar_composicao_financeira_por_id_pi(id_pi):
+    """Repara explicitamente todas as campanhas do PI (uso manual; não roda na lista)."""
+    pi = obter_cadu_pi_por_id(int(id_pi))
+    if not pi:
+        return {'success': False, 'message': 'PI não encontrado', 'reparadas': 0}
+    campanhas = obter_campanhas_pi({'id_pi': int(id_pi)}) or []
+    reparadas = []
+    for c in campanhas:
+        antes = _snapshot_composicao_campanha(c)
+        reparar_composicao_financeira_campanha_registro(c, pi=pi)
+        depois = _snapshot_composicao_campanha(c)
+        if antes != depois:
+            reparadas.append(int(c['id_campanha']))
+    return {
+        'success': True,
+        'id_pi': int(id_pi),
+        'codigo_pi_cc': pi.get('codigo_pi_cc'),
+        'reparadas': len(reparadas),
+        'id_campanhas': reparadas,
+    }
+
+
+def reparar_composicao_financeira_campanha_registro(campanha, pi=None):
+    """Consolida composição e persiste se inconsistente (ex.: % em fração da cotação)."""
+    if not campanha or not campanha.get('id_campanha'):
+        return campanha
+    antes = dict(campanha)
+    if pi is None and campanha.get('id_pi'):
+        pi = obter_cadu_pi_por_id(int(campanha['id_pi']))
+    consolidar_composicao_financeira_campanha(campanha, pi=pi)
+    if not composicao_financeira_campanha_alterada(antes, campanha):
+        return campanha
+    patch = {
+        k: campanha.get(k)
+        for k in ('valor_plataforma',) + _CAMPANHA_COMPOSICAO_PERC_KEYS + _CAMPANHA_COMPOSICAO_VAL_KEYS
+    }
+    atualizar_campanha_pi_composicao_financeira(int(campanha['id_campanha']), patch)
+    return campanha
+
+
 def obter_id_plataforma_por_nome(nome_plataforma):
     """Resolve id_plataforma em cadu_pi_camp_plataforma pelo nome/descrição."""
     if not nome_plataforma or not str(nome_plataforma).strip():
@@ -14757,7 +14990,7 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
         or parse_valor_monetario_para_float(item.get('valor_unitario_tabela'))
     )
 
-    return {
+    dados = {
         'id_pi': id_pi,
         'id_cliente': cotacao.get('client_id'),
         'nome_campanha': nome,
@@ -14777,12 +15010,10 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
         'perc_com_vendas': item.get('perc_com_vendas'),
         'perc_pl_incentivos': item.get('perc_pl_incentivos'),
         'perc_impostos': item.get('perc_impostos'),
-        'val_margem_cc': formatar_real_br(item.get('val_margem_cc')),
-        'val_tech_fee': formatar_real_br(item.get('val_tech_fee')),
-        'val_com_vendas': formatar_real_br(item.get('val_com_vendas')),
-        'val_pl_incentivos': formatar_real_br(item.get('val_pl_incentivos')),
-        'val_impostos': formatar_real_br(item.get('val_impostos')),
     }
+    pi_ref = obter_cadu_pi_por_id(id_pi) if id_pi else None
+    consolidar_composicao_financeira_campanha(dados, pi=pi_ref)
+    return dados
 
 
 def criar_campanhas_pi_de_cotacao(id_pi, cotacao, linhas=None, audiencias=None):
@@ -17620,6 +17851,9 @@ def obter_campanha_pi_por_id(id_campanha):
 
 def criar_campanha_pi(data):
     """Cria uma nova campanha PI"""
+    data = dict(data or {})
+    pi = obter_cadu_pi_por_id(data.get('id_pi')) if data.get('id_pi') else None
+    consolidar_composicao_financeira_campanha(data, pi=pi)
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -17726,6 +17960,14 @@ def atualizar_pi_valores_plataforma(id_pi, vr_liquido_pi, total_platafor_max_pi)
 
 def atualizar_campanha_pi(id_campanha, data):
     """Atualiza uma campanha PI existente"""
+    data = dict(data or {})
+    id_pi = data.get('id_pi')
+    if id_pi is None:
+        atual = obter_campanha_pi_por_id(id_campanha)
+        if atual:
+            id_pi = atual.get('id_pi')
+    pi = obter_cadu_pi_por_id(id_pi) if id_pi else None
+    consolidar_composicao_financeira_campanha(data, pi=pi)
     conn = get_db()
     try:
         with conn.cursor() as cursor:

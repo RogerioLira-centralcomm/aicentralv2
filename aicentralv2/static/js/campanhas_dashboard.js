@@ -126,8 +126,11 @@
       setField("quick_totalizador_atingido", campaign.totalizador_atingido);
       setField("quick_totalizador_gasto", formatMoneyInput(campaign.totalizador_gasto));
       setField("quick_link_dash", campaign.link_dash);
+      var fmtPct = (typeof CampanhasUI !== "undefined" && CampanhasUI.normalizePercentualCampanhaExibicao)
+        ? CampanhasUI.normalizePercentualCampanhaExibicao
+        : function (v) { return v; };
       ["perc_margem_cc", "perc_tech_fee", "perc_com_vendas", "perc_pl_incentivos", "perc_impostos"].forEach(function (field) {
-        setField("quick_" + field, campaign[field]);
+        setField("quick_" + field, fmtPct(campaign[field]));
       });
       ["val_margem_cc", "val_tech_fee", "val_com_vendas", "val_pl_incentivos", "val_impostos"].forEach(function (field) {
         setField("quick_" + field, formatMoneyInput(campaign[field]));

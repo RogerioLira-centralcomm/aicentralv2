@@ -86,6 +86,14 @@
     });
   });
 
+  function normalizePercentForDisplay(value) {
+    var n = parseNumber(value);
+    if (!n || n <= 0) return value || '';
+    if (n <= 1) n *= 100;
+    if (n >= 100 && Math.abs(n - Math.round(n)) < 0.001) return String(Math.round(n));
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   var financialPairs = [
     ['perc_margem_cc', 'val_margem_cc'],
     ['perc_tech_fee', 'val_tech_fee'],
@@ -117,7 +125,9 @@
 
   financialPairs.forEach(function (pair) {
     var input = document.getElementById(pair[0]);
-    if (input) input.addEventListener('input', recalculateFinancials);
+    if (!input) return;
+    if (input.value) input.value = normalizePercentForDisplay(input.value);
+    if (!readOnly) input.addEventListener('input', recalculateFinancials);
   });
   var platformInput = document.getElementById('valor_plataforma');
   if (platformInput) platformInput.addEventListener('input', recalculateFinancials);

@@ -13483,12 +13483,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         'R$ 1.234,56' em todas as colunas monetárias da campanha PI."""
         return db.formatar_real_br(value)
 
+    def _parse_perc_campanha_form(value):
+        if value is None or not str(value).strip():
+            return None
+        return db.normalizar_percentual_campanha_pi(value)
+
     def _extrair_dados_campanha():
         """Extrai dados do formulário de campanha PI"""
         periodo_inicio = request.form.get('periodo_inicio') or None
         mes_ref = periodo_inicio or None
         mes_ref_comp = db.formatar_mes_ref_comp(periodo_inicio)
-        return {
+        data = {
             'id_pi': request.form.get('id_pi', type=int),
             'id_cliente': request.form.get('id_cliente', type=int),
             'link_dash': request.form.get('link_dash', '').strip() or None,
@@ -13510,7 +13515,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             'id_plataforma': request.form.get('id_plataforma', type=int),
             'id_responsavel_operacao': request.form.get('id_responsavel_operacao', type=int),
             **{
-                _k: (request.form.get(_k, '').strip() or None)
+                _k: _parse_perc_campanha_form(request.form.get(_k))
                 for _k in (
                     'perc_margem_cc', 'perc_tech_fee', 'perc_com_vendas',
                     'perc_pl_incentivos', 'perc_impostos',
@@ -13524,6 +13529,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 )
             },
         }
+        id_pi = data.get('id_pi')
+        pi_ref = db.obter_cadu_pi_por_id(int(id_pi)) if id_pi else None
+        db.consolidar_composicao_financeira_campanha(data, pi=pi_ref)
+        return data
 
     def _preservar_valores_campanha_pi(data, campanha_atual):
         """Evita que campos existentes sejam sobrescritos por vazio/ausente no formulário de edição."""
@@ -13678,9 +13687,10 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             for campanha in campanhas_ativas:
                 campanha['edit_payload'] = serializar_para_json(campanha)
 
+            encerradas_raw = db.obter_campanhas_dashboard_encerradas(5) or []
             ultimas_encerradas = [
                 _anexar_preco_metrica_campanha(c)
-                for c in (db.obter_campanhas_dashboard_encerradas(5) or [])
+                for c in encerradas_raw
             ]
             for campanha in ultimas_encerradas:
                 campanha['edit_payload'] = serializar_para_json(campanha)

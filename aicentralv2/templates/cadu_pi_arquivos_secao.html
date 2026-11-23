@@ -1,45 +1,89 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <title>Arquivos do PI — {{ secao_label }}</title>
-  <style>
-    body { font: 15px/1.5 system-ui, sans-serif; margin: 2rem; color: #1f2937; }
-    h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
-    .meta { color: #6b7280; margin-bottom: 1rem; }
-    table { border-collapse: collapse; width: 100%; max-width: 720px; }
-    th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e5e7eb; }
-    .path { font-family: ui-monospace, monospace; font-size: 13px; background: #f3f4f6; padding: .75rem; border-radius: 6px; }
-    form { margin: 1.25rem 0; }
-  </style>
-</head>
-<body>
-  <h1>{{ pi.codigo_pi_cc or ('PI ' ~ pi.id_pi) }} — {{ secao_label }}</h1>
-  <p class="meta">Pasta no servidor (acesso autenticado).</p>
+{% extends 'base_erp.html' %}
+
+{% block title %}Arquivos do PI · {{ pi.codigo_pi_cc or pi.id_pi }} — {{ secao_label }} - CentralComm{% endblock %}
+{% block page_label %}Arquivos do PI{% endblock %}
+{% block page_subtitle %}Área logada — servidor CentralComm{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pi-operacao.css') }}?v=27">
+<style>
+  .pi-arq-banner {
+    margin: 0 0 1.25rem;
+    padding: .75rem 1rem;
+    border-radius: 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: 14px;
+  }
+  .pi-arq-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .pi-arq-tabs a {
+    padding: .4rem .85rem;
+    border-radius: 6px;
+    font-size: 13px;
+    text-decoration: none;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+  }
+  .pi-arq-tabs a.is-active { background: #111827; color: #fff; border-color: #111827; }
+  .pi-arq-table { width: 100%; max-width: 800px; border-collapse: collapse; }
+  .pi-arq-table th, .pi-arq-table td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+  .pi-arq-path { font-family: ui-monospace, monospace; font-size: 12px; color: #6b7280; margin-top: .5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+  <div class="flex items-center gap-3 mb-4">
+    <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="text-sm text-blue-600 hover:underline">
+      <i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar ao PI
+    </a>
+  </div>
+
+  <div class="pi-arq-banner" role="status">
+    <strong>Acesso da equipe.</strong> Você está na área logada do Central. Clientes usam o link público da campanha, não esta URL.
+  </div>
+
+  <h1 class="text-xl font-semibold text-gray-900 mb-1">
+    {{ pi.codigo_pi_cc or ('PI ' ~ pi.id_pi) }} — {{ secao_label }}
+  </h1>
+
+  <nav class="pi-arq-tabs" aria-label="Pastas do PI">
+    {% for key, label in secao_labels.items() %}
+      <a href="{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao=key) }}"
+         class="{% if key == secao %}is-active{% endif %}">{{ label }}</a>
+    {% endfor %}
+  </nav>
+
   {% if storage_path %}
-  <p class="path" title="Caminho no disco">{{ storage_path }}</p>
+  <p class="pi-arq-path" title="Caminho no servidor (debug)">{{ storage_path }}</p>
   {% endif %}
 
-  <form method="post" enctype="multipart/form-data">
-    <label>Enviar arquivo <input type="file" name="arquivo" required></label>
-    <button type="submit">Upload</button>
+  <form method="post" enctype="multipart/form-data" class="my-4 flex flex-wrap items-center gap-2">
+    <label class="text-sm text-gray-700">
+      Enviar arquivo
+      <input type="file" name="arquivo" required class="ml-2 text-sm">
+    </label>
+    <button type="submit" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md">Upload</button>
   </form>
 
   {% if arquivos %}
-  <table>
+  <table class="pi-arq-table">
     <thead><tr><th>Arquivo</th><th>Tamanho</th><th></th></tr></thead>
     <tbody>
       {% for item in arquivos %}
       <tr>
         <td>{{ item.name }}</td>
         <td>{{ item.size }} bytes</td>
-        <td><a href="{{ url_for('cadu_pi_arquivo_download', id_pi=pi.id_pi, secao=secao, filename=item.name) }}">Baixar</a></td>
+        <td>
+          <a href="{{ url_for('cadu_pi_arquivo_download', id_pi=pi.id_pi, secao=secao, filename=item.name) }}">Baixar</a>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <p>Nenhum arquivo nesta pasta ainda.</p>
+  <p class="text-gray-600 text-sm">Nenhum arquivo nesta pasta ainda.</p>
   {% endif %}
-</body>
-</html>
+</div>
+{% endblock %}

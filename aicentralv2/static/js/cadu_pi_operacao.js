@@ -1219,6 +1219,54 @@
         : null;
     }
 
+    function renderLocalFileList(arquivos, openUrl) {
+      if (!arquivos || !arquivos.length) {
+        return '<div class="pi-op-state">Pasta no servidor (área logada). Nenhum arquivo ainda. ' +
+          '<a href="' + esc(openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir pasta para enviar arquivos</a>.</div>';
+      }
+      var rows = arquivos.map(function (item) {
+        return '<li>' + esc(item.name || '') + '</li>';
+      }).join('');
+      return '<div class="pi-op-state"><p>Arquivos nesta pasta:</p><ul class="pi-drive-file-list">' + rows +
+        '</ul><p><a href="' + esc(openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir pasta na área logada</a> (upload e download).</p></div>';
+    }
+
+    function loadLocalFolder(button, raw, openUrl) {
+      var piId = dialog.dataset.piId || (root && root.dataset.piId);
+      var secao = button.getAttribute('data-drive-tab') || 'principal';
+      var sameOrigin = true;
+      try {
+        var parsedUrl = new URL(raw, window.location.origin);
+        sameOrigin = parsedUrl.origin === window.location.origin;
+      } catch (_) {
+        sameOrigin = !raw || raw.charAt(0) === '/';
+      }
+      if (!sameOrigin || !piId) {
+        content.innerHTML = '<div class="pi-op-state">Arquivos ficam em produção (área logada). ' +
+          '<a href="' + esc(openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir pasta em nova aba</a> ' +
+          '— faça login em ai.centralcomm.media se ainda não estiver.</div>';
+        return;
+      }
+      content.innerHTML = '<div class="pi-op-state pi-op-state--loading"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Carregando…</div>';
+      fetch('/api/cadu_pi/' + piId + '/arquivos/' + encodeURIComponent(secao), {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+      }).then(function (resp) { return resp.json().then(function (data) { return { resp: resp, data: data }; }); })
+        .then(function (pair) {
+          if (pair.resp.ok && pair.data && pair.data.success) {
+            content.innerHTML = renderLocalFileList(pair.data.arquivos || [], openUrl);
+            return;
+          }
+          var msg = (pair.data && pair.data.message) ? esc(pair.data.message) : 'Não foi possível listar os arquivos.';
+          content.innerHTML = '<div class="pi-op-state">' + msg + ' ' +
+            '<a href="' + esc(openUrl) + '" target="_blank" rel="noopener noreferrer">Tentar abrir a pasta</a>.</div>';
+        })
+        .catch(function () {
+          content.innerHTML = '<div class="pi-op-state">Erro ao carregar. ' +
+            '<a href="' + esc(openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir pasta</a>.</div>';
+        });
+    }
+
     function showTab(button) {
       dialog.querySelectorAll('[data-drive-tab]').forEach(function (tab) {
         tab.setAttribute('aria-selected', tab === button ? 'true' : 'false');
@@ -1229,14 +1277,15 @@
       var localStorage = isLocalPiStorage(raw);
       external.hidden = !(hasDriveLink || localStorage);
       external.href = (hasDriveLink || localStorage) ? raw : '#';
+      if (localStorage && external) {
+        external.textContent = 'Abrir pasta';
+        external.innerHTML = '<i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Abrir pasta';
+      }
       var embedded = embedUrl(raw);
       if (!raw) {
         content.innerHTML = '<div class="pi-op-state">Esta pasta ainda não foi gerada.</div>';
       } else if (localStorage) {
-        content.innerHTML = '<div class="pi-op-state">Arquivos no servidor. ' +
-          '<a href="' + esc(raw) + '" target="_blank" rel="noopener noreferrer">Abrir pasta</a>' +
-          (/\/campanha\/p\//i.test(raw) ? ' (acesso público pelo link).' : ' (login necessário).') +
-          '</div>';
+        loadLocalFolder(button, raw, raw);
       } else if (!embedded) {
         content.innerHTML = errorHtml('O endereço informado não é uma pasta permitida do Google Drive.');
       } else {

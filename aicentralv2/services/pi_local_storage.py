@@ -211,10 +211,78 @@ def is_local_arquivos_url(url: str | None) -> bool:
     return "/cadu_pi/" in text or "/campanha/p/" in text
 
 
+def is_portal_arquivos_url(url: str | None) -> bool:
+    """URL da equipe (login obrigatório): /cadu_pi/<id>/arquivos/<secao>."""
+    text = str(url or "").strip().lower()
+    return "/cadu_pi/" in text and "/arquivos/" in text
+
+
+def sincronizar_urls_pastas_equipe(pi: dict) -> dict[str, str] | None:
+    """
+    Atualiza googled_pi_* para rotas logadas quando o cadastro ainda aponta
+    para /campanha/p/... (link público do cliente).
+    """
+    from aicentralv2 import db
+
+    id_pi = int(pi.get("id_pi") or 0)
+    if id_pi <= 0 or not use_local_pastas():
+        return None
+    if not is_local_arquivos_url(pi.get("googled_pi_princ")):
+        return None
+
+    precisa = False
+    for secao in SECOES:
+        campo = _SECAO_PARA_CAMPO[secao]
+        atual = (pi.get(campo) or "").strip()
+        if atual and not is_portal_arquivos_url(atual):
+            precisa = True
+            break
+    if not precisa:
+        return None
+
+    urls = {
+        _SECAO_PARA_CAMPO[secao]: arquivos_url_equipe_pi(id_pi, secao) for secao in SECOES
+    }
+    db.atualizar_cadu_pi_gdrive(
+        id_pi,
+        urls["googled_pi_princ"],
+        urls["googled_pi_financ"],
+        urls["googled_pi_pecas"],
+        urls["googled_pi_arq_ass"],
+    )
+    logger.info("PI %s: links de pasta atualizados para área logada (/cadu_pi/).", id_pi)
+    return urls
+
+
+def url_arquivos_para_cliente(pi: dict, secao: str, url_salva: str | None = None) -> str:
+    """
+    Link de arquivos para o cliente (página pública / e-mail).
+    Não expõe /cadu_pi/... — usa token em /campanha/p/... quando o armazenamento é local.
+    """
+    campo = _SECAO_PARA_CAMPO.get(secao)
+    url = (url_salva or (pi.get(campo) if campo else None) or "").strip()
+    if not url:
+        return ""
+    lower = url.lower()
+    if "drive.google.com" in lower:
+        return url
+    if is_local_arquivos_url(url):
+        if is_portal_arquivos_url(url) or "/campanha/p/" in lower:
+            try:
+                return arquivos_url_publica_pi(pi, secao)
+            except PiLocalStorageError:
+                return url
+        try:
+            return arquivos_url_publica_pi(pi, secao)
+        except PiLocalStorageError:
+            return url
+    return url
+
+
 def arquivos_url_publica_pi(pi: dict, secao: str) -> str:
     """
     URL de arquivos sem login (mesmo token do link público de acompanhamento).
-    Usada em googled_pi_* para e-mail Brevo e página pública.
+    Somente cliente / Brevo / área pública — não usar para atalhos da equipe.
     """
     from aicentralv2 import db
 
@@ -249,12 +317,29 @@ def arquivos_url_publica_pi(pi: dict, secao: str) -> str:
 
 def _portal_url(id_pi: int, secao: str, *, external: bool = True) -> str:
     """Rota autenticada (equipe): upload no Central logado."""
+    if pi_local_disk_disabled():
+        base = _public_base_for_pi_files()
+        return f"{base}/cadu_pi/{int(id_pi)}/arquivos/{secao}"
     if not has_request_context():
         base = (os.getenv("BASE_URL") or os.getenv("CENTRALX_URL") or "").rstrip("/")
-        if base:
+        if base and "localhost" not in base.lower():
             return f"{base}/cadu_pi/{id_pi}/arquivos/{secao}"
-        return f"/cadu_pi/{id_pi}/arquivos/{secao}"
-    return url_for("cadu_pi_arquivos_secao", id_pi=id_pi, secao=secao, _external=external)
+        base = _public_base_for_pi_files()
+        return f"{base}/cadu_pi/{int(id_pi)}/arquivos/{secao}"
+    try:
+        return url_for("cadu_pi_arquivos_secao", id_pi=id_pi, secao=secao, _external=external)
+    except Exception as exc:
+        logger.warning("url_for cadu_pi_arquivos_secao falhou: %s", exc)
+        base = _public_base_for_pi_files()
+        return f"{base}/cadu_pi/{int(id_pi)}/arquivos/{secao}"
+
+
+def arquivos_url_equipe_pi(id_pi: int, secao: str) -> str:
+    """URL das pastas para a equipe (login). Usada ao gerar pastas no disco."""
+    secao = str(secao or "").strip().lower()
+    if secao not in SECOES:
+        raise PiLocalStorageError(f"Seção inválida: {secao}")
+    return _portal_url(int(id_pi), secao)
 
 
 def gerar_pastas_local_pi(pi: dict, *, strict: bool = False) -> dict[str, str]:
@@ -301,7 +386,7 @@ def gerar_pastas_local_pi(pi: dict, *, strict: bool = False) -> dict[str, str]:
                 pi_storage_ssh.posix_path(folder, "LEIA-ME.txt"),
                 readme_text(secao),
             )
-            urls[_SECAO_PARA_CAMPO[secao]] = arquivos_url_publica_pi(pi, secao)
+            urls[_SECAO_PARA_CAMPO[secao]] = arquivos_url_equipe_pi(id_pi, secao)
         storage_path = base
     else:
         base_path = pi_storage_dir(pi)
@@ -311,8 +396,11 @@ def gerar_pastas_local_pi(pi: dict, *, strict: bool = False) -> dict[str, str]:
             readme = folder / "LEIA-ME.txt"
             if not readme.exists():
                 readme.write_text(readme_text(secao), encoding="utf-8")
-            urls[_SECAO_PARA_CAMPO[secao]] = arquivos_url_publica_pi(pi, secao)
+            urls[_SECAO_PARA_CAMPO[secao]] = arquivos_url_equipe_pi(id_pi, secao)
         storage_path = str(base_path)
+
+    pi_com_urls = {**pi, **urls}
+    exigir_pastas_pi_acessiveis(pi_com_urls)
 
     db.atualizar_cadu_pi_gdrive(
         id_pi,
@@ -330,7 +418,6 @@ def gerar_pastas_local_pi(pi: dict, *, strict: bool = False) -> dict[str, str]:
 
     result = dict(urls)
     result["storage_path"] = storage_path
-    exigir_pastas_pi_acessiveis({**pi, **urls})
     return result
 
 

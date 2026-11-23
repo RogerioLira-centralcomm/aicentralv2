@@ -321,6 +321,19 @@ def _pi_somente_leitura(pi):
     return _pi_em_faturamento(pi) or _pi_cancelado(pi)
 
 
+def _pi_garantir_urls_arquivos_equipe(pi):
+    """Corrigir googled_pi_* legados (link público) → rotas /cadu_pi/... da equipe."""
+    if not pi:
+        return pi
+    from aicentralv2.services.pi_local_storage import sincronizar_urls_pastas_equipe
+
+    if sincronizar_urls_pastas_equipe(pi):
+        id_pi = pi.get('id_pi')
+        if id_pi:
+            return db.obter_cadu_pi_por_id(id_pi) or pi
+    return pi
+
+
 def _pi_valor_monetario_vazio(valor):
     if valor is None or str(valor).strip() == '':
         return True
@@ -11353,6 +11366,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                 return redirect(url_for('cadu_pi_lista', id_sub_status_pi=sub_status))
 
             return_url = _extrair_return_url(request.referrer or '', '/editar')
+            pi = _pi_garantir_urls_arquivos_equipe(pi)
             auxiliares = _carregar_auxiliares_pi(pi.get('tipo_de_contrato'))
             auxiliares.update(_carregar_auxiliares_campanha())
             return render_template(
@@ -11871,19 +11885,34 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if not pi.get('codigo_pi_cc'):
                 return jsonify({'success': False, 'message': 'PI sem código (codigo_pi_cc)'}), 400
 
-            pastas = gerar_pastas_drive_pi(pi, strict=True)
-            numero = pi.get('codigo_pi_cc', '')
-
-            registrar_auditoria(
-                acao='UPDATE',
-                modulo='cadu_pi',
-                descricao=f'Pastas do PI geradas para {numero}',
-                registro_id=id_pi,
-                registro_tipo='cadu_pi',
-                dados_novos=pastas,
+            from aicentralv2.services.pi_local_storage import (
+                PiLocalStorageError,
+                diagnosticar_pastas_pi,
             )
 
-            from aicentralv2.services.pi_local_storage import diagnosticar_pastas_pi
+            try:
+                pastas = gerar_pastas_drive_pi(pi, strict=True)
+            except PiLocalStorageError as loc_err:
+                raise PiMakeWebhookError(str(loc_err)) from loc_err
+            except OSError as os_err:
+                raise PiMakeWebhookError(
+                    f'Sem permissão para criar pastas no servidor ({os_err}). '
+                    'Confira PI_UPLOAD_ROOT e permissões do usuário do gunicorn.'
+                ) from os_err
+
+            numero = pi.get('codigo_pi_cc', '')
+
+            try:
+                registrar_auditoria(
+                    acao='UPDATE',
+                    modulo='cadu_pi',
+                    descricao=f'Pastas do PI geradas para {numero}',
+                    registro_id=id_pi,
+                    registro_tipo='cadu_pi',
+                    dados_novos=pastas,
+                )
+            except Exception as aud_exc:
+                app.logger.warning('Auditoria pastas PI ignorada: %s', aud_exc)
 
             pi_atual = db.obter_cadu_pi_por_id(id_pi) or pi
             diag = diagnosticar_pastas_pi(pi_atual)
@@ -11902,8 +11931,25 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             return jsonify(payload)
         except PiMakeWebhookError as wh_err:
             app.logger.error(f"Erro ao gerar pastas do PI: {wh_err}")
-            status = 502 if 'webhook' in str(wh_err).lower() else 400
-            return jsonify({'success': False, 'message': str(wh_err)}), status
+            msg = str(wh_err)
+            status = 502 if 'webhook' in msg.lower() else 400
+            payload = {'success': False, 'message': msg}
+            if 'servidor Linux' in msg or 'não neste PC' in msg:
+                payload['error_code'] = 'pi_files_server_only'
+                payload['hint'] = (
+                    'Gere as pastas em https://ai.centralcomm.media (app em produção), '
+                    'não no run.py local do Windows.'
+                )
+            else:
+                from aicentralv2.services.pi_local_storage import diagnosticar_pastas_pi
+
+                try:
+                    pi_diag = db.obter_cadu_pi_por_id(id_pi)
+                    if pi_diag:
+                        payload['pastas_status'] = diagnosticar_pastas_pi(pi_diag)
+                except Exception:
+                    pass
+            return jsonify(payload), status
         except Exception as e:
             app.logger.error(f"Erro ao gerar pastas do PI: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
@@ -11924,12 +11970,41 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         pi = db.obter_cadu_pi_por_id(id_pi)
         if not pi:
             return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+        pi = _pi_garantir_urls_arquivos_equipe(pi)
         diag = diagnosticar_pastas_pi(pi)
+        upload_root = ''
+        try:
+            upload_root = str(pi_upload_root())
+        except Exception:
+            upload_root = diag.get('storage_path') or ''
         return jsonify({
             'success': bool(diag.get('ok')),
-            'upload_root': str(pi_upload_root()),
+            'upload_root': upload_root,
+            'acesso_equipe': url_for('cadu_pi_arquivos_secao', id_pi=id_pi, secao='principal'),
             **diag,
         })
+
+    @app.route('/api/cadu_pi/<int:id_pi>/arquivos/sincronizar-urls', methods=['POST'])
+    @login_required
+    def api_cadu_pi_arquivos_sincronizar_urls(id_pi):
+        """Atualiza googled_pi_* para URLs da área logada (/cadu_pi/...)."""
+        from aicentralv2.services.pi_local_storage import (
+            arquivos_url_equipe_pi,
+            sincronizar_urls_pastas_equipe,
+        )
+
+        pi = db.obter_cadu_pi_por_id(id_pi)
+        if not pi:
+            return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+        urls = sincronizar_urls_pastas_equipe(pi)
+        if not urls:
+            urls = {
+                'googled_pi_princ': pi.get('googled_pi_princ') or arquivos_url_equipe_pi(id_pi, 'principal'),
+                'googled_pi_financ': pi.get('googled_pi_financ') or arquivos_url_equipe_pi(id_pi, 'financeiro'),
+                'googled_pi_pecas': pi.get('googled_pi_pecas') or arquivos_url_equipe_pi(id_pi, 'pecas'),
+                'googled_pi_arq_ass': pi.get('googled_pi_arq_ass') or arquivos_url_equipe_pi(id_pi, 'assinados'),
+            }
+        return jsonify({'success': True, 'urls': urls, 'portal_principal': urls.get('googled_pi_princ')})
 
     @app.route('/cadu_pi/<int:id_pi>/arquivos/<secao>', methods=['GET', 'POST'])
     @login_required
@@ -11950,6 +12025,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         if not pi:
             return 'PI não encontrado', 404
 
+        pi = _pi_garantir_urls_arquivos_equipe(pi)
+
         if request.method == 'POST':
             arquivo = request.files.get('arquivo')
             try:
@@ -11964,7 +12041,17 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             if app.config.get('DEBUG'):
                 storage_path = str(pi_storage_dir(pi))
         except PiLocalStorageError as exc:
-            return str(exc), 400
+            app.logger.warning('arquivos_secao pi=%s secao=%s: %s', id_pi, secao, exc)
+            if request.accept_mimetypes.best == 'application/json':
+                return jsonify({'success': False, 'message': str(exc)}), 400
+            flash(str(exc), 'error')
+            return redirect(url_for('cadu_pi_editar', id_pi=id_pi))
+        except Exception as exc:
+            app.logger.error('arquivos_secao pi=%s: %s', id_pi, exc, exc_info=True)
+            if request.accept_mimetypes.best == 'application/json':
+                return jsonify({'success': False, 'message': 'Erro ao abrir pastas do PI.'}), 500
+            flash('Erro ao abrir pastas do PI. Gere as pastas no servidor de produção.', 'error')
+            return redirect(url_for('cadu_pi_editar', id_pi=id_pi))
 
         if request.accept_mimetypes.best == 'application/json':
             return jsonify({
@@ -11980,6 +12067,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             pi=pi,
             secao=secao,
             secao_label=_PI_SECAO_LABELS[secao],
+            secao_labels=_PI_SECAO_LABELS,
             arquivos=arquivos,
             storage_path=storage_path if app.config.get('DEBUG') else None,
         )
@@ -12001,6 +12089,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         pi = db.obter_cadu_pi_por_id(id_pi)
         if not pi:
             return jsonify({'success': False, 'message': 'PI não encontrado'}), 404
+
+        pi = _pi_garantir_urls_arquivos_equipe(pi)
 
         if request.method == 'POST':
             try:

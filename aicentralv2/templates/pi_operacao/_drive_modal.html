@@ -1,10 +1,12 @@
 {% if modo == 'editar' and pi %}
-<dialog id="modal_arquivos_pi" class="pi-drive-dialog" aria-labelledby="pi-drive-title">
+{% set pi_arq_local = pi.googled_pi_princ and 'drive.google.com' not in (pi.googled_pi_princ|lower) and '/arquivos/' in pi.googled_pi_princ %}
+{% set pi_arq_base = 'https://ai.centralcomm.media' if APP_CONFIG.get('PI_FILES_SERVER_ONLY') else '' %}
+<dialog id="modal_arquivos_pi" class="pi-drive-dialog" aria-labelledby="pi-drive-title" data-pi-id="{{ pi.id_pi }}">
   <div class="pi-drive-modal">
     <header class="pi-drive-modal__header">
       <div>
-        <span class="pi-op-eyebrow">Google Drive</span>
-        <h2 id="pi-drive-title">Arquivos do PI</h2>
+        <span class="pi-op-eyebrow">Central · login obrigatório</span>
+        <h2 id="pi-drive-title">Arquivos do PI (servidor)</h2>
       </div>
       <button type="button" class="pi-op-icon-btn" data-drive-close aria-label="Fechar arquivos do PI">
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -12,13 +14,13 @@
     </header>
     <div class="pi-drive-tabs" role="tablist" aria-label="Pastas do PI">
       <button type="button" role="tab" aria-selected="true" data-drive-tab="principal"
-        data-drive-url="{{ pi.googled_pi_princ or '' }}">Principal</button>
+        data-drive-url="{% if pi_arq_local %}{{ pi_arq_base }}{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao='principal') }}{% else %}{{ pi.googled_pi_princ or '' }}{% endif %}">Principal</button>
       <button type="button" role="tab" aria-selected="false" data-drive-tab="financeiro"
-        data-drive-url="{{ pi.googled_pi_financ or '' }}">Financeiro</button>
+        data-drive-url="{% if pi_arq_local %}{{ pi_arq_base }}{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao='financeiro') }}{% else %}{{ pi.googled_pi_financ or '' }}{% endif %}">Financeiro</button>
       <button type="button" role="tab" aria-selected="false" data-drive-tab="pecas"
-        data-drive-url="{{ pi.googled_pi_pecas or '' }}">Peças</button>
+        data-drive-url="{% if pi_arq_local %}{{ pi_arq_base }}{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao='pecas') }}{% else %}{{ pi.googled_pi_pecas or '' }}{% endif %}">Peças</button>
       <button type="button" role="tab" aria-selected="false" data-drive-tab="assinados"
-        data-drive-url="{{ pi.googled_pi_arq_ass or '' }}">Assinados</button>
+        data-drive-url="{% if pi_arq_local %}{{ pi_arq_base }}{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao='assinados') }}{% else %}{{ pi.googled_pi_arq_ass or '' }}{% endif %}">Assinados</button>
     </div>
     <div id="pi-drive-content" class="pi-drive-content" role="tabpanel" tabindex="0">
       <div class="pi-op-state pi-op-state--loading">
@@ -28,7 +30,7 @@
     </div>
     <footer class="pi-drive-modal__footer">
       <a id="pi-drive-external" href="#" target="_blank" rel="noopener noreferrer" class="pi-op-btn pi-op-btn--secondary" hidden>
-        <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir no Drive
+        <i class="fa-solid fa-folder-open" aria-hidden="true"></i>Abrir pasta na área logada
       </a>
       <button type="button" class="pi-op-btn pi-op-btn--primary" data-drive-close>Fechar</button>
     </footer>

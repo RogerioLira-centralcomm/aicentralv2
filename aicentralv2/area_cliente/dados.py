@@ -442,6 +442,23 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
     return [dict(_pi_resumo(r), contraparte=contraparte(r, cliente_id)) for r in rows]
 
 
+def _pi_documentos_cliente(r) -> list[dict]:
+    """Links de arquivo para o cliente (público); não expõe /cadu_pi/."""
+    from aicentralv2.services.pi_local_storage import url_arquivos_para_cliente
+
+    pi = {"id_pi": r["id_pi"], "codigo_pi_cc": r.get("codigo_pi_cc")}
+    out: list[dict] = []
+    for titulo, secao, raw in (
+        ("PI e pasta principal", "principal", r.get("googled_pi_princ")),
+        ("Plano de mídia e peças", "pecas", r.get("googled_pi_pecas")),
+        ("Documentos assinados", "assinados", r.get("googled_pi_arq_ass")),
+    ):
+        url = url_arquivos_para_cliente(pi, secao, raw)
+        if url and str(url).startswith(("http://", "https://", "/")):
+            out.append({"titulo": titulo, "url": url})
+    return out
+
+
 def _pi_resumo(r) -> dict:
     return {
         "id": r["id_pi"],
@@ -459,9 +476,7 @@ def _pi_resumo(r) -> dict:
         "n_pagas": int(r.get("n_pagas") or 0),
         "atualizado_em": _iso(r["updated_at"] or r["created_at"]),
         "criado_em": _iso(r["created_at"]),
-        "documentos": [{"titulo": t, "url": u} for t, u in (
-            ("PI e pasta principal", r.get("googled_pi_princ")), ("Plano de mídia e peças", r.get("googled_pi_pecas")),
-            ("Documentos assinados", r.get("googled_pi_arq_ass"))) if u and str(u).startswith(("http://", "https://"))],
+        "documentos": _pi_documentos_cliente(r),
     }
 
 

@@ -321,6 +321,12 @@ def _pi_somente_leitura(pi):
     return _pi_em_faturamento(pi) or _pi_cancelado(pi)
 
 
+def _url_pasta_comunicacao_externa_pi(pi, secao):
+    from aicentralv2.services.pi_make_webhooks import _url_pasta_comunicacao_externa
+
+    return _url_pasta_comunicacao_externa(pi, secao)
+
+
 def _pi_garantir_urls_arquivos_equipe(pi):
     """Corrigir googled_pi_* legados (link público) → rotas /cadu_pi/... da equipe."""
     if not pi:
@@ -12259,14 +12265,14 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     'codPI': numero,
                     'razaosccliente': pi.get('cliente_razao_social') or '',
                     'nomefcliente': pi.get('cliente_nome') or '',
-                    'pastagoogleprinc': pi.get('googled_pi_princ') or '',
+                    'pastagoogleprinc': _url_pasta_comunicacao_externa_pi(pi, 'principal'),
                     'valorliquidopi': valor_liquido_pi_webhook(pi),
                     'emailresponsavelpi': pi.get('resp_comercial_email') or '',
                     'quantcampanhas': quant_campanhas,
                     'mesref': fmt_data_curta(pi.get('mes_ref')),
                     'datainicio': fmt_data_curta(pi.get('periodo_inicio')),
                     'datafim': fmt_data_curta(pi.get('periodo_fim')),
-                    'pastagooglepecas': pi.get('googled_pi_pecas') or '',
+                    'pastagooglepecas': _url_pasta_comunicacao_externa_pi(pi, 'pecas'),
                     'instrucoesoperacao': (pi.get('observacoes_operacao') or '').strip() or 'Sem instruções',
                     'nomerespPI': pi.get('resp_comercial_nome') or '',
                     'titulo': pi.get('titulo_pi') or '',

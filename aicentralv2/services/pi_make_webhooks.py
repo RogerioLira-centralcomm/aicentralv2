@@ -20,6 +20,22 @@ class PiMakeWebhookError(Exception):
     """Falha ao comunicar com webhook Make do PI."""
 
 
+def _url_pasta_comunicacao_externa(pi: dict, secao: str) -> str:
+    """Link de pasta para cliente (público), não /cadu_pi/ logado."""
+    from .pi_local_storage import url_arquivos_para_cliente
+
+    campo = {
+        "principal": "googled_pi_princ",
+        "financeiro": "googled_pi_financ",
+        "pecas": "googled_pi_pecas",
+        "assinados": "googled_pi_arq_ass",
+    }.get(secao, "")
+    raw = pi.get(campo) if campo else None
+    if not raw:
+        return ""
+    return url_arquivos_para_cliente(pi, secao, raw) or ""
+
+
 def _make_flag(env_name: str, config_name: str, *, default: bool = False) -> bool:
     try:
         cfg = current_app.config.get(config_name)
@@ -259,13 +275,13 @@ def disparar_webhooks_producao_pi(pi: dict, *, strict: bool = False) -> list[str
             'nomefcliente': pi.get('cliente_nome') or '',
             'razaoscagencia': pi.get('agencia_razao_social') or '',
             'nomefagencia': pi.get('agencia_nome') or '',
-            'pastagoogleprinc': pi.get('googled_pi_princ') or '',
+            'pastagoogleprinc': _url_pasta_comunicacao_externa(pi, 'principal'),
             'valorliquidopi': valor_liquido_pi_webhook(pi),
             'emailresponsavelpi': pi.get('resp_comercial_email') or '',
             'mesref': _fmt_data_curta(pi.get('mes_ref')),
             'datainicio': _fmt_data_curta(pi.get('periodo_inicio')),
             'datafim': _fmt_data_curta(pi.get('periodo_fim')),
-            'pastagooglepecas': pi.get('googled_pi_pecas') or '',
+            'pastagooglepecas': _url_pasta_comunicacao_externa(pi, 'pecas'),
             'instrucoesoperacao': (pi.get('observacoes_operacao') or '').strip() or 'Sem instruções',
             'instrucoesfinanceiro': (pi.get('observacoes_financeiro') or '').strip() or 'Sem instruções',
             'nomerespPI': pi.get('resp_comercial_nome') or '',

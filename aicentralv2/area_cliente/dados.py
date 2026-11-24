@@ -444,16 +444,24 @@ def listar_pis(cliente_id, id_pi=None) -> list[dict]:
 
 def _pi_documentos_cliente(r) -> list[dict]:
     """Links de arquivo para o cliente (público); não expõe /cadu_pi/."""
-    from aicentralv2.services.pi_local_storage import url_arquivos_para_cliente
+    from aicentralv2.services.pi_local_storage import itens_documentos_pi_publicos
 
-    pi = {"id_pi": r["id_pi"], "codigo_pi_cc": r.get("codigo_pi_cc")}
+    pi = {
+        "id_pi": r["id_pi"],
+        "codigo_pi_cc": r.get("codigo_pi_cc"),
+        "googled_pi_princ": r.get("googled_pi_princ"),
+        "googled_pi_pecas": r.get("googled_pi_pecas"),
+        "googled_pi_arq_ass": r.get("googled_pi_arq_ass"),
+    }
+    titulos = {
+        "principal": "PI e pasta principal",
+        "pecas": "Plano de mídia e peças",
+        "assinados": "Documentos assinados",
+    }
     out: list[dict] = []
-    for titulo, secao, raw in (
-        ("PI e pasta principal", "principal", r.get("googled_pi_princ")),
-        ("Plano de mídia e peças", "pecas", r.get("googled_pi_pecas")),
-        ("Documentos assinados", "assinados", r.get("googled_pi_arq_ass")),
-    ):
-        url = url_arquivos_para_cliente(pi, secao, raw)
+    for item in itens_documentos_pi_publicos(pi):
+        titulo = titulos.get(item.get("secao"), item["titulo"])
+        url = item.get("url")
         if url and str(url).startswith(("http://", "https://", "/")):
             out.append({"titulo": titulo, "url": url})
     return out
@@ -633,7 +641,10 @@ def relatorios(cliente_id) -> list[dict]:
         link = ""
         if e.get("link_publico_token") and e.get("link_publico_ativo") and not (expira and expira < datetime.now()):
             link = f"/campanha/p/{e['link_publico_token']}"
-        financ = _limpo(e.get("googled_pi_financ"))
+        from aicentralv2.services.pi_local_storage import url_arquivos_para_cliente
+
+        pi_row = {"id_pi": p["id"], "codigo_pi_cc": p.get("pi")}
+        financ = url_arquivos_para_cliente(pi_row, "financeiro", _limpo(e.get("googled_pi_financ")))
         aberto = p["status_id"] in SUB_STATUS_ABERTOS
         no_ar = [c for c in p["campanhas"] if c["no_ar"]] if aberto else []
         # Sem nada no ar (finalizado ou já em faturamento): as campanhas com meta, para ver como terminaram.

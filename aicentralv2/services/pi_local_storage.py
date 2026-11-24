@@ -254,6 +254,26 @@ def sincronizar_urls_pastas_equipe(pi: dict) -> dict[str, str] | None:
     return urls
 
 
+_ITENS_DOCUMENTOS_PI = (
+    ("PI assinado / pasta principal", "principal", "googled_pi_princ"),
+    ("Plano de mídia / peças", "pecas", "googled_pi_pecas"),
+    ("Documentos assinados", "assinados", "googled_pi_arq_ass"),
+)
+
+
+def itens_documentos_pi_publicos(pi: dict) -> list[dict]:
+    """Links de pasta para cliente (página pública, e-mail) — sem login."""
+    out: list[dict] = []
+    for titulo, secao, campo in _ITENS_DOCUMENTOS_PI:
+        raw = pi.get(campo)
+        if not raw:
+            continue
+        url = url_arquivos_para_cliente(pi, secao, str(raw))
+        if url:
+            out.append({"titulo": titulo, "url": url, "secao": secao})
+    return out
+
+
 def url_arquivos_para_cliente(pi: dict, secao: str, url_salva: str | None = None) -> str:
     """
     Link de arquivos para o cliente (página pública / e-mail).

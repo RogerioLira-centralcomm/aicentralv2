@@ -17,6 +17,7 @@ from aicentralv2.services.pi_local_storage import (
     resolve_arquivo,
     salvar_upload,
     sincronizar_urls_pastas_equipe,
+    itens_documentos_pi_publicos,
     url_arquivos_para_cliente,
 )
 from aicentralv2.services.pi_make_webhooks import make_invites_enabled
@@ -142,6 +143,22 @@ class TestPiLocalStorage(unittest.TestCase):
             with patch("aicentralv2.services.pi_local_storage.use_local_pastas", return_value=True):
                 self.assertIsNone(sincronizar_urls_pastas_equipe(pi_portal))
                 self.assertIsNone(sincronizar_urls_pastas_equipe(pi_drive))
+
+    def test_itens_documentos_pi_publicos_converte_portal(self):
+        app = Flask(__name__)
+        pi = {
+            "id_pi": 9,
+            "googled_pi_princ": "https://ai.centralcomm.media/cadu_pi/9/arquivos/principal",
+            "googled_pi_pecas": "https://ai.centralcomm.media/cadu_pi/9/arquivos/pecas",
+        }
+        with app.app_context():
+            with patch(
+                "aicentralv2.services.pi_local_storage.url_arquivos_para_cliente",
+                side_effect=lambda p, s, u: f"https://ai.centralcomm.media/campanha/p/tok/arquivos/{s}",
+            ):
+                itens = itens_documentos_pi_publicos(pi)
+        self.assertEqual(len(itens), 2)
+        self.assertTrue(all("/campanha/p/" in i["url"] for i in itens))
 
     def test_url_arquivos_para_cliente_usa_token(self):
         app = Flask(__name__)

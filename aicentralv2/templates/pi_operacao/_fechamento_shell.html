@@ -34,7 +34,7 @@
       </div>
       <div class="pi-op-actions">
         {% if pi.googled_pi_princ %}
-        <a href="{{ pi.googled_pi_princ }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">
+        <a href="{{ url_for('cadu_pi_arquivos_secao', id_pi=pi.id_pi, secao='principal') }}" target="_blank" rel="noopener" class="pi-op-btn pi-op-btn--secondary">
           <i class="fab fa-google-drive" aria-hidden="true"></i>Pastas
         </a>
         {% endif %}

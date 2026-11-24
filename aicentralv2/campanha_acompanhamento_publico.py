@@ -553,29 +553,28 @@ def montar_payload_acompanhamento_campanha(
             }
         )
 
+    from aicentralv2.services.pi_local_storage import (
+        itens_documentos_pi_publicos,
+        url_arquivos_para_cliente,
+    )
+
     documentos = []
-    drive_docs = [
-        ("PI assinado / pasta principal", pi.get("googled_pi_princ")),
-        ("Plano de mídia / peças", pi.get("googled_pi_pecas")),
-        ("Documentos assinados", pi.get("googled_pi_arq_ass")),
-    ]
-    for titulo, url in drive_docs:
-        if not url:
-            continue
+    for item in itens_documentos_pi_publicos(pi):
         documentos.append(
             {
-                "titulo": titulo,
-                "url": url,
+                "titulo": item["titulo"],
+                "url": item["url"],
                 "data": _iso(pi.get("updated_at") or campanha.get("updated_at")),
             }
         )
 
     relatorios = []
-    if pi.get("googled_pi_financ"):
+    financ_url = url_arquivos_para_cliente(pi, "financeiro", pi.get("googled_pi_financ"))
+    if financ_url:
         relatorios.append(
             {
                 "titulo": "Relatório de prestação de contas",
-                "url": pi.get("googled_pi_financ"),
+                "url": financ_url,
                 "data": _iso(_shift(fim, 10)),
                 "marco": "prestacao",
             }

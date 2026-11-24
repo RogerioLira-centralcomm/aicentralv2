@@ -223,7 +223,7 @@ class CampanhaAcompanhamentoPublicoTest(unittest.TestCase):
         ctx30 = contexto_pagina(payload, campanha_id=30)
         self.assertEqual(ctx30["sel"]["id"], 30)
         self.assertEqual(ctx30["metricas"]["desvio"], 25 - ctx30["metricas"]["tempo_pct"])
-        self.assertIsNotNone(ctx30["grafico"])
+        self.assertIsNone(ctx30["grafico"])
 
     def test_grafico_ritmo_e_series(self):
         r = {

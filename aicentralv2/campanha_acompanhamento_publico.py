@@ -292,7 +292,7 @@ def _resultado_campanha(row, atual_id, hoje=None):
 
 
 def montar_payload_acompanhamento_campanha(
-    id_campanha, *, service=None, linhas_campanhas=None, escopo_pi=False
+    id_campanha, *, service=None, linhas_campanhas=None, escopo_pi=False, link_token=None
 ):
     """Retorna dict usado pelas páginas públicas.
 
@@ -308,6 +308,7 @@ def montar_payload_acompanhamento_campanha(
     id_pi = campanha_row["id_pi"]
     operacao = (service or PiOperacaoService()).estado_campanha(id_pi, id_campanha)
     pi = operacao.get("pi") or {}
+    pi["id_pi"] = id_pi
     pi_db = db.obter_cadu_pi_por_id(id_pi) or {}
     if pi_db.get("link_dash") is not None:
         pi["link_dash"] = pi_db.get("link_dash")
@@ -559,7 +560,7 @@ def montar_payload_acompanhamento_campanha(
     )
 
     documentos = []
-    for item in itens_documentos_pi_publicos(pi):
+    for item in itens_documentos_pi_publicos(pi, link_token=link_token):
         documentos.append(
             {
                 "titulo": item["titulo"],
@@ -569,7 +570,12 @@ def montar_payload_acompanhamento_campanha(
         )
 
     relatorios = []
-    financ_url = url_arquivos_para_cliente(pi, "financeiro", pi.get("googled_pi_financ"))
+    try:
+        financ_url = url_arquivos_para_cliente(
+            pi, "financeiro", pi.get("googled_pi_financ"), link_token=link_token
+        )
+    except Exception:
+        financ_url = ""
     if financ_url:
         relatorios.append(
             {
@@ -667,7 +673,7 @@ def montar_payload_acompanhamento_campanha(
     }
 
 
-def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=None, diarios=None):
+def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=None, diarios=None, link_token=None):
     """Página do PI: agrupa todas as campanhas do PI num único link."""
     from . import db
 
@@ -681,6 +687,7 @@ def montar_payload_acompanhamento_pi(id_pi, *, service=None, linhas_campanhas=No
         service=service,
         linhas_campanhas=linhas,
         escopo_pi=True,
+        link_token=link_token,
     )
     if diarios is None:
         diarios = db.obter_atingido_diario_pi(id_pi) or []
@@ -828,7 +835,8 @@ def contexto_pagina(payload, campanha_id=None, hoje=None):
             "desvio": desvio,
             "n_com_meta": len(com_meta),
         },
-        "grafico": grafico_ritmo(sel, hoje=hoje) if sel else None,
+        # Gráfico "Entrega × ritmo ideal" oculto na página pública até nova definição de produto.
+        "grafico": None,
         "atual": marcos[atual_idx] if atual_idx >= 0 else None,
         "feitos": feitos,
         "paginas": paginas,

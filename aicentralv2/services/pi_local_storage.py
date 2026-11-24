@@ -261,20 +261,30 @@ _ITENS_DOCUMENTOS_PI = (
 )
 
 
-def itens_documentos_pi_publicos(pi: dict) -> list[dict]:
+def itens_documentos_pi_publicos(pi: dict, *, link_token: str | None = None) -> list[dict]:
     """Links de pasta para cliente (página pública, e-mail) — sem login."""
     out: list[dict] = []
     for titulo, secao, campo in _ITENS_DOCUMENTOS_PI:
         raw = pi.get(campo)
         if not raw:
             continue
-        url = url_arquivos_para_cliente(pi, secao, str(raw))
+        try:
+            url = url_arquivos_para_cliente(pi, secao, str(raw), link_token=link_token)
+        except Exception as exc:
+            logger.warning("URL pública %s pi=%s: %s", secao, pi.get("id_pi"), exc)
+            continue
         if url:
             out.append({"titulo": titulo, "url": url, "secao": secao})
     return out
 
 
-def url_arquivos_para_cliente(pi: dict, secao: str, url_salva: str | None = None) -> str:
+def url_arquivos_para_cliente(
+    pi: dict,
+    secao: str,
+    url_salva: str | None = None,
+    *,
+    link_token: str | None = None,
+) -> str:
     """
     Link de arquivos para o cliente (página pública / e-mail).
     Não expõe /cadu_pi/... — usa token em /campanha/p/... quando o armazenamento é local.
@@ -287,19 +297,19 @@ def url_arquivos_para_cliente(pi: dict, secao: str, url_salva: str | None = None
     if "drive.google.com" in lower:
         return url
     if is_local_arquivos_url(url):
-        if is_portal_arquivos_url(url) or "/campanha/p/" in lower:
+        if is_portal_arquivos_url(url) or "/campanha/p/" in lower or link_token:
             try:
-                return arquivos_url_publica_pi(pi, secao)
+                return arquivos_url_publica_pi(pi, secao, link_token=link_token)
             except PiLocalStorageError:
-                return url
+                return url if not is_portal_arquivos_url(url) else ""
         try:
-            return arquivos_url_publica_pi(pi, secao)
+            return arquivos_url_publica_pi(pi, secao, link_token=link_token)
         except PiLocalStorageError:
             return url
     return url
 
 
-def arquivos_url_publica_pi(pi: dict, secao: str) -> str:
+def arquivos_url_publica_pi(pi: dict, secao: str, *, link_token: str | None = None) -> str:
     """
     URL de arquivos sem login (mesmo token do link público de acompanhamento).
     Somente cliente / Brevo / área pública — não usar para atalhos da equipe.
@@ -312,6 +322,18 @@ def arquivos_url_publica_pi(pi: dict, secao: str) -> str:
     secao = str(secao or "").strip().lower()
     if secao not in SECOES:
         raise PiLocalStorageError(f"Seção inválida: {secao}")
+
+    token = (link_token or "").strip()
+    if token:
+        if has_request_context():
+            return url_for(
+                "campanha_publica_arquivos_secao",
+                token=token,
+                secao=secao,
+                _external=True,
+            )
+        base = (os.getenv("BASE_URL") or os.getenv("CENTRALX_URL") or _public_base_for_pi_files()).rstrip("/")
+        return f"{base}/campanha/p/{token}/arquivos/{secao}"
 
     info = db.obter_link_publico_pi(id_pi) or {}
     token = (info.get("link_publico_token") or "").strip()

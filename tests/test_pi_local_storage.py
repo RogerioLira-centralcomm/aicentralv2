@@ -154,11 +154,20 @@ class TestPiLocalStorage(unittest.TestCase):
         with app.app_context():
             with patch(
                 "aicentralv2.services.pi_local_storage.url_arquivos_para_cliente",
-                side_effect=lambda p, s, u: f"https://ai.centralcomm.media/campanha/p/tok/arquivos/{s}",
+                side_effect=lambda p, s, u, **kw: f"https://ai.centralcomm.media/campanha/p/tok/arquivos/{s}",
             ):
                 itens = itens_documentos_pi_publicos(pi)
         self.assertEqual(len(itens), 2)
         self.assertTrue(all("/campanha/p/" in i["url"] for i in itens))
+
+    def test_arquivos_url_publica_com_link_token(self):
+        app = Flask(__name__)
+        pi = {"id_pi": 3}
+        with app.app_context():
+            url = __import__(
+                "aicentralv2.services.pi_local_storage", fromlist=["arquivos_url_publica_pi"]
+            ).arquivos_url_publica_pi(pi, "principal", link_token="meu-token-pi")
+        self.assertIn("/campanha/p/meu-token-pi/arquivos/principal", url)
 
     def test_url_arquivos_para_cliente_usa_token(self):
         app = Flask(__name__)

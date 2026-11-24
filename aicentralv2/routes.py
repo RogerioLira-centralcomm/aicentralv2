@@ -316,6 +316,14 @@ def _pi_cancelado(pi):
     return _int_safe(pi.get('id_sub_status_pi')) == 6
 
 
+_PI_ARQUIVO_SECAO_LABELS = {
+    'principal': 'Principal',
+    'financeiro': 'Financeiro',
+    'pecas': 'Peças',
+    'assinados': 'Assinados',
+}
+
+
 def _pi_somente_leitura(pi):
     """PI em faturamento ou cancelado — bloqueia edição."""
     return _pi_em_faturamento(pi) or _pi_cancelado(pi)
@@ -7004,7 +7012,7 @@ def init_routes(app):
         )
 
         secao = str(secao or '').strip().lower()
-        if secao not in _PI_SECAO_LABELS:
+        if secao not in _PI_ARQUIVO_SECAO_LABELS:
             return render_template('erro_publico.html', mensagem='Seção inválida.'), 404
 
         pi, err = _pi_acesso_publico_por_token(token)
@@ -7015,6 +7023,12 @@ def init_routes(app):
             arquivos = listar_arquivos_secao(pi, secao)
         except PiLocalStorageError as exc:
             return render_template('erro_publico.html', mensagem=str(exc)), 400
+        except Exception as exc:
+            app.logger.error('arquivos publicos pi token=%s: %s', token, exc, exc_info=True)
+            return render_template(
+                'erro_publico.html',
+                mensagem='Não foi possível abrir os arquivos agora. Tente mais tarde.',
+            ), 500
 
         if request.accept_mimetypes.best == 'application/json':
             return jsonify({'success': True, 'secao': secao, 'arquivos': arquivos})
@@ -7024,7 +7038,7 @@ def init_routes(app):
             pi=pi,
             token=token,
             secao=secao,
-            secao_label=_PI_SECAO_LABELS[secao],
+            secao_label=_PI_ARQUIVO_SECAO_LABELS[secao],
             arquivos=arquivos,
             pagina_acompanhamento=url_for('campanha_acompanhamento_publica', token=token, pagina='documentos'),
         )
@@ -7036,7 +7050,7 @@ def init_routes(app):
         from aicentralv2.services.pi_local_storage import PiLocalStorageError, resolve_arquivo
 
         secao = str(secao or '').strip().lower()
-        if secao not in _PI_SECAO_LABELS:
+        if secao not in _PI_ARQUIVO_SECAO_LABELS:
             return 'Seção inválida', 404
 
         pi, err = _pi_acesso_publico_por_token(token)
@@ -7119,7 +7133,7 @@ def init_routes(app):
                         mensagem='Este link expirou.',
                     ), 410
 
-            campanha = montar_payload_acompanhamento_pi(row['id_pi'])
+            campanha = montar_payload_acompanhamento_pi(row['id_pi'], link_token=token)
             campanha_id = request.args.get('c', type=int)
             ctx = contexto_pagina(campanha, campanha_id=campanha_id)
             info = next((p for p in ctx['paginas'] if p['id'] == pagina), None)
@@ -11960,12 +11974,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             app.logger.error(f"Erro ao gerar pastas do PI: {e}", exc_info=True)
             return jsonify({'success': False, 'message': str(e)}), 500
 
-    _PI_SECAO_LABELS = {
-        'principal': 'Principal',
-        'financeiro': 'Financeiro',
-        'pecas': 'Peças',
-        'assinados': 'Assinados',
-    }
+    _PI_SECAO_LABELS = _PI_ARQUIVO_SECAO_LABELS
 
     @app.route('/api/cadu_pi/<int:id_pi>/pastas/status', methods=['GET'])
     @login_required

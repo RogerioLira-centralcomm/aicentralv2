@@ -7019,10 +7019,12 @@ def init_routes(app):
         if err:
             body, status = err
             return body, status
+        aviso_pastas = ''
         try:
             arquivos = listar_arquivos_secao(pi, secao)
         except PiLocalStorageError as exc:
-            return render_template('erro_publico.html', mensagem=str(exc)), 400
+            arquivos = []
+            aviso_pastas = str(exc)
         except Exception as exc:
             app.logger.error('arquivos publicos pi token=%s: %s', token, exc, exc_info=True)
             return render_template(
@@ -7031,7 +7033,12 @@ def init_routes(app):
             ), 500
 
         if request.accept_mimetypes.best == 'application/json':
-            return jsonify({'success': True, 'secao': secao, 'arquivos': arquivos})
+            return jsonify({
+                'success': True,
+                'secao': secao,
+                'arquivos': arquivos,
+                'aviso': aviso_pastas or None,
+            })
 
         return render_template(
             'campanha_publica/arquivos_secao.html',
@@ -7039,7 +7046,9 @@ def init_routes(app):
             token=token,
             secao=secao,
             secao_label=_PI_ARQUIVO_SECAO_LABELS[secao],
+            secao_labels=_PI_ARQUIVO_SECAO_LABELS,
             arquivos=arquivos,
+            aviso_pastas=aviso_pastas,
             pagina_acompanhamento=url_for('campanha_acompanhamento_publica', token=token, pagina='documentos'),
         )
 

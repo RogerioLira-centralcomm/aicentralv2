@@ -11985,6 +11985,51 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
     _PI_SECAO_LABELS = _PI_ARQUIVO_SECAO_LABELS
 
+    def _pi_arquivos_upload_files():
+        files = request.files.getlist('arquivo') or request.files.getlist('arquivos')
+        if not files:
+            single = request.files.get('arquivo') or request.files.get('arquivos')
+            files = [single] if single else []
+        return files
+
+    def _pi_arquivos_flash_upload(lote):
+        created = int(lote.get('created') or 0)
+        total = int(lote.get('total') or 0)
+        failed = lote.get('failed') or []
+        if created == total and created > 0:
+            flash(
+                'Arquivo enviado.' if created == 1 else f'{created} arquivo(s) enviado(s).',
+                'success',
+            )
+        elif created > 0:
+            flash(f'{created} de {total} arquivo(s) enviado(s).', 'warning')
+            for item in failed:
+                flash(f'{item.get("filename")}: {item.get("message")}', 'error')
+        else:
+            flash('Nenhum arquivo foi enviado.', 'error')
+            for item in failed:
+                flash(f'{item.get("filename")}: {item.get("message")}', 'error')
+
+    def _pi_arquivos_json_upload(lote):
+        saved = lote.get('saved') or []
+        failed = lote.get('failed') or []
+        created = int(lote.get('created') or 0)
+        payload = {
+            'success': created > 0,
+            'total': lote.get('total'),
+            'created': created,
+            'saved': saved,
+            'failed': failed,
+        }
+        if len(saved) == 1 and not failed:
+            payload.update(saved[0])
+        if not payload['success']:
+            payload['message'] = (
+                failed[0]['message'] if failed else 'Nenhum arquivo enviado.'
+            )
+        status = 201 if created > 0 else 400
+        return jsonify(payload), status
+
     @app.route('/api/cadu_pi/<int:id_pi>/pastas/status', methods=['GET'])
     @login_required
     def api_cadu_pi_pastas_status(id_pi):
@@ -12037,7 +12082,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             PiLocalStorageError,
             listar_arquivos_secao,
             pi_storage_dir,
-            salvar_upload,
+            salvar_uploads_lote,
             secao_dir,
         )
 
@@ -12052,12 +12097,13 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
         pi = _pi_garantir_urls_arquivos_equipe(pi)
 
         if request.method == 'POST':
-            arquivo = request.files.get('arquivo')
             try:
-                salvo = salvar_upload(pi, secao, arquivo)
+                lote = salvar_uploads_lote(pi, secao, _pi_arquivos_upload_files())
+                _pi_arquivos_flash_upload(lote)
                 return redirect(url_for('cadu_pi_arquivos_secao', id_pi=id_pi, secao=secao))
             except PiLocalStorageError as exc:
-                return str(exc), 400
+                flash(str(exc), 'error')
+                return redirect(url_for('cadu_pi_arquivos_secao', id_pi=id_pi, secao=secao))
 
         try:
             arquivos = listar_arquivos_secao(pi, secao)
@@ -12103,7 +12149,7 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
             PiLocalStorageError,
             listar_arquivos_secao,
             pi_storage_dir,
-            salvar_upload,
+            salvar_uploads_lote,
         )
 
         secao = str(secao or '').strip().lower()
@@ -12118,8 +12164,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
 
         if request.method == 'POST':
             try:
-                salvo = salvar_upload(pi, secao, request.files.get('arquivo'))
-                return jsonify({'success': True, **salvo})
+                lote = salvar_uploads_lote(pi, secao, _pi_arquivos_upload_files())
+                return _pi_arquivos_json_upload(lote)
             except PiLocalStorageError as exc:
                 return jsonify({'success': False, 'message': str(exc)}), 400
 

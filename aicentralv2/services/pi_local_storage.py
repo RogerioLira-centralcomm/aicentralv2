@@ -27,6 +27,8 @@ SECOES = (
     "assinados",
 )
 
+LIMITE_ARQUIVOS_POR_UPLOAD = 50
+
 _SECAO_PARA_CAMPO = {
     "principal": "googled_pi_princ",
     "financeiro": "googled_pi_financ",
@@ -634,3 +636,30 @@ def salvar_upload(pi: dict, secao: str, file_storage) -> dict:
     file_storage.save(dest)
     stat = dest.stat()
     return {"name": dest.name, "size": stat.st_size, "path": str(dest)}
+
+
+def salvar_uploads_lote(pi: dict, secao: str, file_storages) -> dict:
+    """Salva vários uploads na mesma seção (sucesso parcial por arquivo)."""
+    items = [f for f in (file_storages or []) if f and getattr(f, "filename", None)]
+    if not items:
+        raise PiLocalStorageError("Nenhum arquivo enviado.")
+    if len(items) > LIMITE_ARQUIVOS_POR_UPLOAD:
+        raise PiLocalStorageError(
+            f"Envie até {LIMITE_ARQUIVOS_POR_UPLOAD} arquivos por vez."
+        )
+
+    saved: list[dict] = []
+    failed: list[dict] = []
+    for file_storage in items:
+        label = str(getattr(file_storage, "filename", "") or "").strip() or "(sem nome)"
+        try:
+            saved.append(salvar_upload(pi, secao, file_storage))
+        except PiLocalStorageError as exc:
+            failed.append({"filename": label, "message": str(exc)})
+
+    return {
+        "total": len(items),
+        "created": len(saved),
+        "saved": saved,
+        "failed": failed,
+    }

@@ -13,9 +13,11 @@ from aicentralv2.services.pi_local_storage import (
     gerar_pastas_local_pi,
     is_local_arquivos_url,
     is_portal_arquivos_url,
+    listar_arquivos_secao,
     pi_storage_dir,
     resolve_arquivo,
     salvar_upload,
+    salvar_uploads_lote,
     sincronizar_urls_pastas_equipe,
     itens_documentos_pi_publicos,
     url_arquivos_para_cliente,
@@ -72,6 +74,73 @@ class TestPiLocalStorage(unittest.TestCase):
                 path = resolve_arquivo(pi, "principal", saved["name"])
             self.assertTrue(path.is_file())
 
+    def test_upload_lote_dois_arquivos(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Flask(__name__)
+            app.config["PI_UPLOAD_ROOT"] = tmp
+            app.config["PI_FILES_SERVER_ONLY"] = False
+            pi = {"id_pi": 8, "codigo_pi_cc": "PI000008"}
+
+            class FakeFile:
+                def __init__(self, name):
+                    self.filename = name
+
+                def save(self, dest):
+                    Path(dest).write_bytes(b"conteudo-" + self.filename.encode())
+
+            with app.app_context():
+                with patch("aicentralv2.db.atualizar_cadu_pi_gdrive", return_value=True):
+                    pi = {**pi, **gerar_pastas_local_pi(pi, strict=True)}
+                lote = salvar_uploads_lote(
+                    pi,
+                    "principal",
+                    [FakeFile("a.pdf"), FakeFile("b.pdf")],
+                )
+                names = sorted(x["name"] for x in listar_arquivos_secao(pi, "principal"))
+            self.assertEqual(lote["created"], 2)
+            self.assertEqual(lote["total"], 2)
+            self.assertFalse(lote["failed"])
+            self.assertEqual(names, ["a.pdf", "b.pdf"])
+
+    def test_upload_lote_parcial_arquivo_invalido(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = Flask(__name__)
+            app.config["PI_UPLOAD_ROOT"] = tmp
+            app.config["PI_FILES_SERVER_ONLY"] = False
+            pi = {"id_pi": 10, "codigo_pi_cc": "PI000010"}
+
+            class OkFile:
+                filename = "ok.txt"
+
+                def save(self, dest):
+                    Path(dest).write_text("ok")
+
+            class BadFile:
+                filename = "   "
+
+                def save(self, dest):
+                    pass
+
+            with app.app_context():
+                with patch("aicentralv2.db.atualizar_cadu_pi_gdrive", return_value=True):
+                    pi = {**pi, **gerar_pastas_local_pi(pi, strict=True)}
+                lote = salvar_uploads_lote(pi, "principal", [OkFile(), BadFile()])
+            self.assertEqual(lote["created"], 1)
+            self.assertEqual(lote["total"], 2)
+            self.assertEqual(len(lote["failed"]), 1)
+
+    def test_upload_lote_vazio_erro(self):
+        app = Flask(__name__)
+        app.config["PI_FILES_SERVER_ONLY"] = False
+        pi = {
+            "id_pi": 1,
+            "codigo_pi_cc": "PI1",
+            "googled_pi_princ": "http://x/cadu_pi/1/arquivos/principal",
+        }
+        with app.app_context():
+            with self.assertRaises(Exception) as ctx:
+                salvar_uploads_lote(pi, "principal", [])
+            self.assertIn("Nenhum arquivo", str(ctx.exception))
 
     def test_windows_server_only_bloqueia_disco(self):
         app = Flask(__name__)

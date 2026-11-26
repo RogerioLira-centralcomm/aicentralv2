@@ -29,11 +29,38 @@
   .pi-arq-table { width: 100%; max-width: 800px; border-collapse: collapse; }
   .pi-arq-table th, .pi-arq-table td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
   .pi-arq-path { font-family: ui-monospace, monospace; font-size: 12px; color: #6b7280; margin-top: .5rem; }
+  .pi-arq-dropzone {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    font-size: 14px;
+    color: #4b5563;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .pi-arq-dropzone:hover,
+  .pi-arq-dropzone.is-dragover {
+    border-color: #111827;
+    background: #f3f4f6;
+  }
+  .pi-arq-dropzone.is-uploading {
+    opacity: .65;
+    pointer-events: none;
+  }
+  .pi-arq-dropzone__hint { font-size: 12px; color: #6b7280; margin-top: .35rem; }
+  .pi-arq-status.hidden { display: none; }
+  .pi-arq-status { margin-top: .75rem; font-size: 13px; color: #374151; display: flex; align-items: center; gap: .5rem; }
+  .pi-arq-noscript { margin-top: .75rem; font-size: 13px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-6">
+<div class="max-w-4xl mx-auto px-4 py-6"
+     id="pi-arq-upload"
+     data-pi-id="{{ pi.id_pi }}"
+     data-secao="{{ secao }}">
   <div class="flex items-center gap-3 mb-4">
     <a href="{{ url_for('cadu_pi_editar', id_pi=pi.id_pi) }}" class="text-sm text-blue-600 hover:underline">
       <i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar ao PI
@@ -59,13 +86,28 @@
   <p class="pi-arq-path" title="Caminho no servidor (debug)">{{ storage_path }}</p>
   {% endif %}
 
-  <form method="post" enctype="multipart/form-data" class="my-4 flex flex-wrap items-center gap-2">
-    <label class="text-sm text-gray-700">
-      Enviar arquivo
-      <input type="file" name="arquivo" required class="ml-2 text-sm">
-    </label>
-    <button type="submit" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md">Upload</button>
-  </form>
+  <section class="my-4" aria-labelledby="pi-arq-enviar-titulo">
+    <h2 id="pi-arq-enviar-titulo" class="text-sm font-medium text-gray-800 mb-2">Enviar arquivos</h2>
+    <div id="pi-arq-dropzone" class="pi-arq-dropzone" role="button" tabindex="0" aria-label="Arraste arquivos ou clique para selecionar">
+      <div class="text-2xl mb-1 text-gray-500" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></div>
+      <div><strong>Arraste um ou vários arquivos aqui</strong> ou clique para selecionar</div>
+      <p class="pi-arq-dropzone__hint">Vários arquivos por envio · até 50 por vez</p>
+    </div>
+    <input type="file" id="pi-arq-file" class="hidden" multiple>
+    <div id="pi-arq-import-status" class="pi-arq-status hidden" role="status" aria-live="polite">
+      <span class="cx-spinner cx-spinner-sm" aria-hidden="true"></span>
+      <span id="pi-arq-import-status-text">Enviando…</span>
+    </div>
+    <noscript>
+      <form method="post" enctype="multipart/form-data" class="pi-arq-noscript flex flex-wrap items-center gap-2">
+        <label class="text-sm text-gray-700">
+          Arquivos
+          <input type="file" name="arquivo" multiple required class="ml-2 text-sm">
+        </label>
+        <button type="submit" class="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md">Upload</button>
+      </form>
+    </noscript>
+  </section>
 
   {% if arquivos %}
   <table class="pi-arq-table">
@@ -86,4 +128,8 @@
   <p class="text-gray-600 text-sm">Nenhum arquivo nesta pasta ainda.</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pi_arquivos_secao.js') }}?v={{ static_fingerprint('js/pi_arquivos_secao.js') }}"></script>
 {% endblock %}

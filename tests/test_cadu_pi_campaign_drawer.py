@@ -44,6 +44,7 @@ class CaduPiCampaignDrawerUiTest(unittest.TestCase):
         self.assertIn("campanha_view_content", self.modals)
         self.assertIn("dialog.showModal()", self.modals)
         self.assertIn("window.piOpenDialog", self.modals)
+        self.assertIn("periodoPadraoCampanhaPi", self.modals)
         self.assertNotIn("window.cxDrawer.open({", self.ui)
         self.assertNotIn('id="modal_nova_campanha"', self.ui)
         self.assertNotIn('id="modal_ver_campanha"', self.ui)

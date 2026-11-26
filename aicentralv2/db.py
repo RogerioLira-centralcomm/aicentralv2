@@ -14312,6 +14312,22 @@ def _normalizar_data_campo_cotacao_para_pi(val):
     return None
 
 
+def preencher_periodo_campanha_de_pi(data, pi):
+    """Usa período do PI como padrão quando início/fim da campanha não foram informados."""
+    if not data or not pi:
+        return
+    if not data.get('periodo_inicio'):
+        data['periodo_inicio'] = _normalizar_data_campo_cotacao_para_pi(pi.get('periodo_inicio'))
+    if not data.get('periodo_fim'):
+        data['periodo_fim'] = _normalizar_data_campo_cotacao_para_pi(pi.get('periodo_fim'))
+    ini = data.get('periodo_inicio')
+    if ini:
+        d = ini if isinstance(ini, date) else _normalizar_data_campo_cotacao_para_pi(ini)
+        if d:
+            data['mes_ref'] = date(d.year, d.month, 1)
+            data['mes_ref_comp'] = formatar_mes_ref_comp(d)
+
+
 def parse_valor_monetario_para_float(valor):
     """Converte valor monetário (BR/US, com ou sem R$) em float."""
     if valor is None or valor == '':
@@ -14976,6 +14992,13 @@ def _montar_dados_campanha_pi_de_item_cotacao(item, id_pi, cotacao, *, plataform
 
     periodo_ini = _normalizar_data_campo_cotacao_para_pi(item.get('data_inicio'))
     periodo_fim = _normalizar_data_campo_cotacao_para_pi(item.get('data_fim'))
+    if (not periodo_ini or not periodo_fim) and id_pi:
+        pi_ref = obter_cadu_pi_por_id(int(id_pi))
+        if pi_ref:
+            if not periodo_ini:
+                periodo_ini = _normalizar_data_campo_cotacao_para_pi(pi_ref.get('periodo_inicio'))
+            if not periodo_fim:
+                periodo_fim = _normalizar_data_campo_cotacao_para_pi(pi_ref.get('periodo_fim'))
     if not periodo_ini:
         periodo_ini = _normalizar_data_campo_cotacao_para_pi(cotacao.get('periodo_inicio'))
     if not periodo_fim:
@@ -17884,6 +17907,7 @@ def criar_campanha_pi(data):
     """Cria uma nova campanha PI"""
     data = dict(data or {})
     pi = obter_cadu_pi_por_id(data.get('id_pi')) if data.get('id_pi') else None
+    preencher_periodo_campanha_de_pi(data, pi)
     consolidar_composicao_financeira_campanha(data, pi=pi)
     conn = get_db()
     try:

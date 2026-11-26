@@ -14085,6 +14085,8 @@ Gere apenas o texto da mensagem, sem marcações markdown."""
                     return _redirect_campanhas_pi_preservar_filtros()
                 if pi_ref and not data.get('id_responsavel_operacao'):
                     data['id_responsavel_operacao'] = pi_ref.get('id_resp_comercial')
+                if pi_ref:
+                    db.preencher_periodo_campanha_de_pi(data, pi_ref)
 
             if not data['nome_campanha']:
                 if is_ajax:

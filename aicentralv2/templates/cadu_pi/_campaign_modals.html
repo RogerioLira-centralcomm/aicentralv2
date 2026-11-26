@@ -176,6 +176,15 @@
   var defaultDtInicio = {% if pi.periodo_inicio %}{{ pi.periodo_inicio.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
   var defaultDtFim = {% if pi.periodo_fim %}{{ pi.periodo_fim.strftime('%Y-%m-%d')|tojson }}{% else %}''{% endif %};
 
+  function periodoPadraoCampanhaPi() {
+    var iniEl = document.getElementById('input_periodo_inicio');
+    var fimEl = document.getElementById('input_periodo_fim');
+    return {
+      inicio: (iniEl && iniEl.value) ? iniEl.value : (defaultDtInicio || ''),
+      fim: (fimEl && fimEl.value) ? fimEl.value : (defaultDtFim || '')
+    };
+  }
+
   function aplicarMascaraNumero(input) {
     input.addEventListener('input', function() {
       var pos = this.selectionStart;
@@ -274,10 +283,11 @@
       var el = document.getElementById(id);
       if (el) el.value = '';
     });
+    var periodoPi = periodoPadraoCampanhaPi();
     var dtIni = document.getElementById('nova_camp_dt_inicio');
     var dtFim = document.getElementById('nova_camp_dt_fim');
-    if (dtIni) dtIni.value = defaultDtInicio;
-    if (dtFim) dtFim.value = defaultDtFim;
+    if (dtIni) dtIni.value = periodoPi.inicio;
+    if (dtFim) dtFim.value = periodoPi.fim;
     calcDistPct();
   }
 

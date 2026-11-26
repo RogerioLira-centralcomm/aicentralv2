@@ -14525,6 +14525,37 @@ def listar_pis_composicao_campanha_inconsistente():
     return rows
 
 
+def reparar_composicao_financeira_todas_campanhas():
+    """Varre todas as campanhas e repara composição inconsistente (explícito / batch)."""
+    campanhas = obter_campanhas_pi(None) or []
+    pi_cache = {}
+    por_pi = {}
+    total_reparadas = 0
+    for c in campanhas:
+        if not c or not c.get('id_campanha'):
+            continue
+        id_pi = c.get('id_pi')
+        if id_pi and id_pi not in pi_cache:
+            pi_cache[id_pi] = obter_cadu_pi_por_id(int(id_pi))
+        antes = _snapshot_composicao_campanha(c)
+        reparar_composicao_financeira_campanha_registro(c, pi=pi_cache.get(id_pi))
+        depois = _snapshot_composicao_campanha(c)
+        if antes == depois:
+            continue
+        total_reparadas += 1
+        pid = int(id_pi) if id_pi else 0
+        ent = por_pi.setdefault(pid, {'id_pi': pid, 'id_campanhas': [], 'codigo_pi_cc': c.get('codigo_pi')})
+        ent['id_campanhas'].append(int(c['id_campanha']))
+        if c.get('codigo_pi'):
+            ent['codigo_pi_cc'] = c.get('codigo_pi')
+    return {
+        'success': True,
+        'reparadas': total_reparadas,
+        'pis_afetados': len(por_pi),
+        'detalhe_por_pi': list(por_pi.values()),
+    }
+
+
 def reparar_composicao_financeira_por_id_pi(id_pi):
     """Repara explicitamente todas as campanhas do PI (uso manual; não roda na lista)."""
     pi = obter_cadu_pi_por_id(int(id_pi))
